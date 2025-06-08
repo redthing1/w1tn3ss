@@ -1,0 +1,3 @@
+[submodule "src/third_party/qbdi"]
+	path = src/third_party/qbdi
+	url = https://github.com/redthing1/QBDI/
