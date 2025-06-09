@@ -21,6 +21,7 @@ target_link_libraries(${EXECUTABLE_NAME}
         w1tn3ss
         w1nj3ct
         common
+        redlog::redlog
 )
 
 target_compile_features(${EXECUTABLE_NAME} PRIVATE cxx_std_17)

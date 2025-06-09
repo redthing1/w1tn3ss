@@ -1,6 +1,6 @@
 #pragma once
 
-#include "util/log.hpp"
+#include <redlog/redlog.hpp>
 
 namespace w1 {
 
@@ -9,9 +9,11 @@ public:
     w1tn3ss();
     ~w1tn3ss();
     
-    // Main analysis interface - to be implemented
     bool initialize();
     void shutdown();
+
+private:
+    redlog::logger log_;
 };
 
 } // namespace w1

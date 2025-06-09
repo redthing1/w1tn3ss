@@ -1,5 +1,6 @@
 #include "w1nj3ct.hpp"
 #include "error.hpp"
+#include <redlog/redlog.hpp>
 
 // platform-specific includes
 #ifdef __APPLE__
@@ -51,11 +52,20 @@ error_code validate_config(const config& cfg) {
 }
 
 result inject(const config& cfg) {
+    auto log = redlog::get_logger("w1nj3ct");
+    
+    log.debug("injection request received",
+              redlog::field("method", cfg.injection_method == method::runtime ? "runtime" : "preload"),
+              redlog::field("library", cfg.library_path));
+    
     // 1. validate configuration
     error_code validation_result = validate_config(cfg);
     if (validation_result != error_code::success) {
+        log.error("configuration validation failed", redlog::field("error", error_code_to_string(validation_result)));
         return make_error_result(validation_result, "configuration validation failed");
     }
+    
+    log.trace("configuration validated successfully");
     
     // 2. platform detection and dispatch
 #ifdef __APPLE__

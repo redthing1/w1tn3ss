@@ -2,21 +2,30 @@
 
 namespace w1 {
 
-w1tn3ss::w1tn3ss() {
-    util::log_info("w1tn3ss initialized");
+w1tn3ss::w1tn3ss() : log_(redlog::get_logger("w1tn3ss")) {
+    log_.info("analysis engine initialized");
 }
 
 w1tn3ss::~w1tn3ss() {
-    util::log_info("w1tn3ss destroyed");
+    log_.info("analysis engine destroyed");
 }
 
 bool w1tn3ss::initialize() {
-    util::log_info("w1tn3ss::initialize() called");
+    log_.info("initializing qbdi instrumentation engine");
+    
+    // future qbdi initialization will go here
+    log_.debug("qbdi engine ready", 
+               redlog::field("platform", "cross-platform"),
+               redlog::field("instrumentation", "dynamic"));
+    
     return true;
 }
 
 void w1tn3ss::shutdown() {
-    util::log_info("w1tn3ss::shutdown() called");
+    log_.info("shutting down analysis engine");
+    
+    // future cleanup will go here
+    log_.debug("qbdi engine stopped");
 }
 
 } // namespace w1

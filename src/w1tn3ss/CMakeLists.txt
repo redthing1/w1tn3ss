@@ -2,12 +2,10 @@ set(LIBRARY_NAME w1tn3ss)
 
 # Create library sources list
 set(SOURCES
-    util/log.cpp
     w1tn3ss.cpp
 )
 
 set(HEADERS
-    util/log.hpp
     w1tn3ss.hpp
 )
 
@@ -43,6 +41,7 @@ target_link_libraries(${LIBRARY_NAME}
     PUBLIC
         QBDI
         common
+        redlog::redlog
 )
 
 # Compiler flags

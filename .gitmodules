@@ -1,3 +1,6 @@
 [submodule "src/third_party/qbdi"]
 	path = src/third_party/qbdi
 	url = https://github.com/redthing1/QBDI/
+[submodule "src/third_party/redlog_cpp"]
+	path = src/third_party/redlog_cpp
+	url = https://github.com/redthing1/redlog_cpp.git

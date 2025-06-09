@@ -57,8 +57,13 @@ set(QBDI_TOOLS_PYQBDI OFF)
 set(QBDI_TOOLS_FRIDAQBDI ON)
 set(QBDI_TEST OFF)
 
-# add qbdi subdirectory
+# add third-party libraries
 add_subdirectory(src/third_party/qbdi)
+
+# configure redlog - disable examples and tests for cleaner build
+set(REDLOG_BUILD_EXAMPLES OFF)
+set(REDLOG_BUILD_TESTS OFF)
+add_subdirectory(src/third_party/redlog_cpp)
 
 # add project subdirectories
 add_subdirectory(src/common)
