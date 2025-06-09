@@ -1,26 +1,62 @@
 #include <iostream>
 #include <string>
 #include "w1tn3ss.hpp"
+#include "w1nj3ct.hpp"
 #include "ext/args.hpp"
 
 int cmd_inject(args::ValueFlag<std::string>& library_flag, 
                args::ValueFlag<std::string>& name_flag,
-               args::ValueFlag<int>& pid_flag) {
-    w1::util::log_info("inject command called");
+               args::ValueFlag<int>& pid_flag,
+               args::ValueFlag<std::string>& binary_flag) {
     
-    // get arguments
-    if (library_flag) {
-        w1::util::log_info("library path: " + args::get(library_flag));
+    // validate required arguments
+    if (!library_flag) {
+        w1::util::log_error("library path required");
+        return 1;
     }
-    if (name_flag) {
-        w1::util::log_info("process name: " + args::get(name_flag));
-    }
-    if (pid_flag) {
-        w1::util::log_info("process pid: " + std::to_string(args::get(pid_flag)));
-    }
-    w1::util::log_info("todo: implement injection logic");
     
-    return 0;
+    std::string lib_path = args::get(library_flag);
+    w1::inject::result result;
+    
+    // determine injection method based on arguments
+    if (binary_flag) {
+        // launch injection
+        std::string binary_path = args::get(binary_flag);
+        w1::util::log_info("launching " + binary_path + " with library " + lib_path);
+        
+        result = w1::inject::inject_library_launch(binary_path, lib_path);
+        
+    } else if (pid_flag) {
+        // runtime injection by pid
+        int target_pid = args::get(pid_flag);
+        w1::util::log_info("injecting " + lib_path + " into pid " + std::to_string(target_pid));
+        
+        result = w1::inject::inject_library_runtime(lib_path, target_pid);
+        
+    } else if (name_flag) {
+        // runtime injection by process name
+        std::string process_name = args::get(name_flag);
+        w1::util::log_info("injecting " + lib_path + " into process " + process_name);
+        
+        result = w1::inject::inject_library_runtime(lib_path, process_name);
+        
+    } else {
+        w1::util::log_error("target required: specify --pid, --name, or --binary");
+        return 1;
+    }
+    
+    // handle result
+    if (result.success()) {
+        if (result.target_pid > 0) {
+            w1::util::log_info("injection successful into pid " + std::to_string(result.target_pid));
+        } else {
+            w1::util::log_info("injection successful");
+        }
+        return 0;
+    } else {
+        w1::util::log_error("injection failed: " + result.error_message);
+        return 1;
+    }
 }
 
 int cmd_inspect(args::ValueFlag<std::string>& binary_flag,
@@ -46,10 +82,11 @@ int main(int argc, char* argv[]) {
     args::Group commands(parser, "commands");
     
     // inject subcommand
-    args::Command inject(commands, "inject", "inject w1tn3ss library into target process");
-    args::ValueFlag<std::string> inject_library(inject, "path", "path to w1tn3ss library", {'L', "library"});
+    args::Command inject(commands, "inject", "inject library into target process");
+    args::ValueFlag<std::string> inject_library(inject, "path", "path to injection library", {'L', "library"});
     args::ValueFlag<std::string> inject_name(inject, "name", "target process name", {'n', "name"});
     args::ValueFlag<int> inject_pid(inject, "pid", "target process id", {'p', "pid"});
+    args::ValueFlag<std::string> inject_binary(inject, "path", "binary to launch with injection", {'b', "binary"});
     
     // inspect subcommand  
     args::Command inspect(commands, "inspect", "inspect binary file");
@@ -62,7 +99,7 @@ int main(int argc, char* argv[]) {
         parser.ParseCLI(argc, argv);
         
         if (inject) {
-            return cmd_inject(inject_library, inject_name, inject_pid);
+            return cmd_inject(inject_library, inject_name, inject_pid, inject_binary);
         } else if (inspect) {
             return cmd_inspect(inspect_binary, inspect_verbose);
         } else {

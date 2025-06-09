@@ -1,0 +1,32 @@
+# test programs for injection testing
+
+# simple target program
+add_executable(simple_target simple_target.c)
+set_target_properties(simple_target PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs
+)
+
+# long running target program
+add_executable(long_running_target long_running_target.c)
+set_target_properties(long_running_target PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs
+)
+
+# multi-threaded target program
+add_executable(multi_threaded_target multi_threaded_target.c)
+set_target_properties(multi_threaded_target PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs
+)
+
+# platform-specific linking
+if(WIN32)
+    # no additional libraries needed for Windows
+elseif(UNIX)
+    # link pthread for unix systems
+    target_link_libraries(multi_threaded_target PRIVATE pthread)
+endif()
+
+# install targets
+install(TARGETS simple_target long_running_target multi_threaded_target
+    RUNTIME DESTINATION tests/programs
+)

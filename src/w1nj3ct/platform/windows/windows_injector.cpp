@@ -1,0 +1,168 @@
+#include "windows_injector.hpp"
+#include "../../error.hpp"
+
+// include windows injection backend
+#include "windows/inject.hpp"
+#include "windows/auxiliary.hpp"
+
+#include <windows.h>
+#include <tlhelp32.h>
+#include <psapi.h>
+#include <string>
+#include <locale>
+#include <codecvt>
+
+namespace w1::inject::windows {
+
+// helper to convert string to wstring
+std::wstring string_to_wstring(const std::string& str) {
+    std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
+    return converter.from_bytes(str);
+}
+
+// helper to convert wstring to string
+std::string wstring_to_string(const std::wstring& wstr) {
+    std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
+    return converter.to_bytes(wstr);
+}
+
+result inject_runtime(const config& cfg) {
+    // validate we have a target
+    if (!cfg.pid && !cfg.process_name) {
+        return make_error_result(error_code::configuration_invalid, "no target specified");
+    }
+    
+    DWORD target_pid = 0;
+    
+    // resolve process name to pid if needed
+    if (cfg.process_name) {
+        auto processes = find_processes_by_name(*cfg.process_name);
+        if (processes.empty()) {
+            return make_error_result(error_code::target_not_found, *cfg.process_name);
+        }
+        if (processes.size() > 1) {
+            return make_error_result(error_code::multiple_targets_found, *cfg.process_name);
+        }
+        target_pid = processes[0].pid;
+    } else {
+        target_pid = *cfg.pid;
+    }
+    
+    // open process handle
+    HANDLE h_process = OpenProcess(PROCESS_ALL_ACCESS, FALSE, target_pid);
+    if (h_process == NULL) {
+        DWORD err = GetLastError();
+        return make_error_result(translate_platform_error(err), "failed to open process", err);
+    }
+    
+    // convert library path to wide string
+    std::wstring dll_path = string_to_wstring(cfg.library_path);
+    
+    // choose injection technique and inject
+    BOOL success = FALSE;
+    switch (cfg.windows_technique) {
+        case windows_technique::create_remote_thread:
+            success = inject_dll_create_remote_thread(h_process, dll_path);
+            break;
+        case windows_technique::set_windows_hook:
+            success = inject_dll_set_windows_hook_ex(h_process, target_pid, dll_path);
+            break;
+        case windows_technique::rtl_create_user_thread:
+            success = inject_dll_rtl_create_user_thread(h_process, dll_path);
+            break;
+        case windows_technique::reflective_loader:
+            success = inject_dll_reflective_loader(h_process, dll_path);
+            break;
+        default:
+            CloseHandle(h_process);
+            return make_error_result(error_code::technique_not_supported, "unknown windows technique");
+    }
+    
+    CloseHandle(h_process);
+    
+    if (!success) {
+        DWORD err = GetLastError();
+        return make_error_result(translate_platform_error(err), "injection failed", err);
+    }
+    
+    return make_success_result(target_pid);
+}
+
+result inject_preload(const config& cfg) {
+    // windows doesn't support preload injection like LD_PRELOAD/DYLD_INSERT_LIBRARIES
+    return make_error_result(error_code::technique_not_supported, "preload injection not supported on windows");
+}
+
+std::vector<process_info> list_processes() {
+    std::vector<process_info> processes;
+    
+    HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    if (snapshot == INVALID_HANDLE_VALUE) {
+        return processes;
+    }
+    
+    PROCESSENTRY32W pe32;
+    pe32.dwSize = sizeof(PROCESSENTRY32W);
+    
+    if (Process32FirstW(snapshot, &pe32)) {
+        do {
+            process_info info;
+            info.pid = pe32.th32ProcessID;
+            info.name = wstring_to_string(pe32.szExeFile);
+            
+            // get full path
+            HANDLE h_process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pe32.th32ProcessID);
+            if (h_process != NULL) {
+                wchar_t path[MAX_PATH];
+                DWORD path_len = MAX_PATH;
+                if (QueryFullProcessImageNameW(h_process, 0, path, &path_len)) {
+                    info.full_path = wstring_to_string(path);
+                }
+                CloseHandle(h_process);
+            }
+            
+            processes.push_back(info);
+        } while (Process32NextW(snapshot, &pe32));
+    }
+    
+    CloseHandle(snapshot);
+    return processes;
+}
+
+std::vector<process_info> find_processes_by_name(const std::string& name) {
+    std::vector<process_info> matches;
+    auto all_processes = list_processes();
+    
+    for (const auto& proc : all_processes) {
+        if (proc.name == name) {
+            matches.push_back(proc);
+        }
+    }
+    
+    return matches;
+}
+
+std::optional<process_info> get_process_info(int pid) {
+    auto all_processes = list_processes();
+    
+    for (const auto& proc : all_processes) {
+        if (proc.pid == pid) {
+            return proc;
+        }
+    }
+    
+    return std::nullopt;
+}
+
+bool check_injection_capabilities() {
+    // check if we can open a process with required permissions
+    HANDLE h_process = OpenProcess(PROCESS_ALL_ACCESS, FALSE, GetCurrentProcessId());
+    if (h_process != NULL) {
+        CloseHandle(h_process);
+        return true;
+    }
+    
+    return false;
+}
+
+}

@@ -19,6 +19,7 @@ target_include_directories(${EXECUTABLE_NAME}
 target_link_libraries(${EXECUTABLE_NAME}
     PRIVATE
         w1tn3ss
+        w1nj3ct
         common
 )
 

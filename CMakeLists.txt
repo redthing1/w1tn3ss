@@ -63,4 +63,11 @@ add_subdirectory(src/third_party/qbdi)
 # add project subdirectories
 add_subdirectory(src/common)
 add_subdirectory(src/w1tn3ss)
+add_subdirectory(src/w1nj3ct)
 add_subdirectory(src/w1tool)
+
+# add tests (optional)
+option(BUILD_TESTS "Build test programs and libraries" ON)
+if(BUILD_TESTS)
+    add_subdirectory(tests)
+endif()
