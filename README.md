@@ -9,6 +9,12 @@ cmake -B build-macos
 cmake --build build-macos --parallel
 ```
 
+for production use:
+```sh
+cmake -B build-release -DCMAKE_BUILD_TYPE=Release
+cmake --build build-release --parallel
+```
+
 ## usage
 
 inject w1tn3ss library into target process:
@@ -28,3 +34,7 @@ inspect binary file:
 + command-line injection and inspection tools
 + shared/static library builds
 + debug builds with asan/ubsan by default
+
+## notes
+
+runtime injection requires release build of w1tool on macos - debug builds with asan interfere with mach exception handling.

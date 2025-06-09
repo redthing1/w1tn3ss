@@ -120,6 +120,7 @@ int injector__handle_exc(injector_t *injector) {
 	return 0;
 }
 
+__attribute__((no_sanitize("alignment")))
 static bool isSIGSTOP(exception_type_t exception_type, mach_exception_data_t codes){
 	return exception_type == EXC_SOFTWARE && codes[0] == EXC_SOFT_SIGNAL && codes[1] == SIGSTOP;
 }

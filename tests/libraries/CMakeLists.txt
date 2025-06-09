@@ -24,6 +24,19 @@ set_target_properties(memory_lib PROPERTIES
     PREFIX ""  # no lib prefix
 )
 
+# injection libraries must not depend on sanitizers
+# target processes may not have asan initialized
+if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT WIN32)
+    target_compile_options(tracer_lib PRIVATE -fno-sanitize=all)
+    target_link_options(tracer_lib PRIVATE -fno-sanitize=all)
+    
+    target_compile_options(counter_lib PRIVATE -fno-sanitize=all)
+    target_link_options(counter_lib PRIVATE -fno-sanitize=all)
+    
+    target_compile_options(memory_lib PRIVATE -fno-sanitize=all)
+    target_link_options(memory_lib PRIVATE -fno-sanitize=all)
+endif()
+
 # platform-specific linking
 if(WIN32)
     target_link_libraries(memory_lib PRIVATE psapi)
