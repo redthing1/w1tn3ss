@@ -17,7 +17,10 @@ w1cov_tracer::w1cov_tracer()
       instrumenting_(false),
       qbdi_vm_(nullptr),
       output_file_("coverage.drcov"),
-      exclude_system_(true) {
+      exclude_system_(true),
+      callback_count_(0),
+      instrumentation_start_time_(0),
+      last_stats_time_(0) {
     log_.debug("w1cov tracer created");
 }
 
@@ -188,8 +191,16 @@ bool w1cov_tracer::start_instrumentation() {
             return false;
         }
         
+        // initialize performance monitoring
+        auto now = std::chrono::steady_clock::now();
+        instrumentation_start_time_ = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+        last_stats_time_.store(instrumentation_start_time_);
+        callback_count_ = 0;
+        
         instrumenting_ = true;
-        log_.info("coverage instrumentation started successfully");
+        
+        log_.info("coverage instrumentation started successfully",
+                  redlog::field("start_time", instrumentation_start_time_));
         return true;
         
     } catch (const std::exception& e) {
@@ -209,10 +220,28 @@ bool w1cov_tracer::stop_instrumentation() {
         // qbdi cleanup is handled in cleanup_qbdi_vm()
         instrumenting_ = false;
         
+        // calculate final performance metrics
+        auto now = std::chrono::steady_clock::now();
+        uint64_t end_time = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+        uint64_t total_duration = end_time - instrumentation_start_time_;
+        uint64_t total_callbacks = callback_count_;
+        
         // print final statistics
         print_statistics();
         
-        log_.info("coverage instrumentation stopped");
+        // log performance summary
+        if (total_duration > 0) {
+            double callbacks_per_second = (total_callbacks * 1000.0) / total_duration;
+            
+            log_.info("coverage instrumentation stopped",
+                     redlog::field("duration_ms", total_duration),
+                     redlog::field("total_callbacks", total_callbacks),
+                     redlog::field("callbacks_per_second", callbacks_per_second));
+        } else {
+            log_.info("coverage instrumentation stopped",
+                     redlog::field("total_callbacks", total_callbacks));
+        }
+        
         return true;
         
     } catch (const std::exception& e) {
@@ -222,51 +251,94 @@ bool w1cov_tracer::stop_instrumentation() {
 }
 
 bool w1cov_tracer::setup_qbdi_vm() {
-    log_.debug("setting up qbdi vm");
+    log_.info("setting up qbdi vm for coverage instrumentation");
     
     try {
+        // create qbdi vm instance
+        log_.debug("creating qbdi vm instance");
         auto* vm = new QBDI::VM();
         qbdi_vm_ = static_cast<QBDIVMPtr>(vm);
         
+        log_.verbose("qbdi vm instance created",
+                    redlog::field("vm_ptr", vm));
+        
         // get vm state
+        log_.debug("retrieving gpr state from qbdi vm");
         QBDI::GPRState* gprState = vm->getGPRState();
         if (!gprState) {
-            log_.error("failed to get gpr state from qbdi vm");
+            log_.error("failed to get gpr state from qbdi vm - null pointer returned");
+            delete vm;
+            qbdi_vm_ = nullptr;
             return false;
         }
+        
+        log_.verbose("gpr state retrieved successfully",
+                    redlog::field("gpr_state_ptr", gprState));
         
         // allocate virtual stack
+        log_.debug("allocating virtual stack for qbdi execution");
         uint8_t* fakestack = nullptr;
         constexpr size_t STACK_SIZE = 0x100000; // 1MB stack
+        
         bool success = QBDI::allocateVirtualStack(gprState, STACK_SIZE, &fakestack);
         if (!success) {
-            log_.error("failed to allocate virtual stack");
+            log_.error("failed to allocate virtual stack",
+                      redlog::field("requested", STACK_SIZE));
+            delete vm;
+            qbdi_vm_ = nullptr;
             return false;
         }
         
-        log_.debug("qbdi vm setup completed",
-                   redlog::field("stack_size", STACK_SIZE));
+        log_.info("qbdi vm setup completed successfully",
+                  redlog::field("stack_bytes", STACK_SIZE),
+                  redlog::field("stack_mb", STACK_SIZE / (1024 * 1024)),
+                  redlog::field("stack_ptr", fakestack));
+        
+        // log qbdi version and configuration info
+        log_.verbose("qbdi configuration",
+                    redlog::field("version", QBDI::getVersion(nullptr)),
+                    redlog::field("architecture", "x86_64")); // assuming x86_64 for now
         
         return true;
         
     } catch (const std::exception& e) {
-        log_.error("qbdi vm setup failed", redlog::field("error", e.what()));
+        log_.error("qbdi vm setup failed with exception",
+                  redlog::field("error", e.what()),
+                  redlog::field("exception_type", typeid(e).name()));
+        
+        // cleanup on failure
+        if (qbdi_vm_) {
+            delete static_cast<QBDI::VM*>(qbdi_vm_);
+            qbdi_vm_ = nullptr;
+        }
+        
+        return false;
+    } catch (...) {
+        log_.error("qbdi vm setup failed with unknown exception");
+        
+        // cleanup on failure
+        if (qbdi_vm_) {
+            delete static_cast<QBDI::VM*>(qbdi_vm_);
+            qbdi_vm_ = nullptr;
+        }
+        
         return false;
     }
 }
 
 bool w1cov_tracer::register_callbacks() {
     if (!qbdi_vm_) {
-        log_.error("qbdi vm not initialized");
+        log_.error("qbdi vm not initialized - cannot register callbacks");
         return false;
     }
     
-    log_.debug("registering qbdi callbacks");
+    log_.info("registering qbdi callbacks for coverage collection");
     
     try {
         auto* vm = static_cast<QBDI::VM*>(qbdi_vm_);
         
         // register basic block callback
+        log_.debug("registering basic block entry callback");
         uint32_t bb_cb_id = vm->addVMEventCB(
             QBDI::VMEvent::BASIC_BLOCK_ENTRY,
             reinterpret_cast<QBDI::VMCallback>(basic_block_callback),
@@ -274,14 +346,25 @@ bool w1cov_tracer::register_callbacks() {
         );
         
         if (bb_cb_id == QBDI::INVALID_EVENTID) {
-            log_.error("failed to register basic block callback");
+            log_.error("failed to register basic block callback - invalid event id returned");
             return false;
         }
         
-        log_.debug("registered basic block callback", redlog::field("id", bb_cb_id));
+        log_.info("basic block callback registered successfully",
+                  redlog::field("callback_id", bb_cb_id),
+                  redlog::field("event_type", "BASIC_BLOCK_ENTRY"));
         
         // optionally register instruction callback for more detailed tracing
-        if (redlog::get_level() <= redlog::level::trace) {
+        redlog::level current_level = redlog::get_level();
+        bool enable_instruction_tracing = (current_level <= redlog::level::trace);
+        
+        log_.debug("checking if instruction-level tracing should be enabled",
+                  redlog::field("log_level", redlog::level_name(current_level)),
+                  redlog::field("enable_tracing", enable_instruction_tracing));
+        
+        if (enable_instruction_tracing) {
+            log_.debug("registering instruction-level callback for detailed tracing");
+            
             uint32_t inst_cb_id = vm->addCodeCB(
                 QBDI::PREINST,
                 reinterpret_cast<QBDI::InstCallback>(instruction_callback),
@@ -289,25 +372,69 @@ bool w1cov_tracer::register_callbacks() {
             );
             
             if (inst_cb_id != QBDI::INVALID_EVENTID) {
-                log_.trace("registered instruction callback", redlog::field("id", inst_cb_id));
+                log_.info("instruction callback registered successfully",
+                         redlog::field("callback_id", inst_cb_id),
+                         redlog::field("event_type", "PREINST"));
+            } else {
+                log_.warn("failed to register instruction callback",
+                         redlog::field("callback_id", inst_cb_id));
             }
+        } else {
+            log_.debug("instruction-level tracing disabled",
+                      redlog::field("reason", "log level too high"));
         }
+        
+        // log callback configuration summary
+        log_.verbose("qbdi callback registration completed",
+                    redlog::field("bb_callback_id", bb_cb_id),
+                    redlog::field("instruction_tracing", enable_instruction_tracing));
         
         return true;
         
     } catch (const std::exception& e) {
-        log_.error("callback registration failed", redlog::field("error", e.what()));
+        log_.error("callback registration failed with exception",
+                  redlog::field("error", e.what()),
+                  redlog::field("exception_type", typeid(e).name()));
+        return false;
+    } catch (...) {
+        log_.error("callback registration failed with unknown exception");
         return false;
     }
 }
 
 void w1cov_tracer::cleanup_qbdi_vm() {
     if (qbdi_vm_) {
-        log_.debug("cleaning up qbdi vm");
+        log_.info("cleaning up qbdi vm resources");
         
-        // delete the QBDI VM instance
-        delete static_cast<QBDI::VM*>(qbdi_vm_);
-        qbdi_vm_ = nullptr;
+        try {
+            auto* vm = static_cast<QBDI::VM*>(qbdi_vm_);
+            
+            // log vm state before cleanup
+            log_.debug("qbdi vm cleanup starting",
+                      redlog::field("vm_ptr", vm));
+            
+            // delete the QBDI VM instance
+            delete vm;
+            qbdi_vm_ = nullptr;
+            
+            log_.debug("qbdi vm cleanup completed successfully");
+            
+        } catch (const std::exception& e) {
+            log_.error("error during qbdi vm cleanup",
+                      redlog::field("error", e.what()),
+                      redlog::field("exception_type", typeid(e).name()));
+            
+            // force null the pointer even if cleanup failed
+            qbdi_vm_ = nullptr;
+            
+        } catch (...) {
+            log_.error("unknown error during qbdi vm cleanup");
+            
+            // force null the pointer even if cleanup failed
+            qbdi_vm_ = nullptr;
+        }
+    } else {
+        log_.trace("qbdi vm cleanup skipped - no vm instance to clean");
     }
 }
 
@@ -365,8 +492,33 @@ QBDIVMAction w1cov_tracer::instruction_callback(
 }
 
 void w1cov_tracer::handle_basic_block_entry(uint64_t address, uint16_t size) {
+    // increment callback counter for performance monitoring
+    uint64_t current_count = callback_count_.fetch_add(1) + 1;
+    
     if (collector_) {
         collector_->record_basic_block(address, size);
+    }
+    
+    // periodic performance logging (every 10000 callbacks)
+    if (current_count % 10000 == 0) {
+        auto now = std::chrono::steady_clock::now();
+        uint64_t current_time = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+        uint64_t time_since_start = current_time - instrumentation_start_time_;
+        uint64_t time_since_last = current_time - last_stats_time_;
+        
+        if (time_since_start > 0) {
+            double total_rate = (current_count * 1000.0) / time_since_start;
+            double recent_rate = time_since_last > 0 ? (10000.0 * 1000.0) / time_since_last : 0.0;
+            
+            log_.verbose("coverage collection performance",
+                        redlog::field("callbacks", current_count),
+                        redlog::field("elapsed_ms", time_since_start),
+                        redlog::field("avg_rate", total_rate),
+                        redlog::field("recent_rate", recent_rate),
+                        redlog::field("unique_blocks", collector_ ? collector_->get_unique_blocks() : 0));
+            
+            last_stats_time_ = current_time;
+        }
     }
 }
 
@@ -400,59 +552,139 @@ bool w1cov_tracer::discover_and_register_modules() {
               redlog::field("total_regions", mapper_->get_total_regions()),
               redlog::field("executable_regions", mapper_->get_executable_count()),
               redlog::field("user_modules", mapper_->get_user_module_count()),
-              redlog::field("registered_modules", registered_count));
+              redlog::field("registered", registered_count));
     
     return registered_count > 0;
 }
 
 bool w1cov_tracer::setup_instrumentation_ranges() {
-    if (!qbdi_vm_ || !mapper_) {
-        log_.error("qbdi vm or mapper not initialized");
+    if (!qbdi_vm_) {
+        log_.error("qbdi vm not initialized - cannot setup instrumentation ranges");
         return false;
     }
     
-    log_.info("setting up instrumentation ranges");
+    if (!mapper_) {
+        log_.error("module mapper not initialized - cannot setup instrumentation ranges");
+        return false;
+    }
+    
+    log_.info("setting up qbdi instrumentation ranges for coverage collection");
     
     try {
         auto* vm = static_cast<QBDI::VM*>(qbdi_vm_);
         
         // get user modules to instrument
+        log_.debug("retrieving user modules for instrumentation");
         auto user_modules = mapper_->get_user_modules();
+        auto all_executable = mapper_->get_executable_regions();
+        
+        log_.verbose("module analysis for instrumentation",
+                    redlog::field("executable_regions", all_executable.size()),
+                    redlog::field("user_modules", user_modules.size()),
+                    redlog::field("system_modules", all_executable.size() - user_modules.size()));
         
         if (user_modules.empty()) {
-            log_.warn("no user modules found for instrumentation");
+            log_.warn("no user modules found for targeted instrumentation",
+                     redlog::field("executable_regions", all_executable.size()));
+            
+            // log some examples of what was excluded
+            if (!all_executable.empty()) {
+                log_.debug("examples of excluded modules");
+                size_t example_count = std::min(static_cast<size_t>(5), all_executable.size());
+                for (size_t i = 0; i < example_count; ++i) {
+                    const auto& region = all_executable[i];
+                    log_.verbose("excluded module example",
+                               redlog::field("name", region.name),
+                               redlog::field("start", region.start),
+                               redlog::field("size", region.size()),
+                               redlog::field("reason", "system_module"));
+                }
+            }
+            
             // fallback: instrument all executable regions
+            log_.info("falling back to instrumenting all executable regions");
             vm->instrumentAllExecutableMaps();
-            log_.info("instrumented all executable regions");
+            
+            log_.info("instrumented all executable regions as fallback",
+                     redlog::field("regions", all_executable.size()));
+            
             return true;
         }
         
         // instrument specific modules
+        uint64_t total_instrumented_bytes = 0;
+        size_t successful_ranges = 0;
+        size_t failed_ranges = 0;
+        
+        log_.debug("adding specific instrumentation ranges for user modules");
+        
         for (const auto& region : user_modules) {
-            vm->addInstrumentedRange(
-                static_cast<QBDI::rword>(region.start),
-                static_cast<QBDI::rword>(region.end)
-            );
-            
-            log_.verbose("added instrumentation range",
-                        redlog::field("start", region.start),
-                        redlog::field("end", region.end),
-                        redlog::field("name", region.name));
+            try {
+                QBDI::rword start_addr = static_cast<QBDI::rword>(region.start);
+                QBDI::rword end_addr = static_cast<QBDI::rword>(region.end);
+                
+                // validate range before adding
+                if (start_addr >= end_addr) {
+                    log_.warn("invalid address range detected",
+                             redlog::field("start", region.start),
+                             redlog::field("end", region.end),
+                             redlog::field("name", region.name));
+                    failed_ranges++;
+                    continue;
+                }
+                
+                vm->addInstrumentedRange(start_addr, end_addr);
+                
+                uint64_t range_size = region.end - region.start;
+                total_instrumented_bytes += range_size;
+                successful_ranges++;
+                
+                log_.verbose("added instrumentation range",
+                            redlog::field("start", region.start),
+                            redlog::field("end", region.end),
+                            redlog::field("bytes", range_size),
+                            redlog::field("kb", range_size / 1024),
+                            redlog::field("name", region.name),
+                            redlog::field("perms", region.permission));
+                
+            } catch (const std::exception& e) {
+                log_.error("failed to add instrumentation range",
+                          redlog::field("start", region.start),
+                          redlog::field("end", region.end),
+                          redlog::field("name", region.name),
+                          redlog::field("error", e.what()));
+                failed_ranges++;
+            }
         }
         
-        log_.info("instrumentation ranges configured",
-                  redlog::field("range_count", user_modules.size()));
+        log_.info("instrumentation ranges configuration completed",
+                  redlog::field("modules", user_modules.size()),
+                  redlog::field("successful", successful_ranges),
+                  redlog::field("failed", failed_ranges),
+                  redlog::field("bytes", total_instrumented_bytes),
+                  redlog::field("mb", total_instrumented_bytes / (1024 * 1024)));
+        
+        if (successful_ranges == 0) {
+            log_.error("no instrumentation ranges were successfully configured");
+            return false;
+        }
         
         return true;
         
     } catch (const std::exception& e) {
-        log_.error("failed to setup instrumentation ranges", redlog::field("error", e.what()));
+        log_.error("failed to setup instrumentation ranges with exception",
+                  redlog::field("error", e.what()),
+                  redlog::field("exception_type", typeid(e).name()));
+        return false;
+    } catch (...) {
+        log_.error("failed to setup instrumentation ranges with unknown exception");
         return false;
     }
 }
 
 void w1cov_tracer::print_statistics() const {
     if (!collector_) {
+        log_.warn("cannot print statistics - collector not initialized");
         return;
     }
     
@@ -460,16 +692,57 @@ void w1cov_tracer::print_statistics() const {
     size_t unique_blocks = collector_->get_unique_blocks();
     auto coverage_stats = collector_->get_coverage_stats();
     
-    log_.info("coverage statistics",
-              redlog::field("total_basic_blocks", total_blocks),
-              redlog::field("unique_basic_blocks", unique_blocks),
-              redlog::field("modules_with_coverage", coverage_stats.size()));
+    // calculate performance metrics
+    uint64_t current_callbacks = callback_count_;
+    uint64_t start_time = instrumentation_start_time_;
+    
+    auto now = std::chrono::steady_clock::now();
+    uint64_t current_time = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+    uint64_t elapsed_time = (start_time > 0) ? (current_time - start_time) : 0;
+    
+    double callbacks_per_second = (elapsed_time > 0) ? (current_callbacks * 1000.0) / elapsed_time : 0.0;
+    double coverage_efficiency = (current_callbacks > 0) ? (static_cast<double>(unique_blocks) / current_callbacks) * 100.0 : 0.0;
+    
+    log_.info("coverage collection statistics",
+              redlog::field("total_blocks", total_blocks),
+              redlog::field("unique_blocks", unique_blocks),
+              redlog::field("modules", coverage_stats.size()),
+              redlog::field("callbacks", current_callbacks),
+              redlog::field("elapsed_ms", elapsed_time),
+              redlog::field("rate", callbacks_per_second),
+              redlog::field("efficiency_pct", coverage_efficiency));
+    
+    // log memory usage estimation
+    size_t estimated_memory = (total_blocks * sizeof(void*)) + (coverage_stats.size() * 64);
+    log_.verbose("coverage memory usage estimation",
+                redlog::field("bytes", estimated_memory),
+                redlog::field("kb", estimated_memory / 1024));
     
     // log per-module statistics
+    size_t modules_logged = 0;
     for (const auto& [module_id, block_count] : coverage_stats) {
-        log_.verbose("module coverage",
-                    redlog::field("module_id", module_id),
-                    redlog::field("basic_blocks", block_count));
+        if (modules_logged < 10) { // limit verbose output
+            log_.verbose("module coverage",
+                        redlog::field("module_id", module_id),
+                        redlog::field("blocks", block_count));
+            modules_logged++;
+        } else if (modules_logged == 10) {
+            log_.verbose("additional modules with coverage",
+                        redlog::field("remaining_modules", coverage_stats.size() - 10));
+            break;
+        }
+    }
+    
+    // performance warnings
+    if (callbacks_per_second > 0 && callbacks_per_second < 1000) {
+        log_.warn("low callback processing rate detected",
+                 redlog::field("rate", callbacks_per_second));
+    }
+    
+    if (coverage_efficiency < 10.0 && current_callbacks > 1000) {
+        log_.warn("low coverage efficiency detected - many duplicate blocks",
+                 redlog::field("efficiency_pct", coverage_efficiency),
+                 redlog::field("suggestion", "consider excluding system modules"));
     }
 }
 

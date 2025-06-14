@@ -178,7 +178,7 @@ bool w1cov_standalone::call_instrumented_function(void* func_ptr,
         
         pimpl->log.info("instrumented function call completed", 
                        redlog::field("return_value", retvalue),
-                       redlog::field("addresses_covered", pimpl->covered_addresses.size()));
+                       redlog::field("addresses", pimpl->covered_addresses.size()));
         
         return true;
         
@@ -319,7 +319,7 @@ bool w1cov_standalone::export_coverage(const std::string& output_file) {
     if (success) {
         pimpl->log.info("coverage export successful", 
                        redlog::field("output_file", output_file),
-                       redlog::field("unique_addresses", pimpl->covered_addresses.size()));
+                       redlog::field("unique", pimpl->covered_addresses.size()));
     } else {
         pimpl->log.error("coverage export failed", redlog::field("output_file", output_file));
     }
@@ -329,7 +329,7 @@ bool w1cov_standalone::export_coverage(const std::string& output_file) {
 
 void w1cov_standalone::print_stats() const {
     pimpl->log.info("coverage statistics",
-                   redlog::field("unique_addresses", pimpl->covered_addresses.size()),
+                   redlog::field("unique", pimpl->covered_addresses.size()),
                    redlog::field("total_blocks", pimpl->collector ? pimpl->collector->get_total_blocks() : 0));
 }
 

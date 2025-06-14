@@ -3,6 +3,7 @@
 #include <memory>
 #include <string>
 #include <atomic>
+#include <chrono>
 #include <redlog/redlog.hpp>
 
 // opaque pointer for QBDI types to avoid header conflicts
@@ -62,6 +63,11 @@ private:
     // configuration
     std::string output_file_;
     bool exclude_system_;
+    
+    // performance monitoring
+    mutable std::atomic<uint64_t> callback_count_;
+    mutable std::atomic<uint64_t> instrumentation_start_time_;
+    mutable std::atomic<uint64_t> last_stats_time_;
     
     // qbdi setup and callbacks
     bool setup_qbdi_vm();

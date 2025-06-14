@@ -24,6 +24,12 @@ set_target_properties(control_flow_1 PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs
 )
 
+# runtime injection target program
+add_executable(runtime_injection_target runtime_injection_target.c)
+set_target_properties(runtime_injection_target PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs
+)
+
 # enable sanitizers for test programs in debug builds
 if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT WIN32)
     target_compile_options(simple_target PRIVATE ${SANITIZER_FLAGS})
@@ -37,6 +43,9 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT WIN32)
     
     target_compile_options(control_flow_1 PRIVATE ${SANITIZER_FLAGS})
     target_link_options(control_flow_1 PRIVATE ${SANITIZER_FLAGS})
+    
+    target_compile_options(runtime_injection_target PRIVATE ${SANITIZER_FLAGS})
+    target_link_options(runtime_injection_target PRIVATE ${SANITIZER_FLAGS})
 endif()
 
 # platform-specific linking
@@ -45,9 +54,10 @@ if(WIN32)
 elseif(UNIX)
     # link pthread for unix systems
     target_link_libraries(multi_threaded_target PRIVATE pthread)
+    target_link_libraries(runtime_injection_target PRIVATE pthread)
 endif()
 
 # install targets
-install(TARGETS simple_target long_running_target multi_threaded_target control_flow_1
+install(TARGETS simple_target long_running_target multi_threaded_target control_flow_1 runtime_injection_target
     RUNTIME DESTINATION tests/programs
 )
