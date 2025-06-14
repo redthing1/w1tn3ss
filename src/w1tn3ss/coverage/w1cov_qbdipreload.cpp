@@ -23,6 +23,7 @@
 
 #include "QBDIPreload.h"
 #include <QBDI.h>
+#include "../formats/drcov.hpp"
 
 namespace w1cov {
 
@@ -180,13 +181,9 @@ QBDI::VMAction coverage_callback(QBDI::VMInstanceRef vm,
 /**
  * Export collected coverage data in industry-standard DrCov format.
  * 
- * DrCov (DynamoRIO Coverage) is a widely-supported binary coverage format
- * compatible with analysis tools including Lighthouse, IDA Pro, and Binary Ninja.
- * 
- * Format specification:
- * - ASCII header with version and module information
- * - Module table mapping module IDs to memory ranges and file paths
- * - Binary basic block table with module-relative offsets and sizes
+ * Uses the common drcov.hpp library for consistent format writing across
+ * all w1tn3ss coverage tools. Compatible with analysis tools including
+ * Lighthouse, IDA Pro, and Binary Ninja.
  * 
  * @return true if export completed successfully, false on error
  */
@@ -203,10 +200,14 @@ bool export_drcov_coverage() {
     
     // Group collected addresses by their containing modules for DrCov format
     std::unordered_map<const QBDI::MemoryMap*, std::vector<std::pair<uint64_t, uint16_t>>> module_blocks;
+    std::vector<const QBDI::MemoryMap*> module_list;
     
     for (const auto& addr : *covered_addresses) {
         const QBDI::MemoryMap* module = find_module_for_address(addr);
         if (module) {
+            if (module_blocks.find(module) == module_blocks.end()) {
+                module_list.push_back(module);
+            }
             uint16_t size = address_sizes->count(addr) ? (*address_sizes)[addr] : 1;
             module_blocks[module].emplace_back(addr, size);
         }
@@ -219,73 +220,44 @@ bool export_drcov_coverage() {
         return false;
     }
     
-    // Write DrCov file
-    std::ofstream fp(*get_output_file());
-    if (!fp.is_open()) {
-        printf("[W1COV] Failed to open output file: %s\n", get_output_file()->c_str());
-        return false;
-    }
-    
-    // Write header
-    fp << "DRCOV VERSION: 2\n";
-    fp << "DRCOV FLAVOR: drcov\n";
-    fp << "Module Table: version 2, count " << module_blocks.size() << "\n";
-    fp << "Columns: id, base, end, entry, path\n";
-    
-    // Write modules
-    std::vector<const QBDI::MemoryMap*> module_list;
-    uint16_t module_id = 0;
-    for (const auto& pair : module_blocks) {
-        const QBDI::MemoryMap* module = pair.first;
-        module_list.push_back(module);
+    try {
+        // Use drcov library for consistent format writing
+        auto builder = drcov::builder()
+            .set_flavor("w1cov")
+            .set_module_version(drcov::module_table_version::v2);
         
-        fp << std::setw(2) << module_id << ", "
-           << "0x" << std::hex << module->range.start() << ", "
-           << "0x" << std::hex << module->range.end() << ", "
-           << "0x0000000000000000, "
-           << module->name << "\n" << std::dec;
-        
-        module_id++;
-    }
-    
-    // Count total basic blocks
-    size_t total_blocks = 0;
-    for (const auto& pair : module_blocks) {
-        total_blocks += pair.second.size();
-    }
-    
-    fp << "BB Table: " << total_blocks << " bbs\n";
-    fp.close();
-    
-    // Write binary block data
-    std::ofstream fp_bin(*get_output_file(), std::ios::binary | std::ios::app);
-    if (!fp_bin.is_open()) {
-        printf("[W1COV] Failed to open output file for binary write: %s\n", get_output_file()->c_str());
-        return false;
-    }
-    
-    module_id = 0;
-    for (const QBDI::MemoryMap* module : module_list) {
-        const auto& blocks = module_blocks[module];
-        for (const auto& block : blocks) {
-            uint64_t addr = block.first;
-            uint16_t size = block.second;
-            uint32_t offset = static_cast<uint32_t>(addr - module->range.start());
-            
-            // DrCov binary format: uint32_t start; uint16_t size; uint16_t id;
-            fp_bin.write(reinterpret_cast<const char*>(&offset), sizeof(uint32_t));
-            fp_bin.write(reinterpret_cast<const char*>(&size), sizeof(uint16_t));
-            fp_bin.write(reinterpret_cast<const char*>(&module_id), sizeof(uint16_t));
+        // Add modules with sequential IDs
+        for (const QBDI::MemoryMap* module : module_list) {
+            std::string module_name = module->name.empty() ? "unknown" : module->name;
+            builder.add_module(module_name, module->range.start(), module->range.end(), 0);
         }
-        module_id++;
+        
+        // Add basic blocks with actual instruction sizes
+        uint16_t module_id = 0;
+        for (const QBDI::MemoryMap* module : module_list) {
+            const auto& blocks = module_blocks[module];
+            for (const auto& block : blocks) {
+                uint64_t addr = block.first;
+                uint16_t size = block.second;
+                uint32_t offset = static_cast<uint32_t>(addr - module->range.start());
+                builder.add_coverage(module_id, offset, size);
+            }
+            module_id++;
+        }
+        
+        // Build and write the coverage data
+        auto coverage_data = builder.build();
+        drcov::write(*get_output_file(), coverage_data);
+        
+        printf("[W1COV] Coverage exported: %zu addresses, %zu modules -> %s\n",
+               covered_addresses->size(), module_blocks.size(), get_output_file()->c_str());
+        
+        return true;
+        
+    } catch (const std::exception& e) {
+        printf("[W1COV] Failed to export coverage: %s\n", e.what());
+        return false;
     }
-    
-    fp_bin.close();
-    
-    printf("[W1COV] Coverage exported: %zu addresses, %zu modules -> %s\n",
-           covered_addresses->size(), module_blocks.size(), get_output_file()->c_str());
-    
-    return true;
 }
 
 } // namespace w1cov
