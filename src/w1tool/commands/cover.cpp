@@ -1,5 +1,8 @@
 #include "cover.hpp"
 #include "w1nj3ct.hpp"
+#include <cstdlib>
+#include <filesystem>
+#include <iostream>
 #include <redlog/redlog.hpp>
 
 namespace w1tool::commands {
@@ -12,8 +15,34 @@ int cover(
 
   auto log = redlog::get_logger("w1tool.cover");
 
-  // Determine coverage library path
-  std::string lib_path = "./build-release/w1cov_qbdipreload.dylib";
+  // Log platform information for debugging
+#ifdef __APPLE__
+  log.debug("platform detected: macOS");
+#elif defined(__linux__)
+  log.debug("platform detected: Linux");
+#elif defined(_WIN32)
+  log.debug("platform detected: Windows");
+#else
+  log.warn("platform not explicitly supported");
+#endif
+
+  // Determine coverage library path (platform-specific)
+  std::string lib_path;
+  const char* env_lib_path = std::getenv("W1COV_LIBRARY_PATH");
+  if (env_lib_path) {
+    lib_path = env_lib_path;
+  } else {
+    // Platform-specific default paths
+#ifdef __APPLE__
+    lib_path = "./build-release/w1cov_qbdipreload.dylib";
+#elif defined(__linux__)
+    lib_path = "./build-release/w1cov_qbdipreload.so";
+#elif defined(_WIN32)
+    lib_path = "./build-release/w1cov_qbdipreload.dll";
+#else
+#error "Unsupported platform for coverage library"
+#endif
+  }
 
   // Validate target specification
   int target_count = 0;
@@ -63,11 +92,11 @@ int cover(
   if (output_flag) {
     output_file = args::get(output_flag);
   } else {
-    // Generate default output filename
+    // Generate default output filename using cross-platform path handling
     if (binary_flag) {
       std::string binary_path = args::get(binary_flag);
-      size_t last_slash = binary_path.find_last_of("/\\");
-      std::string binary_name = (last_slash != std::string::npos) ? binary_path.substr(last_slash + 1) : binary_path;
+      std::filesystem::path fs_path(binary_path);
+      std::string binary_name = fs_path.filename().string();
       output_file = binary_name + "_coverage." + format;
     } else {
       output_file = "coverage." + format;

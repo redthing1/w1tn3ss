@@ -7,6 +7,11 @@
 #include <iostream>
 #include <redlog/redlog.hpp>
 #include <string>
+#ifdef _WIN32
+#include <io.h>
+#else
+#include <unistd.h>
+#endif
 
 int main(int argc, char* argv[]) {
   auto log = redlog::get_logger("w1tool");
@@ -103,7 +108,15 @@ int main(int argc, char* argv[]) {
       }
     }
 
-    if (quiet) {
+    // Detect terminal capabilities for cross-platform color support
+    bool is_terminal = false;
+#ifdef _WIN32
+    is_terminal = _isatty(_fileno(stdout));
+#else
+    is_terminal = isatty(STDOUT_FILENO);
+#endif
+
+    if (quiet || !is_terminal) {
       redlog::set_theme(redlog::themes::plain);
     }
 
@@ -112,7 +125,9 @@ int main(int argc, char* argv[]) {
     } else if (inspect) {
       return w1tool::commands::inspect(inspect_binary);
     } else if (cover) {
-      return w1tool::commands::cover(cover_binary, cover_pid, cover_name, cover_output, cover_exclude_system, cover_debug, cover_format);
+      return w1tool::commands::cover(
+          cover_binary, cover_pid, cover_name, cover_output, cover_exclude_system, cover_debug, cover_format
+      );
     } else if (read_drcov) {
       return w1tool::commands::read_drcov(read_drcov_file, read_drcov_summary, read_drcov_detailed, read_drcov_module);
     } else {
