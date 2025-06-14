@@ -1,4 +1,4 @@
-#include "drcov.hpp"
+#include "read_drcov.hpp"
 #include "../../w1tn3ss/formats/drcov.hpp"
 #include <iomanip>
 #include <iostream>
@@ -6,12 +6,12 @@
 
 namespace w1tool::commands {
 
-int drcov(
+int read_drcov(
     args::ValueFlag<std::string>& file_flag, args::Flag& summary_flag, args::Flag& detailed_flag,
     args::ValueFlag<std::string>& module_flag
 ) {
 
-  auto log = redlog::get_logger("w1tool.drcov");
+  auto log = redlog::get_logger("w1tool.read-drcov");
 
   if (!file_flag) {
     log.error("DrCov file path required");

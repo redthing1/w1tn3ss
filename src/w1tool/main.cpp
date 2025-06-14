@@ -1,6 +1,7 @@
-#include "commands/drcov.hpp"
+#include "commands/cover.hpp"
 #include "commands/inject.hpp"
 #include "commands/inspect.hpp"
+#include "commands/read_drcov.hpp"
 #include "ext/args.hpp"
 #include <cstdlib>
 #include <iostream>
@@ -26,19 +27,28 @@ int main(int argc, char* argv[]) {
   args::ValueFlag<std::string> inject_name(inject, "name", "target process name", {'n', "name"});
   args::ValueFlag<int> inject_pid(inject, "pid", "target process id", {'p', "pid"});
   args::ValueFlag<std::string> inject_binary(inject, "path", "binary to launch with injection", {'b', "binary"});
-  args::ValueFlag<std::string> inject_tool(inject, "tool", "specify analysis tool (e.g., w1cov)", {'t', "tool"});
 
   // inspect subcommand
   args::Command inspect(commands, "inspect", "inspect binary file");
   args::ValueFlag<std::string> inspect_binary(inspect, "path", "path to binary file", {'b', "binary"});
 
-  // drcov subcommand
-  args::Command drcov(commands, "drcov", "analyze DrCov coverage files");
-  args::ValueFlag<std::string> drcov_file(drcov, "path", "path to DrCov file", {'f', "file"});
-  args::Flag drcov_summary(drcov, "summary", "show summary only", {'s', "summary"});
-  args::Flag drcov_detailed(drcov, "detailed", "show detailed basic block listing", {'d', "detailed"});
-  args::ValueFlag<std::string> drcov_module(
-      drcov, "module", "filter by module name (substring match)", {'m', "module"}
+  // cover subcommand
+  args::Command cover(commands, "cover", "perform coverage tracing with configurable options");
+  args::ValueFlag<std::string> cover_binary(cover, "path", "binary to trace", {'b', "binary"});
+  args::ValueFlag<int> cover_pid(cover, "pid", "process ID to attach to", {'p', "pid"});
+  args::ValueFlag<std::string> cover_name(cover, "name", "process name to attach to", {'n', "name"});
+  args::ValueFlag<std::string> cover_output(cover, "path", "output file path", {'o', "output"});
+  args::Flag cover_exclude_system(cover, "exclude-system", "exclude system libraries", {"exclude-system"});
+  args::Flag cover_debug(cover, "debug", "enable debug output", {"debug"});
+  args::ValueFlag<std::string> cover_format(cover, "format", "output format (drcov, text)", {"format"});
+
+  // read-drcov subcommand
+  args::Command read_drcov(commands, "read-drcov", "analyze DrCov coverage files");
+  args::ValueFlag<std::string> read_drcov_file(read_drcov, "path", "path to DrCov file", {'f', "file"});
+  args::Flag read_drcov_summary(read_drcov, "summary", "show summary only", {'s', "summary"});
+  args::Flag read_drcov_detailed(read_drcov, "detailed", "show detailed basic block listing", {'d', "detailed"});
+  args::ValueFlag<std::string> read_drcov_module(
+      read_drcov, "module", "filter by module name (substring match)", {'m', "module"}
   );
 
   // global logging options
@@ -98,11 +108,13 @@ int main(int argc, char* argv[]) {
     }
 
     if (inject) {
-      return w1tool::commands::inject(inject_library, inject_name, inject_pid, inject_binary, inject_tool);
+      return w1tool::commands::inject(inject_library, inject_name, inject_pid, inject_binary);
     } else if (inspect) {
       return w1tool::commands::inspect(inspect_binary);
-    } else if (drcov) {
-      return w1tool::commands::drcov(drcov_file, drcov_summary, drcov_detailed, drcov_module);
+    } else if (cover) {
+      return w1tool::commands::cover(cover_binary, cover_pid, cover_name, cover_output, cover_exclude_system, cover_debug, cover_format);
+    } else if (read_drcov) {
+      return w1tool::commands::read_drcov(read_drcov_file, read_drcov_summary, read_drcov_detailed, read_drcov_module);
     } else {
       // show help by default when no command specified
       std::cout << parser;

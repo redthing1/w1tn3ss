@@ -4,7 +4,8 @@ set(SOURCES
     main.cpp
     commands/inject.cpp
     commands/inspect.cpp
-    commands/drcov.cpp
+    commands/cover.cpp
+    commands/read_drcov.cpp
 )
 
 add_executable(${EXECUTABLE_NAME} ${SOURCES})

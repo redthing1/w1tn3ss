@@ -11,12 +11,11 @@ namespace w1tool::commands {
  * @param name_flag Target process name (optional)
  * @param pid_flag Target process ID (optional)
  * @param binary_flag Binary to launch with injection (optional)
- * @param tool_flag Analysis tool specification (optional)
  * @return Exit code (0 for success, 1 for failure)
  */
 int inject(
     args::ValueFlag<std::string>& library_flag, args::ValueFlag<std::string>& name_flag, args::ValueFlag<int>& pid_flag,
-    args::ValueFlag<std::string>& binary_flag, args::ValueFlag<std::string>& tool_flag
+    args::ValueFlag<std::string>& binary_flag
 );
 
 } // namespace w1tool::commands
