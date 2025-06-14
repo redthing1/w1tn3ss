@@ -89,13 +89,34 @@ const FLUSH_INTERVAL_MS = 1000;         // flush every N milliseconds
 function flushBuffer() {
     try {
         if (callBuffer.length > 0) {
+            const dataToSend = callBuffer.splice(0);
+            console.log(`Flushing ${dataToSend.length} calls from buffer`);
             send({
                 type: 'calls',
-                data: callBuffer.splice(0)
+                data: dataToSend
             });
         }
     } catch (e) {
         console.error('Error flushing buffer:', e.message);
+        // Clear buffer on error to prevent memory buildup
+        callBuffer.length = 0;
+    }
+}
+
+// force flush buffer if it's getting too large to prevent memory issues
+function forceFlushIfNeeded() {
+    if (callBuffer.length >= MAX_BUFFER_SIZE) {
+        console.warn(`Buffer overflow protection: force flushing ${callBuffer.length} calls`);
+        try {
+            const dataToSend = callBuffer.splice(0);
+            send({
+                type: 'calls',
+                data: dataToSend
+            });
+        } catch (e) {
+            console.error('Error in force flush:', e.message);
+            callBuffer.length = 0; // Clear to prevent memory buildup
+        }
     }
 }
 
@@ -132,7 +153,37 @@ function getCurrentFunctionContext(threadId) {
 function processCallEvent(sourceAddr, targetAddr, threadId, callType = 'call') {
     try {
         const funcContext = getCurrentFunctionContext(threadId);
-        if (!funcContext) return;
+        if (!funcContext) {
+            // If no function context, this is a call happening outside our monitored functions
+            // We can still record it with a generic context
+            const callData = {
+                timestamp: Date.now() / 1000.0,
+                thread_id: threadId,
+                source_addr: sourceAddr.toString(),
+                target_addr: targetAddr.toString(),
+                function_context: "0x0", // generic context for calls outside monitored functions
+                call_type: callType
+            };
+            
+            callBuffer.push(callData);
+            totalCalls++;
+            
+            // check buffer size and flush if needed
+            forceFlushIfNeeded();
+            if (callBuffer.length >= FLUSH_THRESHOLD) {
+                try {
+                    const dataToSend = callBuffer.splice(0);
+                    send({
+                        type: 'calls',
+                        data: dataToSend
+                    });
+                } catch (e) {
+                    console.error('Error sending call data:', e.message);
+                    callBuffer.length = 0;
+                }
+            }
+            return;
+        }
         
         // create call event
         const callData = {
@@ -155,12 +206,19 @@ function processCallEvent(sourceAddr, targetAddr, threadId, callType = 'call') {
             stats.threads.add(threadId);
         }
         
-        // send if buffer is getting full or at regular intervals
-        if (callBuffer.length >= MAX_BUFFER_SIZE || callBuffer.length >= FLUSH_THRESHOLD) {
-            send({
-                type: 'calls',
-                data: callBuffer.splice(0)  // remove all and send
-            });
+        // check buffer size and flush if needed
+        forceFlushIfNeeded();
+        if (callBuffer.length >= FLUSH_THRESHOLD) {
+            try {
+                const dataToSend = callBuffer.splice(0);
+                send({
+                    type: 'calls',
+                    data: dataToSend
+                });
+            } catch (e) {
+                console.error('Error sending call data:', e.message);
+                callBuffer.length = 0;
+            }
         }
     } catch (e) {
         console.error('Error processing call event:', e.message);
@@ -171,7 +229,35 @@ function processCallEvent(sourceAddr, targetAddr, threadId, callType = 'call') {
 function processReturnEvent(sourceAddr, threadId) {
     try {
         const funcContext = getCurrentFunctionContext(threadId);
-        if (!funcContext) return;
+        if (!funcContext) {
+            // If no function context, still record with generic context
+            const returnData = {
+                timestamp: Date.now() / 1000.0,
+                thread_id: threadId,
+                source_addr: sourceAddr.toString(),
+                target_addr: "0x0",
+                function_context: "0x0",
+                call_type: 'return'
+            };
+            
+            callBuffer.push(returnData);
+            totalCalls++;
+            
+            forceFlushIfNeeded();
+            if (callBuffer.length >= FLUSH_THRESHOLD) {
+                try {
+                    const dataToSend = callBuffer.splice(0);
+                    send({
+                        type: 'calls',
+                        data: dataToSend
+                    });
+                } catch (e) {
+                    console.error('Error sending return data:', e.message);
+                    callBuffer.length = 0;
+                }
+            }
+            return;
+        }
         
         // create return event
         const returnData = {
@@ -187,12 +273,19 @@ function processReturnEvent(sourceAddr, threadId) {
         callBuffer.push(returnData);
         totalCalls++;
         
-        // send if buffer is getting full or at regular intervals
-        if (callBuffer.length >= MAX_BUFFER_SIZE || callBuffer.length >= FLUSH_THRESHOLD) {
-            send({
-                type: 'calls',
-                data: callBuffer.splice(0)
-            });
+        // check buffer size and flush if needed
+        forceFlushIfNeeded();
+        if (callBuffer.length >= FLUSH_THRESHOLD) {
+            try {
+                const dataToSend = callBuffer.splice(0);
+                send({
+                    type: 'calls',
+                    data: dataToSend
+                });
+            } catch (e) {
+                console.error('Error sending return data:', e.message);
+                callBuffer.length = 0;
+            }
         }
     } catch (e) {
         console.error('Error processing return event:', e.message);
@@ -259,37 +352,49 @@ function enterMonitoredFunction(funcAddr, threadId) {
                     },
                     onReceive: function(events) {
                         try {
-                            const parsed = Stalker.parse(events);
+                            if (!events || events.byteLength === 0) {
+                                return; // Skip empty events
+                            }
                             
-                            // process events in pairs/triplets
-                            for (let i = 0; i < parsed.length; ) {
-                                const eventType = parsed[i] & 0xff;
-                                
-                                if (eventType === 0) { // CALL event
-                                    if (i + 2 < parsed.length) {
-                                        const sourceAddr = parsed[i + 1];
-                                        const targetAddr = parsed[i + 2];
+                            const parsed = Stalker.parse(events, {
+                                stringify: false,
+                                annotate: false
+                            });
+                            
+                            if (!parsed || parsed.length === 0) {
+                                return; // Skip if no parsed events
+                            }
+                            
+                            // process each event - format is [source, target, depth]
+                            for (const event of parsed) {
+                                try {
+                                    if (!event || event.length < 3) {
+                                        continue; // Skip malformed events
+                                    }
+                                    
+                                    const sourceAddr = ptr(event[0]);
+                                    const targetAddr = ptr(event[1]);
+                                    const depth = event[2];
+                                    
+                                    if (depth >= 0) {
+                                        // Positive or zero depth indicates a call
                                         processCallEvent(sourceAddr, targetAddr, threadId, 'call');
-                                        i += 3;
                                     } else {
-                                        break;
-                                    }
-                                } else if (eventType === 1) { // RET event
-                                    if (i + 1 < parsed.length) {
-                                        const sourceAddr = parsed[i + 1];
+                                        // Negative depth indicates a return
                                         processReturnEvent(sourceAddr, threadId);
-                                        i += 2;
-                                    } else {
-                                        break;
                                     }
-                                } else {
-                                    // Skip unknown event types
-                                    i++;
+                                } catch (eventError) {
+                                    console.error(`Error processing individual event:`, eventError.message);
+                                    // Continue processing other events
                                 }
                             }
                         } catch (e) {
                             console.error(`Error in stalker onReceive for thread ${threadId}:`, e.message);
+                            // Don't crash the stalker, just log and continue
                         }
+                    },
+                    onCallSummary: function(summary) {
+                        // Optional call summary logging
                     }
                 });
                 
@@ -335,15 +440,22 @@ function exitMonitoredFunction(funcAddr, threadId) {
                 }
             }
             
-            // send buffer if getting full or at regular intervals
-            if (callBuffer.length >= MAX_BUFFER_SIZE || callBuffer.length >= FLUSH_THRESHOLD) {
-                send({
-                    type: 'calls',
-                    data: callBuffer.splice(0)
-                });
+            // check buffer size and flush if needed
+            forceFlushIfNeeded();
+            if (callBuffer.length >= FLUSH_THRESHOLD) {
+                try {
+                    const dataToSend = callBuffer.splice(0);
+                    send({
+                        type: 'calls',
+                        data: dataToSend
+                    });
+                } catch (e) {
+                    console.error('Error sending exit event data:', e.message);
+                    callBuffer.length = 0;
+                }
             }
             
-            // stop stalking if we're exiting all monitored functions in this thread
+            // check if we're exiting all monitored functions in this thread
             if (depth === 1) {
                 let stillInMonitoredFunction = false;
                 state.depths.forEach((d, addr) => {
@@ -352,27 +464,35 @@ function exitMonitoredFunction(funcAddr, threadId) {
                     }
                 });
                 
-                if (!stillInMonitoredFunction && state.stalking) {
-                    console.log(`Stopping stalker for thread ${threadId}`);
-                    try {
-                        Stalker.unfollow(threadId);
-                        state.stalking = false;
-                        activeStalkers.delete(threadId);
-                        
-                        // Check if this was the last active thread
-                        if (activeStalkers.size === 0) {
-                            console.log('All threads completed, flushing final data...');
-                            flushBuffer();
-                            cleanup();
-                            
-                            // Signal final completion
-                            send({ type: 'process_complete' });
-                        } else {
-                            console.log(`Thread ${threadId} completed, ${activeStalkers.size} threads still active`);
+                if (!stillInMonitoredFunction) {
+                    console.log(`Thread ${threadId} exited all monitored functions`);
+                    
+                    // Don't stop stalking immediately - let it continue for a bit
+                    // to catch any remaining call/ret events
+                    setTimeout(() => {
+                        if (state.stalking) {
+                            console.log(`Stopping stalker for thread ${threadId} (delayed)`);
+                            try {
+                                Stalker.unfollow(threadId);
+                                state.stalking = false;
+                                activeStalkers.delete(threadId);
+                                
+                                // Check if this was the last active thread
+                                if (activeStalkers.size === 0) {
+                                    console.log('All threads completed, flushing final data...');
+                                    flushBuffer();
+                                    cleanup();
+                                    
+                                    // Signal final completion
+                                    send({ type: 'process_complete' });
+                                } else {
+                                    console.log(`Thread ${threadId} completed, ${activeStalkers.size} threads still active`);
+                                }
+                            } catch (e) {
+                                console.error(`Error stopping stalker for thread ${threadId}:`, e.message);
+                            }
                         }
-                    } catch (e) {
-                        console.error(`Error stopping stalker for thread ${threadId}:`, e.message);
-                    }
+                    }, 100); // Small delay to capture remaining events
                 }
             }
         }
@@ -934,13 +1054,22 @@ class CallTracer:
 
     def _on_message(self, message, data):
         """Handle messages from the JS agent"""
-        if message["type"] == "error":
-            print(f"[!] Script error: {message}")
-            return
+        try:
+            if not message or not isinstance(message, dict):
+                print(f"[!] Invalid message format: {message}")
+                return
 
-        if message["type"] == "send":
-            payload = message.get("payload", {})
-            msg_type = payload.get("type")
+            if message["type"] == "error":
+                print(f"[!] Script error: {message}")
+                return
+
+            if message["type"] == "send":
+                payload = message.get("payload", {})
+                if not isinstance(payload, dict):
+                    print(f"[!] Invalid payload format: {payload}")
+                    return
+
+                msg_type = payload.get("type")
 
             if msg_type == "ready":
                 print("[+] Agent ready and monitoring")
@@ -1009,7 +1138,16 @@ class CallTracer:
                 self.running = False  # Stop the main loop
 
             elif msg_type == "error":
-                print(f"[!] Error: {payload.get('message')}")
+                print(f"[!] Error: {payload.get('message', 'Unknown error')}")
+
+        except KeyError as e:
+            print(f"[!] Missing required field in message: {e}")
+        except Exception as e:
+            print(f"[!] Error processing message: {e}")
+            if self.args.verbose:
+                import traceback
+
+                traceback.print_exc()
 
     def _timeout_handler(self):
         """Handle timeout"""
@@ -1158,59 +1296,89 @@ class CallTracer:
 
     def export_results(self):
         """Export results to file"""
-        output_file = self.args.output
+        try:
+            output_file = self.args.output
+            if not output_file:
+                raise ValueError("No output file specified")
 
-        # handle compression
-        if self.args.compress:
-            if not output_file.endswith(".gz"):
-                output_file += ".gz"
+            # Validate output directory exists
+            output_dir = os.path.dirname(os.path.abspath(output_file))
+            if not os.path.exists(output_dir):
+                os.makedirs(output_dir, exist_ok=True)
+                print(f"[*] Created output directory: {output_dir}")
 
-        # export based on format
-        if self.args.format == "json":
-            self._export_json(output_file)
-        elif self.args.format == "csv":
-            self._export_csv(output_file)
-        elif self.args.format == "binary":
-            self._export_binary(output_file)
+            # handle compression
+            if self.args.compress:
+                if not output_file.endswith(".gz"):
+                    output_file += ".gz"
 
-        file_size = os.path.getsize(output_file)
-        print(f"[+] Results saved to: {output_file} ({file_size:,} bytes)")
+            # export based on format
+            if self.args.format == "json":
+                self._export_json(output_file)
+            elif self.args.format == "csv":
+                self._export_csv(output_file)
+            elif self.args.format == "binary":
+                self._export_binary(output_file)
+            else:
+                raise ValueError(f"Unsupported export format: {self.args.format}")
+
+            if os.path.exists(output_file):
+                file_size = os.path.getsize(output_file)
+                print(f"[+] Results saved to: {output_file} ({file_size:,} bytes)")
+            else:
+                print(f"[!] Warning: Output file was not created: {output_file}")
+
+        except Exception as e:
+            print(f"[!] Error exporting results: {e}")
+            if self.args.verbose:
+                import traceback
+
+                traceback.print_exc()
+            raise
 
     def _export_json(self, filepath):
         """Export to JSON format"""
-        summary = self.get_summary()
+        try:
+            summary = self.get_summary()
 
-        data = {
-            "metadata": {
-                "version": VERSION,
-                "target": self.args.target,
-                "start_time": self.start_time,
-                "end_time": self.end_time,
-                "duration": summary.duration,
-                "total_calls": summary.total_calls,
-                "unique_threads": summary.unique_threads,
-                "calls_per_second": summary.calls_per_second,
-                "functions": summary.functions,
-            },
-            "calls": [
-                {
-                    "timestamp": e.timestamp,
-                    "thread_id": e.thread_id,
-                    "source_addr": hex(e.source_addr),
-                    "target_addr": hex(e.target_addr),
-                    "function_context": hex(e.function_context),
-                    "call_type": e.call_type,
-                }
-                for e in self.call_events
-            ],
-        }
+            data = {
+                "metadata": {
+                    "version": VERSION,
+                    "target": self.args.target,
+                    "start_time": self.start_time,
+                    "end_time": self.end_time,
+                    "duration": summary.duration,
+                    "total_calls": summary.total_calls,
+                    "unique_threads": summary.unique_threads,
+                    "calls_per_second": summary.calls_per_second,
+                    "functions": summary.functions,
+                },
+                "calls": [
+                    {
+                        "timestamp": e.timestamp,
+                        "thread_id": e.thread_id,
+                        "source_addr": hex(e.source_addr) if e.source_addr else "0x0",
+                        "target_addr": hex(e.target_addr) if e.target_addr else "0x0",
+                        "function_context": (
+                            hex(e.function_context) if e.function_context else "0x0"
+                        ),
+                        "call_type": e.call_type or "unknown",
+                    }
+                    for e in self.call_events
+                ],
+            }
 
-        if self.args.compress:
-            with gzip.open(filepath, "wt", encoding="utf-8") as f:
-                json.dump(data, f, indent=2)
-        else:
-            with open(filepath, "w") as f:
-                json.dump(data, f, indent=2)
+            if self.args.compress:
+                with gzip.open(filepath, "wt", encoding="utf-8") as f:
+                    json.dump(data, f, indent=2)
+            else:
+                with open(filepath, "w", encoding="utf-8") as f:
+                    json.dump(data, f, indent=2)
+
+        except (IOError, OSError) as e:
+            raise RuntimeError(f"Failed to write JSON file: {e}")
+        except Exception as e:
+            raise RuntimeError(f"Error creating JSON data: {e}")
 
     def _export_csv(self, filepath):
         """Export to CSV format"""
