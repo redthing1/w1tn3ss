@@ -21,8 +21,11 @@ python call_tracer.py -p 1234 -F 0x401000 -F 0x402000 -o traces.json
 # trace by function name with symbols
 python call_tracer.py myapp.exe -n malloc -n free -o calls.csv --format csv
 
-# spawn and trace with timeout
-python call_tracer.py -s ./target_binary -F 0x401000 -t 30
+# monitor all functions in a module, excluding system modules
+python call_tracer.py -p 1234 -m myapp --no-system -o trace.json
+
+# monitor everything except system modules
+python call_tracer.py -s ./target_binary -M --no-system -t 30
 """
 
 from __future__ import print_function
@@ -53,10 +56,11 @@ js_agent_code = """
 "use strict";
 
 // configuration passed from python
-const config = %s;  // {functions: [...], modules: [...], monitorAll: bool}
+const config = %s;  // {functions: [...], modules: [...], monitorAll: bool, excludeSystem: bool}
 const monitoredFunctions = config.functions || [];
 const targetModules = config.modules || [];
 const monitorAll = config.monitorAll || false;
+const excludeSystem = config.excludeSystem || false;
 
 // per-thread state tracking
 const threadState = new Map();
@@ -339,7 +343,8 @@ function setupFunctionHooks() {
             });
             
             resolved.push(func);
-            console.log(`Hooked ${func.address} (${func.name || 'unnamed'})`);
+            const moduleInfo = func.module ? ` in ${func.module}` : '';
+            console.log(`Hooked ${func.address} (${func.name || 'unnamed'})${moduleInfo}`);
             
         } catch (e) {
             console.error(`Failed to hook ${func.address}: ${e.message}`);
@@ -402,11 +407,53 @@ function expandAddressRanges(ranges) {
     return functions;
 }
 
+// check if a module is a system module
+function isSystemModule(moduleName, modulePath) {
+    const name = moduleName.toLowerCase();
+    const path = modulePath ? modulePath.toLowerCase() : '';
+    
+    // Cross-platform system module patterns
+    const systemPatterns = [
+        // macOS system modules
+        /^lib(system|c|objc|dispatch|foundation|corefoundation|security)/,
+        /^(dyld|libdyld)/,
+        /\.framework\//,
+        /^\/system\//,
+        /^\/usr\/lib\//,
+        
+        // Linux system modules
+        /^lib(c|pthread|dl|m|rt|resolv|nsl|util|crypt)\.so/,
+        /^ld-linux/,
+        /^\/lib\//,
+        /^\/usr\/lib\//,
+        /^linux-vdso/,
+        
+        // Windows system modules  
+        /^(ntdll|kernel32|user32|advapi32|ole32|oleaut32|shell32)\.dll$/,
+        /^msvcrt/,
+        /^api-ms-/,
+        
+        // Common patterns
+        /^libc\+\+/,
+        /^libstdc\+\+/,
+        /^libgcc/
+    ];
+    
+    return systemPatterns.some(pattern => 
+        pattern.test(name) || (path && pattern.test(path))
+    );
+}
+
 // discover functions in specified modules
 function discoverModuleFunctions(moduleNames) {
     const functions = [];
     
     Process.enumerateModules().forEach(module => {
+        // Skip system modules if excludeSystem is enabled
+        if (excludeSystem && isSystemModule(module.name, module.path)) {
+            return;
+        }
+        
         if (moduleNames.length === 0 || moduleNames.includes(module.name)) {
             console.log(`Discovering functions in module: ${module.name}`);
             
@@ -423,7 +470,9 @@ function discoverModuleFunctions(moduleNames) {
         }
     });
     
-    console.log(`Discovered ${functions.length} functions in ${moduleNames.length > 0 ? moduleNames.join(', ') : 'all modules'}`);
+    const moduleDesc = moduleNames.length > 0 ? moduleNames.join(', ') : 'all modules';
+    const systemDesc = excludeSystem ? ' (excluding system modules)' : '';
+    console.log(`Discovered ${functions.length} functions in ${moduleDesc}${systemDesc}`);
     return functions;
 }
 
@@ -432,6 +481,12 @@ function discoverAllFunctions() {
     const functions = [];
     
     Process.enumerateModules().forEach(module => {
+        // Skip system modules if excludeSystem is enabled
+        if (excludeSystem && isSystemModule(module.name, module.path)) {
+            console.log(`Skipping system module: ${module.name}`);
+            return;
+        }
+        
         console.log(`Discovering all functions in module: ${module.name}`);
         
         // enumerate exports
@@ -446,7 +501,8 @@ function discoverAllFunctions() {
         });
     });
     
-    console.log(`Discovered ${functions.length} total functions in all modules`);
+    const systemDesc = excludeSystem ? ' (excluding system modules)' : '';
+    console.log(`Discovered ${functions.length} total functions in all modules${systemDesc}`);
     return functions;
 }
 
@@ -670,6 +726,7 @@ class CallTracer:
                 "functions": self.monitored_functions,
                 "modules": self.args.module or [],
                 "monitorAll": self.args.monitor_all,
+                "excludeSystem": self.args.no_system,
             }
 
             # inject script
@@ -1097,6 +1154,11 @@ def main():
         "--monitor-all",
         action="store_true",
         help="Monitor all functions in all modules (explicit flag required)",
+    )
+    parser.add_argument(
+        "--no-system",
+        action="store_true",
+        help="Exclude system modules from monitoring",
     )
 
     # output options
