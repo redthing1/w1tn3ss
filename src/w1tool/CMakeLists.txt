@@ -2,6 +2,9 @@ set(EXECUTABLE_NAME w1tool)
 
 set(SOURCES
     main.cpp
+    commands/inject.cpp
+    commands/inspect.cpp
+    commands/drcov.cpp
 )
 
 add_executable(${EXECUTABLE_NAME} ${SOURCES})
