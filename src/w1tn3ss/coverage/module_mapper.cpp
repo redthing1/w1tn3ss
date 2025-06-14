@@ -1,4 +1,5 @@
 #include "module_mapper.hpp"
+#include "common/platform_utils.hpp"
 #include "coverage_data.hpp"
 #include <algorithm>
 #include <fstream>
@@ -382,16 +383,8 @@ bool module_mapper::discover_modules_unix() {
 }
 
 bool module_mapper::is_system_module(const std::string& path) const {
-  // heuristics for system modules/libraries
-  if (path.empty() || path == "[anonymous]" || path.find("[") == 0) {
-    return true; // anonymous mappings are usually system
-  }
-
-  return path.find("/System/") != std::string::npos || path.find("/usr/lib/") != std::string::npos ||
-         path.find("/usr/local/lib/") != std::string::npos || path.find("/lib/") == 0 || path.find("/lib64/") == 0 ||
-         path.find("libsystem_") != std::string::npos || path.find("libc.so") != std::string::npos ||
-         path.find("libc++") != std::string::npos || path.find("libdyld") != std::string::npos ||
-         path.find("ld-linux") != std::string::npos;
+  // Use cross-platform system library detection
+  return w1::common::platform_utils::is_system_library_path(path);
 }
 
 bool module_mapper::matches_target_pattern(const std::string& path) const {

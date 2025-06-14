@@ -19,6 +19,10 @@ install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/ext/
     FILES_MATCHING PATTERN "*.hpp" PATTERN "*.h"
 )
 
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/platform_utils.hpp
+    DESTINATION include/common
+)
+
 install(TARGETS ${LIBRARY_NAME}
     EXPORT w1tn3ssTargets
 )

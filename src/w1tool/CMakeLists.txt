@@ -18,6 +18,7 @@ set_target_properties(${EXECUTABLE_NAME} PROPERTIES
 target_include_directories(${EXECUTABLE_NAME}
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_SOURCE_DIR}/src
 )
 
 target_link_libraries(${EXECUTABLE_NAME}

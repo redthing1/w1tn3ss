@@ -1,4 +1,5 @@
 #include "cover.hpp"
+#include "common/platform_utils.hpp"
 #include "w1nj3ct.hpp"
 #include <cstdlib>
 #include <filesystem>
@@ -16,32 +17,24 @@ int cover(
   auto log = redlog::get_logger("w1tool.cover");
 
   // Log platform information for debugging
-#ifdef __APPLE__
-  log.debug("platform detected: macOS");
-#elif defined(__linux__)
-  log.debug("platform detected: Linux");
-#elif defined(_WIN32)
-  log.debug("platform detected: Windows");
-#else
-  log.warn("platform not explicitly supported");
-#endif
+  std::string platform = w1::common::platform_utils::get_platform_name();
+  log.debug("platform detected", redlog::field("platform", platform));
 
-  // Determine coverage library path (platform-specific)
+  if (!w1::common::platform_utils::supports_runtime_injection()) {
+    log.warn("runtime injection may not be supported on this platform", redlog::field("platform", platform));
+  }
+
+  // Determine coverage library path (cross-platform)
   std::string lib_path;
   const char* env_lib_path = std::getenv("W1COV_LIBRARY_PATH");
   if (env_lib_path) {
     lib_path = env_lib_path;
+    log.debug("using library path from environment", redlog::field("path", lib_path));
   } else {
-    // Platform-specific default paths
-#ifdef __APPLE__
-    lib_path = "./build-release/w1cov_qbdipreload.dylib";
-#elif defined(__linux__)
-    lib_path = "./build-release/w1cov_qbdipreload.so";
-#elif defined(_WIN32)
-    lib_path = "./build-release/w1cov_qbdipreload.dll";
-#else
-#error "Unsupported platform for coverage library"
-#endif
+    // Generate platform-appropriate default path
+    std::string lib_extension = w1::common::platform_utils::get_library_extension();
+    lib_path = "./build-release/w1cov_qbdipreload" + lib_extension;
+    log.debug("using default library path", redlog::field("path", lib_path), redlog::field("extension", lib_extension));
   }
 
   // Validate target specification
