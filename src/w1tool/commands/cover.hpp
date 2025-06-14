@@ -6,7 +6,7 @@ namespace w1tool::commands {
 
 /**
  * Cover command - performs coverage tracing with configurable options
- * 
+ *
  * @param binary_flag Path to binary to trace
  * @param pid_flag Process ID to attach to for runtime tracing
  * @param name_flag Process name to attach to for runtime tracing
@@ -16,12 +16,10 @@ namespace w1tool::commands {
  * @param format_flag Output format (drcov, text) (optional)
  * @return Exit code (0 for success, 1 for failure)
  */
-int cover(args::ValueFlag<std::string>& binary_flag,
-          args::ValueFlag<int>& pid_flag,
-          args::ValueFlag<std::string>& name_flag,
-          args::ValueFlag<std::string>& output_flag,
-          args::Flag& exclude_system_flag,
-          args::Flag& debug_flag,
-          args::ValueFlag<std::string>& format_flag);
+int cover(
+    args::ValueFlag<std::string>& binary_flag, args::ValueFlag<int>& pid_flag, args::ValueFlag<std::string>& name_flag,
+    args::ValueFlag<std::string>& output_flag, args::Flag& exclude_system_flag, args::Flag& debug_flag,
+    args::ValueFlag<std::string>& format_flag
+);
 
 } // namespace w1tool::commands

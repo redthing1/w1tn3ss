@@ -23,7 +23,7 @@ int read_drcov(
 
   try {
     // Read and parse the DrCov file
-    auto coverage_data = ::drcov::read(file_path);
+    auto coverage_data = drcov::read(file_path);
 
     // Print header information
     std::cout << "=== DrCov File Analysis ===\n";
@@ -131,7 +131,7 @@ int read_drcov(
 
     return 0;
 
-  } catch (const ::drcov::parse_error& e) {
+  } catch (const drcov::parse_error& e) {
     log.error(
         "failed to parse DrCov file", redlog::field("error", e.what()),
         redlog::field("code", static_cast<int>(e.code()))

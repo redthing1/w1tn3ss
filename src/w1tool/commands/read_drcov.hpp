@@ -6,16 +6,16 @@ namespace w1tool::commands {
 
 /**
  * Read-DrCov command - analyzes DrCov coverage files
- * 
+ *
  * @param file_flag Path to DrCov file to analyze
  * @param summary_flag Show summary only (optional)
  * @param detailed_flag Show detailed basic block listing (optional)
  * @param module_flag Filter by module name substring (optional)
  * @return Exit code (0 for success, 1 for failure)
  */
-int read_drcov(args::ValueFlag<std::string>& file_flag,
-               args::Flag& summary_flag,
-               args::Flag& detailed_flag,
-               args::ValueFlag<std::string>& module_flag);
+int read_drcov(
+    args::ValueFlag<std::string>& file_flag, args::Flag& summary_flag, args::Flag& detailed_flag,
+    args::ValueFlag<std::string>& module_flag
+);
 
 } // namespace w1tool::commands
