@@ -10,6 +10,8 @@ extern "C" {
 #include <sys/types.h>
 #include <sys/sysctl.h>
 #include <libproc.h>
+#include <cstdlib>
+#include <crt_externs.h>
 
 namespace w1::inject::darwin {
 
@@ -98,7 +100,27 @@ result inject_preload(const config& cfg) {
     }
     
     // set up environment with DYLD_INSERT_LIBRARIES
-    std::map<std::string, std::string> env = cfg.env_vars;
+    // start with current environment
+    std::map<std::string, std::string> env;
+    char ***environ_ptr = _NSGetEnviron();
+    if (environ_ptr && *environ_ptr) {
+        for (char **ep = *environ_ptr; *ep; ep++) {
+            std::string env_var(*ep);
+            size_t eq_pos = env_var.find('=');
+            if (eq_pos != std::string::npos) {
+                std::string key = env_var.substr(0, eq_pos);
+                std::string value = env_var.substr(eq_pos + 1);
+                env[key] = value;
+            }
+        }
+    }
+    
+    // add/override with cfg.env_vars
+    for (const auto& [key, value] : cfg.env_vars) {
+        env[key] = value;
+    }
+    
+    // Add DYLD_INSERT_LIBRARIES
     env["DYLD_INSERT_LIBRARIES"] = cfg.library_path;
     
     // build command line
@@ -126,7 +148,7 @@ result inject_preload(const config& cfg) {
         // execve only returns on error
         _exit(1);
     } else if (child_pid > 0) {
-        // parent process - injection successful
+        // parent process: injection successful
         return make_success_result(child_pid);
     } else {
         // fork failed

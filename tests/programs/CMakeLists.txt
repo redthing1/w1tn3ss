@@ -18,6 +18,12 @@ set_target_properties(multi_threaded_target PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs
 )
 
+# control flow crackme program
+add_executable(control_flow_1 control_flow_1.cpp)
+set_target_properties(control_flow_1 PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs
+)
+
 # platform-specific linking
 if(WIN32)
     # no additional libraries needed for Windows
@@ -27,6 +33,6 @@ elseif(UNIX)
 endif()
 
 # install targets
-install(TARGETS simple_target long_running_target multi_threaded_target
+install(TARGETS simple_target long_running_target multi_threaded_target control_flow_1
     RUNTIME DESTINATION tests/programs
 )

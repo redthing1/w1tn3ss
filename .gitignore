@@ -3,6 +3,8 @@
 claude/
 CLAUDE.md
 
+*.drcov
+
 temp/
 plans/
 

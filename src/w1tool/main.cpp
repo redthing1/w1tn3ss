@@ -1,5 +1,6 @@
 #include <iostream>
 #include <string>
+#include <cstdlib>
 #include <redlog/redlog.hpp>
 #include "w1tn3ss.hpp"
 #include "w1nj3ct.hpp"
@@ -8,7 +9,8 @@
 int cmd_inject(args::ValueFlag<std::string>& library_flag, 
                args::ValueFlag<std::string>& name_flag,
                args::ValueFlag<int>& pid_flag,
-               args::ValueFlag<std::string>& binary_flag) {
+               args::ValueFlag<std::string>& binary_flag,
+               args::ValueFlag<std::string>& tool_flag) {
     
     auto log = redlog::get_logger("w1tool.inject");
     
@@ -21,6 +23,12 @@ int cmd_inject(args::ValueFlag<std::string>& library_flag,
     std::string lib_path = args::get(library_flag);
     w1::inject::result result;
     
+    // tool-specific configuration is handled per injection method below
+    if (tool_flag) {
+        std::string tool_name = args::get(tool_flag);
+        log.info("tool specified", redlog::field("tool", tool_name));
+    }
+    
     // determine injection method based on arguments
     if (binary_flag) {
         // launch injection
@@ -29,7 +37,33 @@ int cmd_inject(args::ValueFlag<std::string>& library_flag,
                  redlog::field("binary", binary_path),
                  redlog::field("library", lib_path));
         
-        result = w1::inject::inject_library_launch(binary_path, lib_path);
+        // use full config to pass environment variables
+        w1::inject::config cfg;
+        cfg.library_path = lib_path;
+        cfg.injection_method = w1::inject::method::launch;
+        cfg.binary_path = binary_path;
+        
+        // add environment variables if tool was specified
+        if (tool_flag) {
+            std::string tool_name = args::get(tool_flag);
+            if (tool_name == "w1cov") {
+                cfg.env_vars["W1COV_ENABLED"] = "1";
+                cfg.env_vars["W1COV_EXCLUDE_SYSTEM"] = "1";
+                cfg.env_vars["W1COV_DEBUG"] = "1";  // Enable debug output
+                
+                std::string output_file = "coverage.drcov";
+                size_t last_slash = binary_path.find_last_of("/\\");
+                std::string binary_name = (last_slash != std::string::npos) ? 
+                    binary_path.substr(last_slash + 1) : binary_path;
+                output_file = binary_name + ".drcov";
+                cfg.env_vars["W1COV_OUTPUT_FILE"] = output_file;
+                
+                log.info("w1cov environment added to injection config", 
+                         redlog::field("output_file", output_file));
+            }
+        }
+        
+        result = w1::inject::inject(cfg);
         
     } else if (pid_flag) {
         // runtime injection by pid
@@ -123,6 +157,7 @@ int main(int argc, char* argv[]) {
     args::ValueFlag<std::string> inject_name(inject, "name", "target process name", {'n', "name"});
     args::ValueFlag<int> inject_pid(inject, "pid", "target process id", {'p', "pid"});
     args::ValueFlag<std::string> inject_binary(inject, "path", "binary to launch with injection", {'b', "binary"});
+    args::ValueFlag<std::string> inject_tool(inject, "tool", "specify analysis tool (e.g., w1cov)", {'t', "tool"});
     
     // inspect subcommand  
     args::Command inspect(commands, "inspect", "inspect binary file");
@@ -168,7 +203,7 @@ int main(int argc, char* argv[]) {
         }
         
         if (inject) {
-            return cmd_inject(inject_library, inject_name, inject_pid, inject_binary);
+            return cmd_inject(inject_library, inject_name, inject_pid, inject_binary, inject_tool);
         } else if (inspect) {
             return cmd_inspect(inspect_binary);
         } else {
