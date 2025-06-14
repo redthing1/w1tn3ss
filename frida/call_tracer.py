@@ -1067,6 +1067,11 @@ class CallTracer:
                 if self.args.disable_aslr:
                     # disable aslr using frida
                     spawn_options["aslr"] = "disable"
+                    # on macos, try DYLD_DISABLE_ASLR
+                    if sys.platform == "darwin":
+                        spawn_options["env"] = {
+                            "DYLD_DISABLE_ASLR": "1",
+                        }
                     print("[*] Attempting to disable ASLR for the target process")
 
                 self.pid = self.device.spawn([self.args.target], **spawn_options)
