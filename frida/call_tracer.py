@@ -18,8 +18,11 @@ python call_tracer.py -p 1234 -F 0x401000
 # trace specific functions and save to file
 python call_tracer.py -p 1234 -F 0x401000 -F 0x402000 -o traces.json
 
+# trace using module+offset format (handles ASLR)
+python call_tracer.py -p 1234 -F myapp+0x1234 -F libcrypto+2048 -o traces.json
+
 # trace by function name with symbols
-python call_tracer.py myapp.exe -n malloc -n free -o calls.csv --format csv
+python call_tracer.py myapp.exe -n malloc -n free -o calls.json
 
 # monitor all functions in a module, excluding system modules
 python call_tracer.py -p 1234 -m myapp --no-system -o trace.json
@@ -32,7 +35,6 @@ from __future__ import print_function
 
 import argparse
 import json
-import csv
 import os
 import signal
 import sys
@@ -62,7 +64,7 @@ js_agent_code = """
 //=============================================================================
 
 // configuration passed from python
-const config = %s;  // {functions: [...], modules: [...], monitorAll: bool, excludeSystem: bool}
+const config = JSON.parse('CONFIG_JSON_PLACEHOLDER');
 const monitoredFunctions = config.functions || [];
 const targetModules = config.modules || [];
 const monitorAll = config.monitorAll || false;
@@ -545,6 +547,44 @@ function setupFunctionHooks() {
     });
 }
 
+// resolve module+offset to addresses
+function resolveModuleOffsets(moduleOffsets) {
+    const resolved = [];
+    
+    moduleOffsets.forEach(entry => {
+        const moduleName = entry.module;
+        const offset = parseInt(entry.offset, 16);
+        let found = false;
+        
+        // find module by name
+        Process.enumerateModules().forEach(module => {
+            if (found) return;
+            
+            // Match by exact name or basename
+            const moduleBaseName = module.name.split('/').pop().split('\\\\').pop();
+            if (module.name === moduleName || moduleBaseName === moduleName) {
+                const baseAddr = module.base;
+                const targetAddr = baseAddr.add(offset);
+                
+                resolved.push({
+                    address: targetAddr.toString(),
+                    name: `${moduleName}+${entry.offset}`,
+                    module: module.name,
+                    offset: entry.offset
+                });
+                found = true;
+                console.log(`Resolved ${moduleName}+${entry.offset} to ${targetAddr} (base: ${baseAddr})`);
+            }
+        });
+        
+        if (!found) {
+            console.warn(`Could not resolve module: ${moduleName}`);
+        }
+    });
+    
+    return resolved;
+}
+
 // resolve function names to addresses
 function resolveFunctionNames(names) {
     const resolved = [];
@@ -753,8 +793,15 @@ if (ranges.length > 0) {
     rangeFunctions.forEach(f => monitoredFunctions.push(f));
 }
 
+// process module+offset entries if any
+const moduleOffsets = monitoredFunctions.filter(f => f.module && f.offset);
+if (moduleOffsets.length > 0) {
+    const resolved = resolveModuleOffsets(moduleOffsets);
+    resolved.forEach(r => monitoredFunctions.push(r));
+}
+
 // process function names if any
-const namesToResolve = monitoredFunctions.filter(f => f.name && !f.address).map(f => f.name);
+const namesToResolve = monitoredFunctions.filter(f => f.name && !f.address && !f.module).map(f => f.name);
 if (namesToResolve.length > 0) {
     const resolved = resolveFunctionNames(namesToResolve);
     resolved.forEach(r => monitoredFunctions.push(r));
@@ -810,6 +857,23 @@ recv(function(message) {
         cleanup();
         send({ type: 'shutdown_complete' });
     }
+});
+
+// collect module information early for RE analysis
+const moduleInfo = [];
+Process.enumerateModules().forEach(module => {
+    moduleInfo.push({
+        name: module.name,
+        base: module.base.toString(),
+        size: module.size,
+        path: module.path
+    });
+});
+
+// send module information 
+send({
+    type: 'modules',
+    data: moduleInfo
 });
 
 // send ready signal
@@ -882,6 +946,7 @@ class CallTracer:
         self.function_contexts = {}  # addr -> FunctionContext
         self.monitored_functions = []
         self.shutdown_complete = False
+        self.modules = []  # module information for RE analysis
 
         # prepare monitored functions
         self._prepare_monitored_functions()
@@ -894,22 +959,40 @@ class CallTracer:
         """Prepare the list of functions to monitor"""
         functions = []
 
-        # add functions by address
+        # add functions by address or module+offset
         for addr in self.args.hook_func or []:
             try:
-                if addr.startswith("0x") or addr.startswith("0X"):
-                    addr_int = int(addr, 16)
-                elif addr.isdigit():
-                    addr_int = int(addr)
+                # Check for module+offset format (e.g., "mymodule+1234" or "mymodule+0x1234")
+                if "+" in addr:
+                    module_name, offset_str = addr.split("+", 1)
+                    # Parse offset as hex (strip 0x prefix if present)
+                    offset_clean = (
+                        offset_str[2:]
+                        if offset_str.startswith(("0x", "0X"))
+                        else offset_str
+                    )
+                    offset = int(offset_clean, 16)
+                    functions.append(
+                        {
+                            "module": module_name.strip(),
+                            "offset": hex(offset),
+                            "name": f"{module_name}+{hex(offset)}",
+                        }
+                    )
                 else:
-                    # Try hex without prefix
-                    addr_int = int(addr, 16)
-                func_ctx = FunctionContext(address=addr_int, name=None)
-                self.function_contexts[addr] = func_ctx
-                functions.append({"address": addr, "name": None})
+                    # Handle regular address format - always treat as hex unless clearly decimal
+                    if addr.startswith(("0x", "0X")) or not addr.isdigit():
+                        addr_int = int(addr, 16)
+                    else:
+                        # Small decimal numbers (< 65536) treated as decimal, otherwise hex
+                        addr_int = int(addr) if int(addr) < 65536 else int(addr, 16)
+                    func_ctx = FunctionContext(address=addr_int, name=None)
+                    self.function_contexts[addr] = func_ctx
+                    functions.append({"address": addr, "name": None})
             except ValueError:
                 print(
-                    f"[-] Invalid address format: {addr}. Use hex (0x1234) or decimal format."
+                    f"[-] Invalid address/module+offset format: {addr}. "
+                    f"Use hex (0x1234), decimal, or module+offset (mymodule+0x1234)."
                 )
                 sys.exit(1)
 
@@ -947,6 +1030,25 @@ class CallTracer:
 
         self.monitored_functions = functions
 
+    def _resolve_address_to_module_offset(self, address):
+        """Resolve an address to module+offset format"""
+        if not self.modules:
+            return hex(address)  # fallback to hex if no modules
+
+        addr_int = address if isinstance(address, int) else int(address, 16)
+
+        # Find the module containing this address
+        for module in self.modules:
+            base_addr = int(module["base"], 16)
+            module_size = module["size"]
+
+            if base_addr <= addr_int < (base_addr + module_size):
+                offset = addr_int - base_addr
+                return f"{module['name']}+{hex(offset)}"
+
+        # If no module found, return hex address
+        return hex(addr_int)
+
     def start_tracing(self):
         """Start the tracing session"""
         try:
@@ -960,7 +1062,19 @@ class CallTracer:
                         f"Target binary not found: {self.args.target}"
                     )
 
-                self.pid = self.device.spawn([self.args.target])
+                # prepare spawn options
+                spawn_options = {}
+                if self.args.disable_aslr:
+                    # disable aslr using frida
+                    spawn_options["aslr"] = "disable"
+                    # on macos, try DYLD_DISABLE_ASLR
+                    if sys.platform == "darwin":
+                        spawn_options["env"] = {
+                            "DYLD_DISABLE_ASLR": "1",
+                        }
+                    print("[*] Attempting to disable ASLR for the target process")
+
+                self.pid = self.device.spawn([self.args.target], **spawn_options)
                 self.session = self.device.attach(self.pid)
                 print(f"[+] Spawned process with PID: {self.pid}")
             else:
@@ -998,13 +1112,22 @@ class CallTracer:
                 "excludeSystem": self.args.no_system,
             }
 
-            # inject script
-            script_code = js_agent_code % json.dumps(config)
-
+            # inject script with properly escaped JSON
             try:
+                # properly escape JSON for JavaScript string literal
+                config_json = json.dumps(config)
+                # escape single quotes and backslashes for JavaScript string literal
+                config_json_escaped = config_json.replace("\\", "\\\\").replace(
+                    "'", "\\'"
+                )
+                script_code = js_agent_code.replace(
+                    "CONFIG_JSON_PLACEHOLDER", config_json_escaped
+                )
+
                 self.script = self.session.create_script(script_code)
                 self.script.on("message", self._on_message)
                 self.script.load()
+
             except frida.InvalidArgumentError as e:
                 raise RuntimeError(f"Invalid JavaScript agent code: {e}")
             except Exception as e:
@@ -1073,6 +1196,11 @@ class CallTracer:
 
             if msg_type == "ready":
                 print("[+] Agent ready and monitoring")
+
+            elif msg_type == "modules":
+                # store module information for RE analysis
+                self.modules = payload.get("data", [])
+                print(f"[*] Collected information for {len(self.modules)} modules")
 
             elif msg_type == "hook_status":
                 resolved = payload.get("resolved", [])
@@ -1254,35 +1382,39 @@ class CallTracer:
 
         if call_types:
             print(f"\nCall Types:")
-            print("-" * 30)
+            print("-" * 70)
             for call_type, count in sorted(call_types.items()):
                 print(f"{call_type:<12}: {count:>8,}")
 
         if summary.functions:
             print(f"\nMonitored Functions ({len(summary.functions)}):")
-            print("-" * 60)
+            print("-" * 70)
             print(
-                f"{'Address':<18} {'Name':<20} {'Calls':>10} {'Threads':>8} {'Targets':>8}"
+                f"{'Module+Offset':<36} {'Name':<36} {'Calls':>16} {'Threads':>8} {'Targets':>8}"
             )
-            print("-" * 60)
+            print("-" * 70)
             for func in summary.functions:
                 name = func["name"][:20]
+                # Convert address to module+offset for display
+                module_offset = self._resolve_address_to_module_offset(func["address"])
                 print(
-                    f"{func['address']:<18} {name:<20} {func['calls']:>10,} "
+                    f"{module_offset:<36} {name:<36} {func['calls']:>16,} "
                     f"{func['threads']:>8} {func['unique_targets']:>8}"
                 )
 
         if summary.top_targets:
             print(f"\nTop Call Targets:")
-            print("-" * 40)
-            print(f"{'Address':<18} {'Count':>10}")
-            print("-" * 40)
+            print("-" * 70)
+            print(f"{'Module+Offset':<36} {'Count':>16}")
+            print("-" * 70)
             for addr, count in summary.top_targets:
-                print(f"{addr:<18} {count:>10,}")
+                # Convert hex address to module+offset for display
+                module_offset = self._resolve_address_to_module_offset(addr)
+                print(f"{module_offset:<36} {count:>16,}")
 
         if len(summary.thread_distribution) > 1:
             print(f"\nThread Distribution:")
-            print("-" * 30)
+            print("-" * 70)
             sorted_threads = sorted(
                 summary.thread_distribution.items(), key=lambda x: x[1], reverse=True
             )
@@ -1292,7 +1424,7 @@ class CallTracer:
             if len(sorted_threads) > 5:
                 print(f"... and {len(sorted_threads) - 5} more threads")
 
-        print("\n" + "=" * 60)
+        print("\n" + "=" * 70)
 
     def export_results(self):
         """Export results to file"""
@@ -1315,10 +1447,6 @@ class CallTracer:
             # export based on format
             if self.args.format == "json":
                 self._export_json(output_file)
-            elif self.args.format == "csv":
-                self._export_csv(output_file)
-            elif self.args.format == "binary":
-                self._export_binary(output_file)
             else:
                 raise ValueError(f"Unsupported export format: {self.args.format}")
 
@@ -1353,14 +1481,30 @@ class CallTracer:
                     "calls_per_second": summary.calls_per_second,
                     "functions": summary.functions,
                 },
+                "modules": self.modules,
                 "calls": [
                     {
                         "timestamp": e.timestamp,
                         "thread_id": e.thread_id,
                         "source_addr": hex(e.source_addr) if e.source_addr else "0x0",
+                        "source_module_offset": (
+                            self._resolve_address_to_module_offset(e.source_addr)
+                            if e.source_addr
+                            else "0x0"
+                        ),
                         "target_addr": hex(e.target_addr) if e.target_addr else "0x0",
+                        "target_module_offset": (
+                            self._resolve_address_to_module_offset(e.target_addr)
+                            if e.target_addr
+                            else "0x0"
+                        ),
                         "function_context": (
                             hex(e.function_context) if e.function_context else "0x0"
+                        ),
+                        "function_context_module_offset": (
+                            self._resolve_address_to_module_offset(e.function_context)
+                            if e.function_context
+                            else "0x0"
                         ),
                         "call_type": e.call_type or "unknown",
                     }
@@ -1379,66 +1523,6 @@ class CallTracer:
             raise RuntimeError(f"Failed to write JSON file: {e}")
         except Exception as e:
             raise RuntimeError(f"Error creating JSON data: {e}")
-
-    def _export_csv(self, filepath):
-        """Export to CSV format"""
-        headers = [
-            "timestamp",
-            "thread_id",
-            "source_addr",
-            "target_addr",
-            "function_context",
-            "call_type",
-        ]
-
-        if self.args.compress:
-            f = gzip.open(filepath, "wt", newline="", encoding="utf-8")
-        else:
-            f = open(filepath, "w", newline="")
-
-        try:
-            writer = csv.writer(f)
-            writer.writerow(headers)
-
-            for e in self.call_events:
-                writer.writerow(
-                    [
-                        e.timestamp,
-                        e.thread_id,
-                        hex(e.source_addr),
-                        hex(e.target_addr),
-                        hex(e.function_context),
-                        e.call_type,
-                    ]
-                )
-        finally:
-            f.close()
-
-    def _export_binary(self, filepath):
-        """Export to binary format"""
-        if self.args.compress:
-            f = gzip.open(filepath, "wb")
-        else:
-            f = open(filepath, "wb")
-
-        try:
-            # header
-            f.write(BINARY_MAGIC)
-            f.write(struct.pack("<H", BINARY_VERSION))
-            f.write(struct.pack("<I", len(self.call_events)))
-
-            # calls
-            call_type_map = {"call": 0, "return": 1, "entry": 2, "exit": 3}
-            for e in self.call_events:
-                f.write(struct.pack("<d", e.timestamp))
-                f.write(struct.pack("<I", e.thread_id))
-                f.write(struct.pack("<Q", e.source_addr))
-                f.write(struct.pack("<Q", e.target_addr))
-                f.write(struct.pack("<Q", e.function_context))
-                call_type_byte = call_type_map.get(e.call_type, 0)
-                f.write(struct.pack("<B", call_type_byte))
-        finally:
-            f.close()
 
 
 # ==============================================================================
@@ -1468,7 +1552,8 @@ def main():
         "-F",
         "--hook-func",
         action="append",
-        help="Function address to monitor (can be repeated)",
+        help="Function address or module+offset to monitor (can be repeated).\n"
+        "Examples: 0x401000, 401000, mymodule+0x1234, mymodule+1234",
     )
     parser.add_argument(
         "-n",
@@ -1509,9 +1594,9 @@ def main():
     parser.add_argument(
         "-f",
         "--format",
-        choices=["json", "csv", "binary"],
+        choices=["json"],
         default="json",
-        help="Output format (default: json)",
+        help="Output format",
     )
     parser.add_argument(
         "--compress", action="store_true", help="Compress output file with gzip"
@@ -1526,6 +1611,11 @@ def main():
         "--spawn",
         action="store_true",
         help="Spawn new process instead of attaching",
+    )
+    parser.add_argument(
+        "--disable-aslr",
+        action="store_true",
+        help="Disable ASLR for spawned process (macOS only, requires code signing)",
     )
 
     # device options
@@ -1635,11 +1725,13 @@ def main():
         tracer.stop_tracing()
 
         # show results
+        tracer.print_summary()
+
+        # export results if requested
         if tracer.call_events:
             if args.output:
+                print(f"[*] Exporting results to {args.output}...")
                 tracer.export_results()
-            else:
-                tracer.print_summary()
         else:
             print("[!] No calls collected.")
 
