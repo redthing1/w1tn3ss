@@ -142,7 +142,14 @@ target_link_libraries(w1cov_sampling
 target_compile_features(w1cov_sampling PRIVATE cxx_std_17)
 
 # Standalone QBDI coverage library
+set(W1COV_COMMON_SOURCES
+    coverage/common/w1cov_config.cpp
+    coverage/common/w1cov_qbdi_utils.cpp
+    coverage/common/w1cov_export.cpp
+)
+
 set(W1COV_STANDALONE_SOURCES
+    ${W1COV_COMMON_SOURCES}
     coverage/coverage_data.cpp
     coverage/module_mapper.cpp
     coverage/w1cov_standalone.cpp
