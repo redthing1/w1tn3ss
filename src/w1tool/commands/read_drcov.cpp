@@ -75,17 +75,25 @@ int read_drcov(
     // Detailed analysis if requested
     if (detailed_flag) {
       std::cout << "=== Detailed Basic Blocks ===\n";
-      std::cout << std::left << std::setw(6) << "Module" << std::setw(12) << "Offset" << std::setw(8) << "Size"
-                << "Absolute Address\n";
-      std::cout << std::string(40, '-') << "\n";
+      std::cout << std::left 
+                << std::setw(8) << "Module" 
+                << std::setw(14) << "Offset" 
+                << std::setw(8) << "Size"
+                << std::setw(18) << "Absolute Address"
+                << "Module Name\n";
+      std::cout << std::string(80, '-') << "\n";
 
       for (const auto& bb : coverage_data.basic_blocks) {
         if (bb.module_id < coverage_data.modules.size()) {
           const auto& module = coverage_data.modules[bb.module_id];
           uint64_t abs_addr = bb.absolute_address(module);
 
-          std::cout << std::left << std::setw(6) << bb.module_id << "0x" << std::hex << std::setw(10) << bb.start
-                    << std::dec << std::setw(8) << bb.size << "0x" << std::hex << abs_addr << std::dec << "\n";
+          std::cout << std::left 
+                    << std::setw(8) << bb.module_id 
+                    << "0x" << std::hex << std::setw(11) << bb.start << std::dec
+                    << std::setw(8) << bb.size 
+                    << "0x" << std::hex << std::setw(15) << abs_addr << std::dec
+                    << module.path << "\n";
         }
       }
       std::cout << "\n";
