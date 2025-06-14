@@ -47,6 +47,7 @@ int main(int argc, char* argv[]) {
 
   // cover subcommand
   args::Command cover(commands, "cover", "perform coverage tracing with configurable options");
+  args::ValueFlag<std::string> cover_library(cover, "path", "path to w1cov library", {'L', "w1cov-library"});
   args::ValueFlag<std::string> cover_binary(cover, "path", "binary to trace", {'b', "binary"});
   args::ValueFlag<int> cover_pid(cover, "pid", "process ID to attach to", {'p', "pid"});
   args::ValueFlag<std::string> cover_name(cover, "name", "process name to attach to", {'n', "name"});
@@ -104,7 +105,8 @@ int main(int argc, char* argv[]) {
       return w1tool::commands::inspect(inspect_binary);
     } else if (cover) {
       return w1tool::commands::cover(
-          cover_binary, cover_pid, cover_name, cover_output, cover_exclude_system, cover_debug, cover_format
+          cover_library, cover_binary, cover_pid, cover_name, cover_output, cover_exclude_system, cover_debug,
+          cover_format
       );
     } else if (read_drcov) {
       return w1tool::commands::read_drcov(read_drcov_file, read_drcov_summary, read_drcov_detailed, read_drcov_module);

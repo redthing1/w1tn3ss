@@ -159,6 +159,7 @@ set_target_properties(w1cov PROPERTIES
 target_include_directories(w1cov
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_SOURCE_DIR}/src
 )
 
 target_link_libraries(w1cov

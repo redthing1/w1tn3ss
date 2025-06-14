@@ -9,9 +9,9 @@
 namespace w1tool::commands {
 
 int cover(
-    args::ValueFlag<std::string>& binary_flag, args::ValueFlag<int>& pid_flag, args::ValueFlag<std::string>& name_flag,
-    args::ValueFlag<std::string>& output_flag, args::Flag& exclude_system_flag, args::Flag& debug_flag,
-    args::ValueFlag<std::string>& format_flag
+    args::ValueFlag<std::string>& library_flag, args::ValueFlag<std::string>& binary_flag,
+    args::ValueFlag<int>& pid_flag, args::ValueFlag<std::string>& name_flag, args::ValueFlag<std::string>& output_flag,
+    args::Flag& exclude_system_flag, args::Flag& debug_flag, args::ValueFlag<std::string>& format_flag
 ) {
 
   auto log = redlog::get_logger("w1tool.cover");
@@ -24,18 +24,14 @@ int cover(
     log.warn("runtime injection may not be supported on this platform", redlog::field("platform", platform));
   }
 
-  // Determine coverage library path (cross-platform)
-  std::string lib_path;
-  const char* env_lib_path = std::getenv("W1COV_LIBRARY_PATH");
-  if (env_lib_path) {
-    lib_path = env_lib_path;
-    log.debug("using library path from environment", redlog::field("path", lib_path));
-  } else {
-    // Generate platform-appropriate default path
-    std::string lib_extension = w1::common::platform_utils::get_library_extension();
-    lib_path = "./build-release/w1cov_qbdipreload" + lib_extension;
-    log.debug("using default library path", redlog::field("path", lib_path), redlog::field("extension", lib_extension));
+  // Require library path to be specified
+  if (!library_flag) {
+    log.error("w1cov library path is required: specify -L/--w1cov-library");
+    return 1;
   }
+
+  std::string lib_path = args::get(library_flag);
+  log.debug("using specified library path", redlog::field("path", lib_path));
 
   // Validate target specification
   int target_count = 0;
