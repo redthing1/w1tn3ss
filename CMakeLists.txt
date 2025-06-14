@@ -14,16 +14,14 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Debug)
 endif()
 
-# add asan and ubsan in debug mode
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    if(NOT WIN32)
-        add_compile_options(-fsanitize=address -fsanitize=undefined)
-        add_link_options(-fsanitize=address -fsanitize=undefined)
-    endif()
-endif()
+# sanitizers disabled - cause crashes with QBDI injection
+# if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT WIN32)
+#     set(SANITIZER_FLAGS "-fsanitize=address;-fsanitize=undefined")
+# endif()
 
 # options
 option(WITNESS_SHARED "Build w1tn3ss as shared library" ON)
+option(WITNESS_QBDI_EXTRAS "Build QBDI with examples, tests and additional tools" OFF)
 
 # auto-detect qbdi platform and architecture
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
@@ -53,9 +51,19 @@ message(STATUS "QBDI Architecture: ${QBDI_ARCH}")
 
 # configure qbdi
 set(QBDI_STATIC_LIBRARY ON)
-set(QBDI_TOOLS_PYQBDI OFF)
-set(QBDI_TOOLS_FRIDAQBDI ON)
-set(QBDI_TEST OFF)
+set(QBDI_LOG_DEBUG OFF)
+
+if(WITNESS_QBDI_EXTRAS)
+    set(QBDI_TOOLS_PYQBDI ON)
+    set(QBDI_TOOLS_FRIDAQBDI ON)
+    set(QBDI_TEST ON)
+    set(QBDI_EXAMPLES ON)
+else()
+    set(QBDI_TOOLS_PYQBDI OFF)
+    set(QBDI_TOOLS_FRIDAQBDI OFF)
+    set(QBDI_TEST OFF)
+    set(QBDI_EXAMPLES OFF)
+endif()
 
 # add third-party libraries
 add_subdirectory(src/third_party/qbdi)

@@ -54,6 +54,12 @@ target_link_libraries(${LIBRARY_NAME}
 # Compiler flags
 target_compile_features(${LIBRARY_NAME} PUBLIC cxx_std_17)
 
+# sanitizers disabled - cause crashes with QBDI injection
+# if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT WIN32)
+#     target_compile_options(${LIBRARY_NAME} PRIVATE ${SANITIZER_FLAGS})
+#     target_link_options(${LIBRARY_NAME} PRIVATE ${SANITIZER_FLAGS})
+# endif()
+
 if(WIN32 AND WITNESS_SHARED)
     target_compile_definitions(${LIBRARY_NAME} INTERFACE W1TN3SS_IMPORTS)
 endif()
@@ -84,6 +90,8 @@ target_link_libraries(w1cov_qbdipreload
 
 target_compile_features(w1cov_qbdipreload PRIVATE cxx_std_17)
 
+# injection libraries do not use sanitizers
+
 # Standalone QBDI coverage library
 set(W1COV_STANDALONE_SOURCES
     coverage/coverage_data.cpp
@@ -112,6 +120,8 @@ target_link_libraries(w1cov
 )
 
 target_compile_features(w1cov PRIVATE cxx_std_17)
+
+# injection libraries do not use sanitizers
 
 # Install rules
 install(TARGETS ${LIBRARY_NAME} w1cov_qbdipreload w1cov

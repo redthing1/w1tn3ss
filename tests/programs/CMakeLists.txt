@@ -24,6 +24,21 @@ set_target_properties(control_flow_1 PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs
 )
 
+# enable sanitizers for test programs in debug builds
+if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT WIN32)
+    target_compile_options(simple_target PRIVATE ${SANITIZER_FLAGS})
+    target_link_options(simple_target PRIVATE ${SANITIZER_FLAGS})
+    
+    target_compile_options(long_running_target PRIVATE ${SANITIZER_FLAGS})
+    target_link_options(long_running_target PRIVATE ${SANITIZER_FLAGS})
+    
+    target_compile_options(multi_threaded_target PRIVATE ${SANITIZER_FLAGS})
+    target_link_options(multi_threaded_target PRIVATE ${SANITIZER_FLAGS})
+    
+    target_compile_options(control_flow_1 PRIVATE ${SANITIZER_FLAGS})
+    target_link_options(control_flow_1 PRIVATE ${SANITIZER_FLAGS})
+endif()
+
 # platform-specific linking
 if(WIN32)
     # no additional libraries needed for Windows

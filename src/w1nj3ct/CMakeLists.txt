@@ -86,6 +86,12 @@ endif()
 # compiler flags
 target_compile_features(${LIBRARY_NAME} PUBLIC cxx_std_17)
 
+# enable sanitizers for injection library in debug builds
+if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT WIN32)
+    target_compile_options(${LIBRARY_NAME} PRIVATE ${SANITIZER_FLAGS})
+    target_link_options(${LIBRARY_NAME} PRIVATE ${SANITIZER_FLAGS})
+endif()
+
 # platform-specific compile definitions
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     target_compile_definitions(${LIBRARY_NAME} PRIVATE

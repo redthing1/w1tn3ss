@@ -26,6 +26,12 @@ target_link_libraries(${EXECUTABLE_NAME}
 
 target_compile_features(${EXECUTABLE_NAME} PRIVATE cxx_std_17)
 
+# enable sanitizers for main executable in debug builds
+if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT WIN32)
+    target_compile_options(${EXECUTABLE_NAME} PRIVATE ${SANITIZER_FLAGS})
+    target_link_options(${EXECUTABLE_NAME} PRIVATE ${SANITIZER_FLAGS})
+endif()
+
 install(TARGETS ${EXECUTABLE_NAME}
     RUNTIME DESTINATION bin
 )
