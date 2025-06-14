@@ -30,6 +30,21 @@ set_target_properties(runtime_injection_target PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs
 )
 
+# linux-specific target programs
+if(UNIX AND NOT APPLE)
+    # linux injection target with linux-specific features
+    add_executable(linux_target linux_target.c)
+    set_target_properties(linux_target PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs
+    )
+    
+    # linux daemon target for testing background process injection
+    add_executable(linux_daemon linux_daemon.c)
+    set_target_properties(linux_daemon PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs
+    )
+endif()
+
 # enable sanitizers for test programs in debug builds
 if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT WIN32)
     target_compile_options(simple_target PRIVATE ${SANITIZER_FLAGS})
@@ -46,6 +61,15 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT WIN32)
     
     target_compile_options(runtime_injection_target PRIVATE ${SANITIZER_FLAGS})
     target_link_options(runtime_injection_target PRIVATE ${SANITIZER_FLAGS})
+    
+    # linux-specific targets
+    if(UNIX AND NOT APPLE)
+        target_compile_options(linux_target PRIVATE ${SANITIZER_FLAGS})
+        target_link_options(linux_target PRIVATE ${SANITIZER_FLAGS})
+        
+        target_compile_options(linux_daemon PRIVATE ${SANITIZER_FLAGS})
+        target_link_options(linux_daemon PRIVATE ${SANITIZER_FLAGS})
+    endif()
 endif()
 
 # platform-specific linking
@@ -58,6 +82,13 @@ elseif(UNIX)
 endif()
 
 # install targets
-install(TARGETS simple_target long_running_target multi_threaded_target control_flow_1 runtime_injection_target
+set(PROGRAM_TARGETS simple_target long_running_target multi_threaded_target control_flow_1 runtime_injection_target)
+
+# add linux-specific targets to install list
+if(UNIX AND NOT APPLE)
+    list(APPEND PROGRAM_TARGETS linux_target linux_daemon)
+endif()
+
+install(TARGETS ${PROGRAM_TARGETS}
     RUNTIME DESTINATION tests/programs
 )

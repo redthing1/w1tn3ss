@@ -1,15 +1,19 @@
 #include "linux_injector.hpp"
 #include "../../error.hpp"
 
-// include the darwin injection backend (reused for linux)
+// include the new linux injection backend
 extern "C" {
-#include "darwin/injector.h"
+#include "../../backend/linux/linux_elf.h"
+#include "../../backend/linux/linux_ptrace.h"
+#include "../../backend/linux/linux_shellcode.h"
 }
 
+#include <cstring>
 #include <dirent.h>
 #include <fstream>
 #include <sstream>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 namespace w1::inject::linux_impl {
@@ -36,58 +40,137 @@ result inject_runtime(const config& cfg) {
     target_pid = *cfg.pid;
   }
 
-  // use existing injector backend (kubo/injector supports linux)
-  injector_t* injector = nullptr;
-  int err = injector_attach(&injector, target_pid);
-  if (err != INJERR_SUCCESS) {
+  // step 1: attach to target process using ptrace
+  int attach_result = linux_ptrace_attach(target_pid);
+  if (attach_result != LINUX_PTRACE_SUCCESS) {
     error_code mapped_error;
-    switch (err) {
-    case INJERR_NO_PROCESS:
+    switch (attach_result) {
+    case LINUX_PTRACE_NO_PROCESS:
       mapped_error = error_code::target_not_found;
       break;
-    case INJERR_PERMISSION:
+    case LINUX_PTRACE_PERMISSION:
       mapped_error = error_code::target_access_denied;
-      break;
-    case INJERR_NO_MEMORY:
-      mapped_error = error_code::out_of_memory;
       break;
     default:
       mapped_error = error_code::injection_failed;
       break;
     }
-    return make_error_result(mapped_error, injector_error(), err);
+    return make_error_result(
+        mapped_error, std::string("ptrace attach failed: ") + linux_ptrace_strerror(attach_result), attach_result
+    );
   }
 
-  // inject the library
-  void* handle = nullptr;
-  err = injector_inject(injector, cfg.library_path.c_str(), &handle);
+  // cleanup function to ensure detach
+  auto cleanup = [target_pid]() { linux_ptrace_detach(target_pid); };
 
-  // cleanup injector regardless of result
-  injector_detach(injector);
+  // step 2: find dlopen symbol in the target process
+  void* dlopen_addr = nullptr;
+  int symbol_result = linux_find_symbol(target_pid, "libdl.so", "dlopen", &dlopen_addr);
+  if (symbol_result != LINUX_ELF_SUCCESS) {
+    // try alternative library names
+    symbol_result = linux_find_symbol(target_pid, "libc.so", "dlopen", &dlopen_addr);
+    if (symbol_result != LINUX_ELF_SUCCESS) {
+      symbol_result = linux_find_symbol(target_pid, "ld-linux-x86-64.so", "dlopen", &dlopen_addr);
+    }
+  }
 
-  if (err != INJERR_SUCCESS) {
+  if (symbol_result != LINUX_ELF_SUCCESS) {
+    cleanup();
     error_code mapped_error;
-    switch (err) {
-    case INJERR_FILE_NOT_FOUND:
+    switch (symbol_result) {
+    case LINUX_ELF_ERROR_SYMBOL_NOT_FOUND:
+      mapped_error = error_code::symbol_not_found;
+      break;
+    case LINUX_ELF_ERROR_LIBRARY_NOT_FOUND:
       mapped_error = error_code::library_not_found;
       break;
-    case INJERR_NO_MEMORY:
-      mapped_error = error_code::out_of_memory;
-      break;
-    case INJERR_ERROR_IN_TARGET:
-      mapped_error = error_code::injection_failed;
-      break;
-    case INJERR_PERMISSION:
+    case LINUX_ELF_ERROR_PERMISSION_DENIED:
       mapped_error = error_code::target_access_denied;
       break;
-    case INJERR_UNSUPPORTED_TARGET:
+    default:
+      mapped_error = error_code::injection_failed;
+      break;
+    }
+    return make_error_result(
+        mapped_error, std::string("dlopen symbol resolution failed: ") + linux_elf_error_string(symbol_result),
+        symbol_result
+    );
+  }
+
+  // step 3: detect target process architecture
+  linux_arch_t arch = linux_detect_process_architecture(target_pid);
+  if (arch == ARCH_UNKNOWN) {
+    cleanup();
+    return make_error_result(error_code::target_invalid_architecture, "unsupported target architecture");
+  }
+
+  // step 4: generate dlopen shellcode
+  void* shellcode = nullptr;
+  size_t shellcode_size = 0;
+  int shellcode_result = linux_generate_dlopen_shellcode(cfg.library_path.c_str(), arch, &shellcode, &shellcode_size);
+  if (shellcode_result != LINUX_SHELLCODE_SUCCESS) {
+    cleanup();
+    error_code mapped_error;
+    switch (shellcode_result) {
+    case LINUX_SHELLCODE_ERROR_NO_MEMORY:
+      mapped_error = error_code::out_of_memory;
+      break;
+    case LINUX_SHELLCODE_ERROR_UNSUPPORTED_ARCH:
       mapped_error = error_code::target_invalid_architecture;
       break;
     default:
       mapped_error = error_code::injection_failed;
       break;
     }
-    return make_error_result(mapped_error, injector_error(), err);
+    return make_error_result(
+        mapped_error, std::string("shellcode generation failed: ") + linux_shellcode_error_string(shellcode_result),
+        shellcode_result
+    );
+  }
+
+  // cleanup function for shellcode
+  auto shellcode_cleanup = [shellcode]() {
+    if (shellcode) {
+      linux_free_shellcode(shellcode);
+    }
+  };
+
+  // step 5: inject and execute shellcode
+  void* injection_result = nullptr;
+  int exec_result = linux_inject_and_execute_shellcode(target_pid, shellcode, shellcode_size, &injection_result);
+
+  // cleanup shellcode regardless of result
+  shellcode_cleanup();
+
+  if (exec_result != LINUX_SHELLCODE_SUCCESS) {
+    cleanup();
+    error_code mapped_error;
+    switch (exec_result) {
+    case LINUX_SHELLCODE_ERROR_NO_MEMORY:
+      mapped_error = error_code::out_of_memory;
+      break;
+    case LINUX_SHELLCODE_ERROR_PERMISSION:
+      mapped_error = error_code::target_access_denied;
+      break;
+    case LINUX_SHELLCODE_ERROR_PTRACE_FAILED:
+      mapped_error = error_code::injection_failed;
+      break;
+    default:
+      mapped_error = error_code::injection_failed;
+      break;
+    }
+    return make_error_result(
+        mapped_error, std::string("shellcode execution failed: ") + linux_shellcode_error_string(exec_result),
+        exec_result
+    );
+  }
+
+  // step 6: detach from process
+  cleanup();
+
+  // check if dlopen returned null (injection failed)
+  if (injection_result == nullptr) {
+    return make_error_result(error_code::injection_failed, "dlopen returned null - library injection failed");
   }
 
   return make_success_result(target_pid);
@@ -160,6 +243,10 @@ std::vector<process_info> list_processes() {
     std::ifstream comm_file(comm_path);
     if (comm_file.is_open()) {
       std::getline(comm_file, info.name);
+      // remove trailing newline if present
+      if (!info.name.empty() && info.name.back() == '\n') {
+        info.name.pop_back();
+      }
     }
 
     // read command line from /proc/pid/cmdline
@@ -170,8 +257,33 @@ std::vector<process_info> list_processes() {
       std::getline(cmdline_file, cmdline, '\0'); // first argument is the executable
       if (!cmdline.empty()) {
         info.full_path = cmdline;
-        info.command_line = cmdline;
+
+        // rebuild full command line with spaces
+        std::string full_cmdline;
+        cmdline_file.seekg(0);
+        char c;
+        while (cmdline_file.get(c)) {
+          if (c == '\0') {
+            full_cmdline += ' ';
+          } else {
+            full_cmdline += c;
+          }
+        }
+        if (!full_cmdline.empty() && full_cmdline.back() == ' ') {
+          full_cmdline.pop_back();
+        }
+        info.command_line = full_cmdline;
       }
+    }
+
+    // read process status for additional info
+    std::string stat_path = "/proc/" + std::string(entry->d_name) + "/stat";
+    std::ifstream stat_file(stat_path);
+    if (stat_file.is_open()) {
+      std::string stat_line;
+      std::getline(stat_file, stat_line);
+      // parse basic info from stat file if needed
+      // format: pid (comm) state ppid pgrp session tty_nr ...
     }
 
     processes.push_back(info);
@@ -186,8 +298,19 @@ std::vector<process_info> find_processes_by_name(const std::string& name) {
   auto all_processes = list_processes();
 
   for (const auto& proc : all_processes) {
+    // match by process name (comm)
     if (proc.name == name) {
       matches.push_back(proc);
+      continue;
+    }
+
+    // also try matching by executable path basename
+    if (!proc.full_path.empty()) {
+      size_t last_slash = proc.full_path.find_last_of('/');
+      std::string basename = (last_slash != std::string::npos) ? proc.full_path.substr(last_slash + 1) : proc.full_path;
+      if (basename == name) {
+        matches.push_back(proc);
+      }
     }
   }
 
@@ -207,16 +330,38 @@ std::optional<process_info> get_process_info(int pid) {
 }
 
 bool check_injection_capabilities() {
-  // try to create a test injector to check permissions
-  injector_t* injector = nullptr;
-  int err = injector_attach(&injector, getpid()); // attach to self
+  // check if we can perform ptrace operations
+  // try attaching to ourselves as a basic capability test
+  pid_t self_pid = getpid();
 
-  if (err == INJERR_SUCCESS) {
-    injector_detach(injector);
-    return true;
+  // fork a child process to test ptrace on
+  pid_t child_pid = fork();
+  if (child_pid == 0) {
+    // child process - sleep briefly then exit
+    usleep(100000); // 100ms
+    _exit(0);
+  } else if (child_pid > 0) {
+    // parent process - try to attach to child
+    usleep(10000); // 10ms - give child time to start
+
+    int attach_result = linux_ptrace_attach(child_pid);
+    if (attach_result == LINUX_PTRACE_SUCCESS) {
+      linux_ptrace_detach(child_pid);
+
+      // wait for child to exit
+      int status;
+      waitpid(child_pid, &status, 0);
+      return true;
+    }
+
+    // wait for child to exit even if attach failed
+    int status;
+    waitpid(child_pid, &status, 0);
+    return false;
+  } else {
+    // fork failed
+    return false;
   }
-
-  return false;
 }
 
 } // namespace w1::inject::linux_impl

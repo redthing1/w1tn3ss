@@ -22,14 +22,17 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
         backend/darwin/mach_excServer.c
     )
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    # for now, use same backend as darwin (kubo/injector supports both)
+    # include linux injection backend sources
     list(APPEND PLATFORM_SOURCES
         platform/linux/linux_injector.cpp
-        # reuse darwin backend for linux (kubo/injector supports both)
-        backend/darwin/injector.c
-        backend/darwin/ptrace.c
-        backend/darwin/remote_call.c
-        backend/darwin/util.c
+        # complete linux backend implementation
+        backend/linux/linux_ptrace.c
+        backend/linux/linux_elf.c
+        backend/linux/linux_elf_extended.c
+        backend/linux/linux_shellcode.c
+        backend/linux/linux_shellcode_utils.c
+        backend/linux/injector.c
+        backend/linux/util.c
     )
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     list(APPEND PLATFORM_SOURCES

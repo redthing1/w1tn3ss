@@ -26,7 +26,7 @@ int inject(
     std::string binary_path = args::get(binary_flag);
     log.info("launch injection starting", redlog::field("binary", binary_path), redlog::field("library", lib_path));
 
-    result = w1::inject::inject_library_launch(lib_path, binary_path);
+    result = w1::inject::inject_library_launch(binary_path, lib_path);
 
   } else if (pid_flag) {
     // runtime injection by pid

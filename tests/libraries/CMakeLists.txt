@@ -24,6 +24,17 @@ set_target_properties(memory_lib PROPERTIES
     PREFIX ""  # no lib prefix
 )
 
+# linux-specific test library
+if(UNIX AND NOT APPLE)
+    add_library(linux_test_lib SHARED linux_test_lib.c)
+    set_target_properties(linux_test_lib PROPERTIES
+        LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/libraries
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/libraries
+        PREFIX ""  # no lib prefix
+    )
+    target_link_libraries(linux_test_lib PRIVATE ${CMAKE_DL_LIBS})
+endif()
+
 # injection libraries must not depend on sanitizers
 # target processes may not have asan initialized
 if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT WIN32)
@@ -35,6 +46,12 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT WIN32)
     
     target_compile_options(memory_lib PRIVATE -fno-sanitize=all)
     target_link_options(memory_lib PRIVATE -fno-sanitize=all)
+    
+    # linux-specific library
+    if(UNIX AND NOT APPLE)
+        target_compile_options(linux_test_lib PRIVATE -fno-sanitize=all)
+        target_link_options(linux_test_lib PRIVATE -fno-sanitize=all)
+    endif()
 endif()
 
 # platform-specific linking
@@ -55,10 +72,22 @@ else()
     set_target_properties(tracer_lib PROPERTIES SUFFIX ".so")
     set_target_properties(counter_lib PROPERTIES SUFFIX ".so")
     set_target_properties(memory_lib PROPERTIES SUFFIX ".so")
+    
+    # linux-specific library
+    if(TARGET linux_test_lib)
+        set_target_properties(linux_test_lib PROPERTIES SUFFIX ".so")
+    endif()
 endif()
 
 # install targets
-install(TARGETS tracer_lib counter_lib memory_lib
+set(LIBRARY_TARGETS tracer_lib counter_lib memory_lib)
+
+# add linux-specific targets to install list
+if(UNIX AND NOT APPLE)
+    list(APPEND LIBRARY_TARGETS linux_test_lib)
+endif()
+
+install(TARGETS ${LIBRARY_TARGETS}
     LIBRARY DESTINATION tests/libraries
     RUNTIME DESTINATION tests/libraries
 )
