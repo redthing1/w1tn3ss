@@ -14,6 +14,13 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Debug)
 endif()
 
+# Windows-specific fixes for multi-config generators
+if(WIN32 AND CMAKE_GENERATOR MATCHES "Visual Studio")
+    # Use both Debug and Release but ensure consistent config
+    set(CMAKE_CONFIGURATION_TYPES "Debug;Release" CACHE STRING "" FORCE)
+    # Don't force CMAKE_BUILD_TYPE for multi-config generators
+endif()
+
 # sanitizers disabled - cause crashes with QBDI injection
 # if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT WIN32)
 #     set(SANITIZER_FLAGS "-fsanitize=address;-fsanitize=undefined")
