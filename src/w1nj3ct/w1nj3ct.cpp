@@ -171,15 +171,17 @@ result inject(const config& cfg) {
 
   log.debug("configuration validated successfully");
 
-  // 2. check platform capabilities
-  log.debug("checking injection capabilities for platform", redlog::field("platform", platform_str));
+  // 2. check platform capabilities (only for runtime injection)
+  if (cfg.injection_method == method::runtime) {
+    log.debug("checking injection capabilities for platform", redlog::field("platform", platform_str));
 
-  bool capabilities_ok = check_injection_capabilities();
-  if (!capabilities_ok) {
-    log.warn(
-        "injection capabilities limited on this platform", redlog::field("platform", platform_str),
-        redlog::field("method", method_str)
-    );
+    bool capabilities_ok = check_injection_capabilities();
+    if (!capabilities_ok) {
+      log.warn(
+          "injection capabilities limited on this platform", redlog::field("platform", platform_str),
+          redlog::field("method", method_str)
+      );
+    }
   }
 
   // 3. platform detection and dispatch
