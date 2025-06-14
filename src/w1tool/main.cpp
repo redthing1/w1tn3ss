@@ -23,7 +23,15 @@ int main(int argc, char* argv[]) {
 
   args::ArgumentParser parser("w1tool - cross-platform dynamic binary analysis tool");
   parser.helpParams.proglineShowFlags = true;
+  parser.helpParams.showTerminator = false;
 
+  // global options group
+  args::Group global_options("global options");
+  args::HelpFlag help(global_options, "help", "show help", {'h', "help"});
+  args::CounterFlag verbose(global_options, "verbose", "increase verbosity", {'v', "verbose"});
+  args::Flag quiet(global_options, "quiet", "disable colored output", {'q', "quiet"});
+
+  args::GlobalOptions globals(parser, global_options);
   args::Group commands(parser, "commands");
 
   // inject subcommand
@@ -56,30 +64,19 @@ int main(int argc, char* argv[]) {
       read_drcov, "module", "filter by module name (substring match)", {'m', "module"}
   );
 
-  // global logging options
-  args::ValueFlag<std::string> log_level(
-      parser, "level", "log level (critical,error,warn,info,verbose,trace,debug)", {"log-level"}
-  );
-  args::CounterFlag verbose(
-      parser, "verbose", "increase verbosity: -v=info, -vv=verbose, -vvv=trace, -vvvv=debug", {'v', "verbose"}
-  );
-  args::Flag quiet(parser, "quiet", "disable colored output", {'q', "quiet"});
-
-  args::HelpFlag help(parser, "help", "show help", {'h', "help"});
-
   try {
     parser.ParseCLI(argc, argv);
 
     // apply logging configuration - verbose flags take precedence over log-level
     if (verbose) {
       int verbosity = args::get(verbose);
+      redlog::set_level(redlog::level::info);
+
       if (verbosity == 1) {
-        redlog::set_level(redlog::level::info);
-      } else if (verbosity == 2) {
         redlog::set_level(redlog::level::verbose);
-      } else if (verbosity == 3) {
+      } else if (verbosity == 2) {
         redlog::set_level(redlog::level::trace);
-      } else if (verbosity >= 4) {
+      } else if (verbosity >= 3) {
         redlog::set_level(redlog::level::debug);
       }
 
@@ -87,25 +84,6 @@ int main(int argc, char* argv[]) {
           "verbosity level set", redlog::field("count", verbosity),
           redlog::field("level", redlog::level_name(redlog::get_level()))
       );
-    } else if (log_level) {
-      std::string level_str = args::get(log_level);
-      if (level_str == "critical") {
-        redlog::set_level(redlog::level::critical);
-      } else if (level_str == "error") {
-        redlog::set_level(redlog::level::error);
-      } else if (level_str == "warn") {
-        redlog::set_level(redlog::level::warn);
-      } else if (level_str == "info") {
-        redlog::set_level(redlog::level::info);
-      } else if (level_str == "verbose") {
-        redlog::set_level(redlog::level::verbose);
-      } else if (level_str == "trace") {
-        redlog::set_level(redlog::level::trace);
-      } else if (level_str == "debug") {
-        redlog::set_level(redlog::level::debug);
-      } else {
-        log.warn("unknown log level, using default", redlog::field("level", level_str));
-      }
     }
 
     // Detect terminal capabilities for cross-platform color support
