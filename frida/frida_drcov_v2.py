@@ -9,8 +9,11 @@ Example usage:
 # install frida-tools via uv
 uv tool install frida-tools
 
+# run python with uv
+uv tool run --from frida-tools python ...
+
 # spawn and trace a binary
-uv tool run --from frida-tools python ./tools/frida_drcov_v2.py -S /path/to/binary -o /path/to/coverage.cov
+python ./tools/frida_drcov_v2.py -S /path/to/binary -o /path/to/coverage.cov
 """
 
 from __future__ import print_function
