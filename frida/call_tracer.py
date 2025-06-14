@@ -18,6 +18,9 @@ python call_tracer.py -p 1234 -F 0x401000
 # trace specific functions and save to file
 python call_tracer.py -p 1234 -F 0x401000 -F 0x402000 -o traces.json
 
+# trace using module+offset format (handles ASLR)
+python call_tracer.py -p 1234 -F myapp+0x1234 -F libcrypto+2048 -o traces.json
+
 # trace by function name with symbols
 python call_tracer.py myapp.exe -n malloc -n free -o calls.csv --format csv
 
@@ -62,7 +65,7 @@ js_agent_code = """
 //=============================================================================
 
 // configuration passed from python
-const config = %s;  // {functions: [...], modules: [...], monitorAll: bool, excludeSystem: bool}
+const config = JSON.parse('CONFIG_JSON_PLACEHOLDER');
 const monitoredFunctions = config.functions || [];
 const targetModules = config.modules || [];
 const monitorAll = config.monitorAll || false;
@@ -545,6 +548,44 @@ function setupFunctionHooks() {
     });
 }
 
+// resolve module+offset to addresses
+function resolveModuleOffsets(moduleOffsets) {
+    const resolved = [];
+    
+    moduleOffsets.forEach(entry => {
+        const moduleName = entry.module;
+        const offset = parseInt(entry.offset, 16);
+        let found = false;
+        
+        // find module by name
+        Process.enumerateModules().forEach(module => {
+            if (found) return;
+            
+            // Match by exact name or basename
+            const moduleBaseName = module.name.split('/').pop().split('\\\\').pop();
+            if (module.name === moduleName || moduleBaseName === moduleName) {
+                const baseAddr = module.base;
+                const targetAddr = baseAddr.add(offset);
+                
+                resolved.push({
+                    address: targetAddr.toString(),
+                    name: `${moduleName}+${entry.offset}`,
+                    module: module.name,
+                    offset: entry.offset
+                });
+                found = true;
+                console.log(`Resolved ${moduleName}+${entry.offset} to ${targetAddr} (base: ${baseAddr})`);
+            }
+        });
+        
+        if (!found) {
+            console.warn(`Could not resolve module: ${moduleName}`);
+        }
+    });
+    
+    return resolved;
+}
+
 // resolve function names to addresses
 function resolveFunctionNames(names) {
     const resolved = [];
@@ -753,8 +794,15 @@ if (ranges.length > 0) {
     rangeFunctions.forEach(f => monitoredFunctions.push(f));
 }
 
+// process module+offset entries if any
+const moduleOffsets = monitoredFunctions.filter(f => f.module && f.offset);
+if (moduleOffsets.length > 0) {
+    const resolved = resolveModuleOffsets(moduleOffsets);
+    resolved.forEach(r => monitoredFunctions.push(r));
+}
+
 // process function names if any
-const namesToResolve = monitoredFunctions.filter(f => f.name && !f.address).map(f => f.name);
+const namesToResolve = monitoredFunctions.filter(f => f.name && !f.address && !f.module).map(f => f.name);
 if (namesToResolve.length > 0) {
     const resolved = resolveFunctionNames(namesToResolve);
     resolved.forEach(r => monitoredFunctions.push(r));
@@ -894,22 +942,40 @@ class CallTracer:
         """Prepare the list of functions to monitor"""
         functions = []
 
-        # add functions by address
+        # add functions by address or module+offset
         for addr in self.args.hook_func or []:
             try:
-                if addr.startswith("0x") or addr.startswith("0X"):
-                    addr_int = int(addr, 16)
-                elif addr.isdigit():
-                    addr_int = int(addr)
+                # Check for module+offset format (e.g., "mymodule+1234" or "mymodule+0x1234")
+                if "+" in addr:
+                    module_name, offset_str = addr.split("+", 1)
+                    # Parse offset as hex (strip 0x prefix if present)
+                    offset_clean = (
+                        offset_str[2:]
+                        if offset_str.startswith(("0x", "0X"))
+                        else offset_str
+                    )
+                    offset = int(offset_clean, 16)
+                    functions.append(
+                        {
+                            "module": module_name.strip(),
+                            "offset": hex(offset),
+                            "name": f"{module_name}+{hex(offset)}",
+                        }
+                    )
                 else:
-                    # Try hex without prefix
-                    addr_int = int(addr, 16)
-                func_ctx = FunctionContext(address=addr_int, name=None)
-                self.function_contexts[addr] = func_ctx
-                functions.append({"address": addr, "name": None})
+                    # Handle regular address format - always treat as hex unless clearly decimal
+                    if addr.startswith(("0x", "0X")) or not addr.isdigit():
+                        addr_int = int(addr, 16)
+                    else:
+                        # Small decimal numbers (< 65536) treated as decimal, otherwise hex
+                        addr_int = int(addr) if int(addr) < 65536 else int(addr, 16)
+                    func_ctx = FunctionContext(address=addr_int, name=None)
+                    self.function_contexts[addr] = func_ctx
+                    functions.append({"address": addr, "name": None})
             except ValueError:
                 print(
-                    f"[-] Invalid address format: {addr}. Use hex (0x1234) or decimal format."
+                    f"[-] Invalid address/module+offset format: {addr}. "
+                    f"Use hex (0x1234), decimal, or module+offset (mymodule+0x1234)."
                 )
                 sys.exit(1)
 
@@ -998,13 +1064,22 @@ class CallTracer:
                 "excludeSystem": self.args.no_system,
             }
 
-            # inject script
-            script_code = js_agent_code % json.dumps(config)
-
+            # inject script with properly escaped JSON
             try:
+                # properly escape JSON for JavaScript string literal
+                config_json = json.dumps(config)
+                # escape single quotes and backslashes for JavaScript string literal
+                config_json_escaped = config_json.replace("\\", "\\\\").replace(
+                    "'", "\\'"
+                )
+                script_code = js_agent_code.replace(
+                    "CONFIG_JSON_PLACEHOLDER", config_json_escaped
+                )
+
                 self.script = self.session.create_script(script_code)
                 self.script.on("message", self._on_message)
                 self.script.load()
+
             except frida.InvalidArgumentError as e:
                 raise RuntimeError(f"Invalid JavaScript agent code: {e}")
             except Exception as e:
@@ -1468,7 +1543,8 @@ def main():
         "-F",
         "--hook-func",
         action="append",
-        help="Function address to monitor (can be repeated)",
+        help="Function address or module+offset to monitor (can be repeated).\n"
+        "Examples: 0x401000, 401000, mymodule+0x1234, mymodule+1234",
     )
     parser.add_argument(
         "-n",
