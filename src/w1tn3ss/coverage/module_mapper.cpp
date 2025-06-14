@@ -7,6 +7,7 @@
 #include <sstream>
 #ifdef _WIN32
 #include <process.h>
+#include <psapi.h>
 #include <windows.h>
 #else
 #include <unistd.h>
@@ -44,6 +45,9 @@ bool module_mapper::discover_process_modules() {
 #elif defined(__linux__)
   log_.debug("using linux platform module discovery");
   success = discover_modules_linux();
+#elif defined(_WIN32)
+  log_.debug("using windows platform module discovery");
+  success = discover_modules_windows();
 #else
   log_.debug("using generic unix platform module discovery");
   success = discover_modules_unix();
@@ -85,6 +89,8 @@ bool module_mapper::discover_process_modules() {
                                                                       "darwin"
 #elif defined(__linux__)
                                                                       "linux"
+#elif defined(_WIN32)
+                                                                      "windows"
 #else
                                                                       "generic_unix"
 #endif
@@ -92,10 +98,14 @@ bool module_mapper::discover_process_modules() {
     );
 
     // provide diagnostic information
+#ifdef _WIN32
+    log_.debug("diagnostic information", redlog::field("pid", _getpid()));
+#else
     log_.debug(
         "diagnostic information", redlog::field("pid", getpid()), redlog::field("uid", getuid()),
         redlog::field("euid", geteuid())
     );
+#endif
   }
 
   return success;
@@ -373,6 +383,173 @@ bool module_mapper::discover_modules_linux() {
   }
 
   return true;
+}
+
+bool module_mapper::discover_modules_windows() {
+#ifdef _WIN32
+  log_.debug("using windows-specific module discovery via EnumProcessModules");
+
+  HANDLE process_handle = GetCurrentProcess();
+  HMODULE modules[1024];
+  DWORD bytes_needed;
+
+  // enumerate all modules in the current process
+  if (!EnumProcessModules(process_handle, modules, sizeof(modules), &bytes_needed)) {
+    DWORD error = GetLastError();
+    log_.error(
+        "EnumProcessModules failed", redlog::field("error", error),
+        redlog::field("error_msg", "Failed to enumerate process modules")
+    );
+
+    log_.info("falling back to qbdi module discovery");
+    return discover_qbdi_modules();
+  }
+
+  size_t module_count = bytes_needed / sizeof(HMODULE);
+  log_.debug("enumerated modules", redlog::field("count", module_count));
+
+  size_t processed_count = 0;
+  size_t skipped_count = 0;
+
+  for (size_t i = 0; i < module_count; i++) {
+    HMODULE module = modules[i];
+
+    // get module file name
+    char module_path[MAX_PATH];
+    if (!GetModuleFileNameExA(process_handle, module, module_path, sizeof(module_path))) {
+      DWORD error = GetLastError();
+      log_.trace("failed to get module filename", redlog::field("module_index", i), redlog::field("error", error));
+      skipped_count++;
+      continue;
+    }
+
+    // get module information (base address and size)
+    MODULEINFO module_info;
+    if (!GetModuleInformation(process_handle, module, &module_info, sizeof(module_info))) {
+      DWORD error = GetLastError();
+      log_.trace(
+          "failed to get module information", redlog::field("module", module_path), redlog::field("error", error)
+      );
+      skipped_count++;
+      continue;
+    }
+
+    uint64_t base_addr = reinterpret_cast<uint64_t>(module_info.lpBaseOfDll);
+    uint64_t module_size = static_cast<uint64_t>(module_info.SizeOfImage);
+    uint64_t end_addr = base_addr + module_size;
+
+    // validate address range
+    if (base_addr >= end_addr || module_size == 0) {
+      log_.warn(
+          "invalid module address range", redlog::field("module", module_path), redlog::field("base", base_addr),
+          redlog::field("size", module_size)
+      );
+      skipped_count++;
+      continue;
+    }
+
+    // on windows, all loaded modules are executable by default
+    // we could enhance this by checking memory protection later
+    bool is_executable = true;
+    std::string permissions = "r-x"; // default assumption for loaded modules
+
+    regions_.emplace_back(base_addr, end_addr, std::string(module_path), permissions, is_executable);
+    processed_count++;
+
+    log_.trace(
+        "processed module", redlog::field("name", module_path), redlog::field("base", base_addr),
+        redlog::field("end", end_addr), redlog::field("size", module_size), redlog::field("executable", is_executable)
+    );
+  }
+
+  // discover additional memory regions using VirtualQuery
+  bool memory_regions_success = discover_memory_regions_windows();
+
+  log_.info(
+      "windows module discovery completed", redlog::field("modules", processed_count),
+      redlog::field("skipped", skipped_count), redlog::field("memory_regions", memory_regions_success)
+  );
+
+  return processed_count > 0;
+#else
+  log_.error("discover_modules_windows called on non-windows platform");
+  return false;
+#endif
+}
+
+bool module_mapper::discover_memory_regions_windows() {
+#ifdef _WIN32
+  log_.debug("discovering additional memory regions via VirtualQuery");
+
+  size_t region_count = 0;
+  size_t executable_regions = 0;
+  MEMORY_BASIC_INFORMATION mbi;
+  uint64_t address = 0;
+
+  // scan the entire virtual address space
+  while (address < 0x7FFFFFFF0000ULL) { // scan up to reasonable limit for 64-bit
+    SIZE_T result = VirtualQuery(reinterpret_cast<LPCVOID>(address), &mbi, sizeof(mbi));
+
+    if (result == 0) {
+      // end of accessible memory or error
+      break;
+    }
+
+    // check if this is an executable region that's not already covered by modules
+    if (mbi.State == MEM_COMMIT &&
+        (mbi.Protect & (PAGE_EXECUTE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY))) {
+
+      uint64_t region_start = reinterpret_cast<uint64_t>(mbi.BaseAddress);
+      uint64_t region_end = region_start + mbi.RegionSize;
+
+      // check if this region overlaps with existing module regions
+      bool overlaps_existing = false;
+      for (const auto& existing_region : regions_) {
+        if (region_start < existing_region.end && region_end > existing_region.start) {
+          overlaps_existing = true;
+          break;
+        }
+      }
+
+      if (!overlaps_existing) {
+        std::string permissions;
+        if (mbi.Protect & PAGE_EXECUTE_READ) {
+          permissions = "r-x";
+        } else if (mbi.Protect & PAGE_EXECUTE_READWRITE) {
+          permissions = "rwx";
+        } else if (mbi.Protect & PAGE_EXECUTE) {
+          permissions = "--x";
+        } else if (mbi.Protect & PAGE_EXECUTE_WRITECOPY) {
+          permissions = "r-x"; // copy-on-write, treat as read-execute
+        } else {
+          permissions = "---";
+        }
+
+        std::string region_name = "[anonymous executable]";
+        regions_.emplace_back(region_start, region_end, region_name, permissions, true);
+        executable_regions++;
+
+        log_.trace(
+            "discovered executable region", redlog::field("start", region_start), redlog::field("end", region_end),
+            redlog::field("size", mbi.RegionSize), redlog::field("protect", mbi.Protect),
+            redlog::field("permissions", permissions)
+        );
+      }
+    }
+
+    region_count++;
+    address = reinterpret_cast<uint64_t>(mbi.BaseAddress) + mbi.RegionSize;
+  }
+
+  log_.debug(
+      "memory region discovery completed", redlog::field("total_regions", region_count),
+      redlog::field("executable_regions", executable_regions)
+  );
+
+  return true;
+#else
+  return false;
+#endif
 }
 
 bool module_mapper::discover_modules_unix() {

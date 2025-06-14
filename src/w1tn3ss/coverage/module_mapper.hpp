@@ -64,6 +64,8 @@ private:
   bool discover_modules_unix();
   bool discover_modules_darwin();
   bool discover_modules_linux();
+  bool discover_modules_windows();
+  bool discover_memory_regions_windows();
 
   // helper methods
   bool is_system_module(const std::string& path) const;

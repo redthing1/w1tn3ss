@@ -34,6 +34,7 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     list(APPEND PLATFORM_SOURCES
         platform/windows/windows_injector.cpp
+        platform/windows/error_windows.cpp
         # windows injection backend (copied from reference implementation)
         backend/windows/inject_createremotethread.cpp
         backend/windows/inject_setwindowshook.cpp

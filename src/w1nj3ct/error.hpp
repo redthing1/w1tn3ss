@@ -10,6 +10,10 @@ std::string error_code_to_string(error_code code);
 // platform-specific error translation
 error_code translate_platform_error(int platform_error);
 
+#ifdef _WIN32
+std::string translate_platform_error(DWORD error_code);
+#endif
+
 // recoverable vs non-recoverable error classification
 bool is_recoverable_error(error_code code);
 

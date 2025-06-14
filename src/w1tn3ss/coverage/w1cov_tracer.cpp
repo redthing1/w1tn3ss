@@ -6,6 +6,10 @@
 #include <cstring>
 #include <sstream>
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 // qbdi includes
 #include <QBDI.h>
 
@@ -787,6 +791,28 @@ void w1cov_finalize() {
   auto& tracer = get_global_tracer();
   tracer.shutdown();
 }
+
+#ifdef _WIN32
+// Windows DLL entry point
+BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
+  switch (ul_reason_for_call) {
+  case DLL_PROCESS_ATTACH:
+    // Initialize coverage system
+    w1cov_initialize();
+    break;
+
+  case DLL_PROCESS_DETACH:
+    // Cleanup and export coverage
+    w1cov_finalize();
+    break;
+
+  case DLL_THREAD_ATTACH:
+  case DLL_THREAD_DETACH:
+    break;
+  }
+  return TRUE;
+}
+#endif
 
 } // extern "C"
 

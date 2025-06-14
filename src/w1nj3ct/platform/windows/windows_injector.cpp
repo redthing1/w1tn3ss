@@ -2,11 +2,9 @@
 #include "../../error.hpp"
 
 // include windows injection backend
-#include "windows/auxiliary.hpp"
-#include "windows/inject.hpp"
+#include "../../backend/windows/auxiliary.hpp"
+#include "../../backend/windows/inject.hpp"
 
-#include <codecvt>
-#include <locale>
 #include <psapi.h>
 #include <string>
 #include <tlhelp32.h>
@@ -16,14 +14,24 @@ namespace w1::inject::windows {
 
 // helper to convert string to wstring
 std::wstring string_to_wstring(const std::string& str) {
-  std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
-  return converter.from_bytes(str);
+  if (str.empty()) {
+    return std::wstring();
+  }
+  int size = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), -1, nullptr, 0);
+  std::wstring result(size - 1, 0);
+  MultiByteToWideChar(CP_UTF8, 0, str.c_str(), -1, &result[0], size);
+  return result;
 }
 
 // helper to convert wstring to string
 std::string wstring_to_string(const std::wstring& wstr) {
-  std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
-  return converter.to_bytes(wstr);
+  if (wstr.empty()) {
+    return std::string();
+  }
+  int size = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, nullptr, 0, nullptr, nullptr);
+  std::string result(size - 1, 0);
+  WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, &result[0], size, nullptr, nullptr);
+  return result;
 }
 
 result inject_runtime(const config& cfg) {

@@ -5,6 +5,7 @@
 namespace w1::coverage {
 
 /// Coverage collection configuration loaded from environment variables
+/// Environment variables work consistently across Unix and Windows platforms
 struct coverage_config {
   /// Enable/disable coverage collection (W1COV_ENABLED)
   bool is_enabled = false;
@@ -19,6 +20,7 @@ struct coverage_config {
   bool should_track_full_module_paths = false;
 
   /// Coverage data output file path (W1COV_OUTPUT_FILE)
+  /// Supports both Unix-style (/path/to/file) and Windows-style (C:\path\to\file) paths
   std::string output_file_path = "w1cov.drcov";
 
   /// Output format: "drcov" or "text" (W1COV_FORMAT)

@@ -3,6 +3,12 @@
 #include <string>
 #include <vector>
 
+#ifdef _WIN32
+#include <psapi.h>
+#include <tlhelp32.h>
+#include <windows.h>
+#endif
+
 namespace w1::common {
 
 /**

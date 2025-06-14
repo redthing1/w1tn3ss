@@ -102,10 +102,16 @@ w1cov_tracer& get_global_tracer();
 // initialization helper for library loading
 extern "C" {
 // called when library is loaded
+#ifndef _WIN32
 void w1cov_initialize() __attribute__((constructor));
 
 // called when library is unloaded
 void w1cov_finalize() __attribute__((destructor));
+#else
+// Windows DLL entry point
+void w1cov_initialize();
+void w1cov_finalize();
+#endif
 }
 
 } // namespace w1::coverage
