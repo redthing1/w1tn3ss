@@ -14,6 +14,8 @@
 #include <errno.h>
 #include <string.h>
 #include <time.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
 
 volatile int running = 1;
 volatile int injection_detected = 0;

@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include "linux_shellcode.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,6 +12,36 @@
 #include <sys/uio.h>
 #include <elf.h>
 #include <fcntl.h>
+
+// Architecture-specific includes
+#if defined(__aarch64__) || defined(__arm__)
+#include <asm/ptrace.h>
+#ifndef NT_PRSTATUS
+#define NT_PRSTATUS 1
+#endif
+#endif
+
+// Cross-architecture ptrace compatibility
+#ifndef PTRACE_GETREGS
+#define PTRACE_GETREGS 12
+#endif
+#ifndef PTRACE_SETREGS
+#define PTRACE_SETREGS 13
+#endif
+#ifndef PTRACE_GETREGSET
+#define PTRACE_GETREGSET 0x4204
+#endif
+#ifndef PTRACE_SETREGSET
+#define PTRACE_SETREGSET 0x4205
+#endif
+
+// Architecture-specific register structures
+typedef union {
+    struct user_regs_struct x86_regs;
+#if defined(__aarch64__) || defined(__arm__)
+    struct user_pt_regs arm_regs;
+#endif
+} unified_regs_t;
 
 // x86_64 shellcode templates
 static const unsigned char x86_64_mmap_shellcode[] = {
@@ -161,17 +192,8 @@ size_t linux_get_pointer_size(linux_arch_t arch) {
 }
 
 size_t linux_get_register_size(linux_arch_t arch) {
-    switch (arch) {
-        case ARCH_X86_64:
-            return sizeof(struct user_regs_struct);
-        case ARCH_ARM64:
-            return sizeof(struct user_pt_regs);
-        case ARCH_ARM32:
-        case ARCH_I386:
-            return sizeof(struct user_regs_struct);
-        default:
-            return 0;
-    }
+    const linux_arch_info_t* info = linux_get_arch_info(arch);
+    return info ? info->reg_size : 0;
 }
 
 int linux_attach_process(pid_t pid) {
@@ -208,18 +230,82 @@ int linux_get_process_registers(pid_t pid, void** regs) {
         return LINUX_SHELLCODE_ERROR_NO_MEMORY;
     }
     
-    if (ptrace(PTRACE_GETREGS, pid, NULL, *regs) < 0) {
-        free(*regs);
-        *regs = NULL;
-        return LINUX_SHELLCODE_ERROR_PTRACE_FAILED;
+    // Use runtime architecture detection instead of compile-time
+    switch (arch) {
+        case ARCH_X86_64:
+        case ARCH_I386:
+            if (ptrace(PTRACE_GETREGS, pid, NULL, *regs) < 0) {
+                free(*regs);
+                *regs = NULL;
+                return LINUX_SHELLCODE_ERROR_PTRACE_FAILED;
+            }
+            break;
+            
+        case ARCH_ARM64:
+        case ARCH_ARM32: {
+#if defined(__aarch64__) || defined(__arm__)
+            struct iovec iov = { .iov_base = *regs, .iov_len = reg_size };
+            if (ptrace(PTRACE_GETREGSET, pid, NT_PRSTATUS, &iov) < 0) {
+                free(*regs);
+                *regs = NULL;
+                return LINUX_SHELLCODE_ERROR_PTRACE_FAILED;
+            }
+#else
+            // Cross-compilation case - try GETREGSET first, fallback to GETREGS
+            struct iovec iov = { .iov_base = *regs, .iov_len = reg_size };
+            if (ptrace(PTRACE_GETREGSET, pid, NT_PRSTATUS, &iov) < 0) {
+                if (ptrace(PTRACE_GETREGS, pid, NULL, *regs) < 0) {
+                    free(*regs);
+                    *regs = NULL;
+                    return LINUX_SHELLCODE_ERROR_PTRACE_FAILED;
+                }
+            }
+#endif
+            break;
+        }
+        
+        default:
+            free(*regs);
+            *regs = NULL;
+            return LINUX_SHELLCODE_ERROR_UNSUPPORTED_ARCH;
     }
     
     return LINUX_SHELLCODE_SUCCESS;
 }
 
 int linux_set_process_registers(pid_t pid, void* regs) {
-    if (ptrace(PTRACE_SETREGS, pid, NULL, regs) < 0) {
-        return LINUX_SHELLCODE_ERROR_PTRACE_FAILED;
+    linux_arch_t arch = linux_detect_process_architecture(pid);
+    size_t reg_size = linux_get_register_size(arch);
+    
+    switch (arch) {
+        case ARCH_X86_64:
+        case ARCH_I386:
+            if (ptrace(PTRACE_SETREGS, pid, NULL, regs) < 0) {
+                return LINUX_SHELLCODE_ERROR_PTRACE_FAILED;
+            }
+            break;
+            
+        case ARCH_ARM64:
+        case ARCH_ARM32: {
+#if defined(__aarch64__) || defined(__arm__)
+            struct iovec iov = { .iov_base = regs, .iov_len = reg_size };
+            if (ptrace(PTRACE_SETREGSET, pid, NT_PRSTATUS, &iov) < 0) {
+                return LINUX_SHELLCODE_ERROR_PTRACE_FAILED;
+            }
+#else
+            // Cross-compilation case - try SETREGSET first, fallback to SETREGS
+            struct iovec iov = { .iov_base = regs, .iov_len = reg_size };
+            if (ptrace(PTRACE_SETREGSET, pid, NT_PRSTATUS, &iov) < 0) {
+                if (ptrace(PTRACE_SETREGS, pid, NULL, regs) < 0) {
+                    return LINUX_SHELLCODE_ERROR_PTRACE_FAILED;
+                }
+            }
+#endif
+            break;
+        }
+        
+        default:
+            return LINUX_SHELLCODE_ERROR_UNSUPPORTED_ARCH;
     }
     
     return LINUX_SHELLCODE_SUCCESS;
@@ -546,7 +632,35 @@ int linux_inject_and_execute_shellcode(pid_t pid, void* shellcode, size_t size, 
     linux_arch_t arch = linux_detect_process_architecture(pid);
     if (arch == ARCH_X86_64) {
         struct user_regs_struct* regs = (struct user_regs_struct*)orig_regs;
-        regs->rip = (unsigned long)remote_addr;
+        // Set instruction pointer based on target architecture, not host
+        switch (arch) {
+            case ARCH_X86_64:
+#ifdef __x86_64__
+                ((struct user_regs_struct*)regs)->rip = (unsigned long)remote_addr;
+#else
+                *((uint64_t*)((char*)regs + 128)) = (unsigned long)remote_addr;
+#endif
+                break;
+            case ARCH_I386:
+                // Use offset-based access for cross-platform compatibility
+                *((uint32_t*)((char*)regs + 48)) = (unsigned long)remote_addr; // eip offset
+                break;
+            case ARCH_ARM64:
+#ifdef __aarch64__
+                // On ARM64, user_regs_struct has pc field
+                ((struct user_regs_struct*)regs)->pc = (unsigned long)remote_addr;
+#else
+                // Cross-compilation: ARM64 pc is at offset 248 in user_pt_regs
+                *((uint64_t*)((char*)regs + 248)) = (unsigned long)remote_addr;
+#endif
+                break;
+            case ARCH_ARM32:
+                // ARM32 PC is at offset 60 in user_regs
+                *((uint32_t*)((char*)regs + 60)) = (unsigned long)remote_addr;
+                break;
+            default:
+                return LINUX_SHELLCODE_ERROR_UNSUPPORTED_ARCH;
+        }
     } else if (arch == ARCH_ARM64) {
         struct user_pt_regs* regs = (struct user_pt_regs*)orig_regs;
         regs->pc = (unsigned long)remote_addr;
@@ -583,7 +697,35 @@ int linux_inject_and_execute_shellcode(pid_t pid, void* shellcode, size_t size, 
     if (result) {
         if (arch == ARCH_X86_64) {
             struct user_regs_struct* regs = (struct user_regs_struct*)current_regs;
-            *result = (void*)regs->rax;
+            // Get return value using offset-based access for cross-platform compatibility
+            switch (arch) {
+                case ARCH_X86_64:
+#ifdef __x86_64__
+                    *result = (void*)((struct user_regs_struct*)regs)->rax;
+#else
+                    *result = (void*)*((uint64_t*)((char*)regs + 80)); // rax offset
+#endif
+                    break;
+                case ARCH_I386:
+                    *result = (void*)(uintptr_t)*((uint32_t*)((char*)regs + 24)); // eax offset
+                    break;
+                case ARCH_ARM64:
+#ifdef __aarch64__
+                    // On ARM64, user_regs_struct.regs[0] is x0 return register
+                    *result = (void*)((struct user_regs_struct*)regs)->regs[0];
+#else
+                    // Cross-compilation: ARM64 x0 register is at offset 0
+                    *result = (void*)*((uint64_t*)regs);
+#endif
+                    break;
+                case ARCH_ARM32:
+                    // ARM32 r0 is at offset 0
+                    *result = (void*)(uintptr_t)*((uint32_t*)regs);
+                    break;
+                default:
+                    *result = NULL;
+                    break;
+            }
         } else if (arch == ARCH_ARM64) {
             struct user_pt_regs* regs = (struct user_pt_regs*)current_regs;
             *result = (void*)regs->regs[0];

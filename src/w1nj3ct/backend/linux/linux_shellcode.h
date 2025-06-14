@@ -31,6 +31,25 @@ int linux_generate_dlopen_shellcode(const char* library_path, linux_arch_t arch,
 int linux_inject_and_execute_shellcode(pid_t pid, void* shellcode, size_t size, void** result);
 void linux_free_shellcode(void* shellcode);
 
+// Architecture information
+typedef struct {
+    linux_arch_t arch;
+    size_t reg_size;
+    size_t ptr_size;
+    struct {
+        size_t pc_offset;
+        size_t sp_offset;
+        size_t ret_offset;
+    } register_layout;
+} linux_arch_info_t;
+
+const linux_arch_info_t* linux_get_arch_info(linux_arch_t arch);
+
+// Architecture-specific register manipulation
+int linux_set_instruction_pointer(void* regs, linux_arch_t arch, uint64_t address);
+int linux_get_return_value(void* regs, linux_arch_t arch, void** result);
+int linux_set_register_value(void* regs, linux_arch_t arch, int reg_num, uint64_t value);
+
 // architecture-specific helpers
 int linux_call_remote_function(pid_t pid, void* func_addr, void** args, size_t arg_count, void** result);
 int linux_allocate_remote_memory(pid_t pid, size_t size, void** addr);

@@ -31,6 +31,7 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         backend/linux/linux_elf_extended.c
         backend/linux/linux_shellcode.c
         backend/linux/linux_shellcode_utils.c
+        backend/linux/linux_arch_utils.c
         backend/linux/injector.c
         backend/linux/util.c
     )

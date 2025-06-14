@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include "linux_ptrace.h"
 #include <sys/ptrace.h>
 #include <sys/wait.h>
@@ -7,6 +8,14 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>
+
+// Cross-architecture compatibility
+#ifndef PTRACE_GETREGSET
+#define PTRACE_GETREGSET 0x4204
+#endif
+#ifndef PTRACE_SETREGSET
+#define PTRACE_SETREGSET 0x4205
+#endif
 
 #ifdef __aarch64__
 #include <linux/elf.h>

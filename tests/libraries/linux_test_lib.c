@@ -15,6 +15,7 @@
 #include <time.h>
 #include <syslog.h>
 #include <errno.h>
+#include <stdarg.h>
 
 static int initialized = 0;
 static FILE* log_file = NULL;

@@ -119,7 +119,9 @@ int cover(
         "starting runtime coverage tracing", redlog::field("method", "pid"), redlog::field("target_pid", target_pid)
     );
 
-    result = w1::inject::inject_library_runtime(lib_path, target_pid);
+    cfg.injection_method = w1::inject::method::runtime;
+    cfg.pid = target_pid;
+    result = w1::inject::inject(cfg);
 
   } else if (name_flag) {
     // Runtime coverage by process name
@@ -129,7 +131,9 @@ int cover(
         redlog::field("process_name", process_name)
     );
 
-    result = w1::inject::inject_library_runtime(lib_path, process_name);
+    cfg.injection_method = w1::inject::method::runtime;
+    cfg.process_name = process_name;
+    result = w1::inject::inject(cfg);
   }
 
   // Handle result
