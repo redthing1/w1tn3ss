@@ -13,19 +13,19 @@ uv tool install frida-tools
 uv tool run --from frida-tools python ...
 
 # trace and show summary in terminal (no file output)
-python call_tracer.py -p 1234 -F 0x401000
+python call_tracer.py 1234 -F 0x401000
 
 # trace specific functions and save to file
-python call_tracer.py -p 1234 -F 0x401000 -F 0x402000 -o traces.json
+python call_tracer.py 1234 -F 0x401000 -F 0x402000 -o traces.json
 
 # trace using module+offset format (handles ASLR)
-python call_tracer.py -p 1234 -F myapp+0x1234 -F libcrypto+2048 -o traces.json
+python call_tracer.py 1234 -F myapp+0x1234 -F libcrypto+2048 -o traces.json
 
 # trace by function name with symbols
 python call_tracer.py myapp.exe -n malloc -n free -o calls.json
 
 # monitor all functions in a module, excluding system modules
-python call_tracer.py -p 1234 -m myapp --no-system -o trace.json
+python call_tracer.py 1234 -m myapp --no-system -o trace.json
 
 # monitor everything except system modules
 python call_tracer.py -s ./target_binary -M --no-system -t 30
@@ -1033,9 +1033,24 @@ class CallTracer:
     def _resolve_address_to_module_offset(self, address):
         """Resolve an address to module+offset format"""
         if not self.modules:
+            # handle both int and string addresses
+            if isinstance(address, str):
+                return address if address.startswith("0x") else f"0x{address}"
             return hex(address)  # fallback to hex if no modules
 
-        addr_int = address if isinstance(address, int) else int(address, 16)
+        # handle different address formats
+        if isinstance(address, str):
+            if address.startswith("0x"):
+                addr_int = int(address, 16)
+            elif address.isdigit():
+                addr_int = int(address)
+            else:
+                try:
+                    addr_int = int(address, 16)
+                except ValueError:
+                    return address  # return as-is if can't parse
+        else:
+            addr_int = address
 
         # Find the module containing this address
         for module in self.modules:
@@ -1078,20 +1093,76 @@ class CallTracer:
                 self.session = self.device.attach(self.pid)
                 print(f"[+] Spawned process with PID: {self.pid}")
             else:
+                # attach to existing process
+                target = self.args.target
+
+                # try to parse as PID first
                 try:
-                    self.pid = int(self.args.target)
+                    self.pid = int(target)
+                    print(f"[*] Attaching to PID: {self.pid}")
                     self.session = self.device.attach(self.pid)
                     print(f"[+] Attached to PID: {self.pid}")
                 except ValueError:
-                    # Try to attach by process name
+                    # treat as process name
+                    print(f"[*] Looking for process: {target}")
                     try:
-                        self.session = self.device.attach(self.args.target)
-                        print(f"[+] Attached to process: {self.args.target}")
+                        process = self.device.get_process(target)
+                        self.pid = process.pid
+                        print(f"[*] Found process '{target}' with PID: {self.pid}")
+                        self.session = self.device.attach(self.pid)
+                        print(f"[+] Attached to process")
                     except frida.ProcessNotFoundError:
-                        raise frida.ProcessNotFoundError(
-                            f"Process '{self.args.target}' not found. "
-                            "Please specify a valid PID or process name."
+                        # fallback to enumeration
+                        print(
+                            f"[*] Process '{target}' not found by direct lookup, searching..."
                         )
+                        try:
+                            processes = self.device.enumerate_processes()
+                            matches = [
+                                p
+                                for p in processes
+                                if target.lower() in p.name.lower()
+                                or str(p.pid) == target
+                            ]
+
+                            if not matches:
+                                available_processes = [
+                                    f"{p.pid}: {p.name}" for p in processes[:10]
+                                ]
+                                available_str = "\n".join(available_processes)
+                                if len(processes) > 10:
+                                    available_str += f"\n... and {len(processes) - 10} more processes"
+
+                                raise RuntimeError(
+                                    f"Process '{target}' not found.\n"
+                                    f"Available processes (showing first 10):\n{available_str}\n\n"
+                                    f"Use a valid PID or process name."
+                                )
+                            elif len(matches) > 1:
+                                print(f"[!] Multiple processes match '{target}':")
+                                for p in matches:
+                                    print(f"    PID: {p.pid}, Name: {p.name}")
+                                self.pid = matches[0].pid
+                                print(f"[*] Using first match: PID {self.pid}")
+                            else:
+                                self.pid = matches[0].pid
+                                print(
+                                    f"[*] Found process: PID {self.pid}, Name: {matches[0].name}"
+                                )
+
+                            self.session = self.device.attach(self.pid)
+                            print(f"[+] Attached to process")
+
+                        except Exception as e:
+                            raise RuntimeError(
+                                f"Failed to enumerate or attach to processes: {e}"
+                            )
+                except frida.ProcessNotFoundError:
+                    raise RuntimeError(
+                        f"Process with PID {self.pid} not found or access denied"
+                    )
+                except Exception as e:
+                    raise RuntimeError(f"Failed to attach to process: {e}")
 
             # validate we have something to monitor
             if (
@@ -1714,26 +1785,37 @@ def main():
     except frida.PermissionDeniedError:
         print(f"[-] Permission denied. Try with elevated privileges.")
         sys.exit(1)
-    except Exception as e:
+    except RuntimeError as e:
         print(f"[-] Error: {e}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"[-] Unexpected error: {e}")
         if args.verbose:
             import traceback
 
             traceback.print_exc()
         sys.exit(1)
-    finally:
-        tracer.stop_tracing()
+    else:
+        # only run this if no exceptions occurred (tracer is properly initialized)
+        try:
+            tracer.stop_tracing()
 
-        # show results
-        tracer.print_summary()
+            # show results
+            tracer.print_summary()
 
-        # export results if requested
-        if tracer.call_events:
-            if args.output:
-                print(f"[*] Exporting results to {args.output}...")
-                tracer.export_results()
-        else:
-            print("[!] No calls collected.")
+            # export results if requested
+            if tracer.call_events:
+                if args.output:
+                    print(f"[*] Exporting results to {args.output}...")
+                    tracer.export_results()
+            else:
+                print("[!] No calls collected.")
+        except Exception as e:
+            print(f"[-] Error during cleanup: {e}")
+            if args.verbose:
+                import traceback
+
+                traceback.print_exc()
 
 
 if __name__ == "__main__":

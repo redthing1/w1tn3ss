@@ -16,13 +16,13 @@ uv tool run --from frida-tools python ...
 python stalk_drcov.py -s /path/to/binary -o coverage.drcov
 
 # attach to existing process by PID
-python stalk_drcov.py -p 1234 -o coverage.drcov
+python stalk_drcov.py 1234 -o coverage.drcov
 
 # attach to process by name
 python stalk_drcov.py myapp -o coverage.drcov
 
 # trace specific modules only
-python stalk_drcov.py -p 1234 -w main.exe -w helper.dll -o coverage.drcov
+python stalk_drcov.py 1234 -w main.exe -w helper.dll -o coverage.drcov
 
 # trace all modules excluding system modules
 python stalk_drcov.py -s ./target --no-system -o coverage.drcov
@@ -39,7 +39,6 @@ import os
 import signal
 import sys
 import time
-import struct
 from typing import List, Dict, Set, Optional
 
 import frida
@@ -293,9 +292,10 @@ recv(function(message) {
 send({type: 'ready'});
 """
 
+
 class StalkDrcovTracer:
     """Main tracer class for basic block coverage collection"""
-    
+
     def __init__(self, args):
         self.args = args
         self.device = None
@@ -304,33 +304,33 @@ class StalkDrcovTracer:
         self.pid = None
         self.running = False
         self.shutdown_complete = False
-        
+
         # collected data
         self.modules = []
         self.basic_blocks = set()
-        
+
     def start_tracing(self):
         """Start the tracing process"""
         try:
             # get device
             self.device = self._get_device()
-            
+
             # attach or spawn
             if self.args.spawn:
                 self._spawn_process()
             else:
                 self._attach_process()
-                
+
             # inject script
             self._inject_script()
-            
+
             # resume if spawned
             if self.args.spawn:
                 self.device.resume(self.pid)
                 print("[+] Process resumed")
-                
+
             self.running = True
-            
+
         except Exception as e:
             # cleanup on failure
             if hasattr(self, "session") and self.session:
@@ -339,7 +339,7 @@ class StalkDrcovTracer:
                 except:
                     pass
             raise e
-            
+
     def _get_device(self):
         """Get the Frida device"""
         try:
@@ -353,38 +353,40 @@ class StalkDrcovTracer:
             return device
         except Exception as e:
             raise RuntimeError(f"Failed to get Frida device: {e}")
-            
+
     def _spawn_process(self):
         """Spawn a new process"""
         try:
             target_path = self.args.target
             print(f"[*] Spawning: {target_path}")
-            
+
             spawn_options = {}
             if self.args.disable_aslr:
-                spawn_options['aslr'] = 'disable'
+                spawn_options["aslr"] = "disable"
                 print("[*] ASLR disabled for spawned process")
-                
+
             self.pid = self.device.spawn([target_path], **spawn_options)
             print(f"[+] Spawned process with PID: {self.pid}")
-            
+
             self.session = self.device.attach(self.pid)
             print(f"[+] Attached to spawned process")
-            
+
         except frida.ExecutableNotFoundError:
             raise RuntimeError(f"Executable not found: {target_path}")
         except Exception as e:
             raise RuntimeError(f"Failed to spawn process: {e}")
-            
+
     def _attach_process(self):
         """Attach to existing process"""
         try:
             target = self.args.target
-            
+
             # try to parse as PID first
             try:
                 self.pid = int(target)
                 print(f"[*] Attaching to PID: {self.pid}")
+                self.session = self.device.attach(self.pid)
+                print(f"[+] Attached to PID: {self.pid}")
             except ValueError:
                 # treat as process name
                 print(f"[*] Looking for process: {target}")
@@ -392,29 +394,65 @@ class StalkDrcovTracer:
                     process = self.device.get_process(target)
                     self.pid = process.pid
                     print(f"[*] Found process '{target}' with PID: {self.pid}")
+                    self.session = self.device.attach(self.pid)
+                    print(f"[+] Attached to process")
                 except frida.ProcessNotFoundError:
                     # fallback to enumeration
-                    processes = self.device.enumerate_processes()
-                    matches = [p for p in processes if target in p.name or str(p.pid) == target]
-                    
-                    if not matches:
-                        raise RuntimeError(f"Process not found: {target}")
-                    elif len(matches) > 1:
-                        print(f"[!] Multiple processes match '{target}':")
-                        for p in matches:
-                            print(f"    PID: {p.pid}, Name: {p.name}")
-                        self.pid = matches[0].pid
-                        print(f"[*] Using first match: PID {self.pid}")
-                    else:
-                        self.pid = matches[0].pid
-                        print(f"[*] Found process: PID {self.pid}")
-                        
-            self.session = self.device.attach(self.pid)
-            print(f"[+] Attached to process")
-            
+                    print(
+                        f"[*] Process '{target}' not found by direct lookup, searching..."
+                    )
+                    try:
+                        processes = self.device.enumerate_processes()
+                        matches = [
+                            p
+                            for p in processes
+                            if target.lower() in p.name.lower() or str(p.pid) == target
+                        ]
+
+                        if not matches:
+                            available_processes = [
+                                f"{p.pid}: {p.name}" for p in processes[:10]
+                            ]
+                            available_str = "\n".join(available_processes)
+                            if len(processes) > 10:
+                                available_str += (
+                                    f"\n... and {len(processes) - 10} more processes"
+                                )
+
+                            raise RuntimeError(
+                                f"Process '{target}' not found.\n"
+                                f"Available processes (showing first 10):\n{available_str}\n\n"
+                                f"Use a valid PID or process name."
+                            )
+                        elif len(matches) > 1:
+                            print(f"[!] Multiple processes match '{target}':")
+                            for p in matches:
+                                print(f"    PID: {p.pid}, Name: {p.name}")
+                            self.pid = matches[0].pid
+                            print(f"[*] Using first match: PID {self.pid}")
+                        else:
+                            self.pid = matches[0].pid
+                            print(
+                                f"[*] Found process: PID {self.pid}, Name: {matches[0].name}"
+                            )
+
+                        self.session = self.device.attach(self.pid)
+                        print(f"[+] Attached to process")
+
+                    except Exception as e:
+                        raise RuntimeError(
+                            f"Failed to enumerate or attach to processes: {e}"
+                        )
+            except frida.ProcessNotFoundError:
+                raise RuntimeError(
+                    f"Process with PID {self.pid} not found or access denied"
+                )
+            except Exception as e:
+                raise RuntimeError(f"Failed to attach to process: {e}")
+
         except Exception as e:
             raise RuntimeError(f"Failed to attach to process: {e}")
-            
+
     def _inject_script(self):
         """Inject the JavaScript agent"""
         try:
@@ -422,89 +460,93 @@ class StalkDrcovTracer:
             config = {
                 "whitelistedModules": self.args.whitelist_modules or ["all"],
                 "threadIdList": self.args.thread_id or ["all"],
-                "excludeSystem": self.args.no_system
+                "excludeSystem": self.args.no_system,
             }
-            
+
             # inject script with properly escaped JSON
             config_json = json.dumps(config)
             config_json_escaped = config_json.replace("\\", "\\\\").replace("'", "\\'")
-            script_code = js_agent_code.replace("CONFIG_JSON_PLACEHOLDER", config_json_escaped)
-            
+            script_code = js_agent_code.replace(
+                "CONFIG_JSON_PLACEHOLDER", config_json_escaped
+            )
+
             self.script = self.session.create_script(script_code)
             self.script.on("message", self._on_message)
             self.script.load()
-            
+
         except Exception as e:
             raise RuntimeError(f"Failed to inject JavaScript agent: {e}")
-            
+
     def _on_message(self, message, data):
         """Handle messages from the JS agent"""
         try:
             if message["type"] == "error":
                 print(f"[!] Script error: {message}")
                 return
-                
+
             if message["type"] == "send":
                 payload = message.get("payload", {})
                 msg_type = payload.get("type")
-                
+
                 if msg_type == "ready":
                     print("[+] Agent ready and monitoring")
-                    
+
                 elif msg_type == "modules":
                     self.modules = payload.get("data", [])
                     print(f"[*] Collected information for {len(self.modules)} modules")
-                    
+
                 elif msg_type == "bbs":
                     if data:
                         self._process_basic_blocks(data)
-                        
+
                 elif msg_type == "shutdown_complete":
                     print("[*] Shutdown complete")
                     self.shutdown_complete = True
-                    
+
         except Exception as e:
             print(f"[!] Error processing message: {e}")
-            
+
     def _process_basic_blocks(self, bb_data_buffer):
         """Process basic block data from JS agent"""
         if not bb_data_buffer or len(bb_data_buffer) == 0:
             return
-            
+
         if len(bb_data_buffer) % DRCOV_BB_ENTRY_SIZE_BYTES != 0:
             print(f"[!] Invalid BB data length: {len(bb_data_buffer)}")
             return
-            
+
         # add unique entries to set (automatic deduplication)
         for i in range(0, len(bb_data_buffer), DRCOV_BB_ENTRY_SIZE_BYTES):
-            bb_entry = bb_data_buffer[i:i + DRCOV_BB_ENTRY_SIZE_BYTES]
+            bb_entry = bb_data_buffer[i : i + DRCOV_BB_ENTRY_SIZE_BYTES]
             self.basic_blocks.add(bb_entry)
-            
+
     def stop_tracing(self):
         """Stop tracing and cleanup"""
         if not self.running:
             return
-            
+
         print("[*] Stopping tracing...")
         self.running = False
-        
+
         if self.script:
             try:
                 print("[*] Sending shutdown signal...")
                 self.script.post({"type": "shutdown"})
-                
+
                 # wait for shutdown complete
                 timeout = 5.0
                 start_time = time.time()
-                while not self.shutdown_complete and (time.time() - start_time) < timeout:
+                while (
+                    not self.shutdown_complete and (time.time() - start_time) < timeout
+                ):
                     time.sleep(0.1)
-                    
+
                 if not self.shutdown_complete:
                     print("[!] Timeout waiting for shutdown")
-                    
+
             except Exception as e:
                 print(f"[!] Error during shutdown: {e}")
-                
+
         # cleanup session
         if self.session:
             try:
@@ -512,45 +554,47 @@ class StalkDrcovTracer:
                 print("[+] Session detached")
             except Exception as e:
                 print(f"[!] Error detaching session: {e}")
-                
+
     def save_coverage(self):
         """Save coverage data to drcov file"""
         try:
             output_file = self.args.output
             if not output_file:
                 output_file = "frida-cov.drcov"
-                
-            print(f"[*] Saving {len(self.basic_blocks)} unique basic blocks to '{output_file}'...")
-            
+
+            print(
+                f"[*] Saving {len(self.basic_blocks)} unique basic blocks to '{output_file}'..."
+            )
+
             # create drcov header
             header = self._create_drcov_header()
-            
+
             # create drcov body
             body = self._create_drcov_body()
-            
+
             # write file
             with open(output_file, "wb") as f:
                 f.write(header)
                 f.write(body)
-                
+
             print(f"[+] Coverage data saved to: {output_file}")
-            
+
         except Exception as e:
             print(f"[!] Error saving coverage: {e}")
-            
+
     def _create_drcov_header(self):
         """Create drcov file header"""
         lines = []
         lines.append("DRCOV VERSION: 2")
         lines.append("DRCOV FLAVOR: frida")
-        
+
         if not self.modules:
             lines.append("Module Table: version 2, count 0")
         else:
             lines.append(f"Module Table: version 2, count {len(self.modules)}")
-            
+
         lines.append("Columns: id, base, end, entry, checksum, timestamp, path")
-        
+
         for module in self.modules:
             line = "%3d, %#016x, %#016x, %#016x, %#08x, %#08x, %s" % (
                 module["id"],
@@ -559,12 +603,12 @@ class StalkDrcovTracer:
                 0,  # entry point
                 0,  # checksum
                 0,  # timestamp
-                module["path"]
+                module["path"],
             )
             lines.append(line)
-            
+
         return ("\n".join(lines) + "\n").encode("utf-8")
-        
+
     def _create_drcov_body(self):
         """Create drcov file body"""
         sorted_bbs = sorted(list(self.basic_blocks))
@@ -582,83 +626,81 @@ def signal_handler(signum, frame):
 def main():
     parser = argparse.ArgumentParser(
         description="Frida-based basic block tracer outputting drcov format",
-        formatter_class=argparse.RawTextHelpFormatter
+        formatter_class=argparse.RawTextHelpFormatter,
     )
-    
+
     # target
     parser.add_argument("target", help="Process ID, process name, or executable path")
-    
+
     # mode selection
     parser.add_argument(
-        "-s", "--spawn", action="store_true",
-        help="Spawn new process instead of attaching"
+        "-s",
+        "--spawn",
+        action="store_true",
+        help="Spawn new process instead of attaching",
     )
-    parser.add_argument(
-        "-p", "--pid", dest="target", 
-        help="Process ID to attach to (alternative to positional arg)"
-    )
-    
+
     # output
     parser.add_argument(
-        "-o", "--output", default="frida-cov.drcov",
-        help="Output drcov file path (default: frida-cov.drcov)"
+        "-o",
+        "--output",
+        default="frida-cov.drcov",
+        help="Output drcov file path (default: frida-cov.drcov)",
     )
-    
+
     # filtering
     parser.add_argument(
-        "-w", "--whitelist-modules", action="append", default=[],
-        help="Module name to trace (can be repeated, default: all modules)"
+        "-w",
+        "--whitelist-modules",
+        action="append",
+        default=[],
+        help="Module name to trace (can be repeated, default: all modules)",
     )
     parser.add_argument(
-        "-t", "--thread-id", action="append", default=[],
-        help="Thread ID to trace (can be repeated, default: all threads)"
+        "-t",
+        "--thread-id",
+        action="append",
+        default=[],
+        help="Thread ID to trace (can be repeated, default: all threads)",
     )
     parser.add_argument(
-        "--no-system", action="store_true",
-        help="Exclude system modules from tracing"
+        "--no-system", action="store_true", help="Exclude system modules from tracing"
     )
-    
+
     # control options
     parser.add_argument(
-        "--disable-aslr", action="store_true",
-        help="Disable ASLR for spawned process (macOS only)"
+        "--disable-aslr",
+        action="store_true",
+        help="Disable ASLR for spawned process (macOS only)",
     )
     parser.add_argument(
-        "--timeout", type=int,
-        help="Maximum collection time in seconds"
+        "--timeout", type=int, help="Maximum collection time in seconds"
     )
-    
+
     # device options
     parser.add_argument(
-        "-D", "--device", default="local",
-        help="Frida device (default: local)"
+        "-D", "--device", default="local", help="Frida device (default: local)"
     )
-    parser.add_argument(
-        "-H", "--host",
-        help="Connect to remote frida-server"
-    )
-    
+    parser.add_argument("-H", "--host", help="Connect to remote frida-server")
+
     # debug options
-    parser.add_argument(
-        "-v", "--verbose", action="store_true",
-        help="Verbose output"
-    )
-    
+    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
+
     args = parser.parse_args()
-    
+
     # create tracer
     tracer = StalkDrcovTracer(args)
-    
+
     # setup signal handlers
     signal_handler.tracer = tracer
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
-    
+
     try:
         # start tracing
         tracer.start_tracing()
         print("[*] Basic block tracing started. Press Ctrl+C to stop and save.")
-        
+
         # wait for completion
         if args.timeout:
             time.sleep(args.timeout)
@@ -668,7 +710,7 @@ def main():
             while tracer.running:
                 try:
                     time.sleep(0.1)
-                    
+
                     # check if spawned process has exited
                     if args.spawn and tracer.pid:
                         try:
@@ -680,18 +722,39 @@ def main():
                                 break
                         except:
                             pass  # ignore enumeration errors
-                            
+
                 except KeyboardInterrupt:
                     print("\n[!] Interrupted by user")
                     tracer.stop_tracing()
                     break
-                    
-        # save results
-        tracer.save_coverage()
-        
-    except Exception as e:
-        print(f"[!] Error: {e}")
+
+    except frida.ProcessNotFoundError:
+        print(f"[-] Process not found: {args.target}")
         sys.exit(1)
+    except frida.PermissionDeniedError:
+        print(f"[-] Permission denied. Try with elevated privileges.")
+        sys.exit(1)
+    except RuntimeError as e:
+        print(f"[-] Error: {e}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"[-] Unexpected error: {e}")
+        if args.verbose:
+            import traceback
+
+            traceback.print_exc()
+        sys.exit(1)
+    else:
+        # only run this if no exceptions occurred (tracer is properly initialized)
+        try:
+            # save results
+            tracer.save_coverage()
+        except Exception as e:
+            print(f"[-] Error saving coverage: {e}")
+            if args.verbose:
+                import traceback
+
+                traceback.print_exc()
 
 
 if __name__ == "__main__":
