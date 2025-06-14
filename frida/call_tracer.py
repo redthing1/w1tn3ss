@@ -40,7 +40,7 @@ import signal
 import sys
 import time
 import struct
-import gzip
+import lzma
 import threading
 from dataclasses import dataclass, field
 from typing import List, Tuple, Dict, Optional, Any, Set
@@ -1512,8 +1512,8 @@ class CallTracer:
 
             # handle compression
             if self.args.compress:
-                if not output_file.endswith(".gz"):
-                    output_file += ".gz"
+                if not output_file.endswith(".xz"):
+                    output_file += ".xz"
 
             # export based on format
             if self.args.format == "json":
@@ -1584,7 +1584,7 @@ class CallTracer:
             }
 
             if self.args.compress:
-                with gzip.open(filepath, "wt", encoding="utf-8") as f:
+                with lzma.open(filepath, "wt", encoding="utf-8") as f:
                     json.dump(data, f, indent=2)
             else:
                 with open(filepath, "w", encoding="utf-8") as f:
@@ -1670,7 +1670,7 @@ def main():
         help="Output format",
     )
     parser.add_argument(
-        "--compress", action="store_true", help="Compress output file with gzip"
+        "--compress", action="store_true", help="Compress output file with XZ/LZMA"
     )
 
     # control options
