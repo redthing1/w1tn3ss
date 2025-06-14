@@ -53,7 +53,10 @@ js_agent_code = """
 "use strict";
 
 // configuration passed from python
-const monitoredFunctions = %s;  // array of {address: "0x...", name: "..."} objects
+const config = %s;  // {functions: [...], modules: [...], monitorAll: bool}
+const monitoredFunctions = config.functions || [];
+const targetModules = config.modules || [];
+const monitorAll = config.monitorAll || false;
 
 // per-thread state tracking
 const threadState = new Map();
@@ -61,13 +64,33 @@ const threadState = new Map();
 // track which functions we're currently inside (per thread)
 const functionContextStack = new Map();
 
+// track active stalkers per thread
+const activeStalkers = new Set();
+
 // statistics
 let totalCalls = 0;
 const functionStats = new Map(); // func_addr -> { calls: number, threads: Set }
 
 // collected calls buffer
 const callBuffer = [];
-const MAX_BUFFER_SIZE = 10000;  // send when buffer reaches this size
+const MAX_BUFFER_SIZE = 1000;  // send when buffer reaches this size
+
+// periodic buffer flush
+function flushBuffer() {
+    try {
+        if (callBuffer.length > 0) {
+            send({
+                type: 'calls',
+                data: callBuffer.splice(0)
+            });
+        }
+    } catch (e) {
+        console.error('Error flushing buffer:', e.message);
+    }
+}
+
+// flush buffer every 500ms
+setInterval(flushBuffer, 500);
 
 // initialize function statistics
 monitoredFunctions.forEach(func => {
@@ -94,114 +117,201 @@ function getCurrentFunctionContext(threadId) {
 
 // process call event from stalker
 function processCallEvent(sourceAddr, targetAddr, threadId) {
-    const funcContext = getCurrentFunctionContext(threadId);
-    if (!funcContext) return;
-    
-    // create call event
-    const callData = {
-        timestamp: Date.now() / 1000.0,
-        thread_id: threadId,
-        source_addr: sourceAddr.toString(),
-        target_addr: targetAddr.toString(),
-        function_context: funcContext,
-        call_type: 'direct'  // simplified
-    };
-    
-    // add to buffer
-    callBuffer.push(callData);
-    totalCalls++;
-    
-    // update function statistics
-    const stats = functionStats.get(funcContext);
-    if (stats) {
-        stats.calls++;
-        stats.threads.add(threadId);
-    }
-    
-    // send if buffer is getting full
-    if (callBuffer.length >= MAX_BUFFER_SIZE) {
-        send({
-            type: 'calls',
-            data: callBuffer.splice(0)  // remove all and send
-        });
+    try {
+        const funcContext = getCurrentFunctionContext(threadId);
+        if (!funcContext) return;
+        
+        // create call event
+        const callData = {
+            timestamp: Date.now() / 1000.0,
+            thread_id: threadId,
+            source_addr: sourceAddr.toString(),
+            target_addr: targetAddr.toString(),
+            function_context: funcContext,
+            call_type: 'call'
+        };
+        
+        // add to buffer
+        callBuffer.push(callData);
+        totalCalls++;
+        
+        // update function statistics
+        const stats = functionStats.get(funcContext);
+        if (stats) {
+            stats.calls++;
+            stats.threads.add(threadId);
+        }
+        
+        // send if buffer is getting full
+        if (callBuffer.length >= MAX_BUFFER_SIZE) {
+            send({
+                type: 'calls',
+                data: callBuffer.splice(0)  // remove all and send
+            });
+        }
+    } catch (e) {
+        console.error('Error processing call event:', e.message);
     }
 }
 
 // function entry handler
 function enterMonitoredFunction(funcAddr, threadId) {
-    const state = getThreadState(threadId);
-    const depth = state.depths.get(funcAddr) || 0;
-    state.depths.set(funcAddr, depth + 1);
-    
-    // push to context stack
-    if (!functionContextStack.has(threadId)) {
-        functionContextStack.set(threadId, []);
-    }
-    functionContextStack.get(threadId).push(funcAddr);
-    
-    // start stalking if this is the first monitored function entry
-    if (!state.stalking) {
-        console.log(`Starting stalker for thread ${threadId}`);
+    try {
+        const state = getThreadState(threadId);
+        const depth = state.depths.get(funcAddr) || 0;
+        state.depths.set(funcAddr, depth + 1);
         
-        Stalker.follow(threadId, {
-            events: {
-                call: true
-            },
-            onReceive: function(events) {
-                const parsed = Stalker.parse(events);
-                
-                // process each call event
-                let i = 0;
-                while (i < parsed.length) {
-                    // each call event is 3 elements: [address, target, depth]
-                    if (i + 2 < parsed.length) {
-                        const sourceAddr = parsed[i];
-                        const targetAddr = parsed[i + 1];
-                        processCallEvent(sourceAddr, targetAddr, threadId);
-                        i += 3;
-                    } else {
-                        break;
+        // push to context stack
+        if (!functionContextStack.has(threadId)) {
+            functionContextStack.set(threadId, []);
+        }
+        functionContextStack.get(threadId).push(funcAddr);
+        
+        // create function entry event
+        const entryEvent = {
+            timestamp: Date.now() / 1000.0,
+            thread_id: threadId,
+            source_addr: "0x0",  // entry point
+            target_addr: funcAddr,
+            function_context: funcAddr,
+            call_type: 'entry'
+        };
+        
+        callBuffer.push(entryEvent);
+        totalCalls++;
+        
+        // update function statistics
+        const stats = functionStats.get(funcAddr);
+        if (stats) {
+            stats.calls++;
+            stats.threads.add(threadId);
+        }
+        
+        // send buffer if getting full
+        if (callBuffer.length >= MAX_BUFFER_SIZE) {
+            send({
+                type: 'calls',
+                data: callBuffer.splice(0)
+            });
+        }
+        
+        // start stalking if this is the first monitored function entry for this thread
+        if (!state.stalking && !activeStalkers.has(threadId)) {
+            console.log(`Starting stalker for thread ${threadId}`);
+            
+            try {
+                Stalker.follow(threadId, {
+                    events: {
+                        call: true
+                    },
+                    onReceive: function(events) {
+                        try {
+                            const parsed = Stalker.parse(events);
+                            
+                            // process each call event
+                            let i = 0;
+                            while (i < parsed.length) {
+                                // each call event is 3 elements: [address, target, depth]
+                                if (i + 2 < parsed.length) {
+                                    const sourceAddr = parsed[i];
+                                    const targetAddr = parsed[i + 1];
+                                    processCallEvent(sourceAddr, targetAddr, threadId);
+                                    i += 3;
+                                } else {
+                                    break;
+                                }
+                            }
+                        } catch (e) {
+                            console.error(`Error in stalker onReceive for thread ${threadId}:`, e.message);
+                        }
                     }
-                }
+                });
+                
+                state.stalking = true;
+                activeStalkers.add(threadId);
+            } catch (e) {
+                console.error(`Error starting stalker for thread ${threadId}:`, e.message);
             }
-        });
-        
-        state.stalking = true;
+        }
+    } catch (e) {
+        console.error('Error in enterMonitoredFunction:', e.message);
     }
 }
 
 // function exit handler
 function exitMonitoredFunction(funcAddr, threadId) {
-    const state = getThreadState(threadId);
-    const depth = state.depths.get(funcAddr) || 0;
-    
-    if (depth > 0) {
-        state.depths.set(funcAddr, depth - 1);
+    try {
+        const state = getThreadState(threadId);
+        const depth = state.depths.get(funcAddr) || 0;
         
-        // pop from context stack
-        const stack = functionContextStack.get(threadId);
-        if (stack && stack.length > 0) {
-            const idx = stack.lastIndexOf(funcAddr);
-            if (idx !== -1) {
-                stack.splice(idx, 1);
-            }
-        }
-        
-        // stop stalking if we're exiting all monitored functions
-        if (depth === 1) {
-            let stillInMonitoredFunction = false;
-            state.depths.forEach((d, addr) => {
-                if (d > 0 && addr !== funcAddr) {
-                    stillInMonitoredFunction = true;
-                }
-            });
+        if (depth > 0) {
+            // create function exit event
+            const exitEvent = {
+                timestamp: Date.now() / 1000.0,
+                thread_id: threadId,
+                source_addr: funcAddr,
+                target_addr: "0x0",  // exit point
+                function_context: funcAddr,
+                call_type: 'exit'
+            };
             
-            if (!stillInMonitoredFunction && state.stalking) {
-                console.log(`Stopping stalker for thread ${threadId}`);
-                Stalker.unfollow(threadId);
-                state.stalking = false;
+            callBuffer.push(exitEvent);
+            totalCalls++;
+            
+            state.depths.set(funcAddr, depth - 1);
+            
+            // pop from context stack
+            const stack = functionContextStack.get(threadId);
+            if (stack && stack.length > 0) {
+                const idx = stack.lastIndexOf(funcAddr);
+                if (idx !== -1) {
+                    stack.splice(idx, 1);
+                }
+            }
+            
+            // send buffer if getting full
+            if (callBuffer.length >= MAX_BUFFER_SIZE) {
+                send({
+                    type: 'calls',
+                    data: callBuffer.splice(0)
+                });
+            }
+            
+            // stop stalking if we're exiting all monitored functions in this thread
+            if (depth === 1) {
+                let stillInMonitoredFunction = false;
+                state.depths.forEach((d, addr) => {
+                    if (d > 0 && addr !== funcAddr) {
+                        stillInMonitoredFunction = true;
+                    }
+                });
+                
+                if (!stillInMonitoredFunction && state.stalking) {
+                    console.log(`Stopping stalker for thread ${threadId}`);
+                    try {
+                        Stalker.unfollow(threadId);
+                        state.stalking = false;
+                        activeStalkers.delete(threadId);
+                        
+                        // Check if this was the last active thread
+                        if (activeStalkers.size === 0) {
+                            console.log('All threads completed, flushing final data...');
+                            flushBuffer();
+                            cleanup();
+                            
+                            // Signal final completion
+                            send({ type: 'process_complete' });
+                        } else {
+                            console.log(`Thread ${threadId} completed, ${activeStalkers.size} threads still active`);
+                        }
+                    } catch (e) {
+                        console.error(`Error stopping stalker for thread ${threadId}:`, e.message);
+                    }
+                }
             }
         }
+    } catch (e) {
+        console.error('Error in exitMonitoredFunction:', e.message);
     }
 }
 
@@ -292,15 +402,63 @@ function expandAddressRanges(ranges) {
     return functions;
 }
 
+// discover functions in specified modules
+function discoverModuleFunctions(moduleNames) {
+    const functions = [];
+    
+    Process.enumerateModules().forEach(module => {
+        if (moduleNames.length === 0 || moduleNames.includes(module.name)) {
+            console.log(`Discovering functions in module: ${module.name}`);
+            
+            // enumerate exports
+            module.enumerateExports().forEach(exp => {
+                if (exp.type === 'function') {
+                    functions.push({
+                        address: exp.address.toString(),
+                        name: exp.name,
+                        module: module.name
+                    });
+                }
+            });
+        }
+    });
+    
+    console.log(`Discovered ${functions.length} functions in ${moduleNames.length > 0 ? moduleNames.join(', ') : 'all modules'}`);
+    return functions;
+}
+
+// discover all functions in all modules (for monitor-all mode)
+function discoverAllFunctions() {
+    const functions = [];
+    
+    Process.enumerateModules().forEach(module => {
+        console.log(`Discovering all functions in module: ${module.name}`);
+        
+        // enumerate exports
+        module.enumerateExports().forEach(exp => {
+            if (exp.type === 'function') {
+                functions.push({
+                    address: exp.address.toString(),
+                    name: exp.name,
+                    module: module.name
+                });
+            }
+        });
+    });
+    
+    console.log(`Discovered ${functions.length} total functions in all modules`);
+    return functions;
+}
+
 // send final data on cleanup
 function cleanup() {
-    console.log('Cleaning up...');
+    console.log(`Final cleanup: buffer has ${callBuffer.length} calls, total calls: ${totalCalls}`);
     
     // send any remaining calls
     if (callBuffer.length > 0) {
         send({
             type: 'calls',
-            data: callBuffer
+            data: callBuffer.splice(0)  // clear the buffer
         });
     }
     
@@ -318,6 +476,17 @@ function cleanup() {
         total_calls: totalCalls,
         function_stats: stats
     });
+}
+
+// handle different monitoring modes
+if (monitorAll) {
+    // monitor all functions in all modules
+    const allFunctions = discoverAllFunctions();
+    allFunctions.forEach(f => monitoredFunctions.push(f));
+} else if (targetModules.length > 0) {
+    // monitor functions in specific modules
+    const moduleFunctions = discoverModuleFunctions(targetModules);
+    moduleFunctions.forEach(f => monitoredFunctions.push(f));
 }
 
 // process address ranges if any
@@ -352,7 +521,30 @@ if (monitoredFunctions.length > 0) {
 }
 
 // register cleanup
-Script.bindWeak(global, cleanup);
+Script.bindWeak(globalThis, cleanup);
+
+// handle messages from python
+recv(function(message) {
+    if (message.type === 'shutdown') {
+        console.log('Received shutdown request, stopping all stalkers...');
+        
+        // Stop all active stalkers
+        activeStalkers.forEach(threadId => {
+            try {
+                console.log(`Force stopping stalker for thread ${threadId}`);
+                Stalker.unfollow(threadId);
+            } catch (e) {
+                console.error(`Error stopping stalker for thread ${threadId}:`, e.message);
+            }
+        });
+        activeStalkers.clear();
+        
+        // Flush all remaining data
+        flushBuffer();
+        cleanup();
+        send({ type: 'shutdown_complete' });
+    }
+});
 
 // send ready signal
 send({ type: 'ready' });
@@ -406,6 +598,7 @@ class CallTracer:
         self.call_events = []
         self.function_contexts = {}  # addr -> FunctionContext
         self.monitored_functions = []
+        self.shutdown_complete = False
 
         # prepare monitored functions
         self._prepare_monitored_functions()
@@ -440,53 +633,90 @@ class CallTracer:
 
     def start_tracing(self):
         """Start the tracing session"""
-        # setup device
-        self.device = self._get_device()
+        try:
+            # setup device
+            self.device = self._get_device()
 
-        # attach or spawn
-        if self.args.spawn:
-            self.pid = self.device.spawn([self.args.target])
-            self.session = self.device.attach(self.pid)
-            print(f"[+] Spawned process with PID: {self.pid}")
-        else:
-            try:
-                self.pid = int(self.args.target)
+            # attach or spawn
+            if self.args.spawn:
+                if not os.path.exists(self.args.target):
+                    raise FileNotFoundError(f"Target binary not found: {self.args.target}")
+                
+                self.pid = self.device.spawn([self.args.target])
                 self.session = self.device.attach(self.pid)
-                print(f"[+] Attached to PID: {self.pid}")
-            except ValueError:
-                self.session = self.device.attach(self.args.target)
-                print(f"[+] Attached to process: {self.args.target}")
+                print(f"[+] Spawned process with PID: {self.pid}")
+            else:
+                try:
+                    self.pid = int(self.args.target)
+                    self.session = self.device.attach(self.pid)
+                    print(f"[+] Attached to PID: {self.pid}")
+                except ValueError:
+                    # Try to attach by process name
+                    try:
+                        self.session = self.device.attach(self.args.target)
+                        print(f"[+] Attached to process: {self.args.target}")
+                    except frida.ProcessNotFoundError:
+                        raise frida.ProcessNotFoundError(
+                            f"Process '{self.args.target}' not found. "
+                            "Please specify a valid PID or process name."
+                        )
 
-        # inject script
-        script_code = js_agent_code % json.dumps(self.monitored_functions)
+            # validate we have something to monitor
+            if not self.monitored_functions and not self.args.module and not self.args.monitor_all:
+                raise ValueError("No functions, modules, or monitor-all specified")
 
-        self.script = self.session.create_script(script_code)
-        self.script.on("message", self._on_message)
-        self.script.load()
+            # prepare configuration for JS agent
+            config = {
+                "functions": self.monitored_functions,
+                "modules": self.args.module or [],
+                "monitorAll": self.args.monitor_all,
+            }
 
-        # resume if spawned
-        if self.args.spawn:
-            self.device.resume(self.pid)
-            print("[+] Process resumed")
+            # inject script
+            script_code = js_agent_code % json.dumps(config)
 
-        self.running = True
+            try:
+                self.script = self.session.create_script(script_code)
+                self.script.on("message", self._on_message)
+                self.script.load()
+            except Exception as e:
+                raise RuntimeError(f"Failed to inject JavaScript agent: {e}")
 
-        # start timeout if specified
-        if self.args.timeout:
-            timer = threading.Timer(self.args.timeout, self._timeout_handler)
-            timer.daemon = True
-            timer.start()
+            # resume if spawned
+            if self.args.spawn:
+                self.device.resume(self.pid)
+                print("[+] Process resumed")
+
+            self.running = True
+
+            # start timeout if specified
+            if self.args.timeout:
+                timer = threading.Timer(self.args.timeout, self._timeout_handler)
+                timer.daemon = True
+                timer.start()
+
+        except Exception as e:
+            # Cleanup on failure
+            if hasattr(self, 'session') and self.session:
+                try:
+                    self.session.detach()
+                except:
+                    pass
+            raise e
 
     def _get_device(self):
         """Get the Frida device"""
-        if self.args.host:
-            manager = frida.get_device_manager()
-            device = manager.add_remote_device(self.args.host)
-            print(f"[*] Using remote device: {self.args.host}")
-        else:
-            device = frida.get_device(self.args.device)
-            print(f"[*] Using device: {device.id}")
-        return device
+        try:
+            if self.args.host:
+                manager = frida.get_device_manager()
+                device = manager.add_remote_device(self.args.host)
+                print(f"[*] Using remote device: {self.args.host}")
+            else:
+                device = frida.get_device(self.args.device)
+                print(f"[*] Using device: {device.id}")
+            return device
+        except Exception as e:
+            raise RuntimeError(f"Failed to get Frida device: {e}")
 
     def _on_message(self, message, data):
         """Handle messages from the JS agent"""
@@ -550,6 +780,17 @@ class CallTracer:
                 # final statistics
                 self.final_stats = payload
 
+            elif msg_type == "shutdown_complete":
+                # script has finished cleanup, now we can safely unload
+                print("[*] Received shutdown complete signal")
+                self.shutdown_complete = True
+                self._force_cleanup()
+
+            elif msg_type == "process_complete":
+                # target process has finished and data is flushed
+                print("[*] Target process completed, all data collected")
+                self.shutdown_complete = True
+
             elif msg_type == "error":
                 print(f"[!] Error: {payload.get('message')}")
 
@@ -560,20 +801,39 @@ class CallTracer:
 
     def stop_tracing(self):
         """Stop tracing and cleanup"""
+        if not self.running:
+            return  # Already stopped
+
+        print("[*] Stopping tracing...")
         self.running = False
         self.end_time = time.time()
 
         if self.script:
             try:
+                # Send shutdown signal  
+                print("[*] Sending shutdown signal to script...")
+                self.script.post({"type": "shutdown"})
+            except Exception as e:
+                print(f"[-] Warning: Error sending shutdown signal: {e}")
+                self._force_cleanup()
+
+    def _force_cleanup(self):
+        """Force cleanup when normal shutdown fails"""
+        if self.script:
+            try:
                 self.script.unload()
-            except:
-                pass
+            except Exception as e:
+                if self.args.verbose:
+                    print(f"[-] Warning: Error unloading script: {e}")
 
         if self.session:
             try:
                 self.session.detach()
-            except:
-                pass
+            except Exception as e:
+                if self.args.verbose:
+                    print(f"[-] Warning: Error detaching session: {e}")
+
+        print("[*] Tracing stopped.")
 
     def get_summary(self) -> CallSummary:
         """Generate a summary of the trace data"""
@@ -627,6 +887,17 @@ class CallTracer:
         print(f"Unique Threads:   {summary.unique_threads}")
         print(f"Duration:         {summary.duration:.2f}s")
         print(f"Calls/Second:     {summary.calls_per_second:.1f}")
+
+        # Call type breakdown
+        call_types = {}
+        for event in self.call_events:
+            call_types[event.call_type] = call_types.get(event.call_type, 0) + 1
+
+        if call_types:
+            print(f"\nCall Types:")
+            print("-" * 30)
+            for call_type, count in sorted(call_types.items()):
+                print(f"{call_type:<12}: {count:>8,}")
 
         if summary.functions:
             print(f"\nMonitored Functions ({len(summary.functions)}):")
@@ -781,14 +1052,10 @@ class CallTracer:
 
 def signal_handler(signum, frame):
     """Handle signals for graceful shutdown"""
-    print(f"\n[!] Interrupted by signal {signum}")
+    print(f"\n[!] Received signal {signum}, shutting down gracefully...")
     if hasattr(signal_handler, "tracer"):
         signal_handler.tracer.stop_tracing()
-        if signal_handler.tracer.args.output:
-            signal_handler.tracer.export_results()
-        else:
-            signal_handler.tracer.print_summary()
-    sys.exit(0)
+        # Don't exit here - let the main loop handle cleanup gracefully
 
 
 def main():
@@ -818,6 +1085,18 @@ def main():
         "--hook-range",
         action="append",
         help="Address range to monitor (format: START:END)",
+    )
+    parser.add_argument(
+        "-m",
+        "--module",
+        action="append",
+        help="Module to monitor (can be repeated)",
+    )
+    parser.add_argument(
+        "-M",
+        "--monitor-all",
+        action="store_true",
+        help="Monitor all functions in all modules (explicit flag required)",
     )
 
     # output options
@@ -860,7 +1139,9 @@ def main():
     args = parser.parse_args()
 
     # validate arguments
-    if not any([args.hook_func, args.hook_name, args.hook_range]):
+    if not any(
+        [args.hook_func, args.hook_name, args.hook_range, args.module, args.monitor_all]
+    ):
         print("[-] Error: At least one function selection option required")
         parser.print_help()
         sys.exit(1)
@@ -890,8 +1171,26 @@ def main():
         if args.timeout:
             time.sleep(args.timeout + 0.5)
         else:
-            # block until interrupted
-            sys.stdin.read()
+            # poll until interrupted or shutdown complete
+            while tracer.running:
+                try:
+                    time.sleep(0.1)
+                except KeyboardInterrupt:
+                    print(f"\n[!] Interrupted by user")
+                    tracer.stop_tracing()
+                    break
+            
+            # If shutdown was initiated, wait for it to complete
+            if not tracer.running and not tracer.shutdown_complete:
+                print("[*] Waiting for data collection to complete...")
+                # Wait for shutdown to complete (max 3 seconds)
+                wait_start = time.time()
+                while not tracer.shutdown_complete and (time.time() - wait_start) < 3.0:
+                    time.sleep(0.01)
+                
+                if not tracer.shutdown_complete:
+                    print("[-] Timeout waiting for shutdown, forcing cleanup...")
+                    tracer._force_cleanup()
 
     except frida.ProcessNotFoundError:
         print(f"[-] Process not found: {args.target}")

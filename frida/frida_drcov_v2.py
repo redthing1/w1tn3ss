@@ -514,7 +514,7 @@ def main():
         "  for spawning: full path to the executable.",
     )
     parser.add_argument(
-        "-S",
+        "-s",
         "--spawn",
         action="store_true",
         help="spawn the target executable instead of attaching. "
