@@ -92,6 +92,54 @@ target_compile_features(w1cov_qbdipreload PRIVATE cxx_std_17)
 
 # injection libraries do not use sanitizers
 
+# Runtime injection coverage library
+add_library(w1cov_runtime SHARED
+    coverage/w1cov_runtime.cpp
+)
+
+set_target_properties(w1cov_runtime PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
+    PREFIX ""
+    OUTPUT_NAME "w1cov_runtime"
+)
+
+target_include_directories(w1cov_runtime
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+target_link_libraries(w1cov_runtime
+    PRIVATE
+        QBDI
+        redlog::redlog
+)
+
+target_compile_features(w1cov_runtime PRIVATE cxx_std_17)
+
+# Sampling-based runtime coverage library
+add_library(w1cov_sampling SHARED
+    coverage/w1cov_sampling.cpp
+)
+
+set_target_properties(w1cov_sampling PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
+    PREFIX ""
+    OUTPUT_NAME "w1cov_sampling"
+)
+
+target_include_directories(w1cov_sampling
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+target_link_libraries(w1cov_sampling
+    PRIVATE
+        QBDI
+        redlog::redlog
+)
+
+target_compile_features(w1cov_sampling PRIVATE cxx_std_17)
+
 # Standalone QBDI coverage library
 set(W1COV_STANDALONE_SOURCES
     coverage/coverage_data.cpp
@@ -124,7 +172,7 @@ target_compile_features(w1cov PRIVATE cxx_std_17)
 # injection libraries do not use sanitizers
 
 # Install rules
-install(TARGETS ${LIBRARY_NAME} w1cov_qbdipreload w1cov
+install(TARGETS ${LIBRARY_NAME} w1cov_qbdipreload w1cov w1cov_runtime w1cov_sampling
     EXPORT w1tn3ssTargets
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
