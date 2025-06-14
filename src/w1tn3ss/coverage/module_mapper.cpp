@@ -6,9 +6,10 @@
 #include <regex>
 #include <sstream>
 #ifdef _WIN32
+#include <windows.h>
+
 #include <process.h>
 #include <psapi.h>
-#include <windows.h>
 #else
 #include <unistd.h>
 #endif

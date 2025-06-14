@@ -18,13 +18,13 @@ struct NtCreateThreadExBuffer {
   ULONG Unknown8;
 };
 
-typedef NTSTATUS(WINAPI* LPFUN_NtCreateThreadEx)(
+typedef NTSTATUS (WINAPI* LPFUN_NtCreateThreadEx)(
     PHANDLE hThread, ACCESS_MASK DesiredAccess, LPVOID ObjectAttributes, HANDLE ProcessHandle,
     LPTHREAD_START_ROUTINE lpStartAddress, LPVOID lpParameter, BOOL CreateSuspended, ULONG StackZeroBits,
     ULONG SizeOfStackCommit, ULONG SizeOfStackReserve, LPVOID lpBytesBuffer
 );
 // Function Pointer Typedef for RtlCreateUserThread
-typedef DWORD(WINAPI* pRtlCreateUserThread)(
+typedef DWORD (WINAPI* pRtlCreateUserThread)(
     IN HANDLE ProcessHandle, IN PSECURITY_DESCRIPTOR SecurityDescriptor, IN BOOL CreateSuspended,
     IN ULONG StackZeroBits, IN OUT PULONG StackReserved, IN OUT PULONG StackCommit, IN LPVOID StartAddress,
     IN LPVOID StartParameter, OUT HANDLE ThreadHandle, OUT LPVOID ClientID

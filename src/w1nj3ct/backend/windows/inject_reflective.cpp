@@ -122,7 +122,7 @@ BOOL ManualMap(HANDLE hProc, const char* szDllFile) {
   // allocate memory in the target process the size of the image plus the size of the mapping data which will be passed
   // to our loader stub.
   printf(
-      "[*] Allocating memory in the size of: [0x%x] in remote process.\n", pOldOptHeader->SizeOfImage + sizeof(mData)
+      "[*] Allocating memory in the size of: [0x%zx] in remote process.\n", pOldOptHeader->SizeOfImage + sizeof(mData)
   );
   pTargetBase = reinterpret_cast<BYTE*>(VirtualAllocEx(
       hProc, nullptr, pOldOptHeader->SizeOfImage + sizeof(mData), MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE

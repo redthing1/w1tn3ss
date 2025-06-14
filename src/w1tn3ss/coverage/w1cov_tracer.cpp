@@ -584,7 +584,7 @@ bool w1cov_tracer::setup_instrumentation_ranges() {
       // log some examples of what was excluded
       if (!all_executable.empty()) {
         log_.debug("examples of excluded modules");
-        size_t example_count = std::min(static_cast<size_t>(5), all_executable.size());
+        size_t example_count = (std::min) (static_cast<size_t>(5), all_executable.size());
         for (size_t i = 0; i < example_count; ++i) {
           const auto& region = all_executable[i];
           log_.verbose(

@@ -89,7 +89,7 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 endif()
 
 # compiler flags
-target_compile_features(${LIBRARY_NAME} PUBLIC cxx_std_17)
+target_compile_features(${LIBRARY_NAME} PUBLIC cxx_std_20)
 
 # enable sanitizers for injection library in debug builds
 if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT WIN32)

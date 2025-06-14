@@ -75,19 +75,19 @@ result inject_runtime(const config& cfg) {
     if (symbol_result != LINUX_ELF_SUCCESS) {
       // Try comprehensive list of ld.so names for all architectures
       const char* ld_names[] = {
-        "ld-linux-x86-64.so.2",    // x86_64
-        "ld-linux-x86-64.so",      // x86_64 without version
-        "ld-linux-aarch64.so.1",   // ARM64
-        "ld-linux-aarch64.so",     // ARM64 without version  
-        "ld-linux-armhf.so.3",     // ARM32 hard-float
-        "ld-linux-armhf.so",       // ARM32 hard-float without version
-        "ld-linux.so.3",           // ARM32 soft-float
-        "ld-linux.so.2",           // i386
-        "ld-linux.so",             // generic
-        "ld.so.1",                 // some distributions
-        nullptr
+          "ld-linux-x86-64.so.2",  // x86_64
+          "ld-linux-x86-64.so",    // x86_64 without version
+          "ld-linux-aarch64.so.1", // ARM64
+          "ld-linux-aarch64.so",   // ARM64 without version
+          "ld-linux-armhf.so.3",   // ARM32 hard-float
+          "ld-linux-armhf.so",     // ARM32 hard-float without version
+          "ld-linux.so.3",         // ARM32 soft-float
+          "ld-linux.so.2",         // i386
+          "ld-linux.so",           // generic
+          "ld.so.1",               // some distributions
+          nullptr
       };
-      
+
       for (int i = 0; ld_names[i] != nullptr && symbol_result != LINUX_ELF_SUCCESS; i++) {
         symbol_result = linux_find_symbol(target_pid, ld_names[i], "dlopen", &dlopen_addr);
       }

@@ -3,6 +3,10 @@
 #include "w1nj3ct.hpp"
 #include <string>
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 namespace w1::inject {
 // error code to string conversion
 std::string error_code_to_string(error_code code);
