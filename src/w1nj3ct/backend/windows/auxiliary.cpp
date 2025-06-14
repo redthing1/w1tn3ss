@@ -31,7 +31,7 @@ DWORD find_pid_by_name(const std::wstring& process_name) {
 
   DWORD pid = 0;
   do {
-    if (_wcsicmp((wchar_t*)pe32.szExeFile, process_name.c_str()) == 0) {
+    if (_wcsicmp((wchar_t*) pe32.szExeFile, process_name.c_str()) == 0) {
       pid = pe32.th32ProcessID;
       break;
     }

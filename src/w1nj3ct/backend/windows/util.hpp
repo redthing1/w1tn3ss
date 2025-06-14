@@ -1,7 +1,7 @@
 #pragma once
 
-#include <string>
 #include <iostream>
+#include <string>
 
 // log helpers
 static inline void log_msg(const std::string& msg) { std::cout << msg << std::endl; }

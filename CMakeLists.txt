@@ -84,3 +84,61 @@ option(BUILD_TESTS "Build test programs and libraries" ON)
 if(BUILD_TESTS)
     add_subdirectory(tests)
 endif()
+
+# Code formatting with clang-format
+find_program(CLANG_FORMAT_EXECUTABLE
+    NAMES clang-format clang-format-18 clang-format-17 clang-format-16 clang-format-15
+    DOC "Path to clang-format executable"
+)
+
+if(CLANG_FORMAT_EXECUTABLE)
+    message(STATUS "clang-format found: ${CLANG_FORMAT_EXECUTABLE}")
+    
+    # Find all source files to format (excluding third-party and build directories)
+    file(GLOB_RECURSE ALL_SOURCE_FILES
+        "${CMAKE_SOURCE_DIR}/src/w1tn3ss/*.cpp"
+        "${CMAKE_SOURCE_DIR}/src/w1tn3ss/*.hpp"
+        "${CMAKE_SOURCE_DIR}/src/w1nj3ct/*.cpp"
+        "${CMAKE_SOURCE_DIR}/src/w1nj3ct/*.hpp"
+        "${CMAKE_SOURCE_DIR}/src/w1tool/*.cpp"
+        "${CMAKE_SOURCE_DIR}/src/w1tool/*.hpp"
+        "${CMAKE_SOURCE_DIR}/src/common/*.cpp"
+        "${CMAKE_SOURCE_DIR}/src/common/*.hpp"
+        "${CMAKE_SOURCE_DIR}/tests/*.cpp"
+        "${CMAKE_SOURCE_DIR}/tests/*.hpp"
+    )
+    
+    # Create format target
+    add_custom_target(w1-format
+        COMMAND ${CLANG_FORMAT_EXECUTABLE} -i -style=file ${ALL_SOURCE_FILES}
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        COMMENT "Formatting w1tn3ss code with clang-format"
+        VERBATIM
+    )
+    
+    # Create format-check target
+    add_custom_target(w1-format-check
+        COMMAND ${CLANG_FORMAT_EXECUTABLE} --dry-run --Werror -style=file ${ALL_SOURCE_FILES}
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        COMMENT "Checking w1tn3ss code formatting with clang-format"
+        VERBATIM
+    )
+    
+    # Create convenience targets
+    add_custom_target(format-all
+        DEPENDS w1-format redlog-format
+        COMMENT "Formatting all code"
+    )
+    
+    add_custom_target(format-check-all
+        DEPENDS w1-format-check redlog-format-check
+        COMMENT "Checking all code formatting"
+    )
+    
+    message(STATUS "  - Run 'make w1-format' to format w1tn3ss code")
+    message(STATUS "  - Run 'make w1-format-check' to check w1tn3ss formatting")
+    message(STATUS "  - Run 'make format-all' to format all code")
+    message(STATUS "  - Run 'make format-check-all' to check all code formatting")
+else()
+    message(WARNING "clang-format not found. Install clang-format to enable code formatting targets.")
+endif()

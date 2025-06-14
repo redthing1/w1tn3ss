@@ -1,7 +1,6 @@
 #include "inject.hpp"
 #include "util.hpp"
 
-
 // hook procedure that will be called by the windows hook
 LRESULT CALLBACK hook_proc(int n_code, WPARAM w_param, LPARAM l_param) {
   log_msg("hook_proc called");
