@@ -15,6 +15,12 @@ uv tool run --from frida-tools python ...
 # trace and show summary in terminal (no file output)
 python call_tracer.py 1234 -F 0x401000
 
+# trace with verbose output (-v for verbose, -vv for extra verbose)
+python call_tracer.py 1234 -F 0x401000 -vv
+
+# trace with custom buffer size
+python call_tracer.py 1234 -F 0x401000 --buffer-size 2000
+
 # trace specific functions and save to file
 python call_tracer.py 1234 -F 0x401000 -F 0x402000 -o traces.json
 
@@ -73,6 +79,7 @@ const targetModules = config.modules || [];
 const monitorAll = config.monitorAll || false;
 const excludeSystem = config.excludeSystem || false;
 const verbose = config.verbose || false;
+const extraVerbose = config.extraVerbose || false;
 
 // state management
 const threadState = new Map();           // per-thread state tracking
@@ -83,7 +90,7 @@ const activeStalkers = new Set();       // active stalker thread IDs
 let totalCalls = 0;
 const functionStats = new Map();        // func_addr -> { calls: number, threads: Set }
 const callBuffer = [];
-const MAX_BUFFER_SIZE = 1000;
+const MAX_BUFFER_SIZE = config.bufferSize || 1;
 const FLUSH_THRESHOLD = 25;             // flush when buffer reaches this size
 const FLUSH_INTERVAL_MS = 1000;         // flush every N milliseconds
 
@@ -96,7 +103,7 @@ function flushBuffer() {
     try {
         if (callBuffer.length > 0) {
             const dataToSend = callBuffer.splice(0);
-            if (verbose) console.log(`Flushing ${dataToSend.length} calls from buffer`);
+            if (extraVerbose) console.log(`Flushing ${dataToSend.length} calls from buffer`);
             send({
                 type: 'calls',
                 data: dataToSend
@@ -112,7 +119,8 @@ function flushBuffer() {
 // force flush buffer if it's getting too large to prevent memory issues
 function forceFlushIfNeeded() {
     if (callBuffer.length >= MAX_BUFFER_SIZE) {
-        console.warn(`Buffer overflow protection: force flushing ${callBuffer.length} calls`);
+        // console.warn(`Buffer full: flushing ${callBuffer.length} calls`);
+        if (extraVerbose) console.log(`Buffer full: flushing ${callBuffer.length} calls`);
         try {
             const dataToSend = callBuffer.splice(0);
             send({
@@ -205,6 +213,11 @@ function processCallEvent(sourceAddr, targetAddr, threadId, callType = 'call') {
         callBuffer.push(callData);
         totalCalls++;
         
+        // Log individual calls in extra verbose mode
+        if (extraVerbose) {
+            console.log(`[CALL] ${callData.call_type}: ${callData.source_addr} -> ${callData.target_addr} (ctx: ${callData.function_context}, tid: ${callData.thread_id})`);
+        }
+        
         // update function statistics
         const stats = functionStats.get(funcContext);
         if (stats) {
@@ -279,6 +292,11 @@ function processReturnEvent(sourceAddr, threadId) {
         callBuffer.push(returnData);
         totalCalls++;
         
+        // Log individual returns in extra verbose mode
+        if (extraVerbose) {
+            console.log(`[RETURN] return from ${returnData.source_addr} (ctx: ${returnData.function_context}, tid: ${returnData.thread_id})`);
+        }
+        
         // check buffer size and flush if needed
         forceFlushIfNeeded();
         if (callBuffer.length >= FLUSH_THRESHOLD) {
@@ -328,6 +346,11 @@ function enterMonitoredFunction(funcAddr, threadId) {
         callBuffer.push(entryEvent);
         totalCalls++;
         
+        // Log function entries in extra verbose mode
+        if (extraVerbose) {
+            console.log(`[ENTRY] Entering function ${funcAddr} on thread ${threadId} (depth: ${depth + 1})`);
+        }
+        
         // update function statistics
         const stats = functionStats.get(funcAddr);
         if (stats) {
@@ -345,7 +368,7 @@ function enterMonitoredFunction(funcAddr, threadId) {
         
         // start stalking if this is the first monitored function entry for this thread
         if (!state.stalking && !activeStalkers.has(threadId)) {
-            if (verbose) console.log(`Stalking thread ${threadId}`);
+            if (extraVerbose) console.log(`Stalking thread ${threadId}`);
             
             try {
                 Stalker.follow(threadId, {
@@ -435,6 +458,11 @@ function exitMonitoredFunction(funcAddr, threadId) {
             callBuffer.push(exitEvent);
             totalCalls++;
             
+            // Log function exits in extra verbose mode
+            if (extraVerbose) {
+                console.log(`[EXIT] Exiting function ${funcAddr} on thread ${threadId} (depth: ${depth - 1})`);
+            }
+            
             state.depths.set(funcAddr, depth - 1);
             
             // pop from context stack
@@ -471,13 +499,13 @@ function exitMonitoredFunction(funcAddr, threadId) {
                 });
                 
                 if (!stillInMonitoredFunction) {
-                    if (verbose) console.log(`Thread ${threadId} exited all monitored functions`);
+                    if (extraVerbose) console.log(`Thread ${threadId} exited all monitored functions`);
                     
                     // Don't stop stalking immediately - let it continue for a bit
                     // to catch any remaining call/ret events
                     setTimeout(() => {
                         if (state.stalking) {
-                            if (verbose) console.log(`Stopping stalker for thread ${threadId} (delayed)`);
+                            if (extraVerbose) console.log(`Stopping stalker for thread ${threadId} (delayed)`);
                             try {
                                 Stalker.unfollow(threadId);
                                 state.stalking = false;
@@ -485,14 +513,14 @@ function exitMonitoredFunction(funcAddr, threadId) {
                                 
                                 // Check if this was the last active thread
                                 if (activeStalkers.size === 0) {
-                                    if (verbose) console.log('All threads completed, flushing final data...');
+                                    if (extraVerbose) console.log('All threads completed, flushing final data...');
                                     flushBuffer();
                                     cleanup();
                                     
                                     // Signal final completion
                                     send({ type: 'process_complete' });
                                 } else {
-                                    if (verbose) console.log(`Thread ${threadId} completed, ${activeStalkers.size} threads still active`);
+                                    if (extraVerbose) console.log(`Thread ${threadId} completed, ${activeStalkers.size} threads still active`);
                                 }
                             } catch (e) {
                                 console.error(`Error stopping stalker for thread ${threadId}:`, e.message);
@@ -538,6 +566,11 @@ function setupFunctionHooks() {
             const moduleInfo = func.module ? ` in ${func.module}` : '';
             if (verbose) console.log(`Hooked ${func.address} (${func.name || 'unnamed'})${moduleInfo}`);
             
+            // Log call details in extra verbose mode
+            if (extraVerbose) {
+                console.log(`Hook details: address=${func.address}, name=${func.name || 'unnamed'}, module=${func.module || 'unknown'}`);
+            }
+            
         } catch (e) {
             console.error(`Failed to hook ${func.address}: ${e.message}`);
             failed.push(func);
@@ -577,7 +610,7 @@ function resolveModuleOffsets(moduleOffsets) {
                     offset: entry.offset
                 });
                 found = true;
-                if (verbose) console.log(`Resolved ${moduleName}+${entry.offset} to ${targetAddr} (base: ${baseAddr})`);
+                if (extraVerbose) console.log(`Resolved ${moduleName}+${entry.offset} to ${targetAddr} (base: ${baseAddr})`);
             }
         });
         
@@ -688,7 +721,7 @@ function discoverModuleFunctions(moduleNames) {
         }
         
         if (moduleNames.length === 0 || moduleNames.includes(module.name)) {
-            if (verbose) console.log(`Discovering functions in module: ${module.name}`);
+            if (extraVerbose) console.log(`Discovering functions in module: ${module.name}`);
             
             // enumerate exports
             module.enumerateExports().forEach(exp => {
@@ -716,11 +749,11 @@ function discoverAllFunctions() {
     Process.enumerateModules().forEach(module => {
         // Skip system modules if excludeSystem is enabled
         if (excludeSystem && isSystemModule(module.name, module.path)) {
-            if (verbose) console.log(`Skipping system module: ${module.name}`);
+            if (extraVerbose) console.log(`Skipping system module: ${module.name}`);
             return;
         }
         
-        if (verbose) console.log(`Discovering all functions in module: ${module.name}`);
+        if (extraVerbose) console.log(`Discovering all functions in module: ${module.name}`);
         
         // enumerate exports
         module.enumerateExports().forEach(exp => {
@@ -745,7 +778,7 @@ function discoverAllFunctions() {
 
 // send final data on cleanup
 function cleanup() {
-    if (verbose) console.log(`Final cleanup: buffer has ${callBuffer.length} calls, total calls: ${totalCalls}`);
+    if (extraVerbose) console.log(`Final cleanup: buffer has ${callBuffer.length} calls, total calls: ${totalCalls}`);
     
     // send any remaining calls
     if (callBuffer.length > 0) {
@@ -771,7 +804,7 @@ function cleanup() {
     });
     
     // ensure completion signal is sent
-    if (verbose) console.log('Sending process complete signal...');
+    if (extraVerbose) console.log('Sending process complete signal...');
     send({ type: 'process_complete' });
 }
 
@@ -843,12 +876,12 @@ Script.bindWeak(globalThis, cleanup);
 // handle messages from python
 recv(function(message) {
     if (message.type === 'shutdown') {
-        if (verbose) console.log('Received shutdown request, stopping all stalkers...');
+        if (extraVerbose) console.log('Received shutdown request, stopping all stalkers...');
         
         // Stop all active stalkers
         activeStalkers.forEach(threadId => {
             try {
-                if (verbose) console.log(`Force stopping stalker for thread ${threadId}`);
+                if (extraVerbose) console.log(`Force stopping stalker for thread ${threadId}`);
                 Stalker.unfollow(threadId);
             } catch (e) {
                 console.error(`Error stopping stalker for thread ${threadId}:`, e.message);
@@ -1189,7 +1222,9 @@ class CallTracer:
                 "modules": self.args.module or [],
                 "monitorAll": self.args.monitor_all,
                 "excludeSystem": self.args.no_system,
-                "verbose": self.args.verbose,
+                "verbose": self.args.verbose >= 1,
+                "extraVerbose": self.args.verbose >= 2,
+                "bufferSize": self.args.buffer_size,
             }
 
             # inject script with properly escaped JSON
@@ -1297,12 +1332,24 @@ class CallTracer:
                         )
                         self.function_contexts[addr] = func_ctx
 
+                        if self.args.verbose >= 2:
+                            print(
+                                f"[DEBUG] Registered function context: {addr} ({func.get('name', 'unnamed')})"
+                            )
+
                 if failed:
                     print(f"[!] Failed to hook {len(failed)} functions")
+                    if self.args.verbose >= 2:
+                        for func in failed:
+                            print(
+                                f"[DEBUG] Failed to hook: {func.get('address', 'unknown')} ({func.get('name', 'unnamed')})"
+                            )
 
             elif msg_type == "calls":
                 # process batch of calls
                 calls = payload.get("data", [])
+                if self.args.verbose >= 2:
+                    print(f"[DEBUG] Processing {len(calls)} call events")
                 for call_data in calls:
                     try:
                         event = CallEvent(
@@ -1323,9 +1370,16 @@ class CallTracer:
                             ctx.unique_threads.add(event.thread_id)
                             ctx.unique_targets.add(event.target_addr)
 
+                            if self.args.verbose >= 3:
+                                print(
+                                    f"[TRACE] Call: {event.call_type} from {hex(event.source_addr)} to {hex(event.target_addr)} (ctx: {func_addr})"
+                                )
+
                     except (KeyError, ValueError) as e:
-                        if self.args.verbose:
+                        if self.args.verbose >= 1:
                             print(f"[-] Error processing call: {e}")
+                        if self.args.verbose >= 2:
+                            print(f"[-] Call data: {call_data}")
 
             elif msg_type == "statistics":
                 # final statistics
@@ -1340,7 +1394,7 @@ class CallTracer:
             elif msg_type == "process_complete":
                 # target process has finished and data is flushed
                 print("[*] Target process completed, all data collected")
-                if self.args.verbose:
+                if self.args.verbose >= 2:
                     print(f"[DEBUG] Setting shutdown_complete=True, running=False")
                 self.shutdown_complete = True
                 self.running = False  # Stop the main loop
@@ -1352,7 +1406,7 @@ class CallTracer:
             print(f"[!] Missing required field in message: {e}")
         except Exception as e:
             print(f"[!] Error processing message: {e}")
-            if self.args.verbose:
+            if self.args.verbose >= 1:
                 import traceback
 
                 traceback.print_exc()
@@ -1386,14 +1440,14 @@ class CallTracer:
             try:
                 self.script.unload()
             except Exception as e:
-                if self.args.verbose:
+                if self.args.verbose >= 1:
                     print(f"[-] Warning: Error unloading script: {e}")
 
         if self.session:
             try:
                 self.session.detach()
             except Exception as e:
-                if self.args.verbose:
+                if self.args.verbose >= 1:
                     print(f"[-] Warning: Error detaching session: {e}")
 
         print("[*] Tracing stopped.")
@@ -1538,7 +1592,7 @@ class CallTracer:
 
         except Exception as e:
             print(f"[!] Error exporting results: {e}")
-            if self.args.verbose:
+            if self.args.verbose >= 1:
                 import traceback
 
                 traceback.print_exc()
@@ -1705,7 +1759,19 @@ def main():
     parser.add_argument("-H", "--host", help="Connect to remote frida-server")
 
     # debug options
-    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="count",
+        default=0,
+        help="Verbose output (-v for verbose, -vv for extra verbose)",
+    )
+    parser.add_argument(
+        "--buffer-size",
+        type=int,
+        default=1000,
+        help="JavaScript agent buffer size (default: 1000)",
+    )
 
     # target arguments (after --)
     parser.add_argument(
@@ -1751,7 +1817,7 @@ def main():
             while tracer.running:
                 try:
                     time.sleep(0.1)
-                    if args.verbose:
+                    if args.verbose >= 2:
                         print(
                             f"[DEBUG] Main loop: running={tracer.running}, shutdown_complete={tracer.shutdown_complete}"
                         )
@@ -1766,7 +1832,7 @@ def main():
                                 tracer.running = False
                                 break
                         except Exception as e:
-                            if args.verbose:
+                            if args.verbose >= 2:
                                 print(f"[DEBUG] Error checking process existence: {e}")
                             # If we can't enumerate processes, assume it's still running
                             pass
@@ -1806,7 +1872,7 @@ def main():
         sys.exit(1)
     except Exception as e:
         print(f"[-] Unexpected error: {e}")
-        if args.verbose:
+        if args.verbose >= 1:
             import traceback
 
             traceback.print_exc()
@@ -1828,7 +1894,7 @@ def main():
                 print("[!] No calls collected.")
         except Exception as e:
             print(f"[-] Error during cleanup: {e}")
-            if args.verbose:
+            if args.verbose >= 1:
                 import traceback
 
                 traceback.print_exc()
