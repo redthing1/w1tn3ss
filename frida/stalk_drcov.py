@@ -32,6 +32,9 @@ python stalk_drcov.py -s ./target --disable-aslr -o coverage.drcov
 
 # spawn with arguments (use -- to separate)
 python stalk_drcov.py -s ./target --no-system -- --input file.txt --verbose
+
+# enable hit count tracking (uses block events)
+python stalk_drcov.py -s ./target --hits -o coverage-with-hits.drcov
 """
 
 from __future__ import print_function
@@ -60,6 +63,8 @@ const config = JSON.parse('CONFIG_JSON_PLACEHOLDER');
 const whitelistedModules = config.whitelistedModules || ['all'];
 const threadIdList = config.threadIdList || ['all'];
 const excludeSystem = config.excludeSystem || false;
+const useHitCounting = config.useHitCounting || false;
+const verbose = config.verbose || false;
 
 // drcov basic block entries are 8 bytes:
 //   uint32_t start_offset; (from module base)
@@ -229,13 +234,18 @@ function startStalkingThreadIfNeeded(threadId) {
         return; // already stalking
     }
 
-    console.log('Starting stalker for thread ' + threadId);
+    if (verbose) console.log('Stalking thread ' + threadId);
     activeStalkers.add(threadId);
 
+    // Configure events based on hit counting mode
+    var stalkerEvents = useHitCounting ? {
+        block: true    // Use block events for hit counting
+    } : {
+        compile: true  // Use compile events for coverage only
+    };
+    
     Stalker.follow(threadId, {
-        events: {
-            compile: true
-        },
+        events: stalkerEvents,
         onReceive: function (rawStalkerEvents) {
             try {
                 var parsedBasicBlocks = Stalker.parse(rawStalkerEvents, {stringify: false, annotate: false});
@@ -261,17 +271,17 @@ var threadObserver = Process.attachThreadObserver({
     onRemoved: function (thread) {
         if (activeStalkers.has(thread.id)) {
             activeStalkers.delete(thread.id);
-            console.log('Thread ' + thread.id + ' removed from stalker tracking');
+            if (verbose) console.log('Thread ' + thread.id + ' removed from stalker tracking');
         }
     }
 });
 
-console.log('Thread observer attached. Stalking threads matching criteria.');
+if (verbose) console.log('Thread observer ready');
 
 // handle shutdown
 recv(function(message) {
     if (message.type === 'shutdown') {
-        console.log('Received shutdown request');
+        if (verbose) console.log('Received shutdown request');
         
         // stop all stalkers
         activeStalkers.forEach(function(threadId) {
@@ -302,17 +312,31 @@ class StalkDrcovTracer:
 
     def __init__(self, args):
         self.args = args
+        
+        # Frida objects
         self.device = None
         self.session = None
         self.script = None
         self.pid = None
+        
+        # State tracking
         self.running = False
         self.shutdown_complete = False
-
-        # collected data
+        
+        # Data storage - depends on hit counting mode
         self.modules = []
-        # Use dict for hit counting: bb_entry_bytes -> count
-        self.basic_blocks = {}
+        self._initialize_storage()
+        
+    def _initialize_storage(self):
+        """Initialize basic blocks storage based on mode"""
+        if self.args.hits:
+            # Dict for hit counting: bb_entry_bytes -> count
+            self.basic_blocks = {}
+            print("[*] Coverage mode: Hit counting (using block events)")
+        else:
+            # Set for coverage tracking (standard drcov behavior)
+            self.basic_blocks = set()
+            print("[*] Coverage mode: Basic (using compile events)")
 
     def start_tracing(self):
         """Start the tracing process"""
@@ -470,6 +494,8 @@ class StalkDrcovTracer:
                 "whitelistedModules": self.args.whitelist_modules or ["all"],
                 "threadIdList": self.args.thread_id or ["all"],
                 "excludeSystem": self.args.no_system,
+                "useHitCounting": self.args.hits,
+                "verbose": self.args.verbose,
             }
 
             # inject script with properly escaped JSON
@@ -498,11 +524,11 @@ class StalkDrcovTracer:
                 msg_type = payload.get("type")
 
                 if msg_type == "ready":
-                    print("[+] Agent ready and monitoring")
+                    print("[+] Agent ready")
 
                 elif msg_type == "modules":
                     self.modules = payload.get("data", [])
-                    print(f"[*] Collected information for {len(self.modules)} modules")
+                    print(f"[*] Modules: {len(self.modules)} loaded")
 
                 elif msg_type == "bbs":
                     if data:
@@ -524,13 +550,19 @@ class StalkDrcovTracer:
             print(f"[!] Invalid BB data length: {len(bb_data_buffer)}")
             return
 
-        # track hit counts for each basic block
+        # process each basic block entry
         for i in range(0, len(bb_data_buffer), DRCOV_BB_ENTRY_SIZE_BYTES):
             bb_entry = bb_data_buffer[i : i + DRCOV_BB_ENTRY_SIZE_BYTES]
-            if bb_entry in self.basic_blocks:
-                self.basic_blocks[bb_entry] += 1
+            
+            if self.args.hits:
+                # track hit counts in dict
+                if bb_entry in self.basic_blocks:
+                    self.basic_blocks[bb_entry] += 1
+                else:
+                    self.basic_blocks[bb_entry] = 1
             else:
-                self.basic_blocks[bb_entry] = 1
+                # just track coverage in set
+                self.basic_blocks.add(bb_entry)
 
     def stop_tracing(self):
         """Stop tracing and cleanup"""
@@ -574,10 +606,14 @@ class StalkDrcovTracer:
             if not output_file:
                 output_file = "frida-cov.drcov"
 
-            total_hits = sum(self.basic_blocks.values())
-            print(
-                f"[*] Saving {len(self.basic_blocks)} unique basic blocks ({total_hits:,} total hits) to '{output_file}'..."
-            )
+            # Generate status message
+            block_count = len(self.basic_blocks)
+            if self.args.hits:
+                total_hits = sum(self.basic_blocks.values())
+                status_msg = f"[*] Saving {block_count:,} unique basic blocks ({total_hits:,} total hits) to '{output_file}'..."
+            else:
+                status_msg = f"[*] Saving {block_count:,} unique basic blocks to '{output_file}'..."
+            print(status_msg)
 
             # create drcov header
             header = self._create_drcov_header()
@@ -599,7 +635,11 @@ class StalkDrcovTracer:
         """Create drcov file header"""
         lines = []
         lines.append("DRCOV VERSION: 2")
-        lines.append("DRCOV FLAVOR: drcov-hits")
+        # Set flavor based on hit counting mode
+        if self.args.hits:
+            lines.append("DRCOV FLAVOR: drcov-hits")
+        else:
+            lines.append("DRCOV FLAVOR: frida")
 
         if not self.modules:
             lines.append("Module Table: version 2, count 0")
@@ -623,8 +663,21 @@ class StalkDrcovTracer:
         return ("\n".join(lines) + "\n").encode("utf-8")
 
     def _create_drcov_body(self):
-        """Create drcov file body with hit count table"""
-        
+        """Create drcov file body (standard or hit count format)"""
+        if self.args.hits:
+            return self._create_hit_count_body()
+        else:
+            return self._create_standard_body()
+    
+    def _create_standard_body(self):
+        """Create standard drcov body (coverage only)"""
+        sorted_bbs = sorted(list(self.basic_blocks))
+        bb_header = f"BB Table: {len(sorted_bbs)} bbs\n".encode("utf-8")
+        bb_data = b"".join(sorted_bbs)
+        return bb_header + bb_data
+    
+    def _create_hit_count_body(self):
+        """Create drcov body with hit count table"""
         # Sort basic blocks for deterministic output
         sorted_bb_items = sorted(self.basic_blocks.items())
         bb_entries = [bb_entry for bb_entry, count in sorted_bb_items]
@@ -636,7 +689,6 @@ class StalkDrcovTracer:
         
         # Create Hit Count Table (as per proposal specification)
         hit_header = f"Hit Count Table: version 1, count {len(hit_counts)}\n".encode("utf-8")
-        # Pack hit counts as uint32_t (little-endian)
         hit_data = b"".join(struct.pack('<I', count) for count in hit_counts)
         
         return bb_header + bb_data + hit_header + hit_data
@@ -655,67 +707,67 @@ def main():
         formatter_class=argparse.RawTextHelpFormatter,
     )
 
-    # target
+    # Target specification
     parser.add_argument("target", help="Process ID, process name, or executable path")
-
-    # mode selection
-    parser.add_argument(
-        "-s",
-        "--spawn",
-        action="store_true",
-        help="Spawn new process instead of attaching",
-    )
-
-    # output
-    parser.add_argument(
-        "-o",
-        "--output",
-        default="frida-cov.drcov",
-        help="Output drcov file path (default: frida-cov.drcov)",
-    )
-
-    # filtering
-    parser.add_argument(
-        "-w",
-        "--whitelist-modules",
-        action="append",
-        default=[],
-        help="Module name to trace (can be repeated, default: all modules)",
-    )
-    parser.add_argument(
-        "-t",
-        "--thread-id",
-        action="append",
-        default=[],
-        help="Thread ID to trace (can be repeated, default: all threads)",
-    )
-    parser.add_argument(
-        "--no-system", action="store_true", help="Exclude system modules from tracing"
-    )
-
-    # control options
-    parser.add_argument(
-        "--disable-aslr",
-        action="store_true",
-        help="Disable ASLR for spawned process (macOS only)",
-    )
-    parser.add_argument(
-        "--timeout", type=int, help="Maximum collection time in seconds"
-    )
-
-    # device options
-    parser.add_argument(
-        "-D", "--device", default="local", help="Frida device (default: local)"
-    )
-    parser.add_argument("-H", "--host", help="Connect to remote frida-server")
-
-    # debug options
-    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
-    
-    # target arguments (after --)
     parser.add_argument(
         "target_args", nargs="*", 
         help="Arguments to pass to spawned process (use after --)"
+    )
+
+    # Execution mode
+    parser.add_argument(
+        "-s", "--spawn", action="store_true",
+        help="Spawn new process instead of attaching"
+    )
+    parser.add_argument(
+        "--disable-aslr", action="store_true",
+        help="Disable ASLR for spawned process (macOS only)"
+    )
+
+    # Output options
+    parser.add_argument(
+        "-o", "--output", default="frida-cov.drcov",
+        help="Output drcov file path (default: frida-cov.drcov)"
+    )
+    parser.add_argument(
+        "--hits", action="store_true", 
+        help="Enable hit count tracking (uses block events, generates drcov-hits format)"
+    )
+
+    # Filtering options
+    parser.add_argument(
+        "-w", "--whitelist-modules", action="append", default=[],
+        help="Module name to trace (can be repeated, default: all modules)"
+    )
+    parser.add_argument(
+        "-t", "--thread-id", action="append", default=[],
+        help="Thread ID to trace (can be repeated, default: all threads)"
+    )
+    parser.add_argument(
+        "--no-system", action="store_true", 
+        help="Exclude system modules from tracing"
+    )
+
+    # Control options
+    parser.add_argument(
+        "--timeout", type=int, 
+        help="Maximum collection time in seconds"
+    )
+
+    # Device options
+    parser.add_argument(
+        "-D", "--device", default="local", 
+        help="Frida device (default: local)"
+    )
+    parser.add_argument(
+        "-H", "--host", 
+        help="Connect to remote frida-server"
+    )
+
+    # Debug options
+    parser.add_argument(
+        "-v", "--verbose", action="store_true", 
+        help="Verbose output"
     )
 
     args = parser.parse_args()
@@ -731,7 +783,7 @@ def main():
     try:
         # start tracing
         tracer.start_tracing()
-        print("[*] Basic block tracing started. Press Ctrl+C to stop and save.")
+        print("[*] Tracing started. Press Ctrl+C to stop and save.")
 
         # wait for completion
         if args.timeout:
