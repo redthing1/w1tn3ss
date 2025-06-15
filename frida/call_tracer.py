@@ -72,6 +72,7 @@ const monitoredFunctions = config.functions || [];
 const targetModules = config.modules || [];
 const monitorAll = config.monitorAll || false;
 const excludeSystem = config.excludeSystem || false;
+const verbose = config.verbose || false;
 
 // state management
 const threadState = new Map();           // per-thread state tracking
@@ -95,7 +96,7 @@ function flushBuffer() {
     try {
         if (callBuffer.length > 0) {
             const dataToSend = callBuffer.splice(0);
-            console.log(`Flushing ${dataToSend.length} calls from buffer`);
+            if (verbose) console.log(`Flushing ${dataToSend.length} calls from buffer`);
             send({
                 type: 'calls',
                 data: dataToSend
@@ -344,7 +345,7 @@ function enterMonitoredFunction(funcAddr, threadId) {
         
         // start stalking if this is the first monitored function entry for this thread
         if (!state.stalking && !activeStalkers.has(threadId)) {
-            console.log(`Starting stalker for thread ${threadId}`);
+            if (verbose) console.log(`Stalking thread ${threadId}`);
             
             try {
                 Stalker.follow(threadId, {
@@ -470,13 +471,13 @@ function exitMonitoredFunction(funcAddr, threadId) {
                 });
                 
                 if (!stillInMonitoredFunction) {
-                    console.log(`Thread ${threadId} exited all monitored functions`);
+                    if (verbose) console.log(`Thread ${threadId} exited all monitored functions`);
                     
                     // Don't stop stalking immediately - let it continue for a bit
                     // to catch any remaining call/ret events
                     setTimeout(() => {
                         if (state.stalking) {
-                            console.log(`Stopping stalker for thread ${threadId} (delayed)`);
+                            if (verbose) console.log(`Stopping stalker for thread ${threadId} (delayed)`);
                             try {
                                 Stalker.unfollow(threadId);
                                 state.stalking = false;
@@ -484,14 +485,14 @@ function exitMonitoredFunction(funcAddr, threadId) {
                                 
                                 // Check if this was the last active thread
                                 if (activeStalkers.size === 0) {
-                                    console.log('All threads completed, flushing final data...');
+                                    if (verbose) console.log('All threads completed, flushing final data...');
                                     flushBuffer();
                                     cleanup();
                                     
                                     // Signal final completion
                                     send({ type: 'process_complete' });
                                 } else {
-                                    console.log(`Thread ${threadId} completed, ${activeStalkers.size} threads still active`);
+                                    if (verbose) console.log(`Thread ${threadId} completed, ${activeStalkers.size} threads still active`);
                                 }
                             } catch (e) {
                                 console.error(`Error stopping stalker for thread ${threadId}:`, e.message);
@@ -535,7 +536,7 @@ function setupFunctionHooks() {
             
             resolved.push(func);
             const moduleInfo = func.module ? ` in ${func.module}` : '';
-            console.log(`Hooked ${func.address} (${func.name || 'unnamed'})${moduleInfo}`);
+            if (verbose) console.log(`Hooked ${func.address} (${func.name || 'unnamed'})${moduleInfo}`);
             
         } catch (e) {
             console.error(`Failed to hook ${func.address}: ${e.message}`);
@@ -576,7 +577,7 @@ function resolveModuleOffsets(moduleOffsets) {
                     offset: entry.offset
                 });
                 found = true;
-                console.log(`Resolved ${moduleName}+${entry.offset} to ${targetAddr} (base: ${baseAddr})`);
+                if (verbose) console.log(`Resolved ${moduleName}+${entry.offset} to ${targetAddr} (base: ${baseAddr})`);
             }
         });
         
@@ -687,7 +688,7 @@ function discoverModuleFunctions(moduleNames) {
         }
         
         if (moduleNames.length === 0 || moduleNames.includes(module.name)) {
-            console.log(`Discovering functions in module: ${module.name}`);
+            if (verbose) console.log(`Discovering functions in module: ${module.name}`);
             
             // enumerate exports
             module.enumerateExports().forEach(exp => {
@@ -704,7 +705,7 @@ function discoverModuleFunctions(moduleNames) {
     
     const moduleDesc = moduleNames.length > 0 ? moduleNames.join(', ') : 'all modules';
     const systemDesc = excludeSystem ? ' (excluding system modules)' : '';
-    console.log(`Discovered ${functions.length} functions in ${moduleDesc}${systemDesc}`);
+    if (verbose) console.log(`Discovered ${functions.length} functions in ${moduleDesc}${systemDesc}`);
     return functions;
 }
 
@@ -715,11 +716,11 @@ function discoverAllFunctions() {
     Process.enumerateModules().forEach(module => {
         // Skip system modules if excludeSystem is enabled
         if (excludeSystem && isSystemModule(module.name, module.path)) {
-            console.log(`Skipping system module: ${module.name}`);
+            if (verbose) console.log(`Skipping system module: ${module.name}`);
             return;
         }
         
-        console.log(`Discovering all functions in module: ${module.name}`);
+        if (verbose) console.log(`Discovering all functions in module: ${module.name}`);
         
         // enumerate exports
         module.enumerateExports().forEach(exp => {
@@ -734,7 +735,7 @@ function discoverAllFunctions() {
     });
     
     const systemDesc = excludeSystem ? ' (excluding system modules)' : '';
-    console.log(`Discovered ${functions.length} total functions in all modules${systemDesc}`);
+    if (verbose) console.log(`Discovered ${functions.length} total functions in all modules${systemDesc}`);
     return functions;
 }
 
@@ -744,7 +745,7 @@ function discoverAllFunctions() {
 
 // send final data on cleanup
 function cleanup() {
-    console.log(`Final cleanup: buffer has ${callBuffer.length} calls, total calls: ${totalCalls}`);
+    if (verbose) console.log(`Final cleanup: buffer has ${callBuffer.length} calls, total calls: ${totalCalls}`);
     
     // send any remaining calls
     if (callBuffer.length > 0) {
@@ -770,7 +771,7 @@ function cleanup() {
     });
     
     // ensure completion signal is sent
-    console.log('Sending process complete signal...');
+    if (verbose) console.log('Sending process complete signal...');
     send({ type: 'process_complete' });
 }
 
@@ -842,12 +843,12 @@ Script.bindWeak(globalThis, cleanup);
 // handle messages from python
 recv(function(message) {
     if (message.type === 'shutdown') {
-        console.log('Received shutdown request, stopping all stalkers...');
+        if (verbose) console.log('Received shutdown request, stopping all stalkers...');
         
         // Stop all active stalkers
         activeStalkers.forEach(threadId => {
             try {
-                console.log(`Force stopping stalker for thread ${threadId}`);
+                if (verbose) console.log(`Force stopping stalker for thread ${threadId}`);
                 Stalker.unfollow(threadId);
             } catch (e) {
                 console.error(`Error stopping stalker for thread ${threadId}:`, e.message);
@@ -1188,6 +1189,7 @@ class CallTracer:
                 "modules": self.args.module or [],
                 "monitorAll": self.args.monitor_all,
                 "excludeSystem": self.args.no_system,
+                "verbose": self.args.verbose,
             }
 
             # inject script with properly escaped JSON
