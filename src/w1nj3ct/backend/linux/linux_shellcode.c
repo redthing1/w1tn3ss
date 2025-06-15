@@ -19,6 +19,18 @@
 #ifndef NT_PRSTATUS
 #define NT_PRSTATUS 1
 #endif
+// Define ARM64 register structure if not available
+#ifndef __has_include
+#define __has_include(x) 0
+#endif
+#if defined(__aarch64__) && !__has_include(<asm/ptrace.h>)
+struct user_pt_regs {
+    __u64 regs[31];
+    __u64 sp;
+    __u64 pc;
+    __u64 pstate;
+};
+#endif
 #endif
 
 // Cross-architecture ptrace compatibility
@@ -38,7 +50,7 @@
 // Architecture-specific register structures
 typedef union {
     struct user_regs_struct x86_regs;
-#if defined(__aarch64__) || defined(__arm__)
+#if defined(__aarch64__)
     struct user_pt_regs arm_regs;
 #endif
 } unified_regs_t;
@@ -661,10 +673,14 @@ int linux_inject_and_execute_shellcode(pid_t pid, void* shellcode, size_t size, 
             default:
                 return LINUX_SHELLCODE_ERROR_UNSUPPORTED_ARCH;
         }
-    } else if (arch == ARCH_ARM64) {
+    } 
+#if defined(__aarch64__)
+    else if (arch == ARCH_ARM64) {
         struct user_pt_regs* regs = (struct user_pt_regs*)orig_regs;
         regs->pc = (unsigned long)remote_addr;
-    } else {
+    } 
+#endif
+    else {
         ret = LINUX_SHELLCODE_ERROR_UNSUPPORTED_ARCH;
         goto cleanup;
     }
@@ -726,10 +742,13 @@ int linux_inject_and_execute_shellcode(pid_t pid, void* shellcode, size_t size, 
                     *result = NULL;
                     break;
             }
-        } else if (arch == ARCH_ARM64) {
+        } 
+#if defined(__aarch64__)
+        else if (arch == ARCH_ARM64) {
             struct user_pt_regs* regs = (struct user_pt_regs*)current_regs;
             *result = (void*)regs->regs[0];
         }
+#endif
     }
     
     free(current_regs);
