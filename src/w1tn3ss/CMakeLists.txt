@@ -62,25 +62,6 @@ if(WITNESS_BUILD_SHARED)
     )
 endif()
 
-# For Windows multi-config generators, ensure import library is accessible
-if(WIN32)
-    if(WITNESS_BUILD_STATIC)
-        set_target_properties(${LIBRARY_NAME}_static PROPERTIES
-            ARCHIVE_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/Debug
-            ARCHIVE_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/Release
-        )
-    endif()
-    if(WITNESS_BUILD_SHARED)
-        set_target_properties(${LIBRARY_NAME}_shared PROPERTIES
-            ARCHIVE_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/Debug
-            ARCHIVE_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/Release
-            LIBRARY_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/Debug  
-            LIBRARY_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/Release
-            RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/Debug
-            RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/Release
-        )
-    endif()
-endif()
 
 # Include directories for enabled targets
 foreach(target ${W1TN3SS_TARGETS})
@@ -126,80 +107,128 @@ if(WIN32)
     endforeach()
 endif()
 
-# w1cov coverage library using QBDIPreload
-add_library(w1cov_qbdipreload SHARED
-    coverage/w1cov_qbdipreload.cpp
-)
+# w1cov coverage libraries
+set(W1COV_QBDIPRELOAD_TARGETS)
+set(W1COV_STANDALONE_TARGETS)
 
-set_target_properties(w1cov_qbdipreload PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
-    PREFIX ""
-    OUTPUT_NAME "w1cov_qbdipreload"
-)
+# w1cov_qbdipreload library (QBDIPreload-based)
+if(WITNESS_BUILD_STATIC)
+    add_library(w1cov_qbdipreload_static STATIC coverage/w1cov_qbdipreload.cpp)
+    list(APPEND W1COV_QBDIPRELOAD_TARGETS w1cov_qbdipreload_static)
+endif()
 
-target_include_directories(w1cov_qbdipreload
-    PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}
-        ${CMAKE_SOURCE_DIR}/src/third_party/qbdi/tools/QBDIPreload/include
-)
+if(WITNESS_BUILD_SHARED)
+    add_library(w1cov_qbdipreload_shared SHARED coverage/w1cov_qbdipreload.cpp)
+    list(APPEND W1COV_QBDIPRELOAD_TARGETS w1cov_qbdipreload_shared)
+endif()
 
-target_link_libraries(w1cov_qbdipreload
-    PRIVATE
-        QBDIPreload
-        QBDI_static
-        redlog::redlog
-)
+# Create alias for backwards compatibility
+if(WITNESS_BUILD_SHARED)
+    add_library(w1cov_qbdipreload ALIAS w1cov_qbdipreload_shared)
+elseif(WITNESS_BUILD_STATIC)
+    add_library(w1cov_qbdipreload ALIAS w1cov_qbdipreload_static)
+endif()
 
-target_compile_features(w1cov_qbdipreload PRIVATE cxx_std_17)
-
-# Windows compile definitions for coverage libraries
-if(WIN32)
-    target_compile_definitions(w1cov_qbdipreload PRIVATE
-        _WIN32_WINNT=0x0601
-        NOMINMAX
-        WIN32_LEAN_AND_MEAN
-        _CRT_SECURE_NO_WARNINGS
+# Configure w1cov_qbdipreload targets
+if(WITNESS_BUILD_STATIC)
+    set_target_properties(w1cov_qbdipreload_static PROPERTIES
+        ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
+        PREFIX ""
+        OUTPUT_NAME "w1cov_qbdipreload_static"
     )
 endif()
 
+if(WITNESS_BUILD_SHARED)
+    set_target_properties(w1cov_qbdipreload_shared PROPERTIES
+        LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
+        ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
+        PREFIX ""
+        OUTPUT_NAME "w1cov_qbdipreload"
+    )
+endif()
 
+foreach(target ${W1COV_QBDIPRELOAD_TARGETS})
+    target_include_directories(${target}
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}
+            ${CMAKE_SOURCE_DIR}/src/third_party/qbdi/tools/QBDIPreload/include
+    )
+    
+    target_link_libraries(${target}
+        PRIVATE
+            QBDIPreload
+            QBDI_static
+            redlog::redlog
+    )
+    
+    target_compile_features(${target} PRIVATE cxx_std_17)
+    
+    if(WIN32)
+        target_compile_definitions(${target} PRIVATE
+            _WIN32_WINNT=0x0601
+            NOMINMAX
+            WIN32_LEAN_AND_MEAN
+            _CRT_SECURE_NO_WARNINGS
+        )
+    endif()
+endforeach()
 
-# Standalone QBDI coverage library
+# Standalone w1cov library
 set(W1COV_STANDALONE_SOURCES
     coverage/coverage_data.cpp
     coverage/module_mapper.cpp
     coverage/w1cov_standalone.cpp
 )
 
-add_library(w1cov SHARED ${W1COV_STANDALONE_SOURCES})
+if(WITNESS_BUILD_STATIC)
+    add_library(w1cov_static STATIC ${W1COV_STANDALONE_SOURCES})
+    list(APPEND W1COV_STANDALONE_TARGETS w1cov_static)
+endif()
 
-set_target_properties(w1cov PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
-    PREFIX ""
-    OUTPUT_NAME "w1cov"
-)
+if(WITNESS_BUILD_SHARED)
+    add_library(w1cov_shared SHARED ${W1COV_STANDALONE_SOURCES})
+    list(APPEND W1COV_STANDALONE_TARGETS w1cov_shared)
+endif()
 
-target_include_directories(w1cov
-    PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}
-        ${CMAKE_SOURCE_DIR}/src
-)
+# Create alias for backwards compatibility
+if(WITNESS_BUILD_SHARED)
+    add_library(w1cov ALIAS w1cov_shared)
+elseif(WITNESS_BUILD_STATIC)
+    add_library(w1cov ALIAS w1cov_static)
+endif()
 
-target_link_libraries(w1cov
-    PRIVATE
-        QBDI
-        common
-        redlog::redlog
-)
-
-target_compile_features(w1cov PRIVATE cxx_std_17)
-
-if(WIN32)
-    target_compile_definitions(w1cov PRIVATE
-        _WIN32_WINNT=0x0601
-        NOMINMAX
-        WIN32_LEAN_AND_MEAN
-        _CRT_SECURE_NO_WARNINGS
+# Configure w1cov targets
+if(WITNESS_BUILD_STATIC)
+    set_target_properties(w1cov_static PROPERTIES
+        ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
+        PREFIX ""
+        OUTPUT_NAME "w1cov_static"
     )
 endif()
+
+if(WITNESS_BUILD_SHARED)
+    set_target_properties(w1cov_shared PROPERTIES
+        LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
+        ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
+        PREFIX ""
+        OUTPUT_NAME "w1cov"
+    )
+endif()
+
+
+# Configure w1cov_qbdipreload and w1cov targets
+foreach(target ${W1COV_QBDIPRELOAD_TARGETS} ${W1COV_STANDALONE_TARGETS})
+    target_compile_features(${target} PRIVATE cxx_std_17)
+    
+    if(WIN32)
+        target_compile_definitions(${target} PRIVATE
+            _WIN32_WINNT=0x0601
+            NOMINMAX
+            WIN32_LEAN_AND_MEAN
+            _CRT_SECURE_NO_WARNINGS
+        )
+    endif()
+endforeach()
 
