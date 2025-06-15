@@ -218,8 +218,35 @@ if(WITNESS_BUILD_SHARED)
 endif()
 
 
-# Configure w1cov_qbdipreload and w1cov targets
-foreach(target ${W1COV_QBDIPRELOAD_TARGETS} ${W1COV_STANDALONE_TARGETS})
+# Configure w1cov standalone targets
+foreach(target ${W1COV_STANDALONE_TARGETS})
+    target_include_directories(${target}
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}
+            ${CMAKE_SOURCE_DIR}/src
+    )
+    
+    target_link_libraries(${target}
+        PRIVATE
+            QBDI
+            common
+            redlog::redlog
+    )
+    
+    target_compile_features(${target} PRIVATE cxx_std_17)
+    
+    if(WIN32)
+        target_compile_definitions(${target} PRIVATE
+            _WIN32_WINNT=0x0601
+            NOMINMAX
+            WIN32_LEAN_AND_MEAN
+            _CRT_SECURE_NO_WARNINGS
+        )
+    endif()
+endforeach()
+
+# Configure w1cov_qbdipreload targets
+foreach(target ${W1COV_QBDIPRELOAD_TARGETS})
     target_compile_features(${target} PRIVATE cxx_std_17)
     
     if(WIN32)
