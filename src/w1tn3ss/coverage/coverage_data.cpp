@@ -12,7 +12,7 @@ coverage_collector::coverage_collector()
 }
 
 coverage_collector::~coverage_collector() {
-  log_.info(
+  log_.debug(
       "coverage collector shutting down", redlog::field("blocks", get_total_blocks()),
       redlog::field("unique", get_unique_blocks()), redlog::field("modules", modules_.size())
   );
