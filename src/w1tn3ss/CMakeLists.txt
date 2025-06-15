@@ -198,8 +198,8 @@ foreach(target ${W1COV_STANDALONE_TARGETS})
     )
     
     target_link_libraries(${target}
-        PRIVATE
-            QBDI
+        PUBLIC
+            QBDI_static
             common
             redlog::redlog
     )
