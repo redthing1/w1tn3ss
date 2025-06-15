@@ -25,6 +25,7 @@
 #ifdef _WIN32
 #include <windows.h>
 #else
+#define _XOPEN_SOURCE 700
 #include <dlfcn.h>
 #include <pthread.h>
 #include <signal.h>
