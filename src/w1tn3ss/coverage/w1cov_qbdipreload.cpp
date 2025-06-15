@@ -214,8 +214,7 @@ QBDI::VMAction coverage_callback(
     // Periodic progress reporting for long-running analyses
     if (g_debug_mode && (g_instruction_count % 10000 == 0)) {
       printf(
-          "[W1COV] Traced %s instructions, %s unique addresses\n",
-          format_number(g_instruction_count).c_str(),
+          "[W1COV] Traced %s instructions, %s unique addresses\n", format_number(g_instruction_count).c_str(),
           format_number(get_hitcounts()->size()).c_str()
       );
     }
@@ -269,8 +268,8 @@ bool export_drcov_coverage() {
   try {
     // Use drcov library for consistent format writing with hitcounts enabled
     auto builder = drcov::builder()
-        .enable_hitcounts()  // Sets flavor to "drcov-hits"
-        .set_module_version(drcov::module_table_version::v2);
+                       .enable_hitcounts() // Sets flavor to "drcov-hits"
+                       .set_module_version(drcov::module_table_version::v2);
 
     // Add modules with sequential IDs
     for (const QBDI::MemoryMap* module : module_list) {

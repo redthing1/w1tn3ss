@@ -230,8 +230,31 @@ result inject_preload(const config& cfg) {
     // execve only returns on error
     _exit(1);
   } else if (child_pid > 0) {
-    // parent process - injection successful
-    return make_success_result(child_pid);
+    // parent process - wait for child to complete
+    int status;
+    pid_t wait_result = waitpid(child_pid, &status, 0);
+
+    if (wait_result == -1) {
+      return make_error_result(error_code::launch_failed, "waitpid failed", errno);
+    }
+
+    if (WIFEXITED(status)) {
+      int exit_code = WEXITSTATUS(status);
+      if (exit_code == 0) {
+        return make_success_result(child_pid);
+      } else {
+        return make_error_result(
+            error_code::launch_failed, "child process failed with exit code " + std::to_string(exit_code)
+        );
+      }
+    } else if (WIFSIGNALED(status)) {
+      int signal = WTERMSIG(status);
+      return make_error_result(
+          error_code::launch_failed, "child process terminated by signal " + std::to_string(signal)
+      );
+    } else {
+      return make_error_result(error_code::launch_failed, "child process exited with unknown status");
+    }
   } else {
     // fork failed
     return make_error_result(error_code::launch_failed, "fork failed", errno);

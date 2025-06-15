@@ -43,21 +43,24 @@ int read_drcov(
     auto stats = coverage_data.get_coverage_stats();
     uint64_t total_coverage_bytes = 0;
     uint64_t total_hitcount = 0;
-    
+
     for (size_t i = 0; i < coverage_data.basic_blocks.size(); ++i) {
       const auto& bb = coverage_data.basic_blocks[i];
       total_coverage_bytes += bb.size;
-      
+
       if (coverage_data.has_hitcounts() && i < coverage_data.hitcounts.size()) {
         total_hitcount += coverage_data.hitcounts[i];
       }
     }
-    
+
     std::cout << "Total Coverage: " << total_coverage_bytes << " bytes\n";
     if (coverage_data.has_hitcounts()) {
       std::cout << "Total Hits: " << total_hitcount << "\n";
       std::cout << "Average Hits per Block: " << std::fixed << std::setprecision(2)
-                << (coverage_data.basic_blocks.empty() ? 0.0 : static_cast<double>(total_hitcount) / coverage_data.basic_blocks.size()) << "\n";
+                << (coverage_data.basic_blocks.empty()
+                        ? 0.0
+                        : static_cast<double>(total_hitcount) / coverage_data.basic_blocks.size())
+                << "\n";
     }
     std::cout << "\n";
 
@@ -82,7 +85,7 @@ int read_drcov(
       // Calculate total bytes and hits for this module
       uint64_t module_bytes = 0;
       uint64_t module_hits = 0;
-      
+
       for (size_t i = 0; i < coverage_data.basic_blocks.size(); ++i) {
         const auto& bb = coverage_data.basic_blocks[i];
         if (bb.module_id == module.id) {
@@ -95,9 +98,8 @@ int read_drcov(
 
       if (coverage_data.has_hitcounts()) {
         std::cout << std::left << std::setw(4) << module.id << std::setw(8) << block_count << std::setw(12)
-                  << (std::to_string(module_bytes) + " bytes") << std::setw(12) << module_hits
-                  << "0x" << std::hex << std::setw(18) << module.base
-                  << std::dec << module.path << "\n";
+                  << (std::to_string(module_bytes) + " bytes") << std::setw(12) << module_hits << "0x" << std::hex
+                  << std::setw(18) << module.base << std::dec << module.path << "\n";
       } else {
         std::cout << std::left << std::setw(4) << module.id << std::setw(8) << block_count << std::setw(12)
                   << (std::to_string(module_bytes) + " bytes") << "0x" << std::hex << std::setw(18) << module.base
@@ -130,13 +132,12 @@ int read_drcov(
           if (coverage_data.has_hitcounts() && i < coverage_data.hitcounts.size()) {
             uint32_t hitcount = coverage_data.hitcounts[i];
             std::cout << std::left << std::setw(8) << bb.module_id << "0x" << std::hex << std::setw(11) << bb.start
-                      << std::dec << std::setw(8) << bb.size << std::setw(10) << hitcount
-                      << "0x" << std::hex << std::setw(15) << abs_addr << std::dec
-                      << module.path << "\n";
+                      << std::dec << std::setw(8) << bb.size << std::setw(10) << hitcount << "0x" << std::hex
+                      << std::setw(15) << abs_addr << std::dec << module.path << "\n";
           } else {
             std::cout << std::left << std::setw(8) << bb.module_id << "0x" << std::hex << std::setw(11) << bb.start
-                      << std::dec << std::setw(8) << bb.size << "0x" << std::hex << std::setw(15) << abs_addr << std::dec
-                      << module.path << "\n";
+                      << std::dec << std::setw(8) << bb.size << "0x" << std::hex << std::setw(15) << abs_addr
+                      << std::dec << module.path << "\n";
           }
         }
       }
@@ -167,7 +168,7 @@ int read_drcov(
 
           uint64_t module_bytes = 0;
           uint64_t module_hits = 0;
-          
+
           for (size_t i = 0; i < coverage_data.basic_blocks.size(); ++i) {
             const auto& bb = coverage_data.basic_blocks[i];
             if (bb.module_id == module.id) {
@@ -177,7 +178,7 @@ int read_drcov(
               }
             }
           }
-          
+
           std::cout << "Covered Bytes: " << module_bytes << "\n";
           if (coverage_data.has_hitcounts()) {
             std::cout << "Total Hits: " << module_hits << "\n";

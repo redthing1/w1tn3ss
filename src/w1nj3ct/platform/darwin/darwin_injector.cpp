@@ -13,6 +13,7 @@ extern "C" {
 #include <libproc.h>
 #include <sys/sysctl.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 namespace w1::inject::darwin {
@@ -314,13 +315,58 @@ result inject_preload(const config& cfg) {
     fprintf(stderr, "[w1nj3ct.darwin] execve failed: %s (errno=%d)\n", strerror(exec_errno), exec_errno);
     _exit(1);
   } else if (child_pid > 0) {
-    // parent process: injection successful
+    // parent process: wait for child to complete
     log.info(
-        "preload injection completed successfully", redlog::field("pid", child_pid),
+        "preload injection started successfully", redlog::field("pid", child_pid),
         redlog::field("binary_path", *cfg.binary_path), redlog::field("library_path", cfg.library_path)
     );
 
-    return make_success_result(child_pid);
+    log.debug("waiting for child process to complete", redlog::field("pid", child_pid));
+
+    int status;
+    pid_t wait_result = waitpid(child_pid, &status, 0);
+
+    if (wait_result == -1) {
+      int wait_errno = errno;
+      log.error(
+          "failed to wait for child process", redlog::field("pid", child_pid), redlog::field("errno", wait_errno),
+          redlog::field("error", strerror(wait_errno))
+      );
+      return make_error_result(error_code::launch_failed, "waitpid failed", wait_errno);
+    }
+
+    if (WIFEXITED(status)) {
+      int exit_code = WEXITSTATUS(status);
+      if (exit_code == 0) {
+        log.info(
+            "preload injection completed successfully", redlog::field("pid", child_pid),
+            redlog::field("exit_code", exit_code)
+        );
+        return make_success_result(child_pid);
+      } else {
+        log.error(
+            "child process exited with non-zero status", redlog::field("pid", child_pid),
+            redlog::field("exit_code", exit_code)
+        );
+        return make_error_result(
+            error_code::launch_failed, "child process failed with exit code " + std::to_string(exit_code)
+        );
+      }
+    } else if (WIFSIGNALED(status)) {
+      int signal = WTERMSIG(status);
+      log.error(
+          "child process terminated by signal", redlog::field("pid", child_pid), redlog::field("signal", signal),
+          redlog::field("signal_name", strsignal(signal))
+      );
+      return make_error_result(
+          error_code::launch_failed, "child process terminated by signal " + std::to_string(signal)
+      );
+    } else {
+      log.error(
+          "child process exited with unknown status", redlog::field("pid", child_pid), redlog::field("status", status)
+      );
+      return make_error_result(error_code::launch_failed, "child process exited with unknown status");
+    }
   } else {
     // fork failed
     int fork_errno = errno;

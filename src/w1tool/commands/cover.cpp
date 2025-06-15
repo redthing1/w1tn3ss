@@ -9,9 +9,9 @@
 namespace w1tool::commands {
 
 int cover(
-    args::ValueFlag<std::string>& library_flag, args::ValueFlag<std::string>& binary_flag,
-    args::ValueFlag<int>& pid_flag, args::ValueFlag<std::string>& name_flag, args::ValueFlag<std::string>& output_flag,
-    args::Flag& exclude_system_flag, args::Flag& debug_flag, args::ValueFlag<std::string>& format_flag
+    args::ValueFlag<std::string>& library_flag, args::Flag& spawn_flag, args::ValueFlag<int>& pid_flag,
+    args::ValueFlag<std::string>& name_flag, args::ValueFlag<std::string>& output_flag, args::Flag& exclude_system_flag,
+    args::Flag& debug_flag, args::ValueFlag<std::string>& format_flag, args::PositionalList<std::string>& args_list
 ) {
 
   auto log = redlog::get_logger("w1tool.cover");
@@ -35,7 +35,7 @@ int cover(
 
   // Validate target specification
   int target_count = 0;
-  if (binary_flag) {
+  if (spawn_flag) {
     target_count++;
   }
   if (pid_flag) {
@@ -46,7 +46,7 @@ int cover(
   }
 
   if (target_count != 1) {
-    log.error("exactly one target required: specify --binary, --pid, or --name");
+    log.error("exactly one target required: specify -s/--spawn, --pid, or --name");
     return 1;
   }
 
@@ -82,8 +82,9 @@ int cover(
     output_file = args::get(output_flag);
   } else {
     // Generate default output filename using cross-platform path handling
-    if (binary_flag) {
-      std::string binary_path = args::get(binary_flag);
+    if (spawn_flag && !args_list.Get().empty()) {
+      std::vector<std::string> all_args = args::get(args_list);
+      std::string binary_path = all_args[0];
       std::filesystem::path fs_path(binary_path);
       std::string binary_name = fs_path.filename().string();
       output_file = binary_name + "_coverage." + format;
@@ -102,13 +103,30 @@ int cover(
   w1::inject::result result;
 
   // Execute coverage tracing based on target type
-  if (binary_flag) {
-    // Launch-time coverage
-    std::string binary_path = args::get(binary_flag);
-    log.info("starting launch-time coverage tracing", redlog::field("binary", binary_path));
+  if (spawn_flag) {
+    // Launch-time coverage with positional arguments
+    if (args_list.Get().empty()) {
+      log.error("binary path required when using -s/--spawn flag");
+      return 1;
+    }
+
+    std::vector<std::string> all_args = args::get(args_list);
+    std::string binary_path = all_args[0];
+
+    // Extract arguments after the binary (everything after first arg)
+    std::vector<std::string> binary_args;
+    if (all_args.size() > 1) {
+      binary_args.assign(all_args.begin() + 1, all_args.end());
+    }
+
+    log.info(
+        "starting launch-time coverage tracing", redlog::field("binary", binary_path),
+        redlog::field("args_count", binary_args.size())
+    );
 
     cfg.injection_method = w1::inject::method::launch;
     cfg.binary_path = binary_path;
+    cfg.args = binary_args;
 
     result = w1::inject::inject(cfg);
 
