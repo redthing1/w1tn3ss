@@ -134,9 +134,18 @@ void sampling_signal_handler(int sig, siginfo_t* info, void* context) {
   uint64_t pc = 0;
 
 #ifdef __x86_64__
+#ifdef __APPLE__
   pc = uctx->uc_mcontext->__ss.__rip;
+#elif defined(__linux__)
+  pc = uctx->uc_mcontext.gregs[REG_RIP];
+#endif
 #elif defined(__aarch64__) || defined(__arm64__)
+#ifdef __APPLE__
   pc = uctx->uc_mcontext->__ss.__pc;
+#elif defined(__linux__)
+  // On Linux ARM64, use appropriate register access
+  pc = uctx->uc_mcontext.regs[30]; // PC register
+#endif
 #endif
 
   if (pc != 0) {
