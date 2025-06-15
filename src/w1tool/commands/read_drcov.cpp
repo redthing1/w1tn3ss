@@ -8,7 +8,51 @@
 
 namespace w1tool::commands {
 
-// helper function to format numbers with thousand separators
+// helper function to format hit counts with K/M/B suffixes
+std::string format_hits(uint64_t hits) {
+  if (hits >= 1000000000) {
+    double b = static_cast<double>(hits) / 1000000000.0;
+    std::stringstream ss;
+    ss << std::fixed << std::setprecision(1) << b << "B";
+    return ss.str();
+  } else if (hits >= 1000000) {
+    double m = static_cast<double>(hits) / 1000000.0;
+    std::stringstream ss;
+    ss << std::fixed << std::setprecision(1) << m << "M";
+    return ss.str();
+  } else if (hits >= 1000) {
+    double k = static_cast<double>(hits) / 1000.0;
+    std::stringstream ss;
+    ss << std::fixed << std::setprecision(1) << k << "K";
+    return ss.str();
+  } else {
+    return std::to_string(hits);
+  }
+}
+
+// helper function to format byte sizes with KB/MB/GB suffixes
+std::string format_bytes(uint64_t bytes) {
+  if (bytes >= 1024ULL * 1024 * 1024) {
+    double gb = static_cast<double>(bytes) / (1024.0 * 1024.0 * 1024.0);
+    std::stringstream ss;
+    ss << std::fixed << std::setprecision(1) << gb << " GB";
+    return ss.str();
+  } else if (bytes >= 1024 * 1024) {
+    double mb = static_cast<double>(bytes) / (1024.0 * 1024.0);
+    std::stringstream ss;
+    ss << std::fixed << std::setprecision(1) << mb << " MB";
+    return ss.str();
+  } else if (bytes >= 1024) {
+    double kb = static_cast<double>(bytes) / 1024.0;
+    std::stringstream ss;
+    ss << std::fixed << std::setprecision(1) << kb << " KB";
+    return ss.str();
+  } else {
+    return std::to_string(bytes) + " B";
+  }
+}
+
+// helper function to format plain numbers (for counts)
 std::string format_number(uint64_t number) {
   try {
     std::stringstream ss;
@@ -78,9 +122,9 @@ int read_drcov(
       }
     }
 
-    std::cout << "Total Coverage: " << format_number(total_coverage_bytes) << " bytes\n";
+    std::cout << "Total Coverage: " << format_bytes(total_coverage_bytes) << "\n";
     if (coverage_data.has_hitcounts()) {
-      std::cout << "Total Hits: " << format_number(total_hitcount) << "\n";
+      std::cout << "Total Hits: " << format_hits(total_hitcount) << "\n";
       std::cout << "Average Hits per Block: " << std::fixed << std::setprecision(2)
                 << (coverage_data.basic_blocks.empty()
                         ? 0.0
@@ -123,13 +167,12 @@ int read_drcov(
 
       if (coverage_data.has_hitcounts()) {
         std::cout << std::left << std::setw(4) << module.id << std::setw(8) << format_number(block_count)
-                  << std::setw(12) << (format_number(module_bytes) + " bytes") << std::setw(12)
-                  << format_number(module_hits) << "0x" << std::hex << std::setw(15) << module.base << std::dec
-                  << "         " << module.path << "\n";
+                  << std::setw(12) << format_bytes(module_bytes) << std::setw(12) << format_hits(module_hits) << "0x"
+                  << std::hex << std::setw(15) << module.base << std::dec << "         " << module.path << "\n";
       } else {
         std::cout << std::left << std::setw(4) << module.id << std::setw(8) << format_number(block_count)
-                  << std::setw(12) << (format_number(module_bytes) + " bytes") << "0x" << std::hex << std::setw(15)
-                  << module.base << std::dec << "         " << module.path << "\n";
+                  << std::setw(12) << format_bytes(module_bytes) << "0x" << std::hex << std::setw(15) << module.base
+                  << std::dec << "         " << module.path << "\n";
       }
     }
     std::cout << "\n";
@@ -158,8 +201,8 @@ int read_drcov(
           if (coverage_data.has_hitcounts() && i < coverage_data.hitcounts.size()) {
             uint32_t hitcount = coverage_data.hitcounts[i];
             std::cout << std::left << std::setw(8) << bb.module_id << "0x" << std::hex << std::setw(11) << bb.start
-                      << std::dec << std::setw(8) << bb.size << std::setw(10) << format_number(hitcount) << "0x"
-                      << std::hex << std::setw(15) << abs_addr << std::dec << "   " << module.path << "\n";
+                      << std::dec << std::setw(8) << bb.size << std::setw(10) << hitcount << "0x" << std::hex
+                      << std::setw(15) << abs_addr << std::dec << "   " << module.path << "\n";
           } else {
             std::cout << std::left << std::setw(8) << bb.module_id << "0x" << std::hex << std::setw(11) << bb.start
                       << std::dec << std::setw(8) << bb.size << "0x" << std::hex << std::setw(15) << abs_addr
@@ -205,9 +248,9 @@ int read_drcov(
             }
           }
 
-          std::cout << "Covered Bytes: " << format_number(module_bytes) << "\n";
+          std::cout << "Covered Bytes: " << format_bytes(module_bytes) << "\n";
           if (coverage_data.has_hitcounts()) {
-            std::cout << "Total Hits: " << format_number(module_hits) << "\n";
+            std::cout << "Total Hits: " << format_hits(module_hits) << "\n";
             std::cout << "Average Hits per Block: " << std::fixed << std::setprecision(2)
                       << (block_count == 0 ? 0.0 : static_cast<double>(module_hits) / block_count) << "\n";
           }
