@@ -79,7 +79,7 @@ endforeach()
 foreach(target ${W1TN3SS_TARGETS})
     target_link_libraries(${target}
         PUBLIC
-            QBDI
+            QBDI_static
             common
             redlog::redlog
     )
