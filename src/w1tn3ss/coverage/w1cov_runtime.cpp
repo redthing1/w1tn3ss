@@ -256,7 +256,13 @@ bool export_drcov_coverage() {
 
 // Original function pointers (saved before hooking)
 static int (*original_main)(int, char**) = nullptr;
+#ifndef _WIN32
 static void* (*original_pthread_create)(pthread_t*, const pthread_attr_t*, void* (*) (void*), void*) = nullptr;
+#else
+// Windows threading equivalents would go here if needed
+// static HANDLE (*original_CreateThread)(LPSECURITY_ATTRIBUTES, SIZE_T, LPTHREAD_START_ROUTINE, LPVOID, DWORD, LPDWORD)
+// = nullptr;
+#endif
 
 /**
  * Instrumented wrapper for hooked functions.
@@ -437,8 +443,9 @@ void shutdown_coverage() {
 // Runtime injection entry points
 extern "C" {
 
+#ifndef _WIN32
 /**
- * Constructor called when library is loaded via runtime injection.
+ * Constructor called when library is loaded via runtime injection (Unix/Linux/macOS).
  */
 __attribute__((constructor)) void w1cov_runtime_init() {
   printf("[W1COV_RT] *** RUNTIME COVERAGE INJECTION LOADED ***\n");
@@ -453,7 +460,7 @@ __attribute__((constructor)) void w1cov_runtime_init() {
 }
 
 /**
- * Destructor called when library is unloaded.
+ * Destructor called when library is unloaded (Unix/Linux/macOS).
  */
 __attribute__((destructor)) void w1cov_runtime_cleanup() {
   printf("[W1COV_RT] Library unloading, shutting down coverage\n");
@@ -464,5 +471,41 @@ __attribute__((destructor)) void w1cov_runtime_cleanup() {
   printf("[W1COV_RT] Runtime coverage cleanup complete\n");
   fflush(stdout);
 }
+
+#else  // _WIN32
+/**
+ * Windows DLL entry point for library initialization/cleanup.
+ */
+BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
+  switch (ul_reason_for_call) {
+  case DLL_PROCESS_ATTACH:
+    printf("[W1COV_RT] *** RUNTIME COVERAGE INJECTION LOADED (Windows) ***\n");
+    fflush(stdout);
+
+    if (w1cov_runtime::initialize_runtime_coverage()) {
+      printf("[W1COV_RT] Runtime coverage collection started\n");
+    } else {
+      printf("[W1COV_RT] Runtime coverage collection failed to start\n");
+    }
+    fflush(stdout);
+    break;
+
+  case DLL_PROCESS_DETACH:
+    printf("[W1COV_RT] Library unloading, shutting down coverage\n");
+    fflush(stdout);
+
+    w1cov_runtime::shutdown_coverage();
+
+    printf("[W1COV_RT] Runtime coverage cleanup complete\n");
+    fflush(stdout);
+    break;
+
+  case DLL_THREAD_ATTACH:
+  case DLL_THREAD_DETACH:
+    break;
+  }
+  return TRUE;
+}
+#endif // _WIN32
 
 } // extern "C"

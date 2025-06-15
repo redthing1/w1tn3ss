@@ -376,5 +376,4 @@ int qbdipreload_on_exit(int status) {
   return QBDIPRELOAD_NO_ERROR;
 }
 
-
 } // extern "C"
