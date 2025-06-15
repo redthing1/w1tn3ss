@@ -45,10 +45,10 @@ int main() {
     w1::coverage::w1cov_standalone tracer;
     
     if (!tracer.initialize()) {
-        std::cerr << "❌ Failed to initialize coverage tracer\n";
+        std::cerr << "Failed to initialize coverage tracer\n";
         return 1;
     }
-    std::cout << "✅ Coverage tracer initialized\n";
+    std::cout << "Coverage tracer initialized\n";
     
     // Step 2: Instrument functions of interest
     std::cout << "\n--- Instrumenting Functions ---\n";
@@ -57,7 +57,7 @@ int main() {
     tracer.instrument_function((void*)factorial, "factorial");  
     tracer.instrument_function((void*)math_operations, "math_operations");
     
-    std::cout << "✅ Functions instrumented\n";
+    std::cout << "Functions instrumented\n";
     
     // Step 3: Call instrumented functions and collect coverage
     std::cout << "\n--- Collecting Coverage ---\n";
@@ -89,7 +89,7 @@ int main() {
     std::cout << "\n--- Coverage Results ---\n";
     
     size_t coverage_count = tracer.get_coverage_count();
-    std::cout << "📊 Total unique basic blocks covered: " << coverage_count << "\n";
+    std::cout << "Total unique basic blocks covered: " << coverage_count << "\n";
     
     tracer.print_stats();
     
@@ -97,16 +97,16 @@ int main() {
     std::cout << "\n--- Exporting Coverage ---\n";
     
     if (tracer.export_coverage("example_coverage.drcov")) {
-        std::cout << "✅ Coverage data exported to example_coverage.drcov\n";
+        std::cout << "Coverage data exported to example_coverage.drcov\n";
         std::cout << "   You can analyze this file with:\n";
         std::cout << "   ./w1tool read-drcov --file example_coverage.drcov\n";
         std::cout << "   or import it into Lighthouse/IDA Pro/Binary Ninja\n";
     } else {
-        std::cerr << "❌ Failed to export coverage data\n";
+        std::cerr << "Failed to export coverage data\n";
         return 1;
     }
     
-    std::cout << "\n🎉 Coverage collection completed successfully!\n";
+    std::cout << "\nCoverage collection completed successfully!\n";
     
     return 0;
 }
