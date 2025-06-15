@@ -1,13 +1,14 @@
 #include "linux_injector.hpp"
 #include "../../error.hpp"
+#include <chrono>
+#include <redlog/redlog.hpp>
 
-// include the new linux injection backend
+// include the kubo injector backend
 extern "C" {
-#include "../../backend/linux/linux_elf.h"
-#include "../../backend/linux/linux_ptrace.h"
-#include "../../backend/linux/linux_shellcode.h"
+#include "../../backend/linux/injector.h"
 }
 
+#include <cstdlib>
 #include <cstring>
 #include <dirent.h>
 #include <fstream>
@@ -19,8 +20,13 @@ extern "C" {
 namespace w1::inject::linux_impl {
 
 result inject_runtime(const config& cfg) {
+  auto log = redlog::get_logger("w1nj3ct.linux");
+
+  log.info("linux runtime injection starting", redlog::field("library_path", cfg.library_path));
+
   // validate we have a target
   if (!cfg.pid && !cfg.process_name) {
+    log.error("no target specified for runtime injection");
     return make_error_result(error_code::configuration_invalid, "no target specified");
   }
 
@@ -28,11 +34,18 @@ result inject_runtime(const config& cfg) {
 
   // resolve process name to pid if needed
   if (cfg.process_name) {
+    log.debug("resolving process name to pid", redlog::field("name", *cfg.process_name));
+    
     auto processes = find_processes_by_name(*cfg.process_name);
     if (processes.empty()) {
+      log.error("no processes found with specified name", redlog::field("name", *cfg.process_name));
       return make_error_result(error_code::target_not_found, *cfg.process_name);
     }
     if (processes.size() > 1) {
+      log.error(
+          "multiple processes found with specified name", redlog::field("name", *cfg.process_name),
+          redlog::field("count", processes.size())
+      );
       return make_error_result(error_code::multiple_targets_found, *cfg.process_name);
     }
     target_pid = processes[0].pid;
@@ -40,178 +53,194 @@ result inject_runtime(const config& cfg) {
     target_pid = *cfg.pid;
   }
 
-  // step 1: attach to target process using ptrace
-  int attach_result = linux_ptrace_attach(target_pid);
-  if (attach_result != LINUX_PTRACE_SUCCESS) {
+  log.info("targeting process for injection", redlog::field("pid", target_pid));
+
+  // validate library exists
+  if (access(cfg.library_path.c_str(), F_OK) != 0) {
+    log.error("library file not found", redlog::field("library_path", cfg.library_path), redlog::field("errno", errno));
+    return make_error_result(error_code::library_not_found, "library not found: " + cfg.library_path);
+  }
+
+  log.debug("library file validated", redlog::field("library_path", cfg.library_path));
+
+  // attach to process using kubo injector
+  auto attach_start = std::chrono::steady_clock::now();
+  injector_t* injector = nullptr;
+  int attach_result = injector_attach(&injector, target_pid);
+
+  if (attach_result != INJERR_SUCCESS) {
+    const char* error_msg = injector_error();
+    log.error("failed to attach to target process", 
+              redlog::field("pid", target_pid),
+              redlog::field("error_code", attach_result),
+              redlog::field("error_msg", error_msg ? error_msg : "unknown"));
+
+    // map injector error codes to our error codes
     error_code mapped_error;
     switch (attach_result) {
-    case LINUX_PTRACE_NO_PROCESS:
+    case INJERR_NO_PROCESS:
       mapped_error = error_code::target_not_found;
       break;
-    case LINUX_PTRACE_PERMISSION:
+    case INJERR_PERMISSION:
       mapped_error = error_code::target_access_denied;
       break;
-    default:
-      mapped_error = error_code::injection_failed;
-      break;
-    }
-    return make_error_result(
-        mapped_error, std::string("ptrace attach failed: ") + linux_ptrace_strerror(attach_result), attach_result
-    );
-  }
-
-  // cleanup function to ensure detach
-  auto cleanup = [target_pid]() { linux_ptrace_detach(target_pid); };
-
-  // step 2: find dlopen symbol in the target process
-  void* dlopen_addr = nullptr;
-  int symbol_result = linux_find_symbol(target_pid, "libdl.so", "dlopen", &dlopen_addr);
-  if (symbol_result != LINUX_ELF_SUCCESS) {
-    // try alternative library names
-    symbol_result = linux_find_symbol(target_pid, "libc.so", "dlopen", &dlopen_addr);
-    if (symbol_result != LINUX_ELF_SUCCESS) {
-      symbol_result = linux_find_symbol(target_pid, "libc.so.6", "dlopen", &dlopen_addr);
-    }
-    if (symbol_result != LINUX_ELF_SUCCESS) {
-      // Try comprehensive list of ld.so names for all architectures
-      const char* ld_names[] = {
-          "ld-linux-x86-64.so.2",  // x86_64
-          "ld-linux-x86-64.so",    // x86_64 without version
-          "ld-linux-aarch64.so.1", // ARM64
-          "ld-linux-aarch64.so",   // ARM64 without version
-          "ld-linux-armhf.so.3",   // ARM32 hard-float
-          "ld-linux-armhf.so",     // ARM32 hard-float without version
-          "ld-linux.so.3",         // ARM32 soft-float
-          "ld-linux.so.2",         // i386
-          "ld-linux.so",           // generic
-          "ld.so.1",               // some distributions
-          nullptr
-      };
-
-      for (int i = 0; ld_names[i] != nullptr && symbol_result != LINUX_ELF_SUCCESS; i++) {
-        symbol_result = linux_find_symbol(target_pid, ld_names[i], "dlopen", &dlopen_addr);
-      }
-    }
-  }
-
-  if (symbol_result != LINUX_ELF_SUCCESS) {
-    cleanup();
-    error_code mapped_error;
-    switch (symbol_result) {
-    case LINUX_ELF_ERROR_SYMBOL_NOT_FOUND:
-      mapped_error = error_code::injection_failed;
-      break;
-    case LINUX_ELF_ERROR_LIBRARY_NOT_FOUND:
-      mapped_error = error_code::library_not_found;
-      break;
-    case LINUX_ELF_ERROR_PERMISSION_DENIED:
-      mapped_error = error_code::target_access_denied;
-      break;
-    default:
-      mapped_error = error_code::injection_failed;
-      break;
-    }
-    return make_error_result(
-        mapped_error, std::string("dlopen symbol resolution failed: ") + linux_elf_error_string(symbol_result),
-        symbol_result
-    );
-  }
-
-  // step 3: detect target process architecture
-  linux_arch_t arch = linux_detect_process_architecture(target_pid);
-  if (arch == ARCH_UNKNOWN) {
-    cleanup();
-    return make_error_result(error_code::target_invalid_architecture, "unsupported target architecture");
-  }
-
-  // step 4: generate dlopen shellcode
-  void* shellcode = nullptr;
-  size_t shellcode_size = 0;
-  int shellcode_result = linux_generate_dlopen_shellcode(cfg.library_path.c_str(), arch, &shellcode, &shellcode_size);
-  if (shellcode_result != LINUX_SHELLCODE_SUCCESS) {
-    cleanup();
-    error_code mapped_error;
-    switch (shellcode_result) {
-    case LINUX_SHELLCODE_ERROR_NO_MEMORY:
+    case INJERR_NO_MEMORY:
       mapped_error = error_code::out_of_memory;
       break;
-    case LINUX_SHELLCODE_ERROR_UNSUPPORTED_ARCH:
+    case INJERR_UNSUPPORTED_TARGET:
       mapped_error = error_code::target_invalid_architecture;
       break;
     default:
       mapped_error = error_code::injection_failed;
       break;
     }
-    return make_error_result(
-        mapped_error, std::string("shellcode generation failed: ") + linux_shellcode_error_string(shellcode_result),
-        shellcode_result
-    );
+    
+    return make_error_result(mapped_error, error_msg ? error_msg : "attach failed", attach_result);
   }
 
-  // cleanup function for shellcode
-  auto shellcode_cleanup = [shellcode]() {
-    if (shellcode) {
-      linux_free_shellcode(shellcode);
-    }
-  };
+  auto attach_duration = std::chrono::steady_clock::now() - attach_start;
+  auto attach_ms = std::chrono::duration_cast<std::chrono::milliseconds>(attach_duration).count();
+  log.debug("successfully attached to target process", 
+            redlog::field("pid", target_pid), 
+            redlog::field("attach_time_ms", attach_ms));
 
-  // step 5: inject and execute shellcode
-  void* injection_result = nullptr;
-  int exec_result = linux_inject_and_execute_shellcode(target_pid, shellcode, shellcode_size, &injection_result);
+  // inject library
+  auto inject_start = std::chrono::steady_clock::now();
+  void* handle = nullptr;
+  int inject_result = injector_inject(injector, cfg.library_path.c_str(), &handle);
 
-  // cleanup shellcode regardless of result
-  shellcode_cleanup();
+  if (inject_result != INJERR_SUCCESS) {
+    const char* error_msg = injector_error();
+    log.error("library injection failed",
+              redlog::field("pid", target_pid),
+              redlog::field("library_path", cfg.library_path),
+              redlog::field("error_code", inject_result),
+              redlog::field("error_msg", error_msg ? error_msg : "unknown"));
 
-  if (exec_result != LINUX_SHELLCODE_SUCCESS) {
-    cleanup();
+    // detach before returning error
+    injector_detach(injector);
+
+    // map injector error codes to our error codes
     error_code mapped_error;
-    switch (exec_result) {
-    case LINUX_SHELLCODE_ERROR_NO_MEMORY:
+    switch (inject_result) {
+    case INJERR_FILE_NOT_FOUND:
+      mapped_error = error_code::library_not_found;
+      break;
+    case INJERR_NO_MEMORY:
       mapped_error = error_code::out_of_memory;
       break;
-    case LINUX_SHELLCODE_ERROR_PERMISSION:
+    case INJERR_ERROR_IN_TARGET:
+      mapped_error = error_code::injection_failed;
+      break;
+    case INJERR_PERMISSION:
       mapped_error = error_code::target_access_denied;
       break;
-    case LINUX_SHELLCODE_ERROR_PTRACE_FAILED:
-      mapped_error = error_code::injection_failed;
+    case INJERR_UNSUPPORTED_TARGET:
+      mapped_error = error_code::target_invalid_architecture;
       break;
     default:
       mapped_error = error_code::injection_failed;
       break;
     }
-    return make_error_result(
-        mapped_error, std::string("shellcode execution failed: ") + linux_shellcode_error_string(exec_result),
-        exec_result
-    );
+
+    return make_error_result(mapped_error, error_msg ? error_msg : "injection failed", inject_result);
   }
 
-  // step 6: detach from process
-  cleanup();
-
-  // check if dlopen returned null (injection failed)
-  if (injection_result == nullptr) {
-    return make_error_result(error_code::injection_failed, "dlopen returned null - library injection failed");
+  // detach from process
+  int detach_result = injector_detach(injector);
+  if (detach_result != INJERR_SUCCESS) {
+    const char* error_msg = injector_error();
+    log.warn("failed to detach from target process", 
+             redlog::field("pid", target_pid),
+             redlog::field("error_code", detach_result),
+             redlog::field("error_msg", error_msg ? error_msg : "unknown"));
+    // continue anyway since injection succeeded
   }
+
+  auto inject_duration = std::chrono::steady_clock::now() - inject_start;
+  auto inject_ms = std::chrono::duration_cast<std::chrono::milliseconds>(inject_duration).count();
+  auto total_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                      std::chrono::steady_clock::now() - attach_start).count();
+
+  log.info("runtime injection completed successfully",
+           redlog::field("pid", target_pid),
+           redlog::field("library_path", cfg.library_path),
+           redlog::field("handle", handle),
+           redlog::field("inject_time_ms", inject_ms),
+           redlog::field("total_time_ms", total_ms));
 
   return make_success_result(target_pid);
 }
 
 result inject_preload(const config& cfg) {
+  auto log = redlog::get_logger("w1nj3ct.linux");
+
+  log.info("linux preload injection starting", 
+           redlog::field("binary_path", cfg.binary_path ? *cfg.binary_path : "null"),
+           redlog::field("library_path", cfg.library_path));
+
   if (!cfg.binary_path) {
+    log.error("binary_path required for preload injection");
     return make_error_result(error_code::configuration_invalid, "binary_path required for preload injection");
   }
 
+  // validate binary exists and is executable
+  if (access(cfg.binary_path->c_str(), F_OK) != 0) {
+    log.error("target binary not found", 
+              redlog::field("binary_path", *cfg.binary_path), 
+              redlog::field("errno", errno));
+    return make_error_result(error_code::target_not_found, "binary not found: " + *cfg.binary_path);
+  }
+
+  if (access(cfg.binary_path->c_str(), X_OK) != 0) {
+    log.error("target binary not executable", 
+              redlog::field("binary_path", *cfg.binary_path), 
+              redlog::field("errno", errno));
+    return make_error_result(error_code::target_access_denied, "binary not executable: " + *cfg.binary_path);
+  }
+
+  log.debug("target binary validated", redlog::field("binary_path", *cfg.binary_path));
+
   // set up environment with LD_PRELOAD
-  std::map<std::string, std::string> env = cfg.env_vars;
+  log.debug("setting up injection environment");
+
+  // start with current environment - use same approach as Darwin version
+  std::map<std::string, std::string> env;
+  size_t base_env_count = 0;
+
+  for (char** env_var = environ; *env_var != nullptr; env_var++) {
+    std::string env_str(*env_var);
+    std::string::size_type eq_pos = env_str.find('=');
+    if (eq_pos != std::string::npos) {
+      std::string key = env_str.substr(0, eq_pos);
+      std::string value = env_str.substr(eq_pos + 1);
+      env[key] = value;
+      base_env_count++;
+    }
+  }
+
+  log.trace("inherited environment variables", redlog::field("count", base_env_count));
+
+  // add/override with cfg.env_vars
+  for (const auto& [key, value] : cfg.env_vars) {
+    env[key] = value;
+    log.verbose("adding environment variable", redlog::field("key", key), redlog::field("value", value));
+  }
+
+  // Add LD_PRELOAD
   env["LD_PRELOAD"] = cfg.library_path;
+  log.info("configured LD_PRELOAD", redlog::field("library_path", cfg.library_path));
 
   // build command line
   std::vector<const char*> argv;
   argv.push_back(cfg.binary_path->c_str());
   for (const auto& arg : cfg.args) {
     argv.push_back(arg.c_str());
+    log.trace("adding command argument", redlog::field("arg", arg));
   }
   argv.push_back(nullptr);
+
+  log.debug("command line prepared", redlog::field("argc", argv.size() - 1));
 
   // build environment
   std::vector<std::string> env_strings;
@@ -222,41 +251,64 @@ result inject_preload(const config& cfg) {
   }
   envp.push_back(nullptr);
 
+  log.debug("environment prepared", redlog::field("env_count", env.size()));
+
   // fork and exec with modified environment
+  log.debug("launching target process");
+  auto launch_start = std::chrono::steady_clock::now();
+
   pid_t child_pid = fork();
   if (child_pid == 0) {
     // child process
+    log.trace("child process starting execve", redlog::field("binary_path", *cfg.binary_path));
     execve(cfg.binary_path->c_str(), const_cast<char**>(argv.data()), const_cast<char**>(envp.data()));
     // execve only returns on error
     _exit(1);
   } else if (child_pid > 0) {
     // parent process - wait for child to complete
+    log.debug("waiting for child process", redlog::field("child_pid", child_pid));
+    
     int status;
     pid_t wait_result = waitpid(child_pid, &status, 0);
 
+    auto launch_duration = std::chrono::steady_clock::now() - launch_start;
+    auto launch_ms = std::chrono::duration_cast<std::chrono::milliseconds>(launch_duration).count();
+
     if (wait_result == -1) {
+      log.error("waitpid failed", redlog::field("child_pid", child_pid), redlog::field("errno", errno));
       return make_error_result(error_code::launch_failed, "waitpid failed", errno);
     }
 
     if (WIFEXITED(status)) {
       int exit_code = WEXITSTATUS(status);
+      log.info("child process exited", 
+               redlog::field("child_pid", child_pid), 
+               redlog::field("exit_code", exit_code),
+               redlog::field("execution_time_ms", launch_ms));
+      
       if (exit_code == 0) {
         return make_success_result(child_pid);
       } else {
-        return make_error_result(
-            error_code::launch_failed, "child process failed with exit code " + std::to_string(exit_code)
-        );
+        return make_error_result(error_code::launch_failed, 
+                                "child process failed with exit code " + std::to_string(exit_code));
       }
     } else if (WIFSIGNALED(status)) {
       int signal = WTERMSIG(status);
-      return make_error_result(
-          error_code::launch_failed, "child process terminated by signal " + std::to_string(signal)
-      );
+      log.error("child process terminated by signal", 
+                redlog::field("child_pid", child_pid), 
+                redlog::field("signal", signal),
+                redlog::field("execution_time_ms", launch_ms));
+      return make_error_result(error_code::launch_failed, 
+                              "child process terminated by signal " + std::to_string(signal));
     } else {
+      log.error("child process exited with unknown status", 
+                redlog::field("child_pid", child_pid),
+                redlog::field("status", status));
       return make_error_result(error_code::launch_failed, "child process exited with unknown status");
     }
   } else {
     // fork failed
+    log.error("fork failed", redlog::field("errno", errno));
     return make_error_result(error_code::launch_failed, "fork failed", errno);
   }
 }
@@ -319,16 +371,6 @@ std::vector<process_info> list_processes() {
       }
     }
 
-    // read process status for additional info
-    std::string stat_path = "/proc/" + std::string(entry->d_name) + "/stat";
-    std::ifstream stat_file(stat_path);
-    if (stat_file.is_open()) {
-      std::string stat_line;
-      std::getline(stat_file, stat_line);
-      // parse basic info from stat file if needed
-      // format: pid (comm) state ppid pgrp session tty_nr ...
-    }
-
     processes.push_back(info);
   }
 
@@ -373,23 +415,21 @@ std::optional<process_info> get_process_info(int pid) {
 }
 
 bool check_injection_capabilities() {
-  // check if we can perform ptrace operations
-  // try attaching to ourselves as a basic capability test
-  pid_t self_pid = getpid();
-
-  // fork a child process to test ptrace on
+  // Use the kubo injector's capability check if available
+  // For now, do a basic ptrace capability test
   pid_t child_pid = fork();
   if (child_pid == 0) {
     // child process - sleep briefly then exit
     usleep(100000); // 100ms
     _exit(0);
   } else if (child_pid > 0) {
-    // parent process - try to attach to child
+    // parent process - try to attach to child using kubo injector
     usleep(10000); // 10ms - give child time to start
 
-    int attach_result = linux_ptrace_attach(child_pid);
-    if (attach_result == LINUX_PTRACE_SUCCESS) {
-      linux_ptrace_detach(child_pid);
+    injector_t* injector = nullptr;
+    int attach_result = injector_attach(&injector, child_pid);
+    if (attach_result == INJERR_SUCCESS) {
+      injector_detach(injector);
 
       // wait for child to exit
       int status;

@@ -25,15 +25,13 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     # include linux injection backend sources
     list(APPEND PLATFORM_SOURCES
         platform/linux/linux_injector.cpp
-        # complete linux backend implementation
-        backend/linux/linux_ptrace.c
-        backend/linux/linux_elf.c
-        backend/linux/linux_elf_extended.c
-        backend/linux/linux_shellcode.c
-        backend/linux/linux_shellcode_utils.c
-        backend/linux/linux_arch_utils.c
+        # kubo injector backend (copied from claude/injector reference)
         backend/linux/injector.c
+        backend/linux/elf.c
+        backend/linux/ptrace.c
+        backend/linux/remote_call.c
         backend/linux/util.c
+        backend/linux/shellcode.S
     )
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     list(APPEND PLATFORM_SOURCES

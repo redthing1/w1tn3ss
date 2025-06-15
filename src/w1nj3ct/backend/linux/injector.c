@@ -1,279 +1,389 @@
-#include "injector.h"
-#include "linux_ptrace.h"
-#include <stdlib.h>
-#include <string.h>
+/* -*- indent-tabs-mode: nil -*-
+ *
+ * injector - Library for injecting a shared library into a Linux process
+ *
+ * URL: https://github.com/kubo/injector
+ *
+ * ------------------------------------------------------
+ *
+ * Copyright (C) 2018-2023 Kubo Takehiro <kubo@jiubao.org>
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ */
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+#include <alloca.h>
+#include <sched.h>
 #include <stdio.h>
-#include <stdarg.h>
-#include <unistd.h>
-#include <sys/mman.h>
+#include <stdlib.h>
+#include <stddef.h>
+#include <errno.h>
 #include <dlfcn.h>
-#include <elf.h>
-#include <link.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <sys/mman.h>
+#include <time.h>
+#include <unistd.h>
+#include <limits.h>
+#include "injector_internal.h"
 
-// global error message
-char injector__errmsg[256];
-char injector__errmsg_is_set = 0;
-
-void injector__set_errmsg(const char *format, ...) {
-    va_list ap;
-    va_start(ap, format);
-    vsnprintf(injector__errmsg, sizeof(injector__errmsg), format, ap);
-    va_end(ap);
-    injector__errmsg_is_set = 1;
+static inline size_t remote_mem_size(injector_t *injector) {
+    return 2 * injector->data_size + injector->stack_size;
 }
 
-const char *injector_error(void) {
-    return injector__errmsg_is_set ? injector__errmsg : "";
-}
+int injector_attach(injector_t **injector_out, pid_t pid)
+{
+    injector_t *injector;
+    int status;
+    intptr_t retval;
+    int prot;
+    int rv = 0;
 
-// architecture detection
-int injector__get_process_arch(pid_t pid, arch_t *arch) {
-    char path[64];
-    snprintf(path, sizeof(path), "/proc/%d/exe", pid);
-    
-    FILE *file = fopen(path, "rb");
-    if (!file) {
-        injector__set_errmsg("Failed to open process executable");
-        return INJERR_NO_PROCESS;
-    }
-    
-    Elf64_Ehdr ehdr;
-    if (fread(&ehdr, sizeof(ehdr), 1, file) != 1) {
-        fclose(file);
-        injector__set_errmsg("Failed to read ELF header");
-        return INJERR_INVALID_ELF_FORMAT;
-    }
-    
-    fclose(file);
-    
-    // check ELF magic
-    if (memcmp(ehdr.e_ident, ELFMAG, SELFMAG) != 0) {
-        injector__set_errmsg("Not a valid ELF file");
-        return INJERR_INVALID_ELF_FORMAT;
-    }
-    
-    // determine architecture
-    switch (ehdr.e_machine) {
-        case EM_X86_64:
-            *arch = ARCH_X86_64;
-            break;
-        case EM_AARCH64:
-            *arch = ARCH_AARCH64;
-            break;
-        default:
-            *arch = ARCH_UNKNOWN;
-            injector__set_errmsg("Unsupported architecture: %d", ehdr.e_machine);
-            return INJERR_UNSUPPORTED_TARGET;
-    }
-    
-    return INJERR_SUCCESS;
-}
-
-// memory management helpers
-int injector__allocate_memory(const injector_t *injector, size_t size, size_t *addr) {
-    // find a suitable memory region by reading /proc/pid/maps
-    char path[64];
-    snprintf(path, sizeof(path), "/proc/%d/maps", injector->pid);
-    
-    FILE *maps = fopen(path, "r");
-    if (!maps) {
-        injector__set_errmsg("Failed to open process maps");
-        return INJERR_NO_PROCESS;
-    }
-    
-    char line[256];
-    size_t last_end = 0;
-    size_t target_addr = 0;
-    
-    // look for a gap in memory map large enough for our allocation
-    while (fgets(line, sizeof(line), maps)) {
-        size_t start, end;
-        if (sscanf(line, "%lx-%lx", &start, &end) == 2) {
-            if (last_end && (start - last_end) >= size) {
-                // found a suitable gap
-                target_addr = last_end;
-                break;
-            }
-            last_end = end;
-        }
-    }
-    
-    fclose(maps);
-    
-    if (!target_addr) {
-        // fallback: try to allocate at a high address
-        target_addr = 0x7f0000000000UL;
-    }
-    
-    // use syscall injection to call mmap in the target process
-    // for now, we'll use a simple approach and hope the address is available
-    *addr = target_addr;
-    return INJERR_SUCCESS;
-}
-
-int injector__deallocate_memory(const injector_t *injector, size_t addr, size_t size) {
-    // would need to inject munmap syscall
-    // for now, just succeed (memory will be freed when process exits)
-    return INJERR_SUCCESS;
-}
-
-int injector__write_memory(const injector_t *injector, size_t addr, const void *buf, size_t len) {
-    int result = linux_ptrace_write_memory(injector->pid, (void*)addr, buf, len);
-    if (result != LINUX_PTRACE_SUCCESS) {
-        injector__set_errmsg("Failed to write memory: %s", linux_ptrace_strerror(result));
-        return INJERR_INVALID_MEMORY_AREA;
-    }
-    return INJERR_SUCCESS;
-}
-
-int injector__read_memory(const injector_t *injector, size_t addr, void *buf, size_t len) {
-    int result = linux_ptrace_read_memory(injector->pid, (void*)addr, buf, len);
-    if (result != LINUX_PTRACE_SUCCESS) {
-        injector__set_errmsg("Failed to read memory: %s", linux_ptrace_strerror(result));
-        return INJERR_INVALID_MEMORY_AREA;
-    }
-    return INJERR_SUCCESS;
-}
-
-// main injector functions
-int injector_attach(injector_t **injector_out, injector_pid_t pid) {
     injector__errmsg_is_set = 0;
-    
-    injector_t *injector = calloc(1, sizeof(injector_t));
-    if (!injector) {
-        injector__set_errmsg("Failed to allocate injector structure");
+
+    injector = calloc(1, sizeof(injector_t));
+    if (injector == NULL) {
+        injector__set_errmsg("malloc error: %s", strerror(errno));
         return INJERR_NO_MEMORY;
     }
-    
     injector->pid = pid;
-    
-    // detect target architecture
-    int result = injector__get_process_arch(pid, &injector->arch);
-    if (result != INJERR_SUCCESS) {
-        free(injector);
-        return result;
+    rv = injector__attach_process(injector);
+    if (rv != 0) {
+        goto error_exit;
     }
-    
-    // attach with ptrace
-    result = linux_ptrace_attach(pid);
-    if (result != LINUX_PTRACE_SUCCESS) {
-        injector__set_errmsg("Failed to attach to process: %s", linux_ptrace_strerror(result));
-        free(injector);
-        switch (result) {
-            case LINUX_PTRACE_NO_PROCESS:
-                return INJERR_NO_PROCESS;
-            case LINUX_PTRACE_PERMISSION:
-                return INJERR_PERMISSION;
-            default:
-                return INJERR_OTHER;
-        }
-    }
-    
-    injector->ptrace_attached = 1;
     injector->attached = 1;
-    
-    // allocate memory for shellcode
-    injector->code_size = getpagesize();
-    result = injector__allocate_memory(injector, injector->code_size, &injector->code_addr);
-    if (result != INJERR_SUCCESS) {
-        injector_detach(injector);
-        return result;
+
+    do {
+        rv = waitpid(pid, &status, 0);
+    } while (rv == -1 && errno == EINTR);
+    if (rv == -1) {
+        injector__set_errmsg("waitpid error while attaching: %s", strerror(errno));
+        rv = INJERR_WAIT_TRACEE;
+        goto error_exit;
     }
-    
-    // allocate stack space
-    injector->stack_size = getpagesize();
-    result = injector__allocate_memory(injector, injector->stack_size, &injector->stack_addr);
-    if (result != INJERR_SUCCESS) {
-        injector_detach(injector);
-        return result;
+
+    rv = injector__collect_libc_information(injector);
+    if (rv != 0) {
+        goto error_exit;
     }
-    
-    injector->allocated = 1;
+    rv = injector__get_regs(injector, &injector->regs);
+    if (rv != 0) {
+        goto error_exit;
+    }
+    rv = injector__read(injector, injector->code_addr, &injector->backup_code, sizeof(injector->backup_code));
+    if (rv != 0) {
+        goto error_exit;
+    }
+
+    injector->data_size = sysconf(_SC_PAGESIZE);
+    injector->stack_size = 2 * 1024 * 1024;
+
+    rv = injector__call_syscall(injector, &retval, injector->sys_mmap, 0,
+                                remote_mem_size(injector), PROT_READ | PROT_WRITE,
+                                MAP_PRIVATE | MAP_ANONYMOUS | MAP_GROWSDOWN, -1, 0);
+    if (rv != 0) {
+        goto error_exit;
+    }
+    if (retval == -1) {
+        injector__set_errmsg("mmap error: %s", strerror(errno));
+        rv = INJERR_ERROR_IN_TARGET;
+        goto error_exit;
+    }
+    injector->mmapped = 1;
+    injector->data = (size_t)retval;
+    injector->stack = (size_t)retval + 2 * injector->data_size;
+#ifdef INJECTOR_HAS_INJECT_IN_CLONED_THREAD
+    injector->shellcode = (size_t)retval + 1 * injector->data_size;
+    prot = PROT_READ | PROT_EXEC;
+#else
+    prot = PROT_NONE;
+#endif
+    rv = injector__call_syscall(injector, &retval, injector->sys_mprotect,
+                                injector->data + injector->data_size, injector->data_size,
+                                prot);
+    if (rv != 0) {
+        goto error_exit;
+    }
+    if (retval != 0) {
+        injector__set_errmsg("mprotect error: %s", strerror(errno));
+        rv = INJERR_ERROR_IN_TARGET;
+        goto error_exit;
+    }
+#ifdef INJECTOR_HAS_INJECT_IN_CLONED_THREAD
+    rv = injector__write(injector, injector->shellcode, &injector_shellcode, injector_shellcode_size);
+    if (rv != 0) {
+        return rv;
+    }
+#endif
+
     *injector_out = injector;
-    return INJERR_SUCCESS;
+    return 0;
+error_exit:
+    injector_detach(injector);
+    return rv;
 }
 
-int injector_detach(injector_t *injector) {
-    if (!injector) {
-        return INJERR_SUCCESS;
+int injector_inject(injector_t *injector, const char *path, void **handle)
+{
+    char abspath[PATH_MAX];
+    int dlflags = RTLD_LAZY;
+    size_t len;
+    int rv;
+    intptr_t retval;
+
+    injector__errmsg_is_set = 0;
+
+    if (path[0] == '/') {
+        len = strlen(path) + 1;
+    } else if (realpath(path, abspath) != NULL) {
+        path = abspath;
+        len = strlen(abspath) + 1;
+    } else {
+        injector__set_errmsg("failed to get the full path of '%s': %s",
+                           path, strerror(errno));
+        return INJERR_FILE_NOT_FOUND;
     }
-    
-    // clean up allocated memory
-    if (injector->allocated) {
-        if (injector->code_addr) {
-            injector__deallocate_memory(injector, injector->code_addr, injector->code_size);
+
+    if (len > injector->data_size) {
+        injector__set_errmsg("too long file path: %s", path);
+        return INJERR_FILE_NOT_FOUND;
+    }
+
+    rv = injector__write(injector, injector->data, path, len);
+    if (rv != 0) {
+        return rv;
+    }
+    if (injector->dlfunc_type == DLFUNC_INTERNAL) {
+#define __RTLD_DLOPEN	0x80000000 // glibc internal flag
+        dlflags |= __RTLD_DLOPEN;
+    }
+    rv = injector__call_function(injector, &retval, injector->dlopen_addr, injector->data, dlflags);
+    if (rv != 0) {
+        return rv;
+    }
+    if (retval == 0) {
+        char buf[256 + 1] = {0,};
+        if (injector->dlerror_addr != 0) {
+            rv = injector__call_function(injector, &retval, injector->dlerror_addr);
+            if (rv == 0 && retval != 0) {
+                injector__read(injector, retval, buf, sizeof(buf) - 1);
+            }
         }
-        if (injector->stack_addr) {
-            injector__deallocate_memory(injector, injector->stack_addr, injector->stack_size);
+        if (buf[0] != '\0') {
+            injector__set_errmsg("dlopen failed: %s", buf);
+        } else {
+            injector__set_errmsg("dlopen failed");
         }
+        return INJERR_ERROR_IN_TARGET;
     }
-    
-    // detach from process
-    if (injector->ptrace_attached) {
-        linux_ptrace_detach(injector->pid);
+    if (handle != NULL) {
+        *handle = (void*)retval;
     }
-    
-    // free saved registers
-    if (injector->saved_regs) {
-        free(injector->saved_regs);
+    return 0;
+}
+
+#ifdef INJECTOR_HAS_INJECT_IN_CLONED_THREAD
+int injector_inject_in_cloned_thread(injector_t *injector, const char *path, void **handle_out)
+{
+    void *data;
+    injector_shellcode_arg_t *arg;
+    const size_t file_path_offset = offsetof(injector_shellcode_arg_t, file_path);
+    void * const invalid_handle = (void*)-3;
+    char abspath[PATH_MAX];
+    size_t pathlen;
+    int rv;
+    intptr_t retval;
+
+    injector__errmsg_is_set = 0;
+
+    if (injector->arch != ARCH_X86_64) {
+        injector__set_errmsg("injector_inject_in_cloned_thread doesn't support %s.",
+                             injector__arch2name(injector->arch));
+        return INJERR_UNSUPPORTED_TARGET;
     }
-    
+
+    if (realpath(path, abspath) == NULL) {
+        injector__set_errmsg("failed to get the full path of '%s': %s",
+                           path, strerror(errno));
+        return INJERR_FILE_NOT_FOUND;
+    }
+    pathlen = strlen(abspath) + 1;
+
+    if (file_path_offset + pathlen > injector->data_size) {
+        injector__set_errmsg("too long path name: %s", path);
+        return INJERR_FILE_NOT_FOUND;
+    }
+
+    data = alloca(injector->data_size);
+    memset(data, 0, injector->data_size);
+    arg = (injector_shellcode_arg_t *)data;
+
+    arg->handle = invalid_handle;
+    arg->dlopen_addr = injector->dlopen_addr;
+    arg->dlerror_addr = injector->dlerror_addr;
+    arg->dlflags = RTLD_LAZY;
+    if (injector->dlfunc_type == DLFUNC_INTERNAL) {
+        arg->dlflags |= __RTLD_DLOPEN;
+    }
+    memcpy(arg->file_path, abspath, pathlen);
+
+    rv = injector__write(injector, injector->data, data, injector->data_size);
+    if (rv != 0) {
+        return rv;
+    }
+    rv = injector__call_function(injector, &retval, injector->clone_addr,
+                                 injector->shellcode, injector->stack + injector->stack_size - 4096,
+                                 //CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM|CLONE_SETTLS|CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID,
+                                 CLONE_VM,
+                                 injector->data);
+    if (rv != 0) {
+        return rv;
+    }
+    if (retval == -1) {
+        injector__set_errmsg("clone error: %s", strerror(errno));
+        return INJERR_ERROR_IN_TARGET;
+    }
+    const struct timespec ts = {0, 100000000}; /* 0.1 second */
+    void *handle;
+    int cnt = 0;
+
+retry:
+    nanosleep(&ts, NULL);
+    rv = injector__read(injector, injector->data, &handle, sizeof(handle));
+    if (rv != 0) {
+        return rv;
+    }
+    if (handle == invalid_handle) {
+        int max_retyr_cnt = 50;
+        if (++cnt <= max_retyr_cnt) {
+            goto retry;
+        }
+        injector__set_errmsg("dlopen doesn't return in %d seconds.", max_retyr_cnt / 10);
+        return INJERR_ERROR_IN_TARGET;
+    }
+    if (handle_out != NULL) {
+        *handle_out = handle;
+    }
+    if (handle == NULL) {
+        arg->file_path[0] = '\0';
+        injector__read(injector, injector->data, data, injector->data_size);
+        if (arg->file_path[0] != '\0') {
+            injector__set_errmsg("%s", arg->file_path);
+        } else {
+            injector__set_errmsg("dlopen error");
+        }
+        return INJERR_ERROR_IN_TARGET;
+    }
+    return 0;
+}
+#endif
+
+int injector_remote_func_addr(injector_t *injector, void *handle, const char* name, size_t *func_addr_out)
+{
+    int rv;
+    intptr_t retval;
+    size_t len = strlen(name) + 1;
+
+    injector__errmsg_is_set = 0;
+
+    if (len > injector->data_size) {
+        injector__set_errmsg("too long function name: %s", name);
+        return INJERR_FUNCTION_MISSING;
+    }
+    rv = injector__write(injector, injector->data, name, len);
+    if (rv != 0) {
+        return rv;
+    }
+    rv = injector__call_function(injector, &retval, injector->dlsym_addr, handle, injector->data);
+    if (rv != 0) {
+        return rv;
+    }
+    if (retval == 0) {
+        injector__set_errmsg("function not found: %s", name);
+        return INJERR_FUNCTION_MISSING;
+    }
+    *func_addr_out = (size_t)retval;
+    return 0;
+}
+
+int injector_remote_call(injector_t *injector, intptr_t *retval, size_t func_addr, ...)
+{
+    va_list ap;
+    int rv;
+    injector__errmsg_is_set = 0;
+    va_start(ap, func_addr);
+    rv = injector__call_function_va_list(injector, retval, func_addr, ap);
+    va_end(ap);
+    return rv;
+}
+
+int injector_remote_vcall(injector_t *injector, intptr_t *retval, size_t func_addr, va_list ap)
+{
+    injector__errmsg_is_set = 0;
+    return injector__call_function_va_list(injector, retval, func_addr, ap);
+}
+
+int injector_call(injector_t *injector, void *handle, const char* name)
+{
+    size_t func_addr;
+    int rv = injector_remote_func_addr(injector, handle, name, &func_addr);
+    if (rv != 0) {
+        return rv;
+    }
+    return injector__call_function(injector, NULL, func_addr);
+}
+
+int injector_uninject(injector_t *injector, void *handle)
+{
+    int rv;
+    intptr_t retval;
+
+    injector__errmsg_is_set = 0;
+    if (injector->libc_type == LIBC_TYPE_MUSL) {
+        /* Assume that libc is musl. */
+        injector__set_errmsg("Cannot uninject libraries under musl libc. See: https://wiki.musl-libc.org/functional-differences-from-glibc.html#Unloading_libraries");
+        return INJERR_UNSUPPORTED_TARGET;
+    }
+
+    rv = injector__call_function(injector, &retval, injector->dlclose_addr, handle);
+    if (rv != 0) {
+        return rv;
+    }
+    if (retval != 0) {
+        injector__set_errmsg("dlclose failed");
+        return INJERR_ERROR_IN_TARGET;
+    }
+    return 0;
+}
+
+int injector_detach(injector_t *injector)
+{
+    injector__errmsg_is_set = 0;
+
+    if (injector->mmapped) {
+        injector__call_syscall(injector, NULL, injector->sys_munmap, injector->data, remote_mem_size(injector));
+    }
+    if (injector->attached) {
+        injector__detach_process(injector);
+    }
     free(injector);
-    return INJERR_SUCCESS;
+    return 0;
 }
 
-// simplified injection - just return success for now
-// a full implementation would need to:
-// 1. find or inject dlopen/dlsym functions
-// 2. setup shellcode to call dlopen
-// 3. execute the shellcode
-// 4. extract the return value (library handle)
-int injector_inject(injector_t *injector, const char *path, void **handle) {
-    if (!injector || !path || !handle) {
-        injector__set_errmsg("Invalid parameters");
-        return INJERR_OTHER;
-    }
-    
-    injector__set_errmsg("Library injection not yet implemented");
-    return INJERR_FUNCTION_MISSING;
-}
-
-int injector_uninject(injector_t *injector, void *handle) {
-    if (!injector || !handle) {
-        injector__set_errmsg("Invalid parameters");
-        return INJERR_OTHER;
-    }
-    
-    injector__set_errmsg("Library uninjection not yet implemented");
-    return INJERR_FUNCTION_MISSING;
-}
-
-int injector_call(injector_t *injector, void *handle, const char* name) {
-    if (!injector || !handle || !name) {
-        injector__set_errmsg("Invalid parameters");
-        return INJERR_OTHER;
-    }
-    
-    injector__set_errmsg("Remote function calls not yet implemented");
-    return INJERR_FUNCTION_MISSING;
-}
-
-int injector_remote_func_addr(injector_t *injector, void *handle, const char* name, size_t *func_addr_out) {
-    if (!injector || !handle || !name || !func_addr_out) {
-        injector__set_errmsg("Invalid parameters");
-        return INJERR_OTHER;
-    }
-    
-    injector__set_errmsg("Remote function address lookup not yet implemented");
-    return INJERR_FUNCTION_MISSING;
-}
-
-int injector_remote_call(injector_t *injector, intptr_t *retval, size_t func_addr, ...) {
-    if (!injector) {
-        injector__set_errmsg("Invalid parameters");
-        return INJERR_OTHER;
-    }
-    
-    injector__set_errmsg("Remote function calls not yet implemented");
-    return INJERR_FUNCTION_MISSING;
+const char *injector_error(void)
+{
+    return injector__errmsg;
 }
