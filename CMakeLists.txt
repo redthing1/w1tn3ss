@@ -27,7 +27,8 @@ endif()
 # endif()
 
 # options
-option(WITNESS_SHARED "Build w1tn3ss as shared library" ON)
+option(WITNESS_BUILD_STATIC "Build static w1tn3ss library" ON)
+option(WITNESS_BUILD_SHARED "Build shared w1tn3ss library" ON)
 option(WITNESS_QBDI_EXTRAS "Build QBDI with examples, tests and additional tools" OFF)
 
 # auto-detect qbdi platform and architecture

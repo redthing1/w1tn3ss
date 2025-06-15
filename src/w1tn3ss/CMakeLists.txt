@@ -16,56 +16,98 @@ set(HEADERS
     formats/drcov.hpp
 )
 
-# Create main w1tn3ss library target
-if(WITNESS_SHARED)
-    add_library(${LIBRARY_NAME} SHARED ${SOURCES})
-    target_compile_definitions(${LIBRARY_NAME} PRIVATE W1TN3SS_EXPORTS)
-else()
-    add_library(${LIBRARY_NAME} STATIC ${SOURCES})
+# Create w1tn3ss library targets based on options
+set(W1TN3SS_TARGETS)
+
+if(WITNESS_BUILD_STATIC)
+    add_library(${LIBRARY_NAME}_static STATIC ${SOURCES})
+    list(APPEND W1TN3SS_TARGETS ${LIBRARY_NAME}_static)
 endif()
 
-# Set target properties including flat output directory
-set_target_properties(${LIBRARY_NAME} PROPERTIES
-    PUBLIC_HEADER "${HEADERS}"
-    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
-    ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
-    PREFIX ""
-    OUTPUT_NAME "w1tn3ss"
-)
+if(WITNESS_BUILD_SHARED)
+    add_library(${LIBRARY_NAME}_shared SHARED ${SOURCES})
+    # Configure shared library with export/import declarations
+    target_compile_definitions(${LIBRARY_NAME}_shared PRIVATE W1TN3SS_EXPORTS)
+    target_compile_definitions(${LIBRARY_NAME}_shared INTERFACE W1TN3SS_IMPORTS)
+    list(APPEND W1TN3SS_TARGETS ${LIBRARY_NAME}_shared)
+endif()
 
-# For Windows multi-config generators, ensure import library is accessible
-if(WIN32 AND WITNESS_SHARED)
-    set_target_properties(${LIBRARY_NAME} PROPERTIES
-        ARCHIVE_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/Debug
-        ARCHIVE_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/Release
-        LIBRARY_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/Debug  
-        LIBRARY_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/Release
-        RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/Debug
-        RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/Release
+# Create alias for backwards compatibility
+if(WITNESS_BUILD_SHARED)
+    add_library(${LIBRARY_NAME} ALIAS ${LIBRARY_NAME}_shared)
+elseif(WITNESS_BUILD_STATIC)
+    add_library(${LIBRARY_NAME} ALIAS ${LIBRARY_NAME}_static)
+else()
+    message(FATAL_ERROR "At least one of WITNESS_BUILD_STATIC or WITNESS_BUILD_SHARED must be ON")
+endif()
+
+# Set target properties for enabled libraries
+if(WITNESS_BUILD_STATIC)
+    set_target_properties(${LIBRARY_NAME}_static PROPERTIES
+        PUBLIC_HEADER "${HEADERS}"
+        ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
+        PREFIX ""
+        OUTPUT_NAME "w1tn3ss_static"
     )
 endif()
 
-# Include directories
-target_include_directories(${LIBRARY_NAME}
-    PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src>
-        $<INSTALL_INTERFACE:include>
-    PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}
-)
+if(WITNESS_BUILD_SHARED)
+    set_target_properties(${LIBRARY_NAME}_shared PROPERTIES
+        PUBLIC_HEADER "${HEADERS}"
+        LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
+        ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
+        PREFIX ""
+        OUTPUT_NAME "w1tn3ss"
+    )
+endif()
 
-# Link libraries
-target_link_libraries(${LIBRARY_NAME}
-    PUBLIC
-        QBDI
-        common
-        redlog::redlog
-)
+# For Windows multi-config generators, ensure import library is accessible
+if(WIN32)
+    if(WITNESS_BUILD_STATIC)
+        set_target_properties(${LIBRARY_NAME}_static PROPERTIES
+            ARCHIVE_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/Debug
+            ARCHIVE_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/Release
+        )
+    endif()
+    if(WITNESS_BUILD_SHARED)
+        set_target_properties(${LIBRARY_NAME}_shared PROPERTIES
+            ARCHIVE_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/Debug
+            ARCHIVE_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/Release
+            LIBRARY_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/Debug  
+            LIBRARY_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/Release
+            RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/Debug
+            RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/Release
+        )
+    endif()
+endif()
 
-# Compiler flags
-target_compile_features(${LIBRARY_NAME} PUBLIC cxx_std_20)
+# Include directories for enabled targets
+foreach(target ${W1TN3SS_TARGETS})
+    target_include_directories(${target}
+        PUBLIC
+            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+            $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src>
+            $<INSTALL_INTERFACE:include>
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}
+    )
+endforeach()
+
+# Link libraries for enabled targets
+foreach(target ${W1TN3SS_TARGETS})
+    target_link_libraries(${target}
+        PUBLIC
+            QBDI
+            common
+            redlog::redlog
+    )
+endforeach()
+
+# Compiler flags for enabled targets
+foreach(target ${W1TN3SS_TARGETS})
+    target_compile_features(${target} PUBLIC cxx_std_20)
+endforeach()
 
 # sanitizers disabled - cause crashes with QBDI injection
 # if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT WIN32)
@@ -74,15 +116,14 @@ target_compile_features(${LIBRARY_NAME} PUBLIC cxx_std_20)
 # endif()
 
 if(WIN32)
-    target_compile_definitions(${LIBRARY_NAME} PRIVATE
-        _WIN32_WINNT=0x0601  # Windows 7+
-        NOMINMAX
-        WIN32_LEAN_AND_MEAN
-        _CRT_SECURE_NO_WARNINGS
-    )
-    if(WITNESS_SHARED)
-        target_compile_definitions(${LIBRARY_NAME} INTERFACE W1TN3SS_IMPORTS)
-    endif()
+    foreach(target ${W1TN3SS_TARGETS})
+        target_compile_definitions(${target} PRIVATE
+            _WIN32_WINNT=0x0601  # Windows 7+
+            NOMINMAX
+            WIN32_LEAN_AND_MEAN
+            _CRT_SECURE_NO_WARNINGS
+        )
+    endforeach()
 endif()
 
 # W1COV coverage library using QBDIPreload
@@ -238,7 +279,7 @@ endif()
 # injection libraries do not use sanitizers
 
 # Install rules
-install(TARGETS ${LIBRARY_NAME} w1cov_qbdipreload w1cov w1cov_runtime w1cov_sampling
+install(TARGETS ${W1TN3SS_TARGETS} w1cov_qbdipreload w1cov w1cov_runtime w1cov_sampling
     EXPORT w1tn3ssTargets
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
