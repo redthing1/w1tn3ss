@@ -3,6 +3,19 @@
 #include <memory>
 #include <redlog/redlog.hpp>
 
+// Windows DLL export/import declarations
+#ifdef _WIN32
+#ifdef W1TN3SS_EXPORTS
+#define W1TN3SS_API __declspec(dllexport)
+#elif defined(W1TN3SS_IMPORTS)
+#define W1TN3SS_API __declspec(dllimport)
+#else
+#define W1TN3SS_API
+#endif
+#else
+#define W1TN3SS_API
+#endif
+
 // forward declarations
 namespace w1::coverage {
 class w1cov_tracer;
@@ -17,7 +30,7 @@ enum class analysis_mode {
   debugging   // dynamic debugging support
 };
 
-class w1tn3ss {
+class W1TN3SS_API w1tn3ss {
 public:
   w1tn3ss();
   ~w1tn3ss();

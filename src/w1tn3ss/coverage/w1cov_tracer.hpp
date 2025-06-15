@@ -6,6 +6,19 @@
 #include <redlog/redlog.hpp>
 #include <string>
 
+// Windows DLL export/import declarations
+#ifdef _WIN32
+#ifdef W1TN3SS_EXPORTS
+#define W1TN3SS_API __declspec(dllexport)
+#elif defined(W1TN3SS_IMPORTS)
+#define W1TN3SS_API __declspec(dllimport)
+#else
+#define W1TN3SS_API
+#endif
+#else
+#define W1TN3SS_API
+#endif
+
 // opaque pointer for QBDI types to avoid header conflicts
 typedef void* QBDIVMPtr;
 typedef void* QBDIGPRStatePtr;
@@ -18,7 +31,7 @@ namespace w1::coverage {
 class coverage_collector;
 class module_mapper;
 
-class w1cov_tracer {
+class W1TN3SS_API w1cov_tracer {
 public:
   w1cov_tracer();
   ~w1cov_tracer();
@@ -97,7 +110,7 @@ private:
 };
 
 // global tracer instance for easy access
-w1cov_tracer& get_global_tracer();
+W1TN3SS_API w1cov_tracer& get_global_tracer();
 
 // initialization helper for library loading
 extern "C" {
