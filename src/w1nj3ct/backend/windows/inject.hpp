@@ -10,6 +10,7 @@
 #include <chrono>
 #include <iomanip>
 #include <iostream>
+#include <map>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -25,5 +26,5 @@ BOOL inject_dll_rtl_create_user_thread(HANDLE h_process, const std::wstring& dll
 BOOL inject_dll_reflective_loader(HANDLE h_process, const std::wstring& dll_path);
 BOOL inject_dll_launch_suspended(
     const std::wstring& binary_path, const std::wstring& dll_path, const std::vector<std::string>& args,
-    DWORD* out_pid = nullptr
+    const std::map<std::string, std::string>& env_vars = {}, DWORD* out_pid = nullptr
 );
