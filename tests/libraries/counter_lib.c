@@ -7,6 +7,12 @@
 #define getpid _getpid
 static volatile LONG call_count = 0;
 
+// Forward declarations
+void counter_init();
+void counter_cleanup();
+void increment_counter();
+int get_counter();
+
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved) {
     switch (fdwReason) {
         case DLL_PROCESS_ATTACH:

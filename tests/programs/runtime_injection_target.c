@@ -1,10 +1,16 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
 #include <time.h>
+
+#ifdef _WIN32
+#include <windows.h>
+#include <process.h>
+#else
+#include <unistd.h>
 #include <pthread.h>
 #include <sys/time.h>
+#endif
 
 // Global state for the application
 static volatile int g_running = 1;
@@ -99,7 +105,11 @@ void* worker_thread(void* arg) {
         int temp = fibonacci(5) + factorial(3);
         temp = temp % 100;  // Use the result
         
+#ifdef _WIN32
+        Sleep(500);  // 0.5 second
+#else
         usleep(500000);  // 0.5 second
+#endif
     }
     
     printf("[Thread %d] Exiting after %d iterations\n", thread_id, local_counter);
@@ -120,16 +130,22 @@ void print_status() {
 }
 
 int main() {
+#ifdef _WIN32
+    printf("Starting runtime injection target (PID: %d)\n", _getpid());
+#else
     printf("Starting runtime injection target (PID: %d)\n", getpid());
+#endif
     printf("This program will run continuously until interrupted.\n");
     printf("Use w1tool to inject coverage collection while it's running.\n\n");
     
     srand(time(NULL));
     
-    // Start background worker thread
+#ifndef _WIN32
+    // Start background worker thread (Unix only)
     pthread_t worker;
     int thread_id = 1;
     pthread_create(&worker, NULL, worker_thread, &thread_id);
+#endif
     
     print_status();
     
@@ -167,11 +183,17 @@ int main() {
             g_running = 0;
         }
         
+#ifdef _WIN32
+        Sleep(1000);  // 1 second between operations
+#else
         sleep(1);  // 1 second between operations
+#endif
     }
     
-    // Wait for worker thread to finish
+#ifndef _WIN32
+    // Wait for worker thread to finish (Unix only)
     pthread_join(worker, NULL);
+#endif
     
     printf("\nRuntime injection target completed.\n");
     printf("Total operations performed: %d\n", g_operations_performed);

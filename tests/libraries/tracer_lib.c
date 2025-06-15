@@ -2,6 +2,10 @@
 #include <time.h>
 #include <stdlib.h>
 
+// Forward declarations
+void tracer_init();
+void tracer_cleanup();
+
 #ifdef _WIN32
 #include <windows.h>
 #include <process.h>

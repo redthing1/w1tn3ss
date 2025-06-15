@@ -72,12 +72,16 @@ int main() {
     
     printf("multi_threaded_target: started (PID: %d)\n", getpid());
     
-    const int num_threads = 4;
-    pthread_t threads[num_threads];
-    int thread_ids[num_threads];
+#define NUM_THREADS 4
+#ifdef _WIN32
+    HANDLE threads[NUM_THREADS];
+#else
+    pthread_t threads[NUM_THREADS];
+#endif
+    int thread_ids[NUM_THREADS];
     
     // create worker threads
-    for (int i = 0; i < num_threads; i++) {
+    for (int i = 0; i < NUM_THREADS; i++) {
         thread_ids[i] = i + 1;
 #ifdef _WIN32
         threads[i] = CreateThread(NULL, 0, worker_thread, &thread_ids[i], 0, NULL);
@@ -90,10 +94,10 @@ int main() {
         }
     }
     
-    printf("multi_threaded_target: created %d worker threads\n", num_threads);
+    printf("multi_threaded_target: created %d worker threads\n", NUM_THREADS);
     
     // wait for all threads to complete
-    for (int i = 0; i < num_threads; i++) {
+    for (int i = 0; i < NUM_THREADS; i++) {
 #ifdef _WIN32
         WaitForSingleObject(threads[i], INFINITE);
         CloseHandle(threads[i]);

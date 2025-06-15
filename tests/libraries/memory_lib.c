@@ -3,8 +3,10 @@
 #include <string.h>
 #include <time.h>
 
-// forward declaration
+// forward declarations
 void report_memory_usage();
+void memory_init();
+void memory_cleanup();
 
 #ifdef _WIN32
 #include <windows.h>
