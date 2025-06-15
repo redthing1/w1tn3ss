@@ -65,7 +65,7 @@ std::string format_number(uint64_t number) {
 
 static bool g_enabled = false;
 static bool g_debug_mode = false;
-static uint64_t g_instruction_count = 0;
+static uint64_t g_basic_block_count = 0;
 
 // Lazy-initialized containers to avoid global constructor issues
 static std::unordered_map<uint64_t, uint32_t>* get_hitcounts() {
@@ -173,33 +173,34 @@ const QBDI::MemoryMap* find_module_for_address(uint64_t addr) {
 }
 
 /**
- * QBDI instrumentation callback for coverage collection.
- * Invoked for every instruction, collects addresses and sizes for DrCov export.
+ * QBDI basic block callback for coverage collection.
+ * Invoked for every basic block entry, much more efficient than instruction-level tracing.
  */
 QBDI::VMAction coverage_callback(
-    QBDI::VMInstanceRef vm, QBDI::GPRState* gprState, QBDI::FPRState* fprState, void* data
+    QBDI::VMInstanceRef vm, const QBDI::VMState* vmState, QBDI::GPRState* gprState, QBDI::FPRState* fprState, void* data
 ) {
-  // Extract instruction analysis from QBDI virtual machine
-  const QBDI::InstAnalysis* instAnalysis = vm->getInstAnalysis(QBDI::ANALYSIS_INSTRUCTION);
+  if (!vmState) {
+    return QBDI::CONTINUE;
+  }
 
-  g_instruction_count++;
+  g_basic_block_count++;
 
-  if (instAnalysis) {
-    uint64_t addr = instAnalysis->address;
-    uint16_t size = instAnalysis->instSize;
+  // Get basic block start address and size
+  uint64_t bb_start = vmState->basicBlockStart;
+  uint64_t bb_end = vmState->basicBlockEnd;
+  uint16_t bb_size = static_cast<uint16_t>(bb_end - bb_start);
 
-    // Record instruction address and size for coverage analysis
-    (*get_hitcounts())[addr]++;
-    (*get_address_sizes())[addr] = size;
+  // Record basic block for coverage analysis
+  (*get_hitcounts())[bb_start]++;
+  (*get_address_sizes())[bb_start] = bb_size;
 
-    // Periodic progress reporting for long-running analyses
-    if (g_debug_mode && (g_instruction_count % 10000 == 0)) {
-      printf(
-          "[W1COV] Traced %s instructions, %s unique addresses\n", format_number(g_instruction_count).c_str(),
-          format_number(get_hitcounts()->size()).c_str()
-      );
-      fflush(stdout);
-    }
+  // Periodic progress reporting for long-running analyses
+  if (g_debug_mode && (g_basic_block_count % 1000 == 0)) {
+    printf(
+        "[W1COV] Traced %s basic blocks, %s unique blocks\n", format_number(g_basic_block_count).c_str(),
+        format_number(get_hitcounts()->size()).c_str()
+    );
+    fflush(stdout);
   }
 
   return QBDI::CONTINUE;
@@ -341,8 +342,8 @@ int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QBDI::rword st
     printf("[W1COV] qbdipreload_on_run: start=0x%llx, stop=0x%llx\n", start, stop);
   }
 
-  // Register coverage callback
-  vm->addCodeCB(QBDI::PREINST, w1cov::coverage_callback, nullptr);
+  // Register basic block coverage callback (much more efficient than instruction-level)
+  vm->addVMEventCB(QBDI::BASIC_BLOCK_ENTRY, w1cov::coverage_callback, nullptr);
 
   if (w1cov::g_debug_mode) {
     printf("[W1COV] Coverage callback registered, starting instrumentation\n");
