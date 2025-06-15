@@ -4,9 +4,10 @@
 #include <vector>
 
 #ifdef _WIN32
+#include <windows.h>
+
 #include <psapi.h>
 #include <tlhelp32.h>
-#include <windows.h>
 #endif
 
 namespace w1::common {

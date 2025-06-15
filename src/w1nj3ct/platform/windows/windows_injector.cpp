@@ -5,10 +5,11 @@
 #include "../../backend/windows/auxiliary.hpp"
 #include "../../backend/windows/inject.hpp"
 
+#include <windows.h>
+
 #include <psapi.h>
 #include <string>
 #include <tlhelp32.h>
-#include <windows.h>
 
 namespace w1::inject::windows {
 

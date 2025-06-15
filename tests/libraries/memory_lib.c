@@ -10,6 +10,7 @@ void memory_cleanup();
 
 #ifdef _WIN32
 #include <windows.h>
+
 #include <process.h>
 #include <psapi.h>
 #define getpid _getpid
