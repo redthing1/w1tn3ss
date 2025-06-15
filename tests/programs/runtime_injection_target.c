@@ -117,6 +117,18 @@ void* worker_thread(void* arg) {
 }
 
 void print_status() {
+#ifdef _WIN32
+    SYSTEMTIME st;
+    GetLocalTime(&st);
+    
+    printf("\n=== Runtime Injection Target Status ===\n");
+    printf("PID: %d\n", _getpid());
+    printf("Operations performed: %d\n", g_operations_performed);
+    printf("Current counter: %d\n", g_counter);
+    printf("Timestamp: %02d:%02d:%02d.%03d\n", st.wHour, st.wMinute, st.wSecond, st.wMilliseconds);
+    printf("Ready for runtime injection testing!\n");
+    printf("=======================================\n\n");
+#else
     struct timeval tv;
     gettimeofday(&tv, NULL);
     
@@ -127,6 +139,7 @@ void print_status() {
     printf("Timestamp: %ld.%06ld\n", tv.tv_sec, tv.tv_usec);
     printf("Ready for runtime injection testing!\n");
     printf("=======================================\n\n");
+#endif
 }
 
 int main() {
