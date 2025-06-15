@@ -11,7 +11,7 @@ target_include_directories(${LIBRARY_NAME}
 )
 
 # This is a header-only library, so we only need to specify interface requirements
-target_compile_features(${LIBRARY_NAME} INTERFACE cxx_std_17)
+target_compile_features(${LIBRARY_NAME} INTERFACE cxx_std_20)
 
 # Install rules for headers
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/ext/

@@ -29,7 +29,17 @@ target_link_libraries(${EXECUTABLE_NAME}
         redlog::redlog
 )
 
-target_compile_features(${EXECUTABLE_NAME} PRIVATE cxx_std_17)
+target_compile_features(${EXECUTABLE_NAME} PRIVATE cxx_std_20)
+
+# Windows compile definitions
+if(WIN32)
+    target_compile_definitions(${EXECUTABLE_NAME} PRIVATE
+        _WIN32_WINNT=0x0601  # Windows 7+
+        NOMINMAX
+        WIN32_LEAN_AND_MEAN
+        _CRT_SECURE_NO_WARNINGS
+    )
+endif()
 
 # enable sanitizers for main executable in debug builds
 if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT WIN32)
