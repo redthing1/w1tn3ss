@@ -980,19 +980,19 @@ class CallTracer:
                         }
                     )
                 else:
-                    # Handle regular address format - always treat as hex unless clearly decimal
-                    if addr.startswith(("0x", "0X")) or not addr.isdigit():
+                    # Handle regular address format - always treat as hex
+                    if addr.startswith(("0x", "0X")):
                         addr_int = int(addr, 16)
                     else:
-                        # Small decimal numbers (< 65536) treated as decimal, otherwise hex
-                        addr_int = int(addr) if int(addr) < 65536 else int(addr, 16)
+                        # Always treat as hex, even without 0x prefix
+                        addr_int = int(addr, 16)
                     func_ctx = FunctionContext(address=addr_int, name=None)
                     self.function_contexts[addr] = func_ctx
                     functions.append({"address": addr, "name": None})
             except ValueError:
                 print(
                     f"[-] Invalid address/module+offset format: {addr}. "
-                    f"Use hex (0x1234), decimal, or module+offset (mymodule+0x1234)."
+                    f"Use hex (0x1234 or 1234) or module+offset (mymodule+0x1234)."
                 )
                 sys.exit(1)
 
