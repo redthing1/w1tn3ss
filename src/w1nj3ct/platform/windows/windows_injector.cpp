@@ -98,8 +98,27 @@ result inject_runtime(const config& cfg) {
 }
 
 result inject_preload(const config& cfg) {
-  // windows doesn't support preload injection like LD_PRELOAD/DYLD_INSERT_LIBRARIES
-  return make_error_result(error_code::technique_not_supported, "preload injection not supported on windows");
+  // Windows launch injection using suspended process approach
+
+  // validate we have a binary path for launch injection
+  if (!cfg.binary_path) {
+    return make_error_result(error_code::configuration_invalid, "binary_path required for launch injection");
+  }
+
+  // convert paths to wide strings
+  std::wstring binary_path = string_to_wstring(*cfg.binary_path);
+  std::wstring dll_path = string_to_wstring(cfg.library_path);
+
+  // perform launch injection
+  DWORD target_pid = 0;
+  BOOL success = inject_dll_launch_suspended(binary_path, dll_path, cfg.args, &target_pid);
+
+  if (!success) {
+    DWORD err = GetLastError();
+    return make_error_result(translate_platform_error(static_cast<int>(err)), "launch injection failed", err);
+  }
+
+  return make_success_result(target_pid);
 }
 
 std::vector<process_info> list_processes() {

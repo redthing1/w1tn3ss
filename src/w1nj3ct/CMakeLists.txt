@@ -42,6 +42,7 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
         backend/windows/inject_setwindowshook.cpp
         backend/windows/inject_rtlcreateuserthread.cpp
         backend/windows/inject_reflective.cpp
+        backend/windows/inject_launch.cpp
         backend/windows/auxiliary.cpp
     )
 endif()

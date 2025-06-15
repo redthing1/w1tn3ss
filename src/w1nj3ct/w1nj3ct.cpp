@@ -105,16 +105,6 @@ error_code validate_config(const config& cfg) {
       redlog::field("method", method_str)
   );
 
-#ifdef _WIN32
-  if (cfg.injection_method == method::launch) {
-    log.error(
-        "launch injection method not supported on windows", redlog::field("platform", platform_str),
-        redlog::field("method", method_str)
-    );
-    return error_code::technique_not_supported;
-  }
-#endif
-
   log.debug("configuration validation completed successfully");
   return error_code::success;
 }

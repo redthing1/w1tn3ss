@@ -15,7 +15,13 @@ enum class method {
 
 // platform-specific technique enums
 #ifdef _WIN32
-enum class windows_technique { create_remote_thread, set_windows_hook, rtl_create_user_thread, reflective_loader };
+enum class windows_technique {
+  create_remote_thread,
+  set_windows_hook,
+  rtl_create_user_thread,
+  reflective_loader,
+  launch_suspended
+};
 #endif
 
 // comprehensive cross-platform error codes
