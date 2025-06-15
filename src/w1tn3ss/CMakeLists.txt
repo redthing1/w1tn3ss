@@ -34,6 +34,18 @@ set_target_properties(${LIBRARY_NAME} PROPERTIES
     OUTPUT_NAME "w1tn3ss"
 )
 
+# For Windows multi-config generators, ensure import library is accessible
+if(WIN32 AND WITNESS_SHARED)
+    set_target_properties(${LIBRARY_NAME} PROPERTIES
+        ARCHIVE_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/Debug
+        ARCHIVE_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/Release
+        LIBRARY_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/Debug  
+        LIBRARY_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/Release
+        RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/Debug
+        RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/Release
+    )
+endif()
+
 # Include directories
 target_include_directories(${LIBRARY_NAME}
     PUBLIC
