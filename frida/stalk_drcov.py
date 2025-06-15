@@ -37,6 +37,7 @@ import argparse
 import json
 import os
 import signal
+import struct
 import sys
 import time
 from typing import List, Dict, Set, Optional
@@ -307,7 +308,8 @@ class StalkDrcovTracer:
 
         # collected data
         self.modules = []
-        self.basic_blocks = set()
+        # Use dict for hit counting: bb_entry_bytes -> count
+        self.basic_blocks = {}
 
     def start_tracing(self):
         """Start the tracing process"""
@@ -515,10 +517,13 @@ class StalkDrcovTracer:
             print(f"[!] Invalid BB data length: {len(bb_data_buffer)}")
             return
 
-        # add unique entries to set (automatic deduplication)
+        # track hit counts for each basic block
         for i in range(0, len(bb_data_buffer), DRCOV_BB_ENTRY_SIZE_BYTES):
             bb_entry = bb_data_buffer[i : i + DRCOV_BB_ENTRY_SIZE_BYTES]
-            self.basic_blocks.add(bb_entry)
+            if bb_entry in self.basic_blocks:
+                self.basic_blocks[bb_entry] += 1
+            else:
+                self.basic_blocks[bb_entry] = 1
 
     def stop_tracing(self):
         """Stop tracing and cleanup"""
@@ -562,8 +567,9 @@ class StalkDrcovTracer:
             if not output_file:
                 output_file = "frida-cov.drcov"
 
+            total_hits = sum(self.basic_blocks.values())
             print(
-                f"[*] Saving {len(self.basic_blocks)} unique basic blocks to '{output_file}'..."
+                f"[*] Saving {len(self.basic_blocks)} unique basic blocks ({total_hits:,} total hits) to '{output_file}'..."
             )
 
             # create drcov header
@@ -586,7 +592,7 @@ class StalkDrcovTracer:
         """Create drcov file header"""
         lines = []
         lines.append("DRCOV VERSION: 2")
-        lines.append("DRCOV FLAVOR: frida")
+        lines.append("DRCOV FLAVOR: drcov-hits")
 
         if not self.modules:
             lines.append("Module Table: version 2, count 0")
@@ -610,10 +616,23 @@ class StalkDrcovTracer:
         return ("\n".join(lines) + "\n").encode("utf-8")
 
     def _create_drcov_body(self):
-        """Create drcov file body"""
-        sorted_bbs = sorted(list(self.basic_blocks))
-        header = f"BB Table: {len(sorted_bbs)} bbs\n".encode("utf-8")
-        return header + b"".join(sorted_bbs)
+        """Create drcov file body with hit count table"""
+        
+        # Sort basic blocks for deterministic output
+        sorted_bb_items = sorted(self.basic_blocks.items())
+        bb_entries = [bb_entry for bb_entry, count in sorted_bb_items]
+        hit_counts = [count for bb_entry, count in sorted_bb_items]
+        
+        # Create BB Table
+        bb_header = f"BB Table: {len(bb_entries)} bbs\n".encode("utf-8")
+        bb_data = b"".join(bb_entries)
+        
+        # Create Hit Count Table (as per proposal specification)
+        hit_header = f"Hit Count Table: version 1, count {len(hit_counts)}\n".encode("utf-8")
+        # Pack hit counts as uint32_t (little-endian)
+        hit_data = b"".join(struct.pack('<I', count) for count in hit_counts)
+        
+        return bb_header + bb_data + hit_header + hit_data
 
 
 def signal_handler(signum, frame):
