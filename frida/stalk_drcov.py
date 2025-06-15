@@ -29,6 +29,9 @@ python stalk_drcov.py -s ./target --no-system -o coverage.drcov
 
 # disable ASLR for spawned process (macOS only)
 python stalk_drcov.py -s ./target --disable-aslr -o coverage.drcov
+
+# spawn with arguments (use -- to separate)
+python stalk_drcov.py -s ./target --no-system -- --input file.txt --verbose
 """
 
 from __future__ import print_function
@@ -367,7 +370,11 @@ class StalkDrcovTracer:
                 spawn_options["aslr"] = "disable"
                 print("[*] ASLR disabled for spawned process")
 
-            self.pid = self.device.spawn([target_path], **spawn_options)
+            # Build command line with target and arguments
+            cmd_line = [target_path] + self.args.target_args
+            if self.args.target_args:
+                print(f"[*] Spawning with arguments: {' '.join(cmd_line)}")
+            self.pid = self.device.spawn(cmd_line, **spawn_options)
             print(f"[+] Spawned process with PID: {self.pid}")
 
             self.session = self.device.attach(self.pid)
@@ -704,6 +711,12 @@ def main():
 
     # debug options
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
+    
+    # target arguments (after --)
+    parser.add_argument(
+        "target_args", nargs="*", 
+        help="Arguments to pass to spawned process (use after --)"
+    )
 
     args = parser.parse_args()
 

@@ -29,6 +29,9 @@ python call_tracer.py 1234 -m myapp --no-system -o trace.json
 
 # monitor everything except system modules
 python call_tracer.py -s ./target_binary -M --no-system -t 30
+
+# spawn with arguments (use -- to separate)
+python call_tracer.py -s ./target_binary -F 0x401000 -- --input file.txt --verbose
 """
 
 from __future__ import print_function
@@ -1089,7 +1092,11 @@ class CallTracer:
                         }
                     print("[*] Attempting to disable ASLR for the target process")
 
-                self.pid = self.device.spawn([self.args.target], **spawn_options)
+                # Build command line with target and arguments
+                cmd_line = [self.args.target] + self.args.target_args
+                if self.args.target_args:
+                    print(f"[*] Spawning with arguments: {' '.join(cmd_line)}")
+                self.pid = self.device.spawn(cmd_line, **spawn_options)
                 self.session = self.device.attach(self.pid)
                 print(f"[+] Spawned process with PID: {self.pid}")
             else:
@@ -1697,6 +1704,12 @@ def main():
 
     # debug options
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
+    
+    # target arguments (after --)
+    parser.add_argument(
+        "target_args", nargs="*", 
+        help="Arguments to pass to spawned process (use after --)"
+    )
 
     args = parser.parse_args()
 
