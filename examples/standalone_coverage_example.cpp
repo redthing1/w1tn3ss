@@ -50,53 +50,55 @@ int main() {
     }
     std::cout << "Coverage tracer initialized\n";
     
-    // Step 2: Instrument functions of interest
-    std::cout << "\n--- Instrumenting Functions ---\n";
-    
-    tracer.instrument_function((void*)fibonacci, "fibonacci");
-    tracer.instrument_function((void*)factorial, "factorial");  
-    tracer.instrument_function((void*)math_operations, "math_operations");
-    
-    std::cout << "Functions instrumented\n";
-    
-    // Step 3: Call instrumented functions and collect coverage
+    // Step 2: Trace functions and collect coverage
     std::cout << "\n--- Collecting Coverage ---\n";
     
     uint64_t result;
     
     // Test fibonacci with different inputs to hit different code paths
-    tracer.call_instrumented_function((void*)fibonacci, {5}, &result);
-    std::cout << "fibonacci(5) = " << result << "\n";
+    if (tracer.trace_function((void*)fibonacci, {5}, &result)) {
+        std::cout << "fibonacci(5) = " << result << "\n";
+    }
     
-    tracer.call_instrumented_function((void*)fibonacci, {1}, &result);
-    std::cout << "fibonacci(1) = " << result << "\n";
+    if (tracer.trace_function((void*)fibonacci, {1}, &result)) {
+        std::cout << "fibonacci(1) = " << result << "\n";
+    }
+    
+    // Call fibonacci(5) again to demonstrate hitcount tracking
+    if (tracer.trace_function((void*)fibonacci, {5}, &result)) {
+        std::cout << "fibonacci(5) = " << result << " (second call)\n";
+    }
     
     // Test factorial
-    tracer.call_instrumented_function((void*)factorial, {4}, &result);
-    std::cout << "factorial(4) = " << result << "\n";
+    if (tracer.trace_function((void*)factorial, {4}, &result)) {
+        std::cout << "factorial(4) = " << result << "\n";
+    }
     
     // Test math_operations with different branches
-    tracer.call_instrumented_function((void*)math_operations, {10, 5}, &result);
-    std::cout << "math_operations(10, 5) = " << result << " (branch 1)\n";
+    if (tracer.trace_function((void*)math_operations, {10, 5}, &result)) {
+        std::cout << "math_operations(10, 5) = " << result << " (branch 1)\n";
+    }
     
-    tracer.call_instrumented_function((void*)math_operations, {3, 3}, &result);
-    std::cout << "math_operations(3, 3) = " << result << " (branch 2)\n";
+    if (tracer.trace_function((void*)math_operations, {3, 3}, &result)) {
+        std::cout << "math_operations(3, 3) = " << result << " (branch 2)\n";
+    }
     
-    tracer.call_instrumented_function((void*)math_operations, {2, 8}, &result);
-    std::cout << "math_operations(2, 8) = " << result << " (branch 3)\n";
+    if (tracer.trace_function((void*)math_operations, {2, 8}, &result)) {
+        std::cout << "math_operations(2, 8) = " << result << " (branch 3)\n";
+    }
     
-    // Step 4: Analyze coverage results
+    // Step 3: Analyze coverage results
     std::cout << "\n--- Coverage Results ---\n";
     
-    size_t coverage_count = tracer.get_coverage_count();
-    std::cout << "Total unique basic blocks covered: " << coverage_count << "\n";
+    std::cout << "Unique basic blocks: " << tracer.get_unique_blocks() << "\n";
+    std::cout << "Total hits: " << tracer.get_total_hits() << "\n";
     
-    tracer.print_stats();
+    tracer.print_summary();
     
-    // Step 5: Export coverage data
+    // Step 4: Export coverage data
     std::cout << "\n--- Exporting Coverage ---\n";
     
-    if (tracer.export_coverage("example_coverage.drcov")) {
+    if (tracer.export_drcov("example_coverage.drcov")) {
         std::cout << "Coverage data exported to example_coverage.drcov\n";
         std::cout << "   You can analyze this file with:\n";
         std::cout << "   ./w1tool read-drcov --file example_coverage.drcov\n";
@@ -107,6 +109,7 @@ int main() {
     }
     
     std::cout << "\nCoverage collection completed successfully!\n";
+    std::cout << "Notice: Hitcounts show how many times each basic block was executed.\n";
     
     return 0;
 }

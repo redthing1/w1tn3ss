@@ -1,52 +1,53 @@
 #pragma once
 
 #include <cstdint>
-#include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace w1::coverage {
 
 /**
- * W1TN3SS Coverage Tracer using standalone QBDI approach
+ * Simple standalone coverage tracer
  *
- * This implementation uses the proven working QBDI standalone VM pattern
- * instead of the problematic QBDIPreload approach. Based on the successful
- * fibonacci example pattern.
+ * Provides hitcount-based coverage collection using QBDI.
+ * Much simpler than the previous overcomplicated implementation.
  */
 class w1cov_standalone {
 public:
   w1cov_standalone();
   ~w1cov_standalone();
 
-  // Core initialization
+  // Core operations
   bool initialize();
+  void shutdown();
+  bool is_initialized() const { return initialized_; }
 
-  // Function instrumentation (like addInstrumentedModuleFromAddr)
-  bool instrument_function(void* func_ptr, const std::string& name = "");
+  // Coverage collection
+  bool trace_function(void* func_ptr, const std::vector<uint64_t>& args = {}, uint64_t* result = nullptr);
+  bool trace_address_range(uint64_t start, uint64_t end);
 
-  // Call instrumented function with coverage (like vm.call())
-  bool call_instrumented_function(void* func_ptr, const std::vector<uint64_t>& args = {}, uint64_t* result = nullptr);
+  // Coverage data
+  size_t get_unique_blocks() const { return hitcounts_.size(); }
+  uint64_t get_total_hits() const;
+  uint32_t get_hitcount(uint64_t address) const;
+  const std::unordered_map<uint64_t, uint32_t>& get_hitcounts() const { return hitcounts_; }
 
-  // Run entire binary with instrumentation (like vm.run())
-  bool run_instrumented_binary(
-      const std::string& binary_path, const std::vector<std::string>& args = {}, int* exit_code = nullptr
-  );
-
-  // Coverage data access
-  size_t get_coverage_count() const;
-  bool export_coverage(const std::string& output_file);
-  void print_stats() const;
+  // Export
+  bool export_drcov(const std::string& filename) const;
+  void print_summary() const;
 
   // Non-copyable
   w1cov_standalone(const w1cov_standalone&) = delete;
   w1cov_standalone& operator=(const w1cov_standalone&) = delete;
 
-  // Forward declaration for callback access
-  class impl;
+  // Public access for callback
+  void record_basic_block(uint64_t address, uint16_t size);
 
 private:
-  std::unique_ptr<impl> pimpl;
+  bool initialized_;
+  std::unordered_map<uint64_t, uint32_t> hitcounts_;
+  std::unordered_map<uint64_t, uint16_t> address_sizes_;
 };
 
 } // namespace w1::coverage

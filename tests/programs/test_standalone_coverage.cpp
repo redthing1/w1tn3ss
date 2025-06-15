@@ -28,32 +28,25 @@ int main() {
     return 1;
   }
 
-  // Test function instrumentation
-  if (!tracer.instrument_function((void *)simple_math, "simple_math")) {
-    std::cout << "Failed to instrument simple_math\n";
-    return 1;
-  }
-
-  // Call instrumented function multiple times to see basic block coverage
+  // Trace function multiple times to see basic block coverage and hitcounts
   uint64_t result1, result2;
-  if (!tracer.call_instrumented_function((void *)simple_math, {10, 5},
-                                         &result1)) {
-    std::cout << "Failed to call instrumented function (first call)\n";
+  if (!tracer.trace_function((void *)simple_math, {10, 5}, &result1)) {
+    std::cout << "Failed to trace function (first call)\n";
     return 1;
   }
 
-  if (!tracer.call_instrumented_function((void *)simple_math, {3, 8},
-                                         &result2)) {
-    std::cout << "Failed to call instrumented function (second call)\n";
+  if (!tracer.trace_function((void *)simple_math, {3, 8}, &result2)) {
+    std::cout << "Failed to trace function (second call)\n";
     return 1;
   }
 
   std::cout << "Function results: " << result1 << ", " << result2 << "\n";
-  std::cout << "Coverage count: " << tracer.get_coverage_count() << "\n";
+  std::cout << "Unique blocks: " << tracer.get_unique_blocks() << "\n";
+  std::cout << "Total hits: " << tracer.get_total_hits() << "\n";
 
-  tracer.print_stats();
+  tracer.print_summary();
 
-  if (!tracer.export_coverage("test_standalone_coverage.drcov")) {
+  if (!tracer.export_drcov("test_standalone_coverage.drcov")) {
     std::cout << "Failed to export coverage\n";
     return 1;
   }
