@@ -26,8 +26,10 @@
 #include <windows.h>
 #else
 #include <dlfcn.h>
+#include <pthread.h>
 #include <signal.h>
 #include <sys/mman.h>
+#include <ucontext.h>
 #endif
 #include <string.h>
 #include <thread>
@@ -116,6 +118,7 @@ const QBDI::MemoryMap* find_module_for_address(uint64_t addr) {
   return nullptr;
 }
 
+#ifndef _WIN32
 /**
  * Signal handler for sampling-based coverage collection.
  * Captures program counter at regular intervals.
@@ -178,6 +181,7 @@ void* sampling_thread(void* arg) {
 
   return nullptr;
 }
+#endif // _WIN32
 
 /**
  * Export coverage data in DrCov format using the common drcov.hpp library.
@@ -274,6 +278,7 @@ bool initialize_sampling_coverage() {
     return false;
   }
 
+#ifndef _WIN32
   // Install signal handler for sampling
   struct sigaction sa;
   sa.sa_flags = SA_SIGINFO;
@@ -297,6 +302,11 @@ bool initialize_sampling_coverage() {
   }
 
   pthread_detach(thread);
+#else
+  // Windows sampling not implemented - this is an experimental Unix-only feature
+  printf("[W1COV_SAMP] Sampling coverage not supported on Windows\n");
+  return false;
+#endif
 
   g_initialized = true;
 
@@ -339,8 +349,9 @@ void shutdown_sampling_coverage() {
 // Runtime injection entry points
 extern "C" {
 
+#ifndef _WIN32
 /**
- * Constructor called when library is loaded via runtime injection.
+ * Constructor called when library is loaded via runtime injection (Unix/Linux/macOS).
  */
 __attribute__((constructor)) void w1cov_sampling_init() {
   printf("[W1COV_SAMP] *** SAMPLING COVERAGE INJECTION LOADED ***\n");
@@ -355,7 +366,7 @@ __attribute__((constructor)) void w1cov_sampling_init() {
 }
 
 /**
- * Destructor called when library is unloaded.
+ * Destructor called when library is unloaded (Unix/Linux/macOS).
  */
 __attribute__((destructor)) void w1cov_sampling_cleanup() {
   printf("[W1COV_SAMP] Library unloading, shutting down coverage\n");
@@ -366,5 +377,30 @@ __attribute__((destructor)) void w1cov_sampling_cleanup() {
   printf("[W1COV_SAMP] Sampling coverage cleanup complete\n");
   fflush(stdout);
 }
+
+#else  // _WIN32
+/**
+ * Windows DLL entry point for library initialization/cleanup.
+ */
+BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
+  switch (ul_reason_for_call) {
+  case DLL_PROCESS_ATTACH:
+    printf("[W1COV_SAMP] *** SAMPLING COVERAGE INJECTION LOADED (Windows) ***\n");
+    printf("[W1COV_SAMP] Sampling coverage not supported on Windows\n");
+    fflush(stdout);
+    break;
+
+  case DLL_PROCESS_DETACH:
+    printf("[W1COV_SAMP] Sampling coverage cleanup complete\n");
+    fflush(stdout);
+    break;
+
+  case DLL_THREAD_ATTACH:
+  case DLL_THREAD_DETACH:
+    break;
+  }
+  return TRUE;
+}
+#endif // _WIN32
 
 } // extern "C"

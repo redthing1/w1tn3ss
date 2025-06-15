@@ -2,6 +2,11 @@
 
 #include <windows.h>
 
+// Define NTSTATUS if not already defined
+#ifndef NTSTATUS
+typedef LONG NTSTATUS;
+#endif
+
 /**
  * some windows api function pointers for "less documented" functions
  */

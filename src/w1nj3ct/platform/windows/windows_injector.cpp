@@ -60,7 +60,7 @@ result inject_runtime(const config& cfg) {
   HANDLE h_process = OpenProcess(PROCESS_ALL_ACCESS, FALSE, target_pid);
   if (h_process == NULL) {
     DWORD err = GetLastError();
-    return make_error_result(translate_platform_error(err), "failed to open process", err);
+    return make_error_result(translate_platform_error(static_cast<int>(err)), "failed to open process", err);
   }
 
   // convert library path to wide string
@@ -90,7 +90,7 @@ result inject_runtime(const config& cfg) {
 
   if (!success) {
     DWORD err = GetLastError();
-    return make_error_result(translate_platform_error(err), "injection failed", err);
+    return make_error_result(translate_platform_error(static_cast<int>(err)), "injection failed", err);
   }
 
   return make_success_result(target_pid);
