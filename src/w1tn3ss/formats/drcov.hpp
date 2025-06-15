@@ -15,14 +15,23 @@
  * @code
  * // Reading a file
  * auto coverage = drcov::read("coverage.drcov");
+ * if (coverage.has_hitcounts()) {
+ *   // Process hitcount data
+ *   for (size_t i = 0; i < coverage.basic_blocks.size(); ++i) {
+ *     auto& bb = coverage.basic_blocks[i];
+ *     auto hitcount = coverage.hitcounts[i];
+ *     // Process basic block with its hitcount
+ *   }
+ * }
  *
- * // Creating coverage data
+ * // Creating coverage data with hitcounts
  * auto builder = drcov::builder()
- *     .set_flavor("my_tool")
+ *     .enable_hitcounts()  // Sets flavor to "drcov-hits"
  *     .set_module_version(drcov::module_table_version::v4)
  *     .add_module("/bin/program", 0x400000, 0x450000)
  *     .add_module("/lib/libc.so", 0x7fff00000000, 0x7fff00100000)
- *     .add_coverage(0, 0x1000, 32)  // module 0, offset 0x1000, 32 bytes
+ *     .add_coverage(0, 0x1000, 32, 5)  // module 0, offset 0x1000, 32 bytes, hit 5 times
+ *     .add_coverage(0, 0x1020, 16, 1000)  // Hot path hit 1000 times
  *     .build();
  *
  * // Writing to file
@@ -81,6 +90,8 @@ constexpr std::string_view flavor_prefix = "DRCOV FLAVOR: ";
 constexpr std::string_view module_table_prefix = "Module Table: ";
 constexpr std::string_view bb_table_prefix = "BB Table: ";
 constexpr std::string_view columns_prefix = "Columns: ";
+constexpr std::string_view hitcount_table_prefix = "Hit Count Table: ";
+constexpr std::string_view drcov_hits_flavor = "drcov-hits";
 } // namespace constants
 
 /**
@@ -93,6 +104,7 @@ enum class error_code {
   unsupported_version,
   invalid_module_table,
   invalid_bb_table,
+  invalid_hitcount_table,
   io_error,
   memory_error,
   invalid_binary_data,
@@ -221,6 +233,7 @@ struct coverage_data {
   module_table_version module_version{module_table_version::v2};
   std::vector<module_entry> modules;
   std::vector<basic_block> basic_blocks;
+  std::vector<uint32_t> hitcounts;  // Optional hitcount data, parallel to basic_blocks
 
   std::optional<std::reference_wrapper<const module_entry>> find_module(uint16_t id) const {
     if (id < modules.size() && modules[id].id == id) {
@@ -243,6 +256,10 @@ struct coverage_data {
     return stats;
   }
 
+  bool has_hitcounts() const noexcept {
+    return !hitcounts.empty() && hitcounts.size() == basic_blocks.size();
+  }
+
   void validate() const {
     for (size_t i = 0; i < modules.size(); ++i) {
       if (modules[i].id != i) {
@@ -259,6 +276,15 @@ struct coverage_data {
             error_code::validation_error, "Basic block references invalid module ID: " + std::to_string(bb.module_id)
         );
       }
+    }
+
+    // Validate hitcount data if present
+    if (!hitcounts.empty() && hitcounts.size() != basic_blocks.size()) {
+      throw parse_error(
+          error_code::validation_error,
+          "Hitcount array size (" + std::to_string(hitcounts.size()) +
+              ") does not match basic blocks count (" + std::to_string(basic_blocks.size()) + ")"
+      );
     }
   }
 };
@@ -279,6 +305,11 @@ public:
     return *this;
   }
 
+  coverage_builder& enable_hitcounts() {
+    data_.header.flavor = std::string(constants::drcov_hits_flavor);
+    return *this;
+  }
+
   coverage_builder& set_module_version(module_table_version version) {
     data_.module_version = version;
     return *this;
@@ -295,23 +326,47 @@ public:
     return *this;
   }
 
-  coverage_builder& add_coverage(uint16_t module_id, uint32_t offset, uint16_t size) {
+  coverage_builder& add_coverage(uint16_t module_id, uint32_t offset, uint16_t size, uint32_t hitcount = 1) {
     data_.basic_blocks.emplace_back(offset, size, module_id);
+    if (data_.header.flavor == constants::drcov_hits_flavor) {
+      data_.hitcounts.push_back(hitcount);
+    }
     return *this;
   }
 
-  coverage_builder& add_basic_block(basic_block block) {
+  coverage_builder& add_basic_block(basic_block block, uint32_t hitcount = 1) {
     data_.basic_blocks.push_back(std::move(block));
+    if (data_.header.flavor == constants::drcov_hits_flavor) {
+      data_.hitcounts.push_back(hitcount);
+    }
     return *this;
   }
 
   coverage_builder& add_basic_blocks(const std::vector<basic_block>& blocks) {
     data_.basic_blocks.insert(data_.basic_blocks.end(), blocks.begin(), blocks.end());
+    if (data_.header.flavor == constants::drcov_hits_flavor) {
+      data_.hitcounts.resize(data_.basic_blocks.size(), 1);  // Default hitcount of 1
+    }
+    return *this;
+  }
+
+  coverage_builder& add_basic_blocks_with_hitcounts(
+      const std::vector<basic_block>& blocks, const std::vector<uint32_t>& hitcounts
+  ) {
+    if (blocks.size() != hitcounts.size()) {
+      throw std::invalid_argument("Blocks and hitcounts arrays must have the same size");
+    }
+    data_.basic_blocks.insert(data_.basic_blocks.end(), blocks.begin(), blocks.end());
+    data_.hitcounts.insert(data_.hitcounts.end(), hitcounts.begin(), hitcounts.end());
+    if (data_.header.flavor != constants::drcov_hits_flavor) {
+      data_.header.flavor = std::string(constants::drcov_hits_flavor);
+    }
     return *this;
   }
 
   coverage_builder& clear_coverage() {
     data_.basic_blocks.clear();
+    data_.hitcounts.clear();
     return *this;
   }
 
@@ -343,6 +398,12 @@ public:
     data.header = parse_header(stream);
     std::tie(data.modules, data.module_version) = parse_module_table(stream);
     data.basic_blocks = parse_bb_table(stream);
+    
+    // Try to parse hitcount table if the flavor indicates hits support
+    if (data.header.flavor == constants::drcov_hits_flavor) {
+      data.hitcounts = parse_hitcount_table(stream, data.basic_blocks.size());
+    }
+    
     data.validate();
     return data;
   }
@@ -572,6 +633,90 @@ private:
     }
     return blocks;
   }
+
+  static std::vector<uint32_t> parse_hitcount_table(std::istream& stream, size_t expected_count) {
+    std::string line;
+    
+    // Try to read hitcount table header
+    if (!std::getline(stream, line)) {
+      // No hitcount table found - this is OK for backward compatibility
+      return {};
+    }
+    
+    // Check if this is actually a hitcount table header
+    if (line.rfind(constants::hitcount_table_prefix, 0) != 0) {
+      // Not a hitcount table - put the line back and return empty
+      // Note: In practice this is difficult to do with ifstream, but we can return empty
+      return {};
+    }
+    
+    // Parse hitcount table header: "Hit Count Table: version 1, count <N>"
+    size_t version = 0;
+    size_t count = 0;
+    try {
+      auto content = line.substr(constants::hitcount_table_prefix.length());
+      auto parts = detail::split(content, ',');
+      if (parts.size() != 2) {
+        throw parse_error(error_code::invalid_hitcount_table, "Invalid hitcount table header format");
+      }
+      
+      // Parse version
+      auto version_part = detail::trim(parts[0]);
+      if (version_part.find("version") != 0) {
+        throw parse_error(error_code::invalid_hitcount_table, "Missing version in hitcount table header");
+      }
+      version = std::stoul(version_part.substr(8)); // "version ".length()
+      
+      // Parse count  
+      auto count_part = detail::trim(parts[1]);
+      if (count_part.find("count") != 0) {
+        throw parse_error(error_code::invalid_hitcount_table, "Missing count in hitcount table header");
+      }
+      count = std::stoul(count_part.substr(6)); // "count ".length()
+      
+    } catch (const std::exception& e) {
+      throw parse_error(
+          error_code::invalid_hitcount_table, "Failed to parse hitcount table header: " + std::string(e.what())
+      );
+    }
+    
+    // Validate version
+    if (version != 1) {
+      throw parse_error(
+          error_code::invalid_hitcount_table, "Unsupported hitcount table version: " + std::to_string(version)
+      );
+    }
+
+    // Validate count matches basic blocks
+    if (count != expected_count) {
+      throw parse_error(
+          error_code::invalid_hitcount_table,
+          "Hitcount table count (" + std::to_string(count) +
+              ") does not match basic blocks count (" + std::to_string(expected_count) + ")"
+      );
+    }
+    
+    if (count == 0) {
+      return {};
+    }
+    
+    // Read binary hitcount data
+    std::vector<uint8_t> binary_data(count * sizeof(uint32_t));
+    stream.read(reinterpret_cast<char*>(binary_data.data()), binary_data.size());
+    if (static_cast<size_t>(stream.gcount()) != binary_data.size()) {
+      throw parse_error(error_code::invalid_binary_data, "Failed to read complete hitcount table binary data");
+    }
+    
+    // Convert binary data to hitcounts
+    std::vector<uint32_t> hitcounts;
+    hitcounts.reserve(count);
+    for (size_t i = 0; i < count; ++i) {
+      const uint8_t* hitcount_data = binary_data.data() + (i * sizeof(uint32_t));
+      hitcounts.push_back(detail::read_le<uint32_t>(hitcount_data));
+    }
+    
+    return hitcounts;
+  }
 };
 
 // writer implementation
@@ -590,6 +735,12 @@ public:
     stream << data.header.to_string();
     write_module_table(data, stream);
     write_bb_table(data.basic_blocks, stream);
+    
+    // Write hitcount table if present
+    if (data.has_hitcounts()) {
+      write_hitcount_table(data.hitcounts, stream);
+    }
+    
     if (!stream) {
       throw parse_error(error_code::io_error, "Error writing to stream");
     }
@@ -682,6 +833,23 @@ private:
       detail::write_le<uint32_t>(entry_data, blocks[i].start);
       detail::write_le<uint16_t>(entry_data + 4, blocks[i].size);
       detail::write_le<uint16_t>(entry_data + 6, blocks[i].module_id);
+    }
+    stream.write(reinterpret_cast<const char*>(binary_data.data()), binary_data.size());
+  }
+
+  static void write_hitcount_table(const std::vector<uint32_t>& hitcounts, std::ostream& stream) {
+    if (hitcounts.empty()) {
+      return;
+    }
+    
+    // Write hitcount table header
+    stream << constants::hitcount_table_prefix << "version 1, count " << hitcounts.size() << "\n";
+    
+    // Write binary hitcount data
+    std::vector<uint8_t> binary_data(hitcounts.size() * sizeof(uint32_t));
+    for (size_t i = 0; i < hitcounts.size(); ++i) {
+      uint8_t* hitcount_data = binary_data.data() + (i * sizeof(uint32_t));
+      detail::write_le<uint32_t>(hitcount_data, hitcounts[i]);
     }
     stream.write(reinterpret_cast<const char*>(binary_data.data()), binary_data.size());
   }

@@ -14,6 +14,8 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <locale>
+#include <sstream>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -32,6 +34,31 @@
 namespace w1cov {
 
 /**
+ * Format number with thousands separator for readability
+ */
+std::string format_number(uint64_t number) {
+  try {
+    std::stringstream ss;
+    ss.imbue(std::locale(""));
+    ss << number;
+    return ss.str();
+  } catch (...) {
+    // Fallback to manual formatting if locale fails
+    std::string result = std::to_string(number);
+    std::string formatted;
+    int count = 0;
+    for (int i = result.length() - 1; i >= 0; --i) {
+      if (count && count % 3 == 0) {
+        formatted = ',' + formatted;
+      }
+      formatted = result[i] + formatted;
+      count++;
+    }
+    return formatted;
+  }
+}
+
+/**
  * Global state management for coverage collection.
  * Uses lazy initialization pattern to avoid C++ global constructor issues
  * in DYLD_INSERT_LIBRARIES context where C++ runtime may not be fully initialized.
@@ -42,8 +69,8 @@ static bool g_debug_mode = false;
 static uint64_t g_instruction_count = 0;
 
 // Lazy-initialized complex objects using static local variables
-static std::unordered_set<uint64_t>* get_covered_addresses() {
-  static std::unordered_set<uint64_t> instance;
+static std::unordered_map<uint64_t, uint32_t>* get_hitcounts() {
+  static std::unordered_map<uint64_t, uint32_t> instance;
   return &instance;
 }
 
@@ -130,7 +157,7 @@ bool discover_modules() {
   }
 
   if (g_debug_mode) {
-    printf("[W1COV] Discovered %zu executable modules\n", modules->size());
+    printf("[W1COV] Discovered %s executable modules\n", format_number(modules->size()).c_str());
   }
 
   return !modules->empty();
@@ -178,8 +205,8 @@ QBDI::VMAction coverage_callback(
     uint64_t addr = instAnalysis->address;
     uint16_t size = instAnalysis->instSize;
 
-    // Record unique instruction addresses for basic block coverage
-    get_covered_addresses()->insert(addr);
+    // Record instruction addresses and increment hitcounts
+    (*get_hitcounts())[addr]++;
     (*get_address_sizes())[addr] = size;
 
     g_instruction_count++;
@@ -187,8 +214,9 @@ QBDI::VMAction coverage_callback(
     // Periodic progress reporting for long-running analyses
     if (g_debug_mode && (g_instruction_count % 10000 == 0)) {
       printf(
-          "[W1COV] Traced %llu instructions, %zu unique addresses\n", g_instruction_count,
-          get_covered_addresses()->size()
+          "[W1COV] Traced %s instructions, %s unique addresses\n",
+          format_number(g_instruction_count).c_str(),
+          format_number(get_hitcounts()->size()).c_str()
       );
     }
   }
@@ -206,10 +234,10 @@ QBDI::VMAction coverage_callback(
  * @return true if export completed successfully, false on error
  */
 bool export_drcov_coverage() {
-  auto* covered_addresses = get_covered_addresses();
+  auto* hitcounts = get_hitcounts();
   auto* address_sizes = get_address_sizes();
 
-  if (covered_addresses->empty()) {
+  if (hitcounts->empty()) {
     if (g_debug_mode) {
       printf("[W1COV] No coverage data to export\n");
     }
@@ -217,17 +245,17 @@ bool export_drcov_coverage() {
   }
 
   // Group collected addresses by their containing modules for DrCov format
-  std::unordered_map<const QBDI::MemoryMap*, std::vector<std::pair<uint64_t, uint16_t>>> module_blocks;
+  std::unordered_map<const QBDI::MemoryMap*, std::vector<std::tuple<uint64_t, uint16_t, uint32_t>>> module_blocks;
   std::vector<const QBDI::MemoryMap*> module_list;
 
-  for (const auto& addr : *covered_addresses) {
+  for (const auto& [addr, hitcount] : *hitcounts) {
     const QBDI::MemoryMap* module = find_module_for_address(addr);
     if (module) {
       if (module_blocks.find(module) == module_blocks.end()) {
         module_list.push_back(module);
       }
       uint16_t size = address_sizes->count(addr) ? (*address_sizes)[addr] : 1;
-      module_blocks[module].emplace_back(addr, size);
+      module_blocks[module].emplace_back(addr, size, hitcount);
     }
   }
 
@@ -239,8 +267,10 @@ bool export_drcov_coverage() {
   }
 
   try {
-    // Use drcov library for consistent format writing
-    auto builder = drcov::builder().set_flavor("w1cov").set_module_version(drcov::module_table_version::v2);
+    // Use drcov library for consistent format writing with hitcounts enabled
+    auto builder = drcov::builder()
+        .enable_hitcounts()  // Sets flavor to "drcov-hits"
+        .set_module_version(drcov::module_table_version::v2);
 
     // Add modules with sequential IDs
     for (const QBDI::MemoryMap* module : module_list) {
@@ -248,15 +278,16 @@ bool export_drcov_coverage() {
       builder.add_module(module_name, module->range.start(), module->range.end(), 0);
     }
 
-    // Add basic blocks with actual instruction sizes
+    // Add basic blocks with actual instruction sizes and hitcounts
     uint16_t module_id = 0;
     for (const QBDI::MemoryMap* module : module_list) {
       const auto& blocks = module_blocks[module];
       for (const auto& block : blocks) {
-        uint64_t addr = block.first;
-        uint16_t size = block.second;
+        uint64_t addr = std::get<0>(block);
+        uint16_t size = std::get<1>(block);
+        uint32_t hitcount = std::get<2>(block);
         uint32_t offset = static_cast<uint32_t>(addr - module->range.start());
-        builder.add_coverage(module_id, offset, size);
+        builder.add_coverage(module_id, offset, size, hitcount);
       }
       module_id++;
     }
@@ -265,10 +296,18 @@ bool export_drcov_coverage() {
     auto coverage_data = builder.build();
     drcov::write(*get_output_file(), coverage_data);
 
-    printf(
-        "[W1COV] Coverage exported: %zu addresses, %zu modules -> %s\n", covered_addresses->size(),
-        module_blocks.size(), get_output_file()->c_str()
-    );
+    // Calculate total hit count for summary
+    uint64_t total_hits = 0;
+    for (const auto& [addr, hitcount] : *hitcounts) {
+      total_hits += hitcount;
+    }
+
+    // Print neat summary with formatted numbers
+    printf("[W1COV] Coverage Summary:\n");
+    printf("        Basic Blocks: %s\n", format_number(hitcounts->size()).c_str());
+    printf("        Total Hits:   %s\n", format_number(total_hits).c_str());
+    printf("        Modules:      %s\n", format_number(module_blocks.size()).c_str());
+    printf("[W1COV] Coverage exported -> %s\n", get_output_file()->c_str());
 
     return true;
 
