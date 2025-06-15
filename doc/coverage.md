@@ -2,6 +2,10 @@
 
 Dynamic binary coverage analysis using QBDI instrumentation with DrCov export format.
 
+**Platform Support:**
+- macOS/Linux: Full support (spawn + runtime injection)
+- Windows: Runtime injection only (no spawn mode)
+
 ## Quick Start
 
 ### macOS
@@ -11,7 +15,7 @@ cmake -B build-release -DCMAKE_BUILD_TYPE=Release
 cmake --build build-release --parallel
 
 # Coverage trace
-./build-release/w1tool cover -L ./build-release/w1cov_qbdipreload.dylib -b ./target
+./build-release/w1tool cover -L ./build-release/w1cov_qbdipreload.dylib -s ./target
 
 # Analyze results  
 ./build-release/w1tool read-drcov --file target_coverage.drcov
@@ -24,7 +28,7 @@ cmake -B build-linux -DCMAKE_BUILD_TYPE=Release
 cmake --build build-linux --parallel
 
 # Coverage trace
-./build-linux/w1tool cover -L ./build-linux/w1cov_qbdipreload.so -b ./target
+./build-linux/w1tool cover -L ./build-linux/w1cov_qbdipreload.so -s ./target
 
 # Analyze results
 ./build-linux/w1tool read-drcov --file target_coverage.drcov
@@ -36,8 +40,8 @@ cmake --build build-linux --parallel
 cmake -B build-windows -DCMAKE_BUILD_TYPE=Release
 cmake --build build-windows --parallel
 
-# Coverage trace
-./build-windows/w1tool.exe cover -L ./build-windows/w1cov_qbdipreload.dll -b ./target.exe
+# Runtime injection only (no spawn mode)
+./build-windows/w1tool.exe cover -L ./build-windows/w1cov_qbdipreload.dll --pid 1234
 
 # Analyze results
 ./build-windows/w1tool.exe read-drcov --file target_coverage.drcov
@@ -52,13 +56,20 @@ w1tool cover [OPTIONS]
 
 **Required:**
 - `-L, --w1cov-library <path>` - w1cov library path
-- `-b, --binary <path>` - target binary
+- `-s, --spawn` + `<binary>` - spawn target binary (macOS/Linux only)
+- `--pid <pid>` OR `--name <name>` - attach to process (all platforms)
 
 **Optional:**
 - `-o, --output <path>` - output file (default: `{binary}_coverage.drcov`)
 - `--exclude-system` - exclude system libraries from coverage
 - `--debug` - enable verbose debug output
 - `--format <format>` - output format (`drcov`, `text`)
+
+**Arguments:**
+```bash
+# Pass arguments to spawned binary (macOS/Linux only)
+./w1tool cover -L ./w1cov.dylib -s ./program -- arg1 arg2 arg3
+```
 
 ### Coverage Analysis
 ```bash
@@ -76,29 +87,28 @@ w1tool read-drcov [OPTIONS]
 
 ### Basic Coverage
 ```bash
-# macOS
-./w1tool cover -L ./w1cov_qbdipreload.dylib -b ./my_program
+# macOS/Linux (spawn mode)
+./w1tool cover -L ./w1cov_qbdipreload.dylib -s ./my_program
+./w1tool cover -L ./w1cov_qbdipreload.so -s ./my_program
 
-# Linux  
-./w1tool cover -L ./w1cov_qbdipreload.so -b ./my_program
-
-# Windows
-./w1tool.exe cover -L ./w1cov_qbdipreload.dll -b ./my_program.exe
+# Windows (runtime injection only)
+./w1tool.exe cover -L ./w1cov_qbdipreload.dll --pid 1234
+./w1tool.exe cover -L ./w1cov_qbdipreload.dll --name my_program.exe
 ```
 
 ### Custom Output
 ```bash
-./w1tool cover -L ./w1cov_qbdipreload.dylib -b ./target -o my_coverage.drcov
+./w1tool cover -L ./w1cov_qbdipreload.dylib -s ./target -o my_coverage.drcov
 ```
 
 ### System Library Exclusion
 ```bash
-./w1tool cover -L ./w1cov_qbdipreload.dylib -b ./target --exclude-system
+./w1tool cover -L ./w1cov_qbdipreload.dylib -s ./target --exclude-system
 ```
 
 ### Debug Mode
 ```bash
-./w1tool cover -L ./w1cov_qbdipreload.dylib -b ./target --debug
+./w1tool cover -L ./w1cov_qbdipreload.dylib -s ./target --debug
 ```
 
 ### Analysis
@@ -145,17 +155,17 @@ W1COV_ENABLED=1 DYLD_INSERT_LIBRARIES=./w1cov_qbdipreload.dylib ./target
 # Linux
 W1COV_ENABLED=1 LD_PRELOAD=./w1cov_qbdipreload.so ./target
 
-# Windows (requires DLL injection setup)
-set W1COV_ENABLED=1 && ./target.exe
+# Windows (no direct preload support)
+# Use w1tool cover --pid instead
 ```
 
 ## Platform Libraries
 
-| Platform | Library Name | Injection Method |
-|----------|--------------|------------------|
-| macOS | `w1cov_qbdipreload.dylib` | `DYLD_INSERT_LIBRARIES` |
-| Linux | `w1cov_qbdipreload.so` | `LD_PRELOAD` |
-| Windows | `w1cov_qbdipreload.dll` | DLL injection |
+| Platform | Library Name | Spawn Mode | Runtime Injection |
+|----------|--------------|------------|-------------------|
+| macOS | `w1cov_qbdipreload.dylib` | ✅ `DYLD_INSERT_LIBRARIES` | ✅ |
+| Linux | `w1cov_qbdipreload.so` | ✅ `LD_PRELOAD` | ✅ |
+| Windows | `w1cov_qbdipreload.dll` | ❌ Not supported | ✅ |
 
 ## Testing
 
@@ -170,9 +180,13 @@ python3 ./tests/test_w1cov.py --build-dir build-windows   # Windows
 ### Manual Testing
 ```bash
 # Test different program types
-./w1tool cover -L ./w1cov_qbdipreload.* -b ./tests/programs/simple_target
-./w1tool cover -L ./w1cov_qbdipreload.* -b ./tests/programs/multi_threaded_target
-./w1tool cover -L ./w1cov_qbdipreload.* -b ./tests/programs/control_flow_1
+# macOS/Linux
+./w1tool cover -L ./w1cov_qbdipreload.* -s ./tests/programs/simple_target
+./w1tool cover -L ./w1cov_qbdipreload.* -s ./tests/programs/multi_threaded_target
+
+# Windows (start program first, then inject)
+start /B simple_target.exe
+./w1tool.exe cover -L ./w1cov_qbdipreload.dll --name simple_target.exe
 ```
 
 ## Output Format
@@ -188,19 +202,22 @@ Coverage data is exported in DrCov format compatible with:
 === DrCov File Analysis ===
 File: target_coverage.drcov
 Version: 2
-Flavor: w1cov
+Flavor: drcov-hits
+Has Hitcounts: Yes
 
 === Summary ===
 Total Modules: 3
 Total Basic Blocks: 159
-Total Coverage: 636 bytes
+Total Coverage: 636 B
+Total Hits: 195
+Average Hits per Block: 1.23
 
 === Module Coverage ===
-ID  Blocks  Size        Base Address        Name
-------------------------------------------------------------
-0   9       36 bytes    0x18c5a8000         libdyld.dylib
-1   59      236 bytes   0x18c1fc000         dyld
-2   91      364 bytes   0x100ca4000         target
+ID  Blocks  Size        Total Hits  Base Address        Name
+------------------------------------------------------------------------
+0   9       36 B        9           0x18c5a8000               libdyld.dylib
+1   59      236 B       59          0x18c1fc000               dyld
+2   91      364 B       127         0x100ca4000               target
 ```
 
 ## Performance
@@ -239,7 +256,7 @@ ID  Blocks  Size        Base Address        Name
 **Library not found:**
 ```bash
 # Use absolute paths
-./w1tool cover -L $(pwd)/w1cov_qbdipreload.dylib -b ./target
+./w1tool cover -L $(pwd)/w1cov_qbdipreload.dylib -s ./target
 ```
 
 **Permission denied (Linux):**
@@ -248,25 +265,33 @@ ID  Blocks  Size        Base Address        Name
 sudo setcap cap_sys_ptrace+ep ./w1tool
 
 # Or run as root
-sudo ./w1tool cover -L ./w1cov_qbdipreload.so -b ./target
+sudo ./w1tool cover -L ./w1cov_qbdipreload.so -s ./target
 ```
 
 **No coverage generated:**
 ```bash
 # Enable debug mode
-./w1tool cover -L ./w1cov_qbdipreload.* -b ./target --debug
+./w1tool cover -L ./w1cov_qbdipreload.* -s ./target --debug
 ```
 
 **System library noise:**
 ```bash
 # Exclude system libraries
-./w1tool cover -L ./w1cov_qbdipreload.* -b ./target --exclude-system
+./w1tool cover -L ./w1cov_qbdipreload.* -s ./target --exclude-system
+```
+
+**Windows spawn mode fails:**
+```bash
+# Error: technique_not_supported
+# Solution: Use runtime injection instead
+start /B target.exe
+./w1tool.exe cover -L ./w1cov_qbdipreload.dll --name target.exe
 ```
 
 ### Debug Information
 ```bash
 # Verbose logging
-./w1tool -vv cover -L ./w1cov_qbdipreload.* -b ./target
+./w1tool -vv cover -L ./w1cov_qbdipreload.* -s ./target
 
 # Check environment
 env | grep W1COV
