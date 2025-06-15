@@ -53,7 +53,7 @@ target_link_libraries(${LIBRARY_NAME}
 )
 
 # Compiler flags
-target_compile_features(${LIBRARY_NAME} PUBLIC cxx_std_17)
+target_compile_features(${LIBRARY_NAME} PUBLIC cxx_std_20)
 
 # sanitizers disabled - cause crashes with QBDI injection
 # if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT WIN32)
@@ -61,8 +61,16 @@ target_compile_features(${LIBRARY_NAME} PUBLIC cxx_std_17)
 #     target_link_options(${LIBRARY_NAME} PRIVATE ${SANITIZER_FLAGS})
 # endif()
 
-if(WIN32 AND WITNESS_SHARED)
-    target_compile_definitions(${LIBRARY_NAME} INTERFACE W1TN3SS_IMPORTS)
+if(WIN32)
+    target_compile_definitions(${LIBRARY_NAME} PRIVATE
+        _WIN32_WINNT=0x0601  # Windows 7+
+        NOMINMAX
+        WIN32_LEAN_AND_MEAN
+        _CRT_SECURE_NO_WARNINGS
+    )
+    if(WITNESS_SHARED)
+        target_compile_definitions(${LIBRARY_NAME} INTERFACE W1TN3SS_IMPORTS)
+    endif()
 endif()
 
 # W1COV coverage library using QBDIPreload
@@ -89,7 +97,17 @@ target_link_libraries(w1cov_qbdipreload
         redlog::redlog
 )
 
-target_compile_features(w1cov_qbdipreload PRIVATE cxx_std_17)
+target_compile_features(w1cov_qbdipreload PRIVATE cxx_std_20)
+
+# Windows compile definitions for coverage libraries
+if(WIN32)
+    target_compile_definitions(w1cov_qbdipreload PRIVATE
+        _WIN32_WINNT=0x0601
+        NOMINMAX
+        WIN32_LEAN_AND_MEAN
+        _CRT_SECURE_NO_WARNINGS
+    )
+endif()
 
 # injection libraries do not use sanitizers
 
@@ -115,7 +133,16 @@ target_link_libraries(w1cov_runtime
         redlog::redlog
 )
 
-target_compile_features(w1cov_runtime PRIVATE cxx_std_17)
+target_compile_features(w1cov_runtime PRIVATE cxx_std_20)
+
+if(WIN32)
+    target_compile_definitions(w1cov_runtime PRIVATE
+        _WIN32_WINNT=0x0601
+        NOMINMAX
+        WIN32_LEAN_AND_MEAN
+        _CRT_SECURE_NO_WARNINGS
+    )
+endif()
 
 # Sampling-based runtime coverage library
 add_library(w1cov_sampling SHARED
@@ -139,7 +166,16 @@ target_link_libraries(w1cov_sampling
         redlog::redlog
 )
 
-target_compile_features(w1cov_sampling PRIVATE cxx_std_17)
+target_compile_features(w1cov_sampling PRIVATE cxx_std_20)
+
+if(WIN32)
+    target_compile_definitions(w1cov_sampling PRIVATE
+        _WIN32_WINNT=0x0601
+        NOMINMAX
+        WIN32_LEAN_AND_MEAN
+        _CRT_SECURE_NO_WARNINGS
+    )
+endif()
 
 # Standalone QBDI coverage library
 set(W1COV_COMMON_SOURCES
@@ -176,7 +212,16 @@ target_link_libraries(w1cov
         redlog::redlog
 )
 
-target_compile_features(w1cov PRIVATE cxx_std_17)
+target_compile_features(w1cov PRIVATE cxx_std_20)
+
+if(WIN32)
+    target_compile_definitions(w1cov PRIVATE
+        _WIN32_WINNT=0x0601
+        NOMINMAX
+        WIN32_LEAN_AND_MEAN
+        _CRT_SECURE_NO_WARNINGS
+    )
+endif()
 
 # injection libraries do not use sanitizers
 

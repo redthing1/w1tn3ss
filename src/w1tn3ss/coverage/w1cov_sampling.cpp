@@ -16,15 +16,20 @@
 
 #include <atomic>
 #include <chrono>
-#include <dlfcn.h>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
-#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
+
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <dlfcn.h>
+#include <signal.h>
 #include <sys/mman.h>
+#endif
+#include <string.h>
 #include <thread>
 #include <unordered_map>
 #include <unordered_set>

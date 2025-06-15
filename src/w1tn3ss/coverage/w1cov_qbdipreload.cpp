@@ -376,31 +376,5 @@ int qbdipreload_on_exit(int status) {
   return QBDIPRELOAD_NO_ERROR;
 }
 
-#ifdef _WIN32
-// Windows DLL entry point
-BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
-  switch (ul_reason_for_call) {
-  case DLL_PROCESS_ATTACH:
-    // Initialize coverage system
-    w1cov::configure_from_env();
-    if (w1cov::is_enabled()) {
-      qbdipreload_on_start(nullptr);
-    }
-    break;
-
-  case DLL_PROCESS_DETACH:
-    // Cleanup and export coverage
-    if (w1cov::is_enabled()) {
-      qbdipreload_on_exit(0);
-    }
-    break;
-
-  case DLL_THREAD_ATTACH:
-  case DLL_THREAD_DETACH:
-    break;
-  }
-  return TRUE;
-}
-#endif
 
 } // extern "C"

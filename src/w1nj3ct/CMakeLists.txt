@@ -103,6 +103,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
         _WIN32_WINNT=0x0601  # Windows 7+
         NOMINMAX
         WIN32_LEAN_AND_MEAN
+        _CRT_SECURE_NO_WARNINGS
     )
 endif()
 

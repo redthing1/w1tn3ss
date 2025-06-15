@@ -1,16 +1,26 @@
-#include "module_mapper.hpp"
-#include "common/platform_utils.hpp"
-#include "coverage_data.hpp"
-#include <algorithm>
-#include <fstream>
-#include <regex>
-#include <sstream>
 #ifdef _WIN32
+// Include Windows headers first to avoid conflicts
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <windows.h>
 
 #include <process.h>
 #include <psapi.h>
-#else
+#endif
+
+#include "common/platform_utils.hpp"
+#include "coverage_data.hpp"
+#include "module_mapper.hpp"
+
+#include <algorithm>
+#include <fstream>
+#include <regex>
+#include <sstream>
+#ifndef _WIN32
 #include <unistd.h>
 #endif
 #include <cstring>

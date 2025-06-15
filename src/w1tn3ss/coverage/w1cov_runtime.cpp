@@ -17,12 +17,17 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
-#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <thread>
 #include <unordered_map>
+
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <pthread.h>
+#endif
 #include <unordered_set>
 #include <vector>
 

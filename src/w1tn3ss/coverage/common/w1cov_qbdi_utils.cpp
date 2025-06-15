@@ -28,7 +28,7 @@ bool instrumentation_vm::initialize_with_stack(size_t stack_size_bytes) {
     return false;
   }
 
-  bool allocation_successful = QBDI::allocateVirtualStack(gpr_state, stack_size_bytes, &virtual_stack_memory_);
+  bool allocation_successful = QBDI::allocateVirtualStack(gpr_state, static_cast<uint32_t>(stack_size_bytes), &virtual_stack_memory_);
 
   virtual_stack_allocated_ = allocation_successful && (virtual_stack_memory_ != nullptr);
   return virtual_stack_allocated_;
