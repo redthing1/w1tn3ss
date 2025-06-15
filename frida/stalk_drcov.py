@@ -603,7 +603,7 @@ class StalkDrcovTracer:
                 0,  # entry point
                 0,  # checksum
                 0,  # timestamp
-                module["path"],
+                module["name"],  # Use basename instead of full path
             )
             lines.append(line)
 
