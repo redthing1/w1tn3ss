@@ -8,10 +8,63 @@
 
 namespace w1tool::commands {
 
+/**
+ * @brief Automatically find the w1cov_qbdipreload library relative to the executable
+ * @param executable_path Path to the current executable
+ * @return Path to the library if found, empty string otherwise
+ */
+std::string find_qbdipreload_library(const std::string& executable_path) {
+  auto log = redlog::get_logger("w1tool.cover.autodiscovery");
+
+  // Convert executable path to absolute path to handle relative paths like "./w1tool"
+  std::filesystem::path exec_path;
+  try {
+    exec_path = std::filesystem::canonical(executable_path);
+  } catch (const std::exception& e) {
+    log.debug(
+        "failed to canonicalize executable path, using as-is", redlog::field("path", executable_path),
+        redlog::field("error", e.what())
+    );
+    exec_path = std::filesystem::path(executable_path);
+  }
+
+  std::filesystem::path exec_dir = exec_path.parent_path();
+
+  // Get platform-specific library extension
+  std::string lib_ext = w1::common::platform_utils::get_library_extension();
+  std::string lib_name = "w1cov_qbdipreload" + lib_ext;
+
+  log.debug(
+      "searching for library", redlog::field("library_name", lib_name), redlog::field("exec_dir", exec_dir.string())
+  );
+
+  // Search paths relative to executable directory
+  std::vector<std::filesystem::path> search_paths = {
+      exec_dir / lib_name,                // Same directory as executable
+      exec_dir / ".." / "lib" / lib_name, // ../lib/ (for installed layouts)
+      exec_dir / "lib" / lib_name,        // lib/ subdirectory
+      exec_dir / ".." / lib_name,         // Parent directory
+  };
+
+  for (const auto& candidate_path : search_paths) {
+    log.debug("checking candidate path", redlog::field("path", candidate_path.string()));
+
+    if (std::filesystem::exists(candidate_path) && std::filesystem::is_regular_file(candidate_path)) {
+      std::string found_path = std::filesystem::canonical(candidate_path).string();
+      log.info("found qbdipreload library", redlog::field("path", found_path));
+      return found_path;
+    }
+  }
+
+  log.debug("qbdipreload library not found in standard locations");
+  return "";
+}
+
 int cover(
     args::ValueFlag<std::string>& library_flag, args::Flag& spawn_flag, args::ValueFlag<int>& pid_flag,
     args::ValueFlag<std::string>& name_flag, args::ValueFlag<std::string>& output_flag, args::Flag& exclude_system_flag,
-    args::Flag& debug_flag, args::ValueFlag<std::string>& format_flag, args::PositionalList<std::string>& args_list
+    args::Flag& debug_flag, args::ValueFlag<std::string>& format_flag, args::PositionalList<std::string>& args_list,
+    const std::string& executable_path
 ) {
 
   auto log = redlog::get_logger("w1tool.cover");
@@ -24,14 +77,25 @@ int cover(
     log.warn("runtime injection may not be supported on this platform", redlog::field("platform", platform));
   }
 
-  // Require library path to be specified
-  if (!library_flag) {
-    log.error("w1cov library path is required: specify -L/--w1cov-library");
-    return 1;
-  }
+  // Determine library path - use specified path or auto-discover
+  std::string lib_path;
+  if (library_flag) {
+    lib_path = args::get(library_flag);
+    log.debug("using w1cov library", redlog::field("path", lib_path));
+  } else {
+    // Auto-discover library path
+    log.debug("attempting to auto-discover w1cov library");
 
-  std::string lib_path = args::get(library_flag);
-  log.debug("using specified library path", redlog::field("path", lib_path));
+    lib_path = find_qbdipreload_library(executable_path);
+
+    if (lib_path.empty()) {
+      log.error("w1cov_qbdipreload library not found. Please specify with -L/--w1cov-library");
+      log.info("searched for library next to executable and in common build locations");
+      return 1;
+    }
+
+    log.info("auto-discovered library", redlog::field("path", lib_path));
+  }
 
   // Validate target specification
   int target_count = 0;

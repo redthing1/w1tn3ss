@@ -109,7 +109,7 @@ int main(int argc, char* argv[]) {
     } else if (cover) {
       return w1tool::commands::cover(
           cover_library, cover_spawn, cover_pid, cover_name, cover_output, cover_exclude_system, cover_debug,
-          cover_format, cover_args
+          cover_format, cover_args, argv[0]
       );
     } else if (read_drcov) {
       return w1tool::commands::read_drcov(read_drcov_file, read_drcov_summary, read_drcov_detailed, read_drcov_module);
