@@ -126,7 +126,7 @@ if(WIN32)
     endforeach()
 endif()
 
-# W1COV coverage library using QBDIPreload
+# w1cov coverage library using QBDIPreload
 add_library(w1cov_qbdipreload SHARED
     coverage/w1cov_qbdipreload.cpp
 )

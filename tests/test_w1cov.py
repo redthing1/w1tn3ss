@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-W1COV Testing Script
+w1cov Testing Script
 Tests coverage functionality with proper process handling and file detection.
 Cross-platform support for macOS, Linux, and Windows.
 
@@ -114,7 +114,7 @@ def run_coverage_test(w1tool_path, library_path, binary_path, expected_file):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Test W1COV coverage functionality")
+    parser = argparse.ArgumentParser(description="Test w1cov coverage functionality")
     parser.add_argument("--build-dir", required=True, 
                        help="Build directory (e.g., build-release, build-debug, build-linux, build-windows)")
     args = parser.parse_args()
@@ -154,7 +154,7 @@ def main():
     # Create temp directory
     temp_dir.mkdir(exist_ok=True)
     
-    print(f"=== W1COV Testing ({args.build_dir}) ===")
+    print(f"=== w1cov Testing ({args.build_dir}) ===")
     print(f"Platform: {platform.system()}")
     print(f"Library: {library.name}")
     

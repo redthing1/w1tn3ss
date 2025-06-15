@@ -1,8 +1,8 @@
 /**
  * @file w1cov_constants.hpp
- * @brief Centralized constants for W1COV coverage collection
+ * @brief Centralized constants for w1cov coverage collection
  *
- * This header consolidates all hardcoded values used throughout the W1COV
+ * This header consolidates all hardcoded values used throughout the w1cov
  * coverage system to improve maintainability and consistency.
  */
 
@@ -82,8 +82,8 @@ constexpr uint64_t PERFORMANCE_LOG_INTERVAL = 10000;
 // Logging and Output
 // =============================================================================
 
-/// Standard logging prefix for W1COV messages
-constexpr const char* LOG_PREFIX = "[W1COV]";
+/// Standard logging prefix for w1cov messages
+constexpr const char* LOG_PREFIX = "[w1cov]";
 
 /// Log level names for structured output
 constexpr const char* LOG_LEVEL_ERROR = "error";
@@ -153,9 +153,9 @@ constexpr const char* WINDOWS_SYSTEM_PATTERNS[] = {
 // Utility Functions
 // =============================================================================
 
-/// Simple logging function for W1COV
+/// Simple logging function for w1cov
 inline void log(const char* format, ...) {
-  printf("[W1COV] ");
+  printf("[w1cov] ");
   va_list args;
   va_start(args, format);
   vprintf(format, args);

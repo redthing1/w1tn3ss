@@ -1,5 +1,5 @@
 /**
- * W1COV QBDIPreload Coverage Tracer
+ * w1cov QBDIPreload Coverage Tracer
  *
  * Coverage collection using QBDI for launch-time instrumentation.
  * Exports DrCov format for analysis tools.
@@ -299,11 +299,11 @@ int qbdipreload_on_start(void* main) {
   w1cov::configure_from_env();
 
   if (!w1cov::g_enabled) {
-    w1::cov::log("W1COV not enabled, exiting");
+    w1::cov::log("w1cov not enabled, exiting");
     return QBDIPRELOAD_NOT_HANDLED;
   }
 
-  w1::cov::log("W1COV enabled, continuing");
+  w1::cov::log("w1cov enabled, continuing");
   return QBDIPRELOAD_NOT_HANDLED;
 }
 
@@ -367,7 +367,7 @@ int qbdipreload_on_exit(int status) {
   w1cov::export_drcov_coverage();
 
   if (w1cov::g_debug_mode) {
-    w1::cov::log("W1COV coverage collection completed");
+    w1::cov::log("w1cov coverage collection completed");
   }
 
   return QBDIPRELOAD_NO_ERROR;

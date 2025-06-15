@@ -1,4 +1,4 @@
-# W1TN3SS Examples
+# w1tn3ss Examples
 
 # Standalone coverage example
 add_executable(standalone_coverage_example standalone_coverage_example.cpp)

@@ -147,7 +147,7 @@ run_test "Linux Backend Integration Tests" \
 
 # Test 3: Cross-platform compatibility (if available)
 if [[ -f "./tests/test_w1cov.py" ]]; then
-    run_test "W1COV Coverage Tests (Linux)" \
+    run_test "w1cov Coverage Tests (Linux)" \
         "python3 ./tests/test_w1cov.py --build-dir '$BUILD_DIR'"
 fi
 

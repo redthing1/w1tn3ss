@@ -1,5 +1,5 @@
 /**
- * W1COV Standalone Coverage Example
+ * w1cov Standalone Coverage Example
  * 
  * Demonstrates how to use the w1cov standalone library for programmatic
  * coverage collection. This approach gives you full control over what 
@@ -39,7 +39,7 @@ extern "C" {
 }
 
 int main() {
-    std::cout << "=== W1COV Standalone Coverage Example ===\n\n";
+    std::cout << "=== w1cov Standalone Coverage Example ===\n\n";
     
     // Step 1: Initialize the coverage tracer
     w1::coverage::w1cov_standalone tracer;
