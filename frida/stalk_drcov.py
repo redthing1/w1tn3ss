@@ -312,21 +312,21 @@ class StalkDrcovTracer:
 
     def __init__(self, args):
         self.args = args
-        
+
         # Frida objects
         self.device = None
         self.session = None
         self.script = None
         self.pid = None
-        
+
         # State tracking
         self.running = False
         self.shutdown_complete = False
-        
+
         # Data storage - depends on hit counting mode
         self.modules = []
         self._initialize_storage()
-        
+
     def _initialize_storage(self):
         """Initialize basic blocks storage based on mode"""
         if self.args.hits:
@@ -553,7 +553,7 @@ class StalkDrcovTracer:
         # process each basic block entry
         for i in range(0, len(bb_data_buffer), DRCOV_BB_ENTRY_SIZE_BYTES):
             bb_entry = bb_data_buffer[i : i + DRCOV_BB_ENTRY_SIZE_BYTES]
-            
+
             if self.args.hits:
                 # track hit counts in dict
                 if bb_entry in self.basic_blocks:
@@ -668,29 +668,31 @@ class StalkDrcovTracer:
             return self._create_hit_count_body()
         else:
             return self._create_standard_body()
-    
+
     def _create_standard_body(self):
         """Create standard drcov body (coverage only)"""
         sorted_bbs = sorted(list(self.basic_blocks))
         bb_header = f"BB Table: {len(sorted_bbs)} bbs\n".encode("utf-8")
         bb_data = b"".join(sorted_bbs)
         return bb_header + bb_data
-    
+
     def _create_hit_count_body(self):
         """Create drcov body with hit count table"""
         # Sort basic blocks for deterministic output
         sorted_bb_items = sorted(self.basic_blocks.items())
         bb_entries = [bb_entry for bb_entry, count in sorted_bb_items]
         hit_counts = [count for bb_entry, count in sorted_bb_items]
-        
+
         # Create BB Table
         bb_header = f"BB Table: {len(bb_entries)} bbs\n".encode("utf-8")
         bb_data = b"".join(bb_entries)
-        
+
         # Create Hit Count Table (as per proposal specification)
-        hit_header = f"Hit Count Table: version 1, count {len(hit_counts)}\n".encode("utf-8")
-        hit_data = b"".join(struct.pack('<I', count) for count in hit_counts)
-        
+        hit_header = f"Hit Count Table: version 1, count {len(hit_counts)}\n".encode(
+            "utf-8"
+        )
+        hit_data = b"".join(struct.pack("<I", count) for count in hit_counts)
+
         return bb_header + bb_data + hit_header + hit_data
 
 
@@ -710,65 +712,69 @@ def main():
     # Target specification
     parser.add_argument("target", help="Process ID, process name, or executable path")
     parser.add_argument(
-        "target_args", nargs="*", 
-        help="Arguments to pass to spawned process (use after --)"
+        "target_args",
+        nargs="*",
+        help="Arguments to pass to spawned process (use after --)",
     )
 
     # Execution mode
     parser.add_argument(
-        "-s", "--spawn", action="store_true",
-        help="Spawn new process instead of attaching"
+        "-s",
+        "--spawn",
+        action="store_true",
+        help="Spawn new process instead of attaching",
     )
     parser.add_argument(
-        "--disable-aslr", action="store_true",
-        help="Disable ASLR for spawned process (macOS only)"
+        "--disable-aslr",
+        action="store_true",
+        help="Disable ASLR for spawned process (macOS only)",
     )
 
     # Output options
     parser.add_argument(
-        "-o", "--output", default="frida-cov.drcov",
-        help="Output drcov file path (default: frida-cov.drcov)"
+        "-o",
+        "--output",
+        default="frida-cov.drcov",
+        help="Output drcov file path (default: frida-cov.drcov)",
     )
     parser.add_argument(
-        "--hits", action="store_true", 
-        help="Enable hit count tracking (uses block events, generates drcov-hits format)"
+        "--hits",
+        action="store_true",
+        help="Enable hit count tracking (uses block events, generates drcov-hits format)",
     )
 
     # Filtering options
     parser.add_argument(
-        "-w", "--whitelist-modules", action="append", default=[],
-        help="Module name to trace (can be repeated, default: all modules)"
+        "-w",
+        "--whitelist-modules",
+        action="append",
+        default=[],
+        help="Module name to trace (can be repeated, default: all modules)",
     )
     parser.add_argument(
-        "-t", "--thread-id", action="append", default=[],
-        help="Thread ID to trace (can be repeated, default: all threads)"
+        "-t",
+        "--thread-id",
+        action="append",
+        default=[],
+        help="Thread ID to trace (can be repeated, default: all threads)",
     )
     parser.add_argument(
-        "--no-system", action="store_true", 
-        help="Exclude system modules from tracing"
+        "--no-system", action="store_true", help="Exclude system modules from tracing"
     )
 
     # Control options
     parser.add_argument(
-        "--timeout", type=int, 
-        help="Maximum collection time in seconds"
+        "--timeout", type=int, help="Maximum collection time in seconds"
     )
 
     # Device options
     parser.add_argument(
-        "-D", "--device", default="local", 
-        help="Frida device (default: local)"
+        "-D", "--device", default="local", help="Frida device (default: local)"
     )
-    parser.add_argument(
-        "-H", "--host", 
-        help="Connect to remote frida-server"
-    )
+    parser.add_argument("-H", "--host", help="Connect to remote frida-server")
 
     # Debug options
-    parser.add_argument(
-        "-v", "--verbose", action="store_true", 
-        help="Verbose output"
-    )
+    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
 
     args = parser.parse_args()
 

@@ -1706,11 +1706,12 @@ def main():
 
     # debug options
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
-    
+
     # target arguments (after --)
     parser.add_argument(
-        "target_args", nargs="*", 
-        help="Arguments to pass to spawned process (use after --)"
+        "target_args",
+        nargs="*",
+        help="Arguments to pass to spawned process (use after --)",
     )
 
     args = parser.parse_args()
