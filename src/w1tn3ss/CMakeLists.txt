@@ -47,7 +47,7 @@ if(WITNESS_BUILD_STATIC)
         PUBLIC_HEADER "${HEADERS}"
         ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
         PREFIX ""
-        OUTPUT_NAME "w1tn3ss_static"
+        OUTPUT_NAME "w1tn3ss"
     )
 endif()
 
@@ -108,71 +108,42 @@ if(WIN32)
 endif()
 
 # w1cov coverage libraries
-set(W1COV_QBDIPRELOAD_TARGETS)
 set(W1COV_STANDALONE_TARGETS)
 
-# w1cov_qbdipreload library (QBDIPreload-based)
-if(WITNESS_BUILD_STATIC)
-    add_library(w1cov_qbdipreload_static STATIC coverage/w1cov_qbdipreload.cpp)
-    list(APPEND W1COV_QBDIPRELOAD_TARGETS w1cov_qbdipreload_static)
-endif()
+# w1cov_qbdipreload library (QBDIPreload-based) - shared only
+add_library(w1cov_qbdipreload SHARED coverage/w1cov_qbdipreload.cpp)
 
-if(WITNESS_BUILD_SHARED)
-    add_library(w1cov_qbdipreload_shared SHARED coverage/w1cov_qbdipreload.cpp)
-    list(APPEND W1COV_QBDIPRELOAD_TARGETS w1cov_qbdipreload_shared)
-endif()
+set_target_properties(w1cov_qbdipreload PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
+    ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
+    PREFIX ""
+    OUTPUT_NAME "w1cov_qbdipreload"
+)
 
-# Create alias for backwards compatibility
-if(WITNESS_BUILD_SHARED)
-    add_library(w1cov_qbdipreload ALIAS w1cov_qbdipreload_shared)
-elseif(WITNESS_BUILD_STATIC)
-    add_library(w1cov_qbdipreload ALIAS w1cov_qbdipreload_static)
-endif()
+target_include_directories(w1cov_qbdipreload
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_SOURCE_DIR}/src/third_party/qbdi/tools/QBDIPreload/include
+)
 
-# Configure w1cov_qbdipreload targets
-if(WITNESS_BUILD_STATIC)
-    set_target_properties(w1cov_qbdipreload_static PROPERTIES
-        ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
-        PREFIX ""
-        OUTPUT_NAME "w1cov_qbdipreload_static"
+target_link_libraries(w1cov_qbdipreload
+    PRIVATE
+        QBDIPreload
+        QBDI_static
+        redlog::redlog
+)
+
+target_compile_features(w1cov_qbdipreload PRIVATE cxx_std_17)
+
+if(WIN32)
+    target_compile_definitions(w1cov_qbdipreload PRIVATE
+        _WIN32_WINNT=0x0601
+        NOMINMAX
+        WIN32_LEAN_AND_MEAN
+        _CRT_SECURE_NO_WARNINGS
     )
 endif()
-
-if(WITNESS_BUILD_SHARED)
-    set_target_properties(w1cov_qbdipreload_shared PROPERTIES
-        LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
-        ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
-        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
-        PREFIX ""
-        OUTPUT_NAME "w1cov_qbdipreload"
-    )
-endif()
-
-foreach(target ${W1COV_QBDIPRELOAD_TARGETS})
-    target_include_directories(${target}
-        PRIVATE
-            ${CMAKE_CURRENT_SOURCE_DIR}
-            ${CMAKE_SOURCE_DIR}/src/third_party/qbdi/tools/QBDIPreload/include
-    )
-    
-    target_link_libraries(${target}
-        PRIVATE
-            QBDIPreload
-            QBDI_static
-            redlog::redlog
-    )
-    
-    target_compile_features(${target} PRIVATE cxx_std_17)
-    
-    if(WIN32)
-        target_compile_definitions(${target} PRIVATE
-            _WIN32_WINNT=0x0601
-            NOMINMAX
-            WIN32_LEAN_AND_MEAN
-            _CRT_SECURE_NO_WARNINGS
-        )
-    endif()
-endforeach()
 
 # Standalone w1cov library
 set(W1COV_STANDALONE_SOURCES
@@ -203,7 +174,7 @@ if(WITNESS_BUILD_STATIC)
     set_target_properties(w1cov_static PROPERTIES
         ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
         PREFIX ""
-        OUTPUT_NAME "w1cov_static"
+        OUTPUT_NAME "w1cov"
     )
 endif()
 
@@ -245,17 +216,4 @@ foreach(target ${W1COV_STANDALONE_TARGETS})
     endif()
 endforeach()
 
-# Configure w1cov_qbdipreload targets
-foreach(target ${W1COV_QBDIPRELOAD_TARGETS})
-    target_compile_features(${target} PRIVATE cxx_std_17)
-    
-    if(WIN32)
-        target_compile_definitions(${target} PRIVATE
-            _WIN32_WINNT=0x0601
-            NOMINMAX
-            WIN32_LEAN_AND_MEAN
-            _CRT_SECURE_NO_WARNINGS
-        )
-    endif()
-endforeach()
 
