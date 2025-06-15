@@ -94,6 +94,12 @@ if(BUILD_TESTS)
     add_subdirectory(tests)
 endif()
 
+# add examples (optional)
+option(BUILD_EXAMPLES "Build example programs" ON)
+if(BUILD_EXAMPLES)
+    add_subdirectory(examples)
+endif()
+
 # Code formatting with clang-format
 find_program(CLANG_FORMAT_EXECUTABLE
     NAMES clang-format clang-format-18 clang-format-17 clang-format-16 clang-format-15

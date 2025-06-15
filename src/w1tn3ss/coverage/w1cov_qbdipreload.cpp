@@ -28,6 +28,7 @@
 #endif
 
 #include "../formats/drcov.hpp"
+#include "w1cov_constants.hpp"
 #include "QBDIPreload.h"
 #include <QBDI.h>
 
@@ -84,7 +85,7 @@ static std::vector<QBDI::MemoryMap>* get_modules() {
 }
 
 static std::string* get_output_file() {
-  static std::string instance = "w1cov.drcov";
+  static std::string instance = w1::cov::DEFAULT_OUTPUT_FILENAME;
   return &instance;
 }
 
@@ -105,21 +106,20 @@ bool is_debug_mode() { return g_debug_mode; }
  * Called during library initialization.
  */
 void configure_from_env() {
-  const char* enabled = getenv("W1COV_ENABLED");
-  g_enabled = (enabled && strcmp(enabled, "1") == 0);
+  const char* enabled = getenv(w1::cov::ENV_W1COV_ENABLED);
+  g_enabled = (enabled && strcmp(enabled, w1::cov::ENABLED_VALUE) == 0);
 
-  const char* output = getenv("W1COV_OUTPUT_FILE");
+  const char* output = getenv(w1::cov::ENV_W1COV_OUTPUT_FILE);
   if (output) {
     *get_output_file() = output;
   }
 
-  const char* debug = getenv("W1COV_DEBUG");
-  g_debug_mode = (debug && strcmp(debug, "1") == 0);
+  const char* debug = getenv(w1::cov::ENV_W1COV_DEBUG);
+  g_debug_mode = (debug && strcmp(debug, w1::cov::ENABLED_VALUE) == 0);
 
   if (g_debug_mode) {
-    printf(
-        "[W1COV] Configuration: enabled=%d, output=%s, debug=%d\n", g_enabled, get_output_file()->c_str(), g_debug_mode
-    );
+    w1::cov::log("Configuration: enabled=%d, output=%s, debug=%d", 
+        g_enabled, get_output_file()->c_str(), g_debug_mode);
   }
 }
 
@@ -132,7 +132,7 @@ bool discover_modules() {
 
   if (maps.empty()) {
     if (g_debug_mode) {
-      printf("[W1COV] Failed to get process memory maps\n");
+      w1::cov::log("Failed to get process memory maps");
     }
     return false;
   }
@@ -143,16 +143,14 @@ bool discover_modules() {
     if (map.permission & QBDI::PF_EXEC) {
       modules->push_back(map);
       if (g_debug_mode) {
-        printf(
-            "[W1COV] Module: %s [0x%llx-0x%llx] %s\n", map.name.c_str(), map.range.start(), map.range.end(),
-            (map.permission & QBDI::PF_EXEC) ? "X" : "-"
-        );
+        w1::cov::log("Module: %s [0x%llx-0x%llx] %s", map.name.c_str(), map.range.start(), map.range.end(),
+            (map.permission & QBDI::PF_EXEC) ? "X" : "-");
       }
     }
   }
 
   if (g_debug_mode) {
-    printf("[W1COV] Discovered %s executable modules\n", format_number(modules->size()).c_str());
+    w1::cov::log("Discovered %s executable modules", format_number(modules->size()).c_str());
   }
 
   return !modules->empty();
@@ -195,12 +193,9 @@ QBDI::VMAction coverage_callback(
   (*get_address_sizes())[bb_start] = bb_size;
 
   // Periodic progress reporting for long-running analyses
-  if (g_debug_mode && (g_basic_block_count % 1000 == 0)) {
-    printf(
-        "[W1COV] Traced %s basic blocks, %s unique blocks\n", format_number(g_basic_block_count).c_str(),
-        format_number(get_hitcounts()->size()).c_str()
-    );
-    fflush(stdout);
+  if (g_debug_mode && (g_basic_block_count % w1::cov::PROGRESS_REPORT_INTERVAL == 0)) {
+    w1::cov::log("Traced %s basic blocks, %s unique blocks", 
+        format_number(g_basic_block_count).c_str(), format_number(get_hitcounts()->size()).c_str());
   }
 
   return QBDI::CONTINUE;
@@ -216,7 +211,7 @@ bool export_drcov_coverage() {
 
   if (hitcounts->empty()) {
     if (g_debug_mode) {
-      printf("[W1COV] No coverage data to export\n");
+      w1::cov::log("No coverage data to export");
     }
     return false;
   }
@@ -238,7 +233,7 @@ bool export_drcov_coverage() {
 
   if (module_blocks.empty()) {
     if (g_debug_mode) {
-      printf("[W1COV] No coverage data mapped to modules\n");
+      w1::cov::log("No coverage data mapped to modules");
     }
     return false;
   }
@@ -275,16 +270,16 @@ bool export_drcov_coverage() {
       total_hits += hitcount;
     }
 
-    printf("[W1COV] Coverage Summary:\n");
-    printf("        Basic Blocks: %s\n", format_number(hitcounts->size()).c_str());
-    printf("        Total Hits:   %s\n", format_number(total_hits).c_str());
-    printf("        Modules:      %s\n", format_number(module_blocks.size()).c_str());
-    printf("[W1COV] Coverage exported -> %s\n", get_output_file()->c_str());
+    w1::cov::log("Coverage Summary:");
+    w1::cov::log("        Basic Blocks: %s", format_number(hitcounts->size()).c_str());
+    w1::cov::log("        Total Hits:   %s", format_number(total_hits).c_str());
+    w1::cov::log("        Modules:      %s", format_number(module_blocks.size()).c_str());
+    w1::cov::log("Coverage exported -> %s", get_output_file()->c_str());
 
     return true;
 
   } catch (const std::exception& e) {
-    printf("[W1COV] Failed to export coverage: %s\n", e.what());
+    w1::cov::log("Failed to export coverage: %s", e.what());
     return false;
   }
 }
@@ -296,19 +291,16 @@ QBDIPRELOAD_INIT;
 
 int qbdipreload_on_start(void* main) {
   // Always print something to verify library is loaded
-  printf("[W1COV] qbdipreload_on_start called\n");
-  fflush(stdout);
+  w1::cov::log("qbdipreload_on_start called");
 
   w1cov::configure_from_env();
 
   if (!w1cov::g_enabled) {
-    printf("[W1COV] W1COV not enabled, exiting\n");
-    fflush(stdout);
+    w1::cov::log("W1COV not enabled, exiting");
     return QBDIPRELOAD_NOT_HANDLED;
   }
 
-  printf("[W1COV] W1COV enabled, continuing\n");
-  fflush(stdout);
+  w1::cov::log("W1COV enabled, continuing");
   return QBDIPRELOAD_NOT_HANDLED;
 }
 
@@ -320,12 +312,12 @@ int qbdipreload_on_main(int argc, char** argv) {
   }
 
   if (w1cov::g_debug_mode) {
-    printf("[W1COV] qbdipreload_on_main: initializing module discovery\n");
+    w1::cov::log("qbdipreload_on_main: initializing module discovery");
   }
 
   // Discover modules early
   if (!w1cov::discover_modules()) {
-    printf("[W1COV] Failed to discover modules\n");
+    w1::cov::log("Failed to discover modules");
     return QBDIPRELOAD_NOT_HANDLED;
   }
 
@@ -339,21 +331,21 @@ int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QBDI::rword st
   }
 
   if (w1cov::g_debug_mode) {
-    printf("[W1COV] qbdipreload_on_run: start=0x%llx, stop=0x%llx\n", start, stop);
+    w1::cov::log("qbdipreload_on_run: start=0x%llx, stop=0x%llx", start, stop);
   }
 
   // Register basic block coverage callback (much more efficient than instruction-level)
   vm->addVMEventCB(QBDI::BASIC_BLOCK_ENTRY, w1cov::coverage_callback, nullptr);
 
   if (w1cov::g_debug_mode) {
-    printf("[W1COV] Coverage callback registered, starting instrumentation\n");
+    w1::cov::log("Coverage callback registered, starting instrumentation");
   }
 
   // Run with instrumentation
   vm->run(start, stop);
 
   if (w1cov::g_debug_mode) {
-    printf("[W1COV] Instrumentation completed\n");
+    w1::cov::log("Instrumentation completed");
   }
 
   return QBDIPRELOAD_NO_ERROR;
@@ -365,14 +357,14 @@ int qbdipreload_on_exit(int status) {
   }
 
   if (w1cov::g_debug_mode) {
-    printf("[W1COV] qbdipreload_on_exit: exporting coverage data\n");
+    w1::cov::log("qbdipreload_on_exit: exporting coverage data");
   }
 
   // Export coverage
   w1cov::export_drcov_coverage();
 
   if (w1cov::g_debug_mode) {
-    printf("[W1COV] W1COV coverage collection completed\n");
+    w1::cov::log("W1COV coverage collection completed");
   }
 
   return QBDIPRELOAD_NO_ERROR;

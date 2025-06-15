@@ -1,4 +1,5 @@
 #include "w1cov_standalone.hpp"
+#include "w1cov_constants.hpp"
 #include "coverage_data.hpp"
 #include "module_mapper.hpp"
 #include <QBDI.h>
@@ -33,16 +34,20 @@ public:
   }
 };
 
-// Coverage callback - simple and reliable
-static QBDI::VMAction coverage_callback(QBDI::VM* vm, QBDI::GPRState* gprState, QBDI::FPRState* fprState, void* data) {
+// Basic block coverage callback - efficient like qbdipreload
+static QBDI::VMAction basic_block_callback(
+    QBDI::VMInstanceRef vm, const QBDI::VMState* vmState, 
+    QBDI::GPRState* gprState, QBDI::FPRState* fprState, void* data
+) {
   auto* cov_impl = static_cast<w1cov_standalone::impl*>(data);
-
-  // Get instruction analysis and track unique addresses only
-  const QBDI::InstAnalysis* instAnalysis = vm->getInstAnalysis();
-  if (instAnalysis) {
-    cov_impl->covered_addresses.insert(instAnalysis->address);
-    // Note: collector integration happens post-execution to avoid callback issues
+  
+  if (!vmState) {
+    return QBDI::VMAction::CONTINUE;
   }
+
+  // Get basic block start address - much more efficient than instruction-level
+  uint64_t bb_start = vmState->basicBlockStart;
+  cov_impl->covered_addresses.insert(bb_start);
 
   return QBDI::VMAction::CONTINUE;
 }
@@ -122,15 +127,14 @@ bool w1cov_standalone::call_instrumented_function(void* func_ptr, const std::vec
 
     // Setup virtual stack
     uint8_t* fakestack;
-    static const size_t STACK_SIZE = 0x100000; // 1MB
-    bool res = QBDI::allocateVirtualStack(state, STACK_SIZE, &fakestack);
+    bool res = QBDI::allocateVirtualStack(state, w1::cov::DEFAULT_STACK_SIZE, &fakestack);
     if (!res) {
       pimpl->log.error("failed to allocate virtual stack");
       return false;
     }
 
-    // Register coverage callback
-    uint32_t cid = vm.addCodeCB(QBDI::PREINST, coverage_callback, pimpl.get());
+    // Register basic block coverage callback (much more efficient)
+    uint32_t cid = vm.addVMEventCB(QBDI::BASIC_BLOCK_ENTRY, basic_block_callback, pimpl.get());
     if (cid == QBDI::INVALID_EVENTID) {
       pimpl->log.error("failed to register coverage callback");
       QBDI::alignedFree(fakestack);
@@ -212,15 +216,14 @@ bool w1cov_standalone::run_instrumented_binary(
 
     // Setup virtual stack
     uint8_t* fakestack;
-    static const size_t STACK_SIZE = 0x100000; // 1MB
-    bool res = QBDI::allocateVirtualStack(state, STACK_SIZE, &fakestack);
+    bool res = QBDI::allocateVirtualStack(state, w1::cov::DEFAULT_STACK_SIZE, &fakestack);
     if (!res) {
       pimpl->log.error("failed to allocate virtual stack");
       return false;
     }
 
-    // Register coverage callback
-    uint32_t cid = vm.addCodeCB(QBDI::PREINST, coverage_callback, pimpl.get());
+    // Register basic block coverage callback (much more efficient)
+    uint32_t cid = vm.addVMEventCB(QBDI::BASIC_BLOCK_ENTRY, basic_block_callback, pimpl.get());
     if (cid == QBDI::INVALID_EVENTID) {
       pimpl->log.error("failed to register coverage callback");
       QBDI::alignedFree(fakestack);
@@ -242,7 +245,7 @@ bool w1cov_standalone::run_instrumented_binary(
     }
 
     // Set up fake return address for run() method
-    const QBDI::rword FAKE_RET_ADDR = 0x40000;
+    const QBDI::rword FAKE_RET_ADDR = w1::cov::FAKE_RETURN_ADDRESS;
 
     // Use w1nj3ct to launch binary with w1cov library injected
     // This leverages the existing injection infrastructure
@@ -281,17 +284,17 @@ bool w1cov_standalone::export_coverage(const std::string& output_file) {
     uint64_t max_addr = *std::max_element(pimpl->covered_addresses.begin(), pimpl->covered_addresses.end());
 
     // Align to page boundaries for module range
-    uint64_t module_base = min_addr & ~0xFFF;          // page-align down
-    uint64_t module_end = (max_addr + 0xFFF) & ~0xFFF; // page-align up
+    uint64_t module_base = min_addr & ~w1::cov::PAGE_ALIGNMENT_MASK;          // page-align down
+    uint64_t module_end = (max_addr + w1::cov::PAGE_ALIGNMENT_MASK) & ~w1::cov::PAGE_ALIGNMENT_MASK; // page-align up
 
     // Add a temporary module covering our addresses
-    uint16_t module_id = pimpl->collector->add_module("instrumented_code", module_base, module_end, module_base);
+    uint16_t module_id = pimpl->collector->add_module(w1::cov::DEFAULT_TEMP_MODULE_NAME, module_base, module_end, module_base);
 
     if (module_id != UINT16_MAX) {
       // Record all our addresses as basic blocks
       for (uint64_t addr : pimpl->covered_addresses) {
         try {
-          pimpl->collector->record_basic_block_with_module(addr, 4, module_id); // 4-byte ARM64 instructions
+          pimpl->collector->record_basic_block_with_module(addr, w1::cov::DEFAULT_INSTRUCTION_SIZE, module_id); // Default instruction size
         } catch (const std::exception& e) {
           pimpl->log.debug(
               "failed to record address for export", redlog::field("address", addr), redlog::field("error", e.what())
