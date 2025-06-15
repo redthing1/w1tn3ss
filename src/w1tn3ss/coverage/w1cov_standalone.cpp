@@ -1,7 +1,7 @@
 #include "w1cov_standalone.hpp"
-#include "w1cov_constants.hpp"
 #include "coverage_data.hpp"
 #include "module_mapper.hpp"
+#include "w1cov_constants.hpp"
 #include <QBDI.h>
 #include <fstream>
 #include <iostream>
@@ -36,11 +36,10 @@ public:
 
 // Basic block coverage callback - efficient like qbdipreload
 static QBDI::VMAction basic_block_callback(
-    QBDI::VMInstanceRef vm, const QBDI::VMState* vmState, 
-    QBDI::GPRState* gprState, QBDI::FPRState* fprState, void* data
+    QBDI::VMInstanceRef vm, const QBDI::VMState* vmState, QBDI::GPRState* gprState, QBDI::FPRState* fprState, void* data
 ) {
   auto* cov_impl = static_cast<w1cov_standalone::impl*>(data);
-  
+
   if (!vmState) {
     return QBDI::VMAction::CONTINUE;
   }
@@ -284,17 +283,20 @@ bool w1cov_standalone::export_coverage(const std::string& output_file) {
     uint64_t max_addr = *std::max_element(pimpl->covered_addresses.begin(), pimpl->covered_addresses.end());
 
     // Align to page boundaries for module range
-    uint64_t module_base = min_addr & ~w1::cov::PAGE_ALIGNMENT_MASK;          // page-align down
+    uint64_t module_base = min_addr & ~w1::cov::PAGE_ALIGNMENT_MASK;                                 // page-align down
     uint64_t module_end = (max_addr + w1::cov::PAGE_ALIGNMENT_MASK) & ~w1::cov::PAGE_ALIGNMENT_MASK; // page-align up
 
     // Add a temporary module covering our addresses
-    uint16_t module_id = pimpl->collector->add_module(w1::cov::DEFAULT_TEMP_MODULE_NAME, module_base, module_end, module_base);
+    uint16_t module_id =
+        pimpl->collector->add_module(w1::cov::DEFAULT_TEMP_MODULE_NAME, module_base, module_end, module_base);
 
     if (module_id != UINT16_MAX) {
       // Record all our addresses as basic blocks
       for (uint64_t addr : pimpl->covered_addresses) {
         try {
-          pimpl->collector->record_basic_block_with_module(addr, w1::cov::DEFAULT_INSTRUCTION_SIZE, module_id); // Default instruction size
+          pimpl->collector->record_basic_block_with_module(
+              addr, w1::cov::DEFAULT_INSTRUCTION_SIZE, module_id
+          ); // Default instruction size
         } catch (const std::exception& e) {
           pimpl->log.debug(
               "failed to record address for export", redlog::field("address", addr), redlog::field("error", e.what())

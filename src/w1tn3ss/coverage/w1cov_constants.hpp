@@ -1,17 +1,17 @@
 /**
  * @file w1cov_constants.hpp
  * @brief Centralized constants for W1COV coverage collection
- * 
+ *
  * This header consolidates all hardcoded values used throughout the W1COV
  * coverage system to improve maintainability and consistency.
  */
 
 #pragma once
 
-#include <cstdint>
-#include <cstddef>
-#include <cstdio>
 #include <cstdarg>
+#include <cstddef>
+#include <cstdint>
+#include <cstdio>
 
 namespace w1::cov {
 
@@ -117,19 +117,11 @@ constexpr size_t MAX_SYSTEM_PATTERNS = 10;
 
 /// macOS system library path patterns
 constexpr const char* MACOS_SYSTEM_PATTERNS[] = {
-    "/System/Library/",
-    "/usr/lib/system/",
-    "/usr/lib/libc++",
-    "/usr/lib/libSystem",
-    "libsystem_",
-    "libc++",
-    "libdyld",
-    "/System/",
-    "/usr/lib/",
-    "/usr/local/lib/"
+    "/System/Library/", "/usr/lib/system/", "/usr/lib/libc++", "/usr/lib/libSystem", "libsystem_",
+    "libc++",           "libdyld",          "/System/",        "/usr/lib/",          "/usr/local/lib/"
 };
 
-/// Linux system library path patterns  
+/// Linux system library path patterns
 constexpr const char* LINUX_SYSTEM_PATTERNS[] = {
     "/lib/x86_64-linux-gnu/",
     "/lib64/",
@@ -163,12 +155,12 @@ constexpr const char* WINDOWS_SYSTEM_PATTERNS[] = {
 
 /// Simple logging function for W1COV
 inline void log(const char* format, ...) {
-    printf("[W1COV] ");
-    va_list args;
-    va_start(args, format);
-    vprintf(format, args);
-    va_end(args);
-    printf("\n");
+  printf("[W1COV] ");
+  va_list args;
+  va_start(args, format);
+  vprintf(format, args);
+  va_end(args);
+  printf("\n");
 }
 
 } // namespace w1::cov

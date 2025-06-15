@@ -28,8 +28,8 @@
 #endif
 
 #include "../formats/drcov.hpp"
-#include "w1cov_constants.hpp"
 #include "QBDIPreload.h"
+#include "w1cov_constants.hpp"
 #include <QBDI.h>
 
 namespace w1cov {
@@ -118,8 +118,7 @@ void configure_from_env() {
   g_debug_mode = (debug && strcmp(debug, w1::cov::ENABLED_VALUE) == 0);
 
   if (g_debug_mode) {
-    w1::cov::log("Configuration: enabled=%d, output=%s, debug=%d", 
-        g_enabled, get_output_file()->c_str(), g_debug_mode);
+    w1::cov::log("Configuration: enabled=%d, output=%s, debug=%d", g_enabled, get_output_file()->c_str(), g_debug_mode);
   }
 }
 
@@ -143,8 +142,10 @@ bool discover_modules() {
     if (map.permission & QBDI::PF_EXEC) {
       modules->push_back(map);
       if (g_debug_mode) {
-        w1::cov::log("Module: %s [0x%llx-0x%llx] %s", map.name.c_str(), map.range.start(), map.range.end(),
-            (map.permission & QBDI::PF_EXEC) ? "X" : "-");
+        w1::cov::log(
+            "Module: %s [0x%llx-0x%llx] %s", map.name.c_str(), map.range.start(), map.range.end(),
+            (map.permission & QBDI::PF_EXEC) ? "X" : "-"
+        );
       }
     }
   }
@@ -194,8 +195,10 @@ QBDI::VMAction coverage_callback(
 
   // Periodic progress reporting for long-running analyses
   if (g_debug_mode && (g_basic_block_count % w1::cov::PROGRESS_REPORT_INTERVAL == 0)) {
-    w1::cov::log("Traced %s basic blocks, %s unique blocks", 
-        format_number(g_basic_block_count).c_str(), format_number(get_hitcounts()->size()).c_str());
+    w1::cov::log(
+        "Traced %s basic blocks, %s unique blocks", format_number(g_basic_block_count).c_str(),
+        format_number(get_hitcounts()->size()).c_str()
+    );
   }
 
   return QBDI::CONTINUE;

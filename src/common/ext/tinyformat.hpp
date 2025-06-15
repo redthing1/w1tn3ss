@@ -250,8 +250,10 @@ template <typename T> struct formatZeroIntegerWorkaround<T, true> {
 // throws an error.
 template <typename T, bool convertible = is_convertible<T, int>::value> struct convertToInt {
   static int invoke(const T& /*value*/) {
-    TINYFORMAT_ERROR("tinyformat: Cannot convert from argument type to "
-                     "integer for use as variable width or precision");
+    TINYFORMAT_ERROR(
+        "tinyformat: Cannot convert from argument type to "
+        "integer for use as variable width or precision"
+    );
     return 0;
   }
 };
@@ -265,7 +267,7 @@ template <typename T> inline void formatTruncated(std::ostream& out, const T& va
   std::ostringstream tmp;
   tmp << value;
   std::string result = tmp.str();
-  out.write(result.c_str(), (std::min)(ntrunc, static_cast<int>(result.size())));
+  out.write(result.c_str(), (std::min) (ntrunc, static_cast<int>(result.size())));
 }
 #define TINYFORMAT_DEFINE_FORMAT_TRUNCATED_CSTR(type)                                                                  \
   inline void formatTruncated(std::ostream& out, type* value, int ntrunc) {                                            \
@@ -852,8 +854,10 @@ inline const char* streamStateFromFormat(
     TINYFORMAT_ERROR("tinyformat: %n conversion spec not supported");
     break;
   case '\0':
-    TINYFORMAT_ERROR("tinyformat: Conversion spec incorrectly "
-                     "terminated by end of string");
+    TINYFORMAT_ERROR(
+        "tinyformat: Conversion spec incorrectly "
+        "terminated by end of string"
+    );
     return c;
   default:
     break;
