@@ -371,7 +371,11 @@ function enterMonitoredFunction(funcAddr, threadId) {
             if (extraVerbose) console.log(`Stalking thread ${threadId}`);
             
             try {
-                Stalker.follow(threadId, {
+                // Convert thread ID to unsigned integer for Frida
+                // On Linux, thread IDs can be negative, but Stalker.follow expects unsigned
+                var unsignedThreadId = threadId >>> 0;
+                
+                Stalker.follow(unsignedThreadId, {
                     events: {
                         call: true,
                         ret: true,
@@ -507,7 +511,9 @@ function exitMonitoredFunction(funcAddr, threadId) {
                         if (state.stalking) {
                             if (extraVerbose) console.log(`Stopping stalker for thread ${threadId} (delayed)`);
                             try {
-                                Stalker.unfollow(threadId);
+                                // Convert thread ID to unsigned integer for Frida
+                                var unsignedThreadId = threadId >>> 0;
+                                Stalker.unfollow(unsignedThreadId);
                                 state.stalking = false;
                                 activeStalkers.delete(threadId);
                                 
@@ -882,7 +888,8 @@ recv(function(message) {
         activeStalkers.forEach(threadId => {
             try {
                 if (extraVerbose) console.log(`Force stopping stalker for thread ${threadId}`);
-                Stalker.unfollow(threadId);
+                var unsignedThreadId = threadId >>> 0;
+                Stalker.unfollow(unsignedThreadId);
             } catch (e) {
                 console.error(`Error stopping stalker for thread ${threadId}:`, e.message);
             }

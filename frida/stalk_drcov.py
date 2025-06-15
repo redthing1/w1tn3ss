@@ -244,7 +244,11 @@ function startStalkingThreadIfNeeded(threadId) {
         compile: true  // Use compile events for coverage only
     };
     
-    Stalker.follow(threadId, {
+    // Convert thread ID to unsigned integer for Frida
+    // On Linux, thread IDs can be negative, but Stalker.follow expects unsigned
+    var unsignedThreadId = threadId >>> 0;
+    
+    Stalker.follow(unsignedThreadId, {
         events: stalkerEvents,
         onReceive: function (rawStalkerEvents) {
             try {
