@@ -35,7 +35,7 @@ result inject_runtime(const config& cfg) {
   // resolve process name to pid if needed
   if (cfg.process_name) {
     log.debug("resolving process name to pid", redlog::field("name", *cfg.process_name));
-    
+
     auto processes = find_processes_by_name(*cfg.process_name);
     if (processes.empty()) {
       log.error("no processes found with specified name", redlog::field("name", *cfg.process_name));
@@ -70,10 +70,10 @@ result inject_runtime(const config& cfg) {
 
   if (attach_result != INJERR_SUCCESS) {
     const char* error_msg = injector_error();
-    log.error("failed to attach to target process", 
-              redlog::field("pid", target_pid),
-              redlog::field("error_code", attach_result),
-              redlog::field("error_msg", error_msg ? error_msg : "unknown"));
+    log.error(
+        "failed to attach to target process", redlog::field("pid", target_pid),
+        redlog::field("error_code", attach_result), redlog::field("error_msg", error_msg ? error_msg : "unknown")
+    );
 
     // map injector error codes to our error codes
     error_code mapped_error;
@@ -94,15 +94,16 @@ result inject_runtime(const config& cfg) {
       mapped_error = error_code::injection_failed;
       break;
     }
-    
+
     return make_error_result(mapped_error, error_msg ? error_msg : "attach failed", attach_result);
   }
 
   auto attach_duration = std::chrono::steady_clock::now() - attach_start;
   auto attach_ms = std::chrono::duration_cast<std::chrono::milliseconds>(attach_duration).count();
-  log.debug("successfully attached to target process", 
-            redlog::field("pid", target_pid), 
-            redlog::field("attach_time_ms", attach_ms));
+  log.debug(
+      "successfully attached to target process", redlog::field("pid", target_pid),
+      redlog::field("attach_time_ms", attach_ms)
+  );
 
   // inject library
   auto inject_start = std::chrono::steady_clock::now();
@@ -111,11 +112,10 @@ result inject_runtime(const config& cfg) {
 
   if (inject_result != INJERR_SUCCESS) {
     const char* error_msg = injector_error();
-    log.error("library injection failed",
-              redlog::field("pid", target_pid),
-              redlog::field("library_path", cfg.library_path),
-              redlog::field("error_code", inject_result),
-              redlog::field("error_msg", error_msg ? error_msg : "unknown"));
+    log.error(
+        "library injection failed", redlog::field("pid", target_pid), redlog::field("library_path", cfg.library_path),
+        redlog::field("error_code", inject_result), redlog::field("error_msg", error_msg ? error_msg : "unknown")
+    );
 
     // detach before returning error
     injector_detach(injector);
@@ -150,24 +150,23 @@ result inject_runtime(const config& cfg) {
   int detach_result = injector_detach(injector);
   if (detach_result != INJERR_SUCCESS) {
     const char* error_msg = injector_error();
-    log.warn("failed to detach from target process", 
-             redlog::field("pid", target_pid),
-             redlog::field("error_code", detach_result),
-             redlog::field("error_msg", error_msg ? error_msg : "unknown"));
+    log.warn(
+        "failed to detach from target process", redlog::field("pid", target_pid),
+        redlog::field("error_code", detach_result), redlog::field("error_msg", error_msg ? error_msg : "unknown")
+    );
     // continue anyway since injection succeeded
   }
 
   auto inject_duration = std::chrono::steady_clock::now() - inject_start;
   auto inject_ms = std::chrono::duration_cast<std::chrono::milliseconds>(inject_duration).count();
-  auto total_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                      std::chrono::steady_clock::now() - attach_start).count();
+  auto total_ms =
+      std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - attach_start).count();
 
-  log.info("runtime injection completed successfully",
-           redlog::field("pid", target_pid),
-           redlog::field("library_path", cfg.library_path),
-           redlog::field("handle", handle),
-           redlog::field("inject_time_ms", inject_ms),
-           redlog::field("total_time_ms", total_ms));
+  log.info(
+      "runtime injection completed successfully", redlog::field("pid", target_pid),
+      redlog::field("library_path", cfg.library_path), redlog::field("handle", handle),
+      redlog::field("inject_time_ms", inject_ms), redlog::field("total_time_ms", total_ms)
+  );
 
   return make_success_result(target_pid);
 }
@@ -175,9 +174,10 @@ result inject_runtime(const config& cfg) {
 result inject_preload(const config& cfg) {
   auto log = redlog::get_logger("w1nj3ct.linux");
 
-  log.info("linux preload injection starting", 
-           redlog::field("binary_path", cfg.binary_path ? *cfg.binary_path : "null"),
-           redlog::field("library_path", cfg.library_path));
+  log.info(
+      "linux preload injection starting", redlog::field("binary_path", cfg.binary_path ? *cfg.binary_path : "null"),
+      redlog::field("library_path", cfg.library_path)
+  );
 
   if (!cfg.binary_path) {
     log.error("binary_path required for preload injection");
@@ -186,16 +186,14 @@ result inject_preload(const config& cfg) {
 
   // validate binary exists and is executable
   if (access(cfg.binary_path->c_str(), F_OK) != 0) {
-    log.error("target binary not found", 
-              redlog::field("binary_path", *cfg.binary_path), 
-              redlog::field("errno", errno));
+    log.error("target binary not found", redlog::field("binary_path", *cfg.binary_path), redlog::field("errno", errno));
     return make_error_result(error_code::target_not_found, "binary not found: " + *cfg.binary_path);
   }
 
   if (access(cfg.binary_path->c_str(), X_OK) != 0) {
-    log.error("target binary not executable", 
-              redlog::field("binary_path", *cfg.binary_path), 
-              redlog::field("errno", errno));
+    log.error(
+        "target binary not executable", redlog::field("binary_path", *cfg.binary_path), redlog::field("errno", errno)
+    );
     return make_error_result(error_code::target_access_denied, "binary not executable: " + *cfg.binary_path);
   }
 
@@ -267,7 +265,7 @@ result inject_preload(const config& cfg) {
   } else if (child_pid > 0) {
     // parent process - wait for child to complete
     log.debug("waiting for child process", redlog::field("child_pid", child_pid));
-    
+
     int status;
     pid_t wait_result = waitpid(child_pid, &status, 0);
 
@@ -281,29 +279,32 @@ result inject_preload(const config& cfg) {
 
     if (WIFEXITED(status)) {
       int exit_code = WEXITSTATUS(status);
-      log.info("child process exited", 
-               redlog::field("child_pid", child_pid), 
-               redlog::field("exit_code", exit_code),
-               redlog::field("execution_time_ms", launch_ms));
-      
+      log.info(
+          "child process exited", redlog::field("child_pid", child_pid), redlog::field("exit_code", exit_code),
+          redlog::field("execution_time_ms", launch_ms)
+      );
+
       if (exit_code == 0) {
         return make_success_result(child_pid);
       } else {
-        return make_error_result(error_code::launch_failed, 
-                                "child process failed with exit code " + std::to_string(exit_code));
+        return make_error_result(
+            error_code::launch_failed, "child process failed with exit code " + std::to_string(exit_code)
+        );
       }
     } else if (WIFSIGNALED(status)) {
       int signal = WTERMSIG(status);
-      log.error("child process terminated by signal", 
-                redlog::field("child_pid", child_pid), 
-                redlog::field("signal", signal),
-                redlog::field("execution_time_ms", launch_ms));
-      return make_error_result(error_code::launch_failed, 
-                              "child process terminated by signal " + std::to_string(signal));
+      log.error(
+          "child process terminated by signal", redlog::field("child_pid", child_pid), redlog::field("signal", signal),
+          redlog::field("execution_time_ms", launch_ms)
+      );
+      return make_error_result(
+          error_code::launch_failed, "child process terminated by signal " + std::to_string(signal)
+      );
     } else {
-      log.error("child process exited with unknown status", 
-                redlog::field("child_pid", child_pid),
-                redlog::field("status", status));
+      log.error(
+          "child process exited with unknown status", redlog::field("child_pid", child_pid),
+          redlog::field("status", status)
+      );
       return make_error_result(error_code::launch_failed, "child process exited with unknown status");
     }
   } else {

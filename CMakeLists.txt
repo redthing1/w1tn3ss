@@ -3,25 +3,18 @@ cmake_minimum_required(VERSION 3.12)
 project(w1tn3ss
     VERSION 0.1.0
     DESCRIPTION "Cross-platform dynamic binary analysis tool"
-    LANGUAGES C CXX
+    LANGUAGES C CXX ASM
 )
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# default to debug build
+# Default to Release build
 if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE Debug)
+    set(CMAKE_BUILD_TYPE Release)
 endif()
 
-# Windows-specific fixes for multi-config generators
-if(WIN32 AND CMAKE_GENERATOR MATCHES "Visual Studio")
-    # Use both Debug and Release but ensure consistent config
-    set(CMAKE_CONFIGURATION_TYPES "Debug;Release" CACHE STRING "" FORCE)
-    # Don't force CMAKE_BUILD_TYPE for multi-config generators
-endif()
-
-# sanitizers disabled - cause crashes with QBDI injection
+# # Sanitizers disabled by default (can cause issues)
 # if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT WIN32)
 #     set(SANITIZER_FLAGS "-fsanitize=address;-fsanitize=undefined")
 # endif()
@@ -31,7 +24,7 @@ option(WITNESS_BUILD_STATIC "Build static w1tn3ss library" ON)
 option(WITNESS_BUILD_SHARED "Build shared w1tn3ss library" ON)
 option(WITNESS_QBDI_EXTRAS "Build QBDI with examples, tests and additional tools" OFF)
 
-# auto-detect qbdi platform and architecture
+# Auto-detect platform and architecture for QBDI
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set(QBDI_PLATFORM "linux" CACHE STRING "QBDI Platform" FORCE)
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
@@ -57,26 +50,34 @@ endif()
 message(STATUS "QBDI Platform: ${QBDI_PLATFORM}")
 message(STATUS "QBDI Architecture: ${QBDI_ARCH}")
 
-# configure qbdi
+# Configure QBDI
 set(QBDI_STATIC_LIBRARY ON)
+set(QBDI_SHARED_LIBRARY ON)
 set(QBDI_LOG_DEBUG OFF)
+set(QBDI_TOOLS_QBDIPRELOAD ON)
+set(QBDI_CCACHE ON)
+set(QBDI_DISABLE_AVX OFF)
+set(QBDI_ASAN OFF)
 
+# QBDI optional features
 if(WITNESS_QBDI_EXTRAS)
     set(QBDI_TOOLS_PYQBDI ON)
     set(QBDI_TOOLS_FRIDAQBDI ON)
     set(QBDI_TEST ON)
     set(QBDI_EXAMPLES ON)
+    set(QBDI_BENCHMARK ON)
 else()
-    set(QBDI_TOOLS_PYQBDI OFF)
-    set(QBDI_TOOLS_FRIDAQBDI OFF)
-    set(QBDI_TEST OFF)
-    set(QBDI_EXAMPLES OFF)
+    set(QBDI_TOOLS_PYQBDI ON)
+    set(QBDI_TOOLS_FRIDAQBDI ON)
+    set(QBDI_TEST ON)
+    set(QBDI_EXAMPLES ON)
+    set(QBDI_BENCHMARK OFF)
 endif()
 
 # add third-party libraries
 add_subdirectory(src/third_party/qbdi)
 
-# configure redlog - disable examples and tests for cleaner build
+# configure redlog
 set(REDLOG_BUILD_EXAMPLES OFF)
 set(REDLOG_BUILD_TESTS OFF)
 add_subdirectory(src/third_party/redlog_cpp)

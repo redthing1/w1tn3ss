@@ -60,15 +60,14 @@ std::string format_number(uint64_t number) {
 
 /**
  * Global state management for coverage collection.
- * Uses lazy initialization pattern to avoid C++ global constructor issues
- * in DYLD_INSERT_LIBRARIES context where C++ runtime may not be fully initialized.
+ * Uses lazy initialization to avoid C++ global constructor issues in injection context.
  */
 
 static bool g_enabled = false;
 static bool g_debug_mode = false;
 static uint64_t g_instruction_count = 0;
 
-// Lazy-initialized complex objects using static local variables
+// Lazy-initialized containers to avoid global constructor issues
 static std::unordered_map<uint64_t, uint32_t>* get_hitcounts() {
   static std::unordered_map<uint64_t, uint32_t> instance;
   return &instance;
@@ -103,7 +102,7 @@ bool is_debug_mode() { return g_debug_mode; }
 
 /**
  * Configure coverage collection from environment variables.
- * Called during library initialization to establish runtime configuration.
+ * Called during library initialization.
  */
 void configure_from_env() {
   const char* enabled = getenv("W1COV_ENABLED");
@@ -125,14 +124,10 @@ void configure_from_env() {
 }
 
 /**
- * Discover and catalog all executable modules in the target process.
- * Uses QBDI memory mapping to identify loadable modules and their address ranges.
- * Essential for accurate address-to-module mapping during coverage export.
- *
- * @return true if executable modules were discovered, false on failure
+ * Discover executable modules in the target process.
+ * Uses QBDI memory mapping for cross-platform module discovery.
  */
 bool discover_modules() {
-  // Query process memory maps using QBDI's cross-platform interface
   std::vector<QBDI::MemoryMap> maps = QBDI::getCurrentProcessMaps(false);
 
   if (maps.empty()) {
@@ -142,7 +137,7 @@ bool discover_modules() {
     return false;
   }
 
-  // Filter and store only executable modules for coverage analysis
+  // Filter and store executable modules
   auto* modules = get_modules();
   for (const auto& map : maps) {
     if (map.permission & QBDI::PF_EXEC) {
@@ -164,12 +159,8 @@ bool discover_modules() {
 }
 
 /**
- * Locate the executable module containing a specific memory address.
- * Performs linear search through discovered modules to map addresses to their containing binaries.
- * Essential for DrCov export format which requires module-relative address offsets.
- *
- * @param addr Virtual memory address to locate
- * @return Pointer to module containing the address, or nullptr if not found
+ * Find the module containing a specific address.
+ * Required for DrCov export which needs module-relative offsets.
  */
 const QBDI::MemoryMap* find_module_for_address(uint64_t addr) {
   auto* modules = get_modules();
@@ -182,18 +173,8 @@ const QBDI::MemoryMap* find_module_for_address(uint64_t addr) {
 }
 
 /**
- * QBDI instrumentation callback for real-time coverage collection.
- * Invoked for every instruction executed under QBDI instrumentation.
- * Collects basic block entry points and instruction sizes for accurate coverage mapping.
- *
- * Implementation follows proven working pattern from QBDI tracer examples.
- * Optimized for minimal runtime overhead during target program execution.
- *
- * @param vm QBDI virtual machine instance providing instrumentation context
- * @param gprState General-purpose register state (unused)
- * @param fprState Floating-point register state (unused)
- * @param data User-provided callback data (unused)
- * @return QBDI::CONTINUE to allow normal execution flow
+ * QBDI instrumentation callback for coverage collection.
+ * Invoked for every instruction, collects addresses and sizes for DrCov export.
  */
 QBDI::VMAction coverage_callback(
     QBDI::VMInstanceRef vm, QBDI::GPRState* gprState, QBDI::FPRState* fprState, void* data
@@ -201,15 +182,15 @@ QBDI::VMAction coverage_callback(
   // Extract instruction analysis from QBDI virtual machine
   const QBDI::InstAnalysis* instAnalysis = vm->getInstAnalysis(QBDI::ANALYSIS_INSTRUCTION);
 
+  g_instruction_count++;
+
   if (instAnalysis) {
     uint64_t addr = instAnalysis->address;
     uint16_t size = instAnalysis->instSize;
 
-    // Record instruction addresses and increment hitcounts
+    // Record instruction address and size for coverage analysis
     (*get_hitcounts())[addr]++;
     (*get_address_sizes())[addr] = size;
-
-    g_instruction_count++;
 
     // Periodic progress reporting for long-running analyses
     if (g_debug_mode && (g_instruction_count % 10000 == 0)) {
@@ -217,6 +198,7 @@ QBDI::VMAction coverage_callback(
           "[W1COV] Traced %s instructions, %s unique addresses\n", format_number(g_instruction_count).c_str(),
           format_number(get_hitcounts()->size()).c_str()
       );
+      fflush(stdout);
     }
   }
 
@@ -224,13 +206,8 @@ QBDI::VMAction coverage_callback(
 }
 
 /**
- * Export collected coverage data in industry-standard DrCov format.
- *
- * Uses the common drcov.hpp library for consistent format writing across
- * all w1tn3ss coverage tools. Compatible with analysis tools including
- * Lighthouse, IDA Pro, and Binary Ninja.
- *
- * @return true if export completed successfully, false on error
+ * Export collected coverage data in DrCov format.
+ * Compatible with Lighthouse, IDA Pro, and Binary Ninja analysis tools.
  */
 bool export_drcov_coverage() {
   auto* hitcounts = get_hitcounts();
@@ -243,7 +220,7 @@ bool export_drcov_coverage() {
     return false;
   }
 
-  // Group collected addresses by their containing modules for DrCov format
+  // Group coverage data by module for DrCov format
   std::unordered_map<const QBDI::MemoryMap*, std::vector<std::tuple<uint64_t, uint16_t, uint32_t>>> module_blocks;
   std::vector<const QBDI::MemoryMap*> module_list;
 
@@ -266,18 +243,16 @@ bool export_drcov_coverage() {
   }
 
   try {
-    // Use drcov library for consistent format writing with hitcounts enabled
-    auto builder = drcov::builder()
-                       .enable_hitcounts() // Sets flavor to "drcov-hits"
-                       .set_module_version(drcov::module_table_version::v2);
+    // Build DrCov file with hitcount support
+    auto builder = drcov::builder().enable_hitcounts().set_module_version(drcov::module_table_version::v2);
 
-    // Add modules with sequential IDs
+    // Add module table
     for (const QBDI::MemoryMap* module : module_list) {
       std::string module_name = module->name.empty() ? "unknown" : module->name;
       builder.add_module(module_name, module->range.start(), module->range.end(), 0);
     }
 
-    // Add basic blocks with actual instruction sizes and hitcounts
+    // Add coverage blocks with hitcounts
     uint16_t module_id = 0;
     for (const QBDI::MemoryMap* module : module_list) {
       const auto& blocks = module_blocks[module];
@@ -291,17 +266,14 @@ bool export_drcov_coverage() {
       module_id++;
     }
 
-    // Build and write the coverage data
     auto coverage_data = builder.build();
     drcov::write(*get_output_file(), coverage_data);
 
-    // Calculate total hit count for summary
     uint64_t total_hits = 0;
     for (const auto& [addr, hitcount] : *hitcounts) {
       total_hits += hitcount;
     }
 
-    // Print neat summary with formatted numbers
     printf("[W1COV] Coverage Summary:\n");
     printf("        Basic Blocks: %s\n", format_number(hitcounts->size()).c_str());
     printf("        Total Hits:   %s\n", format_number(total_hits).c_str());
@@ -317,8 +289,6 @@ bool export_drcov_coverage() {
 }
 
 } // namespace w1cov
-
-// QBDIPreload callback implementations
 extern "C" {
 
 QBDIPRELOAD_INIT;
@@ -328,11 +298,7 @@ int qbdipreload_on_start(void* main) {
   printf("[W1COV] qbdipreload_on_start called\n");
   fflush(stdout);
 
-  printf("[W1COV] About to call configure_from_env()\n");
-  fflush(stdout);
   w1cov::configure_from_env();
-  printf("[W1COV] configure_from_env() completed\n");
-  fflush(stdout);
 
   if (!w1cov::g_enabled) {
     printf("[W1COV] W1COV not enabled, exiting\n");
@@ -341,9 +307,6 @@ int qbdipreload_on_start(void* main) {
   }
 
   printf("[W1COV] W1COV enabled, continuing\n");
-  fflush(stdout);
-
-  printf("[W1COV] qbdipreload_on_start returning QBDIPRELOAD_NOT_HANDLED\n");
   fflush(stdout);
   return QBDIPRELOAD_NOT_HANDLED;
 }
@@ -378,7 +341,7 @@ int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QBDI::rword st
     printf("[W1COV] qbdipreload_on_run: start=0x%llx, stop=0x%llx\n", start, stop);
   }
 
-  // Register coverage callback (using same pattern as working tracer_preload.cpp)
+  // Register coverage callback
   vm->addCodeCB(QBDI::PREINST, w1cov::coverage_callback, nullptr);
 
   if (w1cov::g_debug_mode) {

@@ -72,7 +72,7 @@ void configure_from_env() {
   const char* enabled = getenv("W1COV_ENABLED");
   g_enabled = (enabled && strcmp(enabled, "1") == 0);
 
-  const char* output = getenv("W1COV_OUTPUT_FILE");
+  const char* output = getenv("W1COV_OUTPUT");
   if (output) {
     *get_output_file() = output;
   }

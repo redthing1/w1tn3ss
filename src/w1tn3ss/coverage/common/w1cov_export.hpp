@@ -58,8 +58,7 @@ private:
   std::unordered_set<uint64_t> covered_addresses_;
 
   /// Group covered addresses by their containing modules
-  void organize_addresses_by_containing_modules(
-      std::unordered_map<size_t, std::vector<uint64_t>>& addresses_per_module
+  void organize_addresses_by_containing_modules(std::unordered_map<size_t, std::vector<uint64_t>>& addresses_per_module
   ) const;
 
   /// Find which module contains a specific address

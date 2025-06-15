@@ -430,10 +430,10 @@ public:
    * \todo Currently, the comparison just seralizes both objects and compares the strings, which is probably not as
    * efficent as it could be
    */
-  bool operator==(const json::jobject other) const { return ((std::string) (*this)) == (std::string) other; }
+  bool operator==(const json::jobject other) const { return ((std::string)(*this)) == (std::string) other; }
 
   /*! \brief Comparison operator */
-  bool operator!=(const json::jobject other) const { return ((std::string) (*this)) != (std::string) other; }
+  bool operator!=(const json::jobject other) const { return ((std::string)(*this)) != (std::string) other; }
 
   /*! \brief Assignment operator */
   inline jobject& operator=(const jobject rhs) {
@@ -629,10 +629,10 @@ public:
     inline operator std::string() const { return this->as_string(); }
 
     /*! \brief Comparison operator */
-    bool operator==(const std::string other) const { return ((std::string) (*this)) == other; }
+    bool operator==(const std::string other) const { return ((std::string)(*this)) == other; }
 
     /*! \brief Comparison operator */
-    bool operator!=(const std::string other) const { return !(((std::string) (*this)) == other); }
+    bool operator!=(const std::string other) const { return !(((std::string)(*this)) == other); }
 
     /*! \brief Casts the value as an integer */
     operator int() const;

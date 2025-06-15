@@ -106,10 +106,10 @@ endforeach()
 
 # Compiler flags for enabled targets
 foreach(target ${W1TN3SS_TARGETS})
-    target_compile_features(${target} PUBLIC cxx_std_20)
+    target_compile_features(${target} PUBLIC cxx_std_17)
 endforeach()
 
-# sanitizers disabled - cause crashes with QBDI injection
+# Sanitizers disabled by default
 # if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT WIN32)
 #     target_compile_options(${LIBRARY_NAME} PRIVATE ${SANITIZER_FLAGS})
 #     target_link_options(${LIBRARY_NAME} PRIVATE ${SANITIZER_FLAGS})
@@ -145,12 +145,12 @@ target_include_directories(w1cov_qbdipreload
 
 target_link_libraries(w1cov_qbdipreload
     PRIVATE
-        QBDI
         QBDIPreload
+        QBDI_static
         redlog::redlog
 )
 
-target_compile_features(w1cov_qbdipreload PRIVATE cxx_std_20)
+target_compile_features(w1cov_qbdipreload PRIVATE cxx_std_17)
 
 # Windows compile definitions for coverage libraries
 if(WIN32)
@@ -162,7 +162,6 @@ if(WIN32)
     )
 endif()
 
-# injection libraries do not use sanitizers
 
 # Runtime injection coverage library
 add_library(w1cov_runtime SHARED
@@ -186,7 +185,7 @@ target_link_libraries(w1cov_runtime
         redlog::redlog
 )
 
-target_compile_features(w1cov_runtime PRIVATE cxx_std_20)
+target_compile_features(w1cov_runtime PRIVATE cxx_std_17)
 
 if(WIN32)
     target_compile_definitions(w1cov_runtime PRIVATE
@@ -219,7 +218,7 @@ target_link_libraries(w1cov_sampling
         redlog::redlog
 )
 
-target_compile_features(w1cov_sampling PRIVATE cxx_std_20)
+target_compile_features(w1cov_sampling PRIVATE cxx_std_17)
 
 if(WIN32)
     target_compile_definitions(w1cov_sampling PRIVATE
@@ -265,7 +264,7 @@ target_link_libraries(w1cov
         redlog::redlog
 )
 
-target_compile_features(w1cov PRIVATE cxx_std_20)
+target_compile_features(w1cov PRIVATE cxx_std_17)
 
 if(WIN32)
     target_compile_definitions(w1cov PRIVATE
@@ -276,13 +275,3 @@ if(WIN32)
     )
 endif()
 
-# injection libraries do not use sanitizers
-
-# Install rules
-install(TARGETS ${W1TN3SS_TARGETS} w1cov_qbdipreload w1cov w1cov_runtime w1cov_sampling
-    EXPORT w1tn3ssTargets
-    LIBRARY DESTINATION lib
-    ARCHIVE DESTINATION lib
-    RUNTIME DESTINATION bin
-    PUBLIC_HEADER DESTINATION include/w1tn3ss
-)
