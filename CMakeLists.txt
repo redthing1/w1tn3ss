@@ -72,6 +72,15 @@ message(STATUS "WITNESS Architecture: ${WITNESS_ARCH}")
 message(STATUS "QBDI Platform: ${QBDI_PLATFORM}")
 message(STATUS "QBDI Architecture: ${QBDI_ARCH}")
 
+# Platform-specific architecture configuration
+if(WIN32 AND WITNESS_ARCH STREQUAL "x86")
+    # Force 32-bit build on Windows when targeting x86
+    set(CMAKE_GENERATOR_PLATFORM "Win32" CACHE STRING "Platform for 32-bit builds" FORCE)
+    # Ensure all targets are built for 32-bit
+    set(CMAKE_SIZEOF_VOID_P 4)
+    message(STATUS "Configured for Windows 32-bit build")
+endif()
+
 # Configure QBDI
 set(QBDI_STATIC_LIBRARY ON)
 set(QBDI_SHARED_LIBRARY ON)
