@@ -32,7 +32,7 @@ std::wstring build_command_line(const std::wstring& binary_path, const std::vect
 
 BOOL inject_dll_launch_suspended(
     const std::wstring& binary_path, const std::wstring& dll_path, const std::vector<std::string>& args,
-    const std::map<std::string, std::string>& env_vars, DWORD* out_pid, bool wait_for_user_resume = false
+    const std::map<std::string, std::string>& env_vars, DWORD* out_pid, bool wait_for_user_resume
 ) {
   log_msg("Starting Windows launch injection with suspended process");
 
