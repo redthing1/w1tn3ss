@@ -213,6 +213,8 @@ BOOL ManualMap(HANDLE hProc, const char* szDllFile) {
 
   printf("[*] Loading routine successfully completed. Cleaning up!\n");
   CloseHandle(hThread);
+
+  return true;
 }
 
 #define RELOC_FLAG32(relInfo) ((relInfo >> 0xC) == IMAGE_REL_BASED_HIGHLOW)
