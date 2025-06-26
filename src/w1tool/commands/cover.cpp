@@ -133,6 +133,9 @@ int cover(
 
   if (debug_flag) {
     cfg.env_vars["W1COV_DEBUG"] = "1";
+  } else {
+    // Normal operation - suppress verbose logging from coverage components
+    cfg.env_vars["W1COV_QUIET"] = "1";
   }
 
   // Set output format

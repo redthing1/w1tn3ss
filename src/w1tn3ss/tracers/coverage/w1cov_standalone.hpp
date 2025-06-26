@@ -53,7 +53,7 @@ public:
     bool trace_address_range(uint64_t start, uint64_t end);
     
     // === Data Export ===
-    bool export_coverage(const std::string& output_path = "");
+    bool export_data(const std::string& output_path = "");
     void print_statistics() const;
     
     // === Statistics ===
@@ -76,8 +76,6 @@ private:
     bool allocate_virtual_stack();
 };
 
-// Alias for backward compatibility with old tests
-using w1cov_standalone = coverage_session;
 
 // === Convenience Functions ===
 

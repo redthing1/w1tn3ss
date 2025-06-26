@@ -13,6 +13,8 @@
 
 #include <redlog/redlog.hpp>
 #include <type_traits>
+#include <cstdlib>
+#include <cstring>
 #include <QBDI.h>
 
 namespace w1::framework {
@@ -67,7 +69,7 @@ public:
             );
             
             if (bb_id != QBDI::INVALID_EVENTID) {
-                log_.info("basic block callback registered", 
+                log_.debug("basic block callback registered", 
                          redlog::field("callback_id", bb_id),
                          redlog::field("tracer", tracer_name_));
                 any_registered = true;
@@ -88,7 +90,7 @@ public:
             );
             
             if (inst_id != QBDI::INVALID_EVENTID) {
-                log_.info("instruction callback registered", 
+                log_.debug("instruction callback registered", 
                          redlog::field("callback_id", inst_id),
                          redlog::field("tracer", tracer_name_));
                 any_registered = true;
@@ -109,7 +111,7 @@ public:
             );
             
             if (mem_id != QBDI::INVALID_EVENTID) {
-                log_.info("memory access callback registered", 
+                log_.debug("memory access callback registered", 
                          redlog::field("callback_id", mem_id),
                          redlog::field("tracer", tracer_name_));
                 any_registered = true;
@@ -121,7 +123,7 @@ public:
         }
 
         if (any_registered) {
-            log_.info("callback registration completed", redlog::field("tracer", tracer_name_));
+            log_.debug("callback registration completed", redlog::field("tracer", tracer_name_));
         } else {
             log_.warn("no callbacks were registered", redlog::field("tracer", tracer_name_));
         }

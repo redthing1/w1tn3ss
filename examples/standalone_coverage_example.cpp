@@ -54,7 +54,7 @@ int main()
     std::cout << "=== w1cov Standalone Coverage Example ===\n\n";
 
     // Step 1: Initialize the coverage tracer
-    w1::coverage::w1cov_standalone tracer;
+    w1::coverage::coverage_session tracer;
 
     if (!tracer.initialize())
     {
@@ -110,15 +110,15 @@ int main()
     // Step 3: Analyze coverage results
     std::cout << "\n--- Coverage Results ---\n";
 
-    std::cout << "Unique basic blocks: " << tracer.get_unique_blocks() << "\n";
+    std::cout << "Unique basic blocks: " << tracer.get_unique_block_count() << "\n";
     std::cout << "Total hits: " << tracer.get_total_hits() << "\n";
 
-    tracer.print_summary();
+    tracer.print_statistics();
 
     // Step 4: Export coverage data
     std::cout << "\n--- Exporting Coverage ---\n";
 
-    if (tracer.export_drcov("example_coverage.drcov"))
+    if (tracer.export_data("example_coverage.drcov"))
     {
         std::cout << "Coverage data exported to example_coverage.drcov\n";
         std::cout << "   View coverage data with:\n";

@@ -21,7 +21,7 @@ extern "C" uint64_t simple_math(uint64_t a, uint64_t b) {
 int main() {
   std::cout << "Testing w1cov standalone implementation...\n";
 
-  w1::coverage::w1cov_standalone tracer;
+  w1::coverage::coverage_session tracer;
 
   if (!tracer.initialize()) {
     std::cout << "Failed to initialize tracer\n";
@@ -41,12 +41,12 @@ int main() {
   }
 
   std::cout << "Function results: " << result1 << ", " << result2 << "\n";
-  std::cout << "Unique blocks: " << tracer.get_unique_blocks() << "\n";
+  std::cout << "Unique blocks: " << tracer.get_unique_block_count() << "\n";
   std::cout << "Total hits: " << tracer.get_total_hits() << "\n";
 
-  tracer.print_summary();
+  tracer.print_statistics();
 
-  if (!tracer.export_drcov("test_standalone_coverage.drcov")) {
+  if (!tracer.export_data("test_standalone_coverage.drcov")) {
     std::cout << "Failed to export coverage\n";
     return 1;
   }

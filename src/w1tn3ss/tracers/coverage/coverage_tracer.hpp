@@ -101,7 +101,6 @@ public:
     uint64_t get_total_hits() const;
     
     void print_statistics() const;
-    void print_summary() const;
 
     // === Direct Access (for advanced usage) ===
     

@@ -2,6 +2,8 @@
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
+#include <cstdlib>
+#include <cstring>
 
 namespace w1::coverage {
 
@@ -43,7 +45,7 @@ uint16_t coverage_collector::add_module(const std::string& path, uint64_t base, 
     address_to_module_[addr] = module_id;
   }
 
-  log_.info(
+  log_.debug(
       "module added", redlog::field("id", module_id), redlog::field("path", path), redlog::field("base", base),
       redlog::field("size", end - base)
   );
@@ -149,7 +151,7 @@ std::unordered_map<uint16_t, size_t> coverage_collector::get_coverage_stats() co
 drcov::coverage_data coverage_collector::export_drcov_data() const {
   std::lock_guard<std::mutex> lock(mutex_);
 
-  log_.info(
+  log_.debug(
       "exporting coverage data to drcov format", redlog::field("modules", modules_.size()),
       redlog::field("blocks", basic_blocks_.size()), redlog::field("unique", covered_addresses_.size())
   );
@@ -269,7 +271,7 @@ drcov::coverage_data coverage_collector::export_drcov_data() const {
     }
   }
 
-  log_.info(
+  log_.debug(
       "basic block processing completed", redlog::field("valid", valid_blocks),
       redlog::field("invalid", invalid_blocks), redlog::field("orphaned", orphaned_blocks)
   );
@@ -281,7 +283,7 @@ drcov::coverage_data coverage_collector::export_drcov_data() const {
   try {
     auto result = builder.build();
 
-    log_.info(
+    log_.debug(
         "drcov data export completed successfully", redlog::field("modules", valid_modules),
         redlog::field("blocks", valid_blocks)
     );
@@ -295,7 +297,7 @@ drcov::coverage_data coverage_collector::export_drcov_data() const {
 }
 
 bool coverage_collector::write_drcov_file(const std::string& filepath) const {
-  log_.info("writing coverage data to drcov file", redlog::field("filepath", filepath));
+  log_.debug("writing coverage data to drcov file", redlog::field("filepath", filepath));
 
   // validate output directory exists
   std::filesystem::path file_path(filepath);
@@ -374,7 +376,7 @@ bool coverage_collector::write_drcov_file(const std::string& filepath) const {
       );
     }
 
-    log_.info(
+    log_.debug(
         "drcov file written successfully", redlog::field("filepath", filepath),
         redlog::field("bytes", fs_error ? 0 : final_size), redlog::field("modules", modules_.size()),
         redlog::field("blocks", basic_blocks_.size()), redlog::field("unique", covered_addresses_.size())
@@ -415,7 +417,7 @@ bool coverage_collector::is_system_module(const std::string& path) const {
 uint16_t coverage_collector::find_or_create_module_for_address(uint64_t address) {
   // this would normally use QBDI's getCurrentProcessMaps() to discover modules
   // for now, return invalid id to indicate we can't create modules dynamically
-  log_.warn("attempted to create module for unknown address", redlog::field("address", address));
+  log_.debug("attempted to create module for unknown address", redlog::field("address", address));
   return UINT16_MAX;
 }
 

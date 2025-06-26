@@ -33,11 +33,11 @@ coverage_tracer::~coverage_tracer() {
 
 bool coverage_tracer::initialize() {
     if (is_initialized()) {
-        log_.warn("coverage tracer already initialized");
+        log_.debug("coverage tracer already initialized");
         return true;
     }
 
-    log_.info("initializing coverage tracer", 
+    log_.debug("initializing coverage tracer", 
              redlog::field("output_file", config_.output_file),
              redlog::field("debug_mode", config_.debug_mode));
 
@@ -57,7 +57,7 @@ bool coverage_tracer::initialize() {
     invalidate_hitcounts_cache();
 
     set_initialized(true);
-    log_.info("coverage tracer initialized successfully");
+    log_.debug("coverage tracer initialized successfully");
     return true;
 }
 
@@ -66,15 +66,13 @@ void coverage_tracer::shutdown() {
         return;
     }
 
-    log_.info("shutting down coverage tracer");
+    log_.debug("shutting down coverage tracer");
     
-    // Print final statistics
-    if (config_.debug_mode) {
-        print_summary();
-    }
+    // Export coverage data during shutdown
+    export_data(config_.output_file);
 
     set_initialized(false);
-    log_.info("coverage tracer shutdown completed");
+    log_.debug("coverage tracer shutdown completed");
 }
 
 bool coverage_tracer::export_data(const std::string& output_path) {
@@ -83,14 +81,13 @@ bool coverage_tracer::export_data(const std::string& output_path) {
         return false;
     }
 
-    log_.info("exporting coverage data", redlog::field("output_path", output_path));
+    log_.debug("exporting coverage data", redlog::field("output_path", output_path));
 
     try {
         bool success = collector_->write_drcov_file(output_path);
         
         if (success) {
-            log_.info("coverage data exported successfully", redlog::field("output_path", output_path));
-            print_summary();
+            log_.debug("coverage data exported successfully", redlog::field("output_path", output_path));
         } else {
             log_.error("failed to export coverage data", redlog::field("output_path", output_path));
         }
@@ -273,13 +270,6 @@ void coverage_tracer::print_statistics() const {
     }
 }
 
-void coverage_tracer::print_summary() const {
-    w1::cov::log("Coverage Summary:");
-    w1::cov::log("        Basic Blocks: %s", format_number(get_unique_block_count()).c_str());
-    w1::cov::log("        Total Hits:   %s", format_number(get_total_hits()).c_str());
-    w1::cov::log("        Modules:      %s", format_number(get_module_count()).c_str());
-    w1::cov::log("Coverage exported -> %s", config_.output_file.c_str());
-}
 
 const std::unordered_map<uint64_t, uint32_t>& coverage_tracer::get_hitcounts() const {
     sync_hitcounts_cache();
@@ -327,7 +317,7 @@ bool coverage_tracer::discover_and_register_modules() {
             }
         }
 
-        log_.info("module discovery completed", 
+        log_.debug("module discovery completed", 
                  redlog::field("total_maps", maps.size()),
                  redlog::field("registered", registered_count));
 
@@ -369,9 +359,9 @@ void coverage_tracer::report_progress_if_needed() {
     
     if (current_count - last_report >= config_.progress_report_interval) {
         if (last_progress_report_.compare_exchange_weak(last_report, current_count)) {
-            w1::cov::log("Traced %s basic blocks, %s unique blocks", 
-                        format_number(current_count).c_str(),
-                        format_number(get_unique_block_count()).c_str());
+            log_.debug("Coverage progress", 
+                     redlog::field("traced_blocks", current_count),
+                     redlog::field("unique_blocks", get_unique_block_count()));
         }
     }
 }

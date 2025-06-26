@@ -73,7 +73,7 @@ constexpr uint64_t FAKE_RETURN_ADDRESS = 0x40000;
 constexpr uint16_t DEFAULT_INSTRUCTION_SIZE = 4;
 
 /// Interval for progress reporting in basic block callbacks
-constexpr uint64_t PROGRESS_REPORT_INTERVAL = 100000;
+constexpr uint64_t PROGRESS_REPORT_INTERVAL = 1000000;
 
 /// Interval for performance logging in instruction callbacks
 constexpr uint64_t PERFORMANCE_LOG_INTERVAL = 10000;
@@ -153,14 +153,7 @@ constexpr const char* WINDOWS_SYSTEM_PATTERNS[] = {
 // Utility Functions
 // =============================================================================
 
-/// Simple logging function for w1cov
-inline void log(const char* format, ...) {
-  printf("[w1cov] ");
-  va_list args;
-  va_start(args, format);
-  vprintf(format, args);
-  va_end(args);
-  printf("\n");
-}
+// Note: Logging now unified through redlog framework
+// Use tracer.log_.info() / debug() / etc. for all logging
 
 } // namespace w1::cov
