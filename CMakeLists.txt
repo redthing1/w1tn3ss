@@ -14,6 +14,13 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
+# Disable SAFESEH globally for 32-bit Windows builds (QBDI assembly incompatible)
+if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 4)
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /SAFESEH:NO")
+    set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} /SAFESEH:NO")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SAFESEH:NO")
+endif()
+
 # # Sanitizers disabled by default (can cause issues)
 # if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT WIN32)
 #     set(SANITIZER_FLAGS "-fsanitize=address;-fsanitize=undefined")

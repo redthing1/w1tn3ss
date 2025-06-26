@@ -104,10 +104,6 @@ if(WIN32)
             WIN32_LEAN_AND_MEAN
             _CRT_SECURE_NO_WARNINGS
         )
-        # Disable SAFESEH for 32-bit Windows builds (QBDI assembly incompatible)
-        if(CMAKE_SIZEOF_VOID_P EQUAL 4)
-            target_link_options(${target} PRIVATE /SAFESEH:NO)
-        endif()
     endforeach()
 endif()
 
@@ -147,10 +143,6 @@ if(WIN32)
         WIN32_LEAN_AND_MEAN
         _CRT_SECURE_NO_WARNINGS
     )
-    # Disable SAFESEH for 32-bit Windows builds (QBDI assembly incompatible)
-    if(CMAKE_SIZEOF_VOID_P EQUAL 4)
-        target_link_options(w1cov_qbdipreload PRIVATE /SAFESEH:NO)
-    endif()
 endif()
 
 # Standalone w1cov library
@@ -221,10 +213,6 @@ foreach(target ${W1COV_STANDALONE_TARGETS})
             WIN32_LEAN_AND_MEAN
             _CRT_SECURE_NO_WARNINGS
         )
-        # Disable SAFESEH for 32-bit Windows builds (QBDI assembly incompatible)
-        if(CMAKE_SIZEOF_VOID_P EQUAL 4)
-            target_link_options(${target} PRIVATE /SAFESEH:NO)
-        endif()
     endif()
 endforeach()
 
