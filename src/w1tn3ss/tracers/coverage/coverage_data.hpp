@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../formats/drcov.hpp"
+#include "../../formats/drcov.hpp"
 #include <cstdint>
 #include <mutex>
 #include <redlog/redlog.hpp>
@@ -87,6 +87,10 @@ private:
   // helper methods
   bool is_system_module(const std::string& path) const;
   uint16_t find_or_create_module_for_address(uint64_t address);
+  
+  // internal methods (caller must hold mutex_)
+  const module_info* find_module_by_address_internal(uint64_t address) const;
+  void record_basic_block_with_module_internal(uint64_t address, uint16_t size, uint16_t module_id);
 };
 
 // global coverage collector instance

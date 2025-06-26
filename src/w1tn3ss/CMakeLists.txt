@@ -1,18 +1,29 @@
 set(LIBRARY_NAME w1tn3ss)
 
+# Framework headers (header-only components)
+set(FRAMEWORK_HEADERS
+    framework/callback_registrar.hpp
+    framework/module_discovery.hpp
+    framework/env_config.hpp
+    framework/performance_monitor.hpp
+    framework/tracer_base.hpp
+)
+
 # Create main w1tn3ss library sources
 set(SOURCES
     w1tn3ss.cpp
-    coverage/coverage_data.cpp
-    coverage/module_mapper.cpp
-    coverage/w1cov_tracer.cpp
+    framework/module_discovery.cpp
+    tracers/coverage/coverage_data.cpp
+    tracers/coverage/coverage_tracer.cpp
 )
 
 set(HEADERS
     w1tn3ss.hpp
-    coverage/coverage_data.hpp
-    coverage/module_mapper.hpp
-    coverage/w1cov_tracer.hpp
+    ${FRAMEWORK_HEADERS}
+    tracers/coverage/coverage_data.hpp
+    tracers/coverage/coverage_tracer.hpp
+    tracers/coverage/w1cov_constants.hpp
+    tracers/coverage/w1cov_standalone.hpp
     formats/drcov.hpp
 )
 
@@ -111,7 +122,14 @@ endif()
 set(W1COV_STANDALONE_TARGETS)
 
 # w1cov_qbdipreload library (QBDIPreload-based) - shared only
-add_library(w1cov_qbdipreload SHARED coverage/w1cov_qbdipreload.cpp)
+set(W1COV_QBDIPRELOAD_SOURCES
+    framework/module_discovery.cpp
+    tracers/coverage/coverage_data.cpp
+    tracers/coverage/coverage_tracer.cpp
+    tracers/coverage/w1cov_qbdipreload.cpp
+)
+
+add_library(w1cov_qbdipreload SHARED ${W1COV_QBDIPRELOAD_SOURCES})
 
 set_target_properties(w1cov_qbdipreload PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
@@ -145,11 +163,11 @@ if(WIN32)
     )
 endif()
 
-# Standalone w1cov library
+# Standalone w1cov library using shared core
 set(W1COV_STANDALONE_SOURCES
-    coverage/coverage_data.cpp
-    coverage/module_mapper.cpp
-    coverage/w1cov_standalone.cpp
+    framework/module_discovery.cpp
+    tracers/coverage/coverage_data.cpp
+    tracers/coverage/coverage_tracer.cpp
 )
 
 if(WITNESS_BUILD_STATIC)

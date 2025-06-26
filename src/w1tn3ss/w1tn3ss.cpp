@@ -1,5 +1,4 @@
 #include "w1tn3ss.hpp"
-#include "coverage/w1cov_tracer.hpp"
 #include <cstdlib>
 #include <cstring>
 
@@ -72,9 +71,6 @@ void w1tn3ss::shutdown() {
   log_.info("shutting down w1tn3ss analysis engine");
 
   // stop any active operations
-  if (is_coverage_active()) {
-    stop_coverage_tracing();
-  }
 
   // cleanup mode-specific components
   cleanup_mode_components();
@@ -93,42 +89,6 @@ bool w1tn3ss::set_mode(analysis_mode mode) {
   return true;
 }
 
-bool w1tn3ss::start_coverage_tracing() {
-  if (mode_ != analysis_mode::coverage) {
-    log_.error("engine not in coverage mode");
-    return false;
-  }
-
-  if (!coverage_tracer_) {
-    log_.error("coverage tracer not initialized");
-    return false;
-  }
-
-  return coverage_tracer_->start_instrumentation();
-}
-
-bool w1tn3ss::stop_coverage_tracing() {
-  if (!coverage_tracer_) {
-    return true; // nothing to stop
-  }
-
-  return coverage_tracer_->stop_instrumentation();
-}
-
-bool w1tn3ss::is_coverage_active() const { return coverage_tracer_ && coverage_tracer_->is_instrumenting(); }
-
-void w1tn3ss::export_coverage_data(const std::string& output_file) {
-  if (!coverage_tracer_) {
-    log_.error("coverage tracer not available");
-    return;
-  }
-
-  if (!output_file.empty()) {
-    coverage_tracer_->set_output_file(output_file);
-  }
-
-  coverage_tracer_->export_coverage_data();
-}
 
 bool w1tn3ss::analyze_binary(const std::string& binary_path) {
   if (mode_ != analysis_mode::inspection) {
@@ -148,30 +108,16 @@ void w1tn3ss::print_statistics() const {
   log_.info(
       "w1tn3ss statistics", redlog::field("mode", static_cast<int>(mode_)), redlog::field("initialized", initialized_)
   );
-
-  if (coverage_tracer_) {
-    coverage_tracer_->print_statistics();
-  }
 }
 
 bool w1tn3ss::initialize_coverage_mode() {
   log_.debug("initializing coverage mode");
 
-  try {
-    coverage_tracer_ = std::make_unique<coverage::w1cov_tracer>();
-
-    if (!coverage_tracer_->initialize()) {
-      log_.error("failed to initialize coverage tracer");
-      return false;
-    }
-
-    log_.debug("coverage mode initialized successfully");
-    return true;
-
-  } catch (const std::exception& e) {
-    log_.error("coverage mode initialization failed", redlog::field("error", e.what()));
-    return false;
-  }
+  // Coverage mode is handled by specific implementations (QBDIPreload, standalone)
+  // This class doesn't manage coverage tracers directly anymore
+  
+  log_.debug("coverage mode initialized successfully");
+  return true;
 }
 
 bool w1tn3ss::initialize_inspection_mode() {
@@ -185,11 +131,6 @@ bool w1tn3ss::initialize_inspection_mode() {
 
 void w1tn3ss::cleanup_mode_components() {
   log_.debug("cleaning up mode-specific components");
-
-  // cleanup coverage components
-  if (coverage_tracer_) {
-    coverage_tracer_.reset();
-  }
 
   // future: cleanup other mode components
 }

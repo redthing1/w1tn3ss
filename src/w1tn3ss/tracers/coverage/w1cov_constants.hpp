@@ -73,7 +73,7 @@ constexpr uint64_t FAKE_RETURN_ADDRESS = 0x40000;
 constexpr uint16_t DEFAULT_INSTRUCTION_SIZE = 4;
 
 /// Interval for progress reporting in basic block callbacks
-constexpr uint64_t PROGRESS_REPORT_INTERVAL = 1000;
+constexpr uint64_t PROGRESS_REPORT_INTERVAL = 100000;
 
 /// Interval for performance logging in instruction callbacks
 constexpr uint64_t PERFORMANCE_LOG_INTERVAL = 10000;

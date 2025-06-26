@@ -6,7 +6,7 @@
  * functions to instrument and when to collect coverage.
  */
 
-#include "../src/w1tn3ss/coverage/w1cov_standalone.hpp"
+#include "../src/w1tn3ss/tracers/coverage/w1cov_standalone.hpp"
 #include <iostream>
 #include <vector>
 #include <cstdint>

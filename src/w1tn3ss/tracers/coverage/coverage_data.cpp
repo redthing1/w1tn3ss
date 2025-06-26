@@ -53,6 +53,11 @@ uint16_t coverage_collector::add_module(const std::string& path, uint64_t base, 
 
 const module_info* coverage_collector::find_module_by_address(uint64_t address) const {
   std::lock_guard<std::mutex> lock(mutex_);
+  return find_module_by_address_internal(address);
+}
+
+const module_info* coverage_collector::find_module_by_address_internal(uint64_t address) const {
+  // NOTE: caller must hold mutex_
 
   // try fast lookup first
   uint64_t page_addr = address & ~0xFFF; // align to page boundary
@@ -84,8 +89,8 @@ const module_info* coverage_collector::find_module_by_id(uint16_t id) const {
 void coverage_collector::record_basic_block(uint64_t address, uint16_t size) {
   std::lock_guard<std::mutex> lock(mutex_);
 
-  // find the module containing this address
-  const module_info* module = find_module_by_address(address);
+  // find the module containing this address (internal method, no locking)
+  const module_info* module = find_module_by_address_internal(address);
   if (!module) {
     // try to discover the module dynamically
     uint16_t module_id = find_or_create_module_for_address(address);
@@ -95,11 +100,17 @@ void coverage_collector::record_basic_block(uint64_t address, uint16_t size) {
     module = find_module_by_id(module_id);
   }
 
-  record_basic_block_with_module(address, size, module->id);
+  // record the basic block (internal method, no locking)
+  record_basic_block_with_module_internal(address, size, module->id);
 }
 
 void coverage_collector::record_basic_block_with_module(uint64_t address, uint16_t size, uint16_t module_id) {
   std::lock_guard<std::mutex> lock(mutex_);
+  record_basic_block_with_module_internal(address, size, module_id);
+}
+
+void coverage_collector::record_basic_block_with_module_internal(uint64_t address, uint16_t size, uint16_t module_id) {
+  // NOTE: caller must hold mutex_
 
   // check if we've already covered this exact address
   if (covered_addresses_.find(address) != covered_addresses_.end()) {

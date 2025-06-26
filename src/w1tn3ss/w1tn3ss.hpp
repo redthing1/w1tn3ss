@@ -18,7 +18,7 @@
 
 // forward declarations
 namespace w1::coverage {
-class w1cov_tracer;
+class coverage_tracer;
 }
 
 namespace w1 {
@@ -44,11 +44,6 @@ public:
   analysis_mode get_mode() const { return mode_; }
   bool set_mode(analysis_mode mode);
 
-  // coverage-specific interface
-  bool start_coverage_tracing();
-  bool stop_coverage_tracing();
-  bool is_coverage_active() const;
-  void export_coverage_data(const std::string& output_file = "");
 
   // inspection-specific interface
   bool analyze_binary(const std::string& binary_path);
@@ -61,8 +56,6 @@ private:
   analysis_mode mode_;
   bool initialized_;
 
-  // mode-specific components
-  std::unique_ptr<coverage::w1cov_tracer> coverage_tracer_;
 
   // initialization helpers
   bool initialize_coverage_mode();

@@ -1,4 +1,4 @@
-#include "../../src/w1tn3ss/coverage/w1cov_standalone.hpp"
+#include "../../src/w1tn3ss/tracers/coverage/w1cov_standalone.hpp"
 #include <cstdint>
 #include <iostream>
 
