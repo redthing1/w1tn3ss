@@ -421,9 +421,5 @@ uint16_t coverage_collector::find_or_create_module_for_address(uint64_t address)
   return UINT16_MAX;
 }
 
-// global instance
-static coverage_collector g_collector;
-
-coverage_collector& get_global_collector() { return g_collector; }
 
 } // namespace w1::coverage

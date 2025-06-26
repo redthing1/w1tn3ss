@@ -15,17 +15,10 @@ int inspect(args::ValueFlag<std::string>& binary_flag) {
     std::string binary_path = args::get(binary_flag);
     log.info("target binary specified", redlog::field("binary_path", binary_path));
 
-    // future: initialize w1tn3ss engine and analyze binary
-    w1::w1tn3ss engine;
-    if (engine.initialize()) {
-      log.debug("analysis engine ready for binary inspection");
-      // todo: implement binary analysis logic
-      log.warn("binary analysis not yet implemented");
-      engine.shutdown();
-    } else {
-      log.error("failed to initialize analysis engine");
-      return 1;
-    }
+    // future: implement binary analysis logic
+    log.info("w1tn3ss library info");
+    w1::w1tn3ss::print_info();
+    log.warn("binary analysis not yet implemented");
   } else {
     log.error("binary path required for inspection");
     return 1;

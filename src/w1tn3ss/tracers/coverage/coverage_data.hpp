@@ -93,7 +93,5 @@ private:
   void record_basic_block_with_module_internal(uint64_t address, uint16_t size, uint16_t module_id);
 };
 
-// global coverage collector instance
-coverage_collector& get_global_collector();
 
 } // namespace w1::coverage
