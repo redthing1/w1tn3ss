@@ -58,6 +58,11 @@ public:
   size_t get_total_blocks() const;
   size_t get_unique_blocks() const;
   std::unordered_map<uint16_t, size_t> get_coverage_stats() const;
+  
+  // hitcount access
+  uint32_t get_hitcount(uint64_t address) const;
+  uint64_t get_total_hits() const;
+  const std::unordered_map<uint64_t, uint32_t>& get_hitcounts() const;
 
   // drcov export
   drcov::coverage_data export_drcov_data() const;
@@ -79,6 +84,7 @@ private:
   // coverage tracking
   std::unordered_set<uint64_t> covered_addresses_;
   std::vector<basic_block_info> basic_blocks_;
+  std::unordered_map<uint64_t, uint32_t> hitcounts_;
 
   // configuration
   bool exclude_system_;

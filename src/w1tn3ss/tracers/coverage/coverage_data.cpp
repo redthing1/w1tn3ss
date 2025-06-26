@@ -1,4 +1,5 @@
 #include "coverage_data.hpp"
+#include "w1cov_constants.hpp"
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
@@ -114,17 +115,20 @@ void coverage_collector::record_basic_block_with_module(uint64_t address, uint16
 void coverage_collector::record_basic_block_with_module_internal(uint64_t address, uint16_t size, uint16_t module_id) {
   // NOTE: caller must hold mutex_
 
-  // check if we've already covered this exact address
-  if (covered_addresses_.find(address) != covered_addresses_.end()) {
-    return; // already recorded
-  }
+  // increment hitcount for this address
+  hitcounts_[address]++;
 
-  covered_addresses_.insert(address);
-  basic_blocks_.emplace_back(address, size, module_id);
+  // check if this is a new address
+  bool is_new_address = covered_addresses_.find(address) == covered_addresses_.end();
+  if (is_new_address) {
+    covered_addresses_.insert(address);
+    basic_blocks_.emplace_back(address, size, module_id);
+  }
 
   log_.trace(
       "basic block recorded", redlog::field("address", address), redlog::field("size", size),
-      redlog::field("id", module_id)
+      redlog::field("id", module_id), redlog::field("hitcount", hitcounts_[address]),
+      redlog::field("new", is_new_address)
   );
 }
 
@@ -156,6 +160,7 @@ drcov::coverage_data coverage_collector::export_drcov_data() const {
       redlog::field("blocks", basic_blocks_.size()), redlog::field("unique", covered_addresses_.size())
   );
 
+  // Early validation - warn if no data to export
   if (modules_.empty()) {
     log_.warn("no modules available for drcov export");
   }
@@ -164,9 +169,17 @@ drcov::coverage_data coverage_collector::export_drcov_data() const {
     log_.warn("no basic blocks collected for drcov export");
   }
 
-  auto builder = drcov::builder().set_flavor("w1cov").set_module_version(drcov::module_table_version::v2);
+  // Create DrCov builder with hitcount support enabled
+  // Using "w1cov" flavor for identification, with hitcounts for execution frequency data
+  auto builder = drcov::builder()
+      .set_flavor("w1cov")
+      .enable_hitcounts()
+      .set_module_version(drcov::module_table_version::v2);
 
-  // add modules with validation
+  // Two-pass export: first add all valid modules, then add basic blocks with hitcounts
+  // This ensures all module references in basic blocks are valid
+  
+  // Pass 1: Add modules with validation
   size_t valid_modules = 0;
   size_t invalid_modules = 0;
 
@@ -212,7 +225,8 @@ drcov::coverage_data coverage_collector::export_drcov_data() const {
       "module processing completed", redlog::field("valid", valid_modules), redlog::field("invalid", invalid_modules)
   );
 
-  // add basic blocks with validation
+  // Pass 2: Add basic blocks with hitcounts and validation
+  // Each basic block includes its execution frequency (hitcount) from the hitcounts_ map
   size_t valid_blocks = 0;
   size_t invalid_blocks = 0;
   size_t orphaned_blocks = 0;
@@ -254,12 +268,19 @@ drcov::coverage_data coverage_collector::export_drcov_data() const {
         continue;
       }
 
-      builder.add_coverage(block.module_id, offset, block.size);
+      // get hitcount for this address
+      uint32_t hitcount = 1;
+      auto hitcount_it = hitcounts_.find(block.address);
+      if (hitcount_it != hitcounts_.end()) {
+        hitcount = hitcount_it->second;
+      }
+
+      builder.add_coverage(block.module_id, offset, block.size, hitcount);
       valid_blocks++;
 
       log_.trace(
           "added basic block to drcov", redlog::field("id", block.module_id), redlog::field("address", block.address),
-          redlog::field("offset", offset), redlog::field("size", block.size)
+          redlog::field("offset", offset), redlog::field("size", block.size), redlog::field("hitcount", hitcount)
       );
 
     } catch (const std::exception& e) {
@@ -408,10 +429,27 @@ bool coverage_collector::write_drcov_file(const std::string& filepath) const {
 }
 
 bool coverage_collector::is_system_module(const std::string& path) const {
-  // simple heuristic for system modules
-  return path.find("/System/") != std::string::npos || path.find("/usr/lib/") != std::string::npos ||
-         path.find("/usr/local/lib/") != std::string::npos || path.find("libsystem_") != std::string::npos ||
-         path.find("libc++") != std::string::npos || path.find("libdyld") != std::string::npos;
+  // Use platform-specific system module patterns from constants
+#ifdef __APPLE__
+  for (const auto& pattern : w1::cov::MACOS_SYSTEM_PATTERNS) {
+    if (path.find(pattern) != std::string::npos) {
+      return true;
+    }
+  }
+#elif __linux__
+  for (const auto& pattern : w1::cov::LINUX_SYSTEM_PATTERNS) {
+    if (path.find(pattern) != std::string::npos) {
+      return true;
+    }
+  }
+#elif _WIN32
+  for (const auto& pattern : w1::cov::WINDOWS_SYSTEM_PATTERNS) {
+    if (path.find(pattern) != std::string::npos) {
+      return true;
+    }
+  }
+#endif
+  return false;
 }
 
 uint16_t coverage_collector::find_or_create_module_for_address(uint64_t address) {
@@ -421,5 +459,24 @@ uint16_t coverage_collector::find_or_create_module_for_address(uint64_t address)
   return UINT16_MAX;
 }
 
+uint32_t coverage_collector::get_hitcount(uint64_t address) const {
+  std::lock_guard<std::mutex> lock(mutex_);
+  auto it = hitcounts_.find(address);
+  return (it != hitcounts_.end()) ? it->second : 0;
+}
+
+uint64_t coverage_collector::get_total_hits() const {
+  std::lock_guard<std::mutex> lock(mutex_);
+  uint64_t total = 0;
+  for (const auto& [addr, count] : hitcounts_) {
+    total += count;
+  }
+  return total;
+}
+
+const std::unordered_map<uint64_t, uint32_t>& coverage_collector::get_hitcounts() const {
+  std::lock_guard<std::mutex> lock(mutex_);
+  return hitcounts_;
+}
 
 } // namespace w1::coverage

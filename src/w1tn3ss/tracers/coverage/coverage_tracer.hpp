@@ -10,10 +10,9 @@
 #pragma once
 
 #include "../../framework/tracer_base.hpp"
-#include "../../framework/env_config.hpp"
 #include "../../framework/module_discovery.hpp"
 #include "coverage_data.hpp"
-#include "w1cov_constants.hpp"
+#include "coverage_config.hpp"
 
 #include <redlog/redlog.hpp>
 #include <memory>
@@ -25,19 +24,7 @@
 
 namespace w1::coverage {
 
-/**
- * @brief Coverage tracer configuration
- */
-struct coverage_config {
-    std::string output_file = w1::cov::DEFAULT_OUTPUT_FILENAME;
-    std::string output_format = w1::cov::DEFAULT_OUTPUT_FORMAT;
-    bool exclude_system_modules = true;
-    bool debug_mode = false;
-    bool track_full_paths = false;
-    std::vector<std::string> target_modules;
-    uint64_t progress_report_interval = w1::cov::PROGRESS_REPORT_INTERVAL;
-    bool auto_configure_from_env = true;
-};
+// Configuration is now defined in coverage_config.hpp
 
 /**
  * @brief Clean coverage tracer implementation
@@ -111,7 +98,7 @@ private:
     // === Coverage Data ===
     std::unique_ptr<coverage_collector> collector_;
     std::unique_ptr<w1::framework::module_discovery> modules_;
-    w1::framework::env_config<coverage_config> env_config_;
+    std::unique_ptr<coverage_config_manager> config_manager_;
 
     // Fast access cache for hitcounts
     mutable std::unordered_map<uint64_t, uint32_t> hitcounts_cache_;

@@ -6,8 +6,6 @@
 #include "coverage_tracer.hpp"
 #include "../../framework/module_discovery.hpp"
 #include <QBDI.h>
-#include <cstdlib>
-#include <cstring>
 
 namespace w1::coverage {
 
@@ -15,7 +13,7 @@ coverage_tracer::coverage_tracer(const coverage_config& config)
     : tracer_base(config, "coverage_tracer")
     , collector_(std::make_unique<coverage_collector>())
     , modules_(std::make_unique<w1::framework::module_discovery>())
-    , env_config_("W1COV") {
+    , config_manager_(std::make_unique<coverage_config_manager>()) {
     
     log_.debug("coverage tracer created");
     
@@ -104,69 +102,23 @@ bool coverage_tracer::export_data(const std::string& output_path) {
 
 void coverage_tracer::configure_from_environment() {
     log_.debug("configuring from environment variables");
-
-    // Check if coverage is enabled
-    const char* enabled = getenv(w1::cov::ENV_W1COV_ENABLED);
-    if (!enabled || strcmp(enabled, w1::cov::ENABLED_VALUE) != 0) {
-        log_.debug("coverage not enabled via environment");
+    
+    if (!config_manager_) {
+        log_.error("config manager not initialized");
         return;
     }
-
-    // Output file
-    const char* output = getenv(w1::cov::ENV_W1COV_OUTPUT_FILE);
-    if (output) {
-        config_.output_file = output;
-        log_.debug("output file from environment", redlog::field("file", output));
+    
+    // Use the config manager to load from environment
+    config_manager_->load_from_environment(config_);
+    
+    // Validate the configuration
+    if (!config_manager_->validate_config(config_)) {
+        log_.error("invalid configuration loaded from environment");
+        return;
     }
-
-    // Debug mode
-    const char* debug = getenv(w1::cov::ENV_W1COV_DEBUG);
-    if (debug && strcmp(debug, w1::cov::ENABLED_VALUE) == 0) {
-        config_.debug_mode = true;
-        log_.debug("debug mode enabled via environment");
-    }
-
-    // System module exclusion
-    const char* exclude_system = getenv(w1::cov::ENV_W1COV_EXCLUDE_SYSTEM);
-    if (exclude_system) {
-        config_.exclude_system_modules = (strcmp(exclude_system, w1::cov::ENABLED_VALUE) == 0);
-        log_.debug("exclude system modules", redlog::field("exclude", config_.exclude_system_modules));
-    }
-
-    // Track full paths
-    const char* full_paths = getenv(w1::cov::ENV_W1COV_TRACK_FULL_PATHS);
-    if (full_paths && strcmp(full_paths, w1::cov::ENABLED_VALUE) == 0) {
-        config_.track_full_paths = true;
-        log_.debug("track full paths enabled via environment");
-    }
-
-    // Output format
-    const char* format = getenv(w1::cov::ENV_W1COV_FORMAT);
-    if (format) {
-        config_.output_format = format;
-        log_.debug("output format from environment", redlog::field("format", format));
-    }
-
-    // Target modules (comma-separated)
-    const char* targets = getenv(w1::cov::ENV_W1COV_TARGET_MODULES);
-    if (targets) {
-        std::string target_str(targets);
-        // Simple comma-separated parsing
-        size_t pos = 0;
-        while ((pos = target_str.find(',')) != std::string::npos) {
-            std::string pattern = target_str.substr(0, pos);
-            if (!pattern.empty()) {
-                config_.target_modules.push_back(pattern);
-            }
-            target_str.erase(0, pos + 1);
-        }
-        if (!target_str.empty()) {
-            config_.target_modules.push_back(target_str);
-        }
-        
-        log_.debug("target modules from environment", 
-                  redlog::field("count", config_.target_modules.size()));
-    }
+    
+    // Log the final configuration
+    config_manager_->log_config(config_, log_);
 }
 
 void coverage_tracer::set_output_file(const std::string& filepath) {
@@ -341,10 +293,12 @@ void coverage_tracer::sync_hitcounts_cache() const {
         return;
     }
 
-    // This is a simplified cache - in practice, we'd need to extract
-    // hitcounts from the coverage_collector. For now, we'll leave it empty
-    // since the current coverage_collector doesn't expose hitcounts directly.
-    hitcounts_cache_.clear();
+    // Get hitcounts from collector
+    if (collector_) {
+        hitcounts_cache_ = collector_->get_hitcounts();
+    } else {
+        hitcounts_cache_.clear();
+    }
     
     hitcounts_dirty_.store(false);
 }
@@ -373,8 +327,8 @@ std::unique_ptr<coverage_tracer> create_coverage_tracer(const coverage_config& c
 }
 
 bool is_coverage_enabled() {
-    const char* enabled = getenv(w1::cov::ENV_W1COV_ENABLED);
-    return enabled && strcmp(enabled, w1::cov::ENABLED_VALUE) == 0;
+    coverage_config_manager config_manager;
+    return config_manager.is_coverage_enabled();
 }
 
 std::unique_ptr<coverage_tracer> create_coverage_tracer_from_env() {

@@ -15,6 +15,7 @@ set(SOURCES
     framework/module_discovery.cpp
     tracers/coverage/coverage_data.cpp
     tracers/coverage/coverage_tracer.cpp
+    tracers/coverage/coverage_config.cpp
 )
 
 set(HEADERS
@@ -22,6 +23,7 @@ set(HEADERS
     ${FRAMEWORK_HEADERS}
     tracers/coverage/coverage_data.hpp
     tracers/coverage/coverage_tracer.hpp
+    tracers/coverage/coverage_config.hpp
     tracers/coverage/w1cov_constants.hpp
     tracers/coverage/w1cov_standalone.hpp
     formats/drcov.hpp
@@ -126,6 +128,7 @@ set(W1COV_QBDIPRELOAD_SOURCES
     framework/module_discovery.cpp
     tracers/coverage/coverage_data.cpp
     tracers/coverage/coverage_tracer.cpp
+    tracers/coverage/coverage_config.cpp
     tracers/coverage/w1cov_qbdipreload.cpp
 )
 
@@ -168,6 +171,7 @@ set(W1COV_STANDALONE_SOURCES
     framework/module_discovery.cpp
     tracers/coverage/coverage_data.cpp
     tracers/coverage/coverage_tracer.cpp
+    tracers/coverage/coverage_config.cpp
 )
 
 if(WITNESS_BUILD_STATIC)
