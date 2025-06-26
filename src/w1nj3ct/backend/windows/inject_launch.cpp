@@ -32,7 +32,7 @@ std::wstring build_command_line(const std::wstring& binary_path, const std::vect
 
 BOOL inject_dll_launch_suspended(
     const std::wstring& binary_path, const std::wstring& dll_path, const std::vector<std::string>& args,
-    const std::map<std::string, std::string>& env_vars, DWORD* out_pid, bool wait_for_user_resume
+    const std::map<std::string, std::string>& env_vars, DWORD* out_pid, bool interactive_resume
 ) {
   log_msg("Starting Windows launch injection with suspended process");
 
@@ -312,7 +312,7 @@ BOOL inject_dll_launch_suspended(
 
   log_msg("Library loading completed");
 
-  if (wait_for_user_resume) {
+  if (interactive_resume) {
     std::stringstream ss;
     ss << "Process created and suspended (PID: " << pi.dwProcessId << ")";
     log_msg(ss.str());
