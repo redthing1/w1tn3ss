@@ -263,49 +263,56 @@ result inject_preload(const config& cfg) {
     // execve only returns on error
     _exit(1);
   } else if (child_pid > 0) {
-    // parent process - wait for child to complete
-    log.debug("waiting for child process", redlog::field("child_pid", child_pid));
+    // parent process - conditionally wait for child to complete
+    if (cfg.wait_for_completion) {
+      log.debug("waiting for child process", redlog::field("child_pid", child_pid));
 
-    int status;
-    pid_t wait_result = waitpid(child_pid, &status, 0);
+      int status;
+      pid_t wait_result = waitpid(child_pid, &status, 0);
 
-    auto launch_duration = std::chrono::steady_clock::now() - launch_start;
-    auto launch_ms = std::chrono::duration_cast<std::chrono::milliseconds>(launch_duration).count();
+      auto launch_duration = std::chrono::steady_clock::now() - launch_start;
+      auto launch_ms = std::chrono::duration_cast<std::chrono::milliseconds>(launch_duration).count();
 
-    if (wait_result == -1) {
-      log.error("waitpid failed", redlog::field("child_pid", child_pid), redlog::field("errno", errno));
-      return make_error_result(error_code::launch_failed, "waitpid failed", errno);
-    }
-
-    if (WIFEXITED(status)) {
-      int exit_code = WEXITSTATUS(status);
-      log.info(
-          "child process exited", redlog::field("child_pid", child_pid), redlog::field("exit_code", exit_code),
-          redlog::field("execution_time_ms", launch_ms)
-      );
-
-      if (exit_code == 0) {
-        return make_success_result(child_pid);
-      } else {
-        return make_error_result(
-            error_code::launch_failed, "child process failed with exit code " + std::to_string(exit_code)
-        );
+      if (wait_result == -1) {
+        log.error("waitpid failed", redlog::field("child_pid", child_pid), redlog::field("errno", errno));
+        return make_error_result(error_code::launch_failed, "waitpid failed", errno);
       }
-    } else if (WIFSIGNALED(status)) {
-      int signal = WTERMSIG(status);
-      log.error(
-          "child process terminated by signal", redlog::field("child_pid", child_pid), redlog::field("signal", signal),
-          redlog::field("execution_time_ms", launch_ms)
-      );
-      return make_error_result(
-          error_code::launch_failed, "child process terminated by signal " + std::to_string(signal)
-      );
+
+      if (WIFEXITED(status)) {
+        int exit_code = WEXITSTATUS(status);
+        log.info(
+            "child process exited", redlog::field("child_pid", child_pid), redlog::field("exit_code", exit_code),
+            redlog::field("execution_time_ms", launch_ms)
+        );
+
+        if (exit_code == 0) {
+          return make_success_result(child_pid);
+        } else {
+          return make_error_result(
+              error_code::launch_failed, "child process failed with exit code " + std::to_string(exit_code)
+          );
+        }
+      } else if (WIFSIGNALED(status)) {
+        int signal = WTERMSIG(status);
+        log.error(
+            "child process terminated by signal", redlog::field("child_pid", child_pid), redlog::field("signal", signal),
+            redlog::field("execution_time_ms", launch_ms)
+        );
+        return make_error_result(
+            error_code::launch_failed, "child process terminated by signal " + std::to_string(signal)
+        );
+      } else {
+        log.error(
+            "child process exited with unknown status", redlog::field("child_pid", child_pid),
+            redlog::field("status", status)
+        );
+        return make_error_result(error_code::launch_failed, "child process exited with unknown status");
+      }
     } else {
-      log.error(
-          "child process exited with unknown status", redlog::field("child_pid", child_pid),
-          redlog::field("status", status)
+      log.info(
+          "preload injection started successfully - not waiting for completion", redlog::field("child_pid", child_pid)
       );
-      return make_error_result(error_code::launch_failed, "child process exited with unknown status");
+      return make_success_result(child_pid);
     }
   } else {
     // fork failed

@@ -32,7 +32,8 @@ std::wstring build_command_line(const std::wstring& binary_path, const std::vect
 
 BOOL inject_dll_launch_suspended(
     const std::wstring& binary_path, const std::wstring& dll_path, const std::vector<std::string>& args,
-    const std::map<std::string, std::string>& env_vars, DWORD* out_pid, bool interactive_resume
+    const std::map<std::string, std::string>& env_vars, DWORD* out_pid, bool interactive_resume,
+    bool wait_for_completion
 ) {
   log_msg("Starting Windows launch injection with suspended process");
 
@@ -336,6 +337,32 @@ BOOL inject_dll_launch_suspended(
   // Set output PID if requested
   if (out_pid) {
     *out_pid = pi.dwProcessId;
+  }
+
+  // Conditionally wait for process completion based on configuration
+  if (wait_for_completion) {
+    log_msg("Waiting for target process to complete");
+    DWORD wait_result = WaitForSingleObject(pi.hProcess, INFINITE);
+    
+    if (wait_result != WAIT_OBJECT_0) {
+      DWORD error = GetLastError();
+      std::stringstream ss;
+      ss << "Wait for process completion failed. Error code: " << error;
+      log_msg(ss.str());
+      // Continue with cleanup, but note the error
+    }
+
+    // Get process exit code
+    DWORD process_exit_code = 0;
+    if (GetExitCodeProcess(pi.hProcess, &process_exit_code)) {
+      std::stringstream ss;
+      ss << "Target process completed with exit code: " << process_exit_code;
+      log_msg(ss.str());
+    } else {
+      log_msg("Failed to get process exit code");
+    }
+  } else {
+    log_msg("Process launched successfully - not waiting for completion");
   }
 
   // Clean up handles
