@@ -84,6 +84,7 @@ struct config {
 
   // BEHAVIOR
   std::chrono::milliseconds timeout{5000};
+  bool suspended = false; // start process in suspended state (launch method only)
 
   // LAUNCH OPTIONS (when using binary_path)
   std::vector<std::string> args;

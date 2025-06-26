@@ -1,5 +1,6 @@
 #include <cstdlib>
 #include <cstring>
+#include <iostream>
 #include <map>
 #include <sstream>
 #include <string>
@@ -31,7 +32,7 @@ std::wstring build_command_line(const std::wstring& binary_path, const std::vect
 
 BOOL inject_dll_launch_suspended(
     const std::wstring& binary_path, const std::wstring& dll_path, const std::vector<std::string>& args,
-    const std::map<std::string, std::string>& env_vars, DWORD* out_pid
+    const std::map<std::string, std::string>& env_vars, DWORD* out_pid, bool wait_for_user_resume = false
 ) {
   log_msg("Starting Windows launch injection with suspended process");
 
@@ -309,7 +310,23 @@ BOOL inject_dll_launch_suspended(
   CloseHandle(remote_thread);
   VirtualFreeEx(pi.hProcess, remote_memory, 0, MEM_RELEASE);
 
-  log_msg("Library loading completed, resuming process");
+  log_msg("Library loading completed");
+
+  if (wait_for_user_resume) {
+    std::stringstream ss;
+    ss << "Process created and suspended (PID: " << pi.dwProcessId << ")";
+    log_msg(ss.str());
+    
+    // Output to console for user interaction
+    std::cout << "Process created and suspended (PID: " << pi.dwProcessId << ")" << std::endl;
+    std::cout << "Binary: " << std::string(binary_path.begin(), binary_path.end()) << std::endl;
+    std::cout << "DLL injected successfully. Press Enter to resume process..." << std::endl;
+    
+    // Wait for user input
+    std::cin.get();
+    
+    log_msg("User resumed process, continuing execution");
+  }
 
   // Resume the main thread
   ResumeThread(pi.hThread);

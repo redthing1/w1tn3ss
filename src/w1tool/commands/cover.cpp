@@ -63,8 +63,8 @@ std::string find_qbdipreload_library(const std::string& executable_path) {
 int cover(
     args::ValueFlag<std::string>& library_flag, args::Flag& spawn_flag, args::ValueFlag<int>& pid_flag,
     args::ValueFlag<std::string>& name_flag, args::ValueFlag<std::string>& output_flag, args::Flag& exclude_system_flag,
-    args::Flag& debug_flag, args::ValueFlag<std::string>& format_flag, args::PositionalList<std::string>& args_list,
-    const std::string& executable_path
+    args::Flag& debug_flag, args::ValueFlag<std::string>& format_flag, args::Flag& suspended_flag,
+    args::PositionalList<std::string>& args_list, const std::string& executable_path
 ) {
 
   auto log = redlog::get_logger("w1tool.cover");
@@ -111,6 +111,12 @@ int cover(
 
   if (target_count != 1) {
     log.error("exactly one target required: specify -s/--spawn, --pid, or --name");
+    return 1;
+  }
+
+  // validate suspended flag usage
+  if (suspended_flag && !spawn_flag) {
+    log.error("--suspended can only be used with -s/--spawn (launch tracing)");
     return 1;
   }
 
@@ -185,12 +191,13 @@ int cover(
 
     log.info(
         "starting launch-time coverage tracing", redlog::field("binary", binary_path),
-        redlog::field("args_count", binary_args.size())
+        redlog::field("args_count", binary_args.size()), redlog::field("suspended", suspended_flag ? "true" : "false")
     );
 
     cfg.injection_method = w1::inject::method::launch;
     cfg.binary_path = binary_path;
     cfg.args = binary_args;
+    cfg.suspended = suspended_flag;
 
     result = w1::inject::inject(cfg);
 
