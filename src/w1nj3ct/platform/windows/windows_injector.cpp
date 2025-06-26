@@ -111,7 +111,7 @@ result inject_preload(const config& cfg) {
 
   // perform launch injection
   DWORD target_pid = 0;
-  BOOL success = inject_dll_launch_suspended(binary_path, dll_path, cfg.args, cfg.env_vars, &target_pid);
+  BOOL success = inject_dll_launch_suspended(binary_path, dll_path, cfg.args, cfg.env_vars, &target_pid, cfg.suspended);
 
   if (!success) {
     DWORD err = GetLastError();

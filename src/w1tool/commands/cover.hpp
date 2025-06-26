@@ -15,6 +15,7 @@ namespace w1tool::commands {
  * @param exclude_system_flag Exclude system libraries from coverage (optional)
  * @param debug_flag Enable debug output (optional)
  * @param format_flag Output format (drcov, text) (optional)
+ * @param suspended_flag Start process in suspended state (optional)
  * @param args_list Binary and arguments (use -- to separate w1tool args from target args)
  * @param executable_path Path to the current executable (for auto-discovery)
  * @return Exit code (0 for success, 1 for failure)
@@ -22,8 +23,8 @@ namespace w1tool::commands {
 int cover(
     args::ValueFlag<std::string>& library_flag, args::Flag& spawn_flag, args::ValueFlag<int>& pid_flag,
     args::ValueFlag<std::string>& name_flag, args::ValueFlag<std::string>& output_flag, args::Flag& exclude_system_flag,
-    args::Flag& debug_flag, args::ValueFlag<std::string>& format_flag, args::PositionalList<std::string>& args_list,
-    const std::string& executable_path
+    args::Flag& debug_flag, args::ValueFlag<std::string>& format_flag, args::Flag& suspended_flag,
+    args::PositionalList<std::string>& args_list, const std::string& executable_path
 );
 
 } // namespace w1tool::commands

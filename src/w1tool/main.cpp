@@ -40,6 +40,7 @@ int main(int argc, char* argv[]) {
   args::ValueFlag<std::string> inject_name(inject, "name", "target process name", {'n', "name"});
   args::ValueFlag<int> inject_pid(inject, "pid", "target process id", {'p', "pid"});
   args::ValueFlag<std::string> inject_binary(inject, "path", "binary to launch with injection", {'b', "binary"});
+  args::Flag inject_suspended(inject, "suspended", "start process in suspended state (only with --binary)", {"suspended"});
 
   // inspect subcommand
   args::Command inspect(commands, "inspect", "inspect binary file");
@@ -55,6 +56,7 @@ int main(int argc, char* argv[]) {
   args::Flag cover_exclude_system(cover, "exclude-system", "exclude system libraries", {"exclude-system"});
   args::Flag cover_debug(cover, "debug", "enable debug output", {"debug"});
   args::ValueFlag<std::string> cover_format(cover, "format", "output format (drcov, text)", {"format"});
+  args::Flag cover_suspended(cover, "suspended", "start process in suspended state (only with --spawn)", {"suspended"});
   args::PositionalList<std::string> cover_args(
       cover, "args", "binary and arguments (use -- to separate w1tool args from target args)"
   );
@@ -103,13 +105,13 @@ int main(int argc, char* argv[]) {
     }
 
     if (inject) {
-      return w1tool::commands::inject(inject_library, inject_name, inject_pid, inject_binary);
+      return w1tool::commands::inject(inject_library, inject_name, inject_pid, inject_binary, inject_suspended);
     } else if (inspect) {
       return w1tool::commands::inspect(inspect_binary);
     } else if (cover) {
       return w1tool::commands::cover(
           cover_library, cover_spawn, cover_pid, cover_name, cover_output, cover_exclude_system, cover_debug,
-          cover_format, cover_args, argv[0]
+          cover_format, cover_suspended, cover_args, argv[0]
       );
     } else if (read_drcov) {
       return w1tool::commands::read_drcov(read_drcov_file, read_drcov_summary, read_drcov_detailed, read_drcov_module);
