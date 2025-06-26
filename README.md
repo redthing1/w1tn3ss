@@ -4,6 +4,7 @@ cross-platform dynamic binary analysis tool powered by qbdi.
 
 ## build
 
+for development:
 ```sh
 cmake -B build-debug
 cmake --build build-debug --parallel
@@ -13,6 +14,11 @@ for production use:
 ```sh
 cmake -B build-release -DCMAKE_BUILD_TYPE=Release
 cmake --build build-release --parallel
+```
+
+on windows, to build 32-bit:
+```sh
+cmake -B build-win32 -DWITNESS_ARCH=x86 -DCMAKE_GENERATOR_PLATFORM=Win32 -DCMAKE_BUILD_TYPE=Release
 ```
 
 ## usage
