@@ -198,6 +198,7 @@ int cover(
     cfg.binary_path = binary_path;
     cfg.args = binary_args;
     cfg.suspended = suspended_flag;
+    cfg.wait_for_completion = true; // cover command should wait for completion
 
     result = w1::inject::inject(cfg);
 
@@ -210,6 +211,7 @@ int cover(
 
     cfg.injection_method = w1::inject::method::runtime;
     cfg.pid = target_pid;
+    // Note: wait_for_completion not applicable for runtime injection
     result = w1::inject::inject(cfg);
 
   } else if (name_flag) {
@@ -222,6 +224,7 @@ int cover(
 
     cfg.injection_method = w1::inject::method::runtime;
     cfg.process_name = process_name;
+    // Note: wait_for_completion not applicable for runtime injection
     result = w1::inject::inject(cfg);
   }
 

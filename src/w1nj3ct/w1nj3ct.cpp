@@ -88,6 +88,11 @@ error_code validate_config(const config& cfg) {
     return error_code::configuration_invalid;
   }
 
+  if (cfg.injection_method == method::runtime && cfg.wait_for_completion) {
+    log.error("wait_for_completion only supported with launch injection method", redlog::field("method", method_str));
+    return error_code::configuration_invalid;
+  }
+
   // platform-specific validation
   const char* platform_str =
 #ifdef __APPLE__
