@@ -7,6 +7,7 @@ set(FRAMEWORK_HEADERS
     framework/env_config.hpp
     framework/performance_monitor.hpp
     framework/tracer_base.hpp
+    framework/utils.hpp
 )
 
 # Create main w1tn3ss library sources

@@ -5,9 +5,12 @@
 
 #include "coverage_tracer.hpp"
 #include "../../framework/module_discovery.hpp"
+#include "../../framework/utils.hpp"
 #include <QBDI.h>
+#include <filesystem>
 
 namespace w1::coverage {
+
 
 coverage_tracer::coverage_tracer(const coverage_config& config)
     : tracer_base(config, "coverage_tracer")
@@ -33,6 +36,12 @@ bool coverage_tracer::initialize() {
     if (is_initialized()) {
         log_.debug("coverage tracer already initialized");
         return true;
+    }
+
+    // Configure global logging level based on debug mode
+    if (config_.debug_mode) {
+        redlog::set_level(redlog::level::trace);
+        log_.info("enabled debug logging for coverage tracing");
     }
 
     log_.debug("initializing coverage tracer", 
@@ -81,10 +90,29 @@ bool coverage_tracer::export_data(const std::string& output_path) {
 
     log_.debug("exporting coverage data", redlog::field("output_path", output_path));
 
+    // Collect statistics before export
+    auto stats = collector_->get_coverage_stats();
+    size_t total_blocks = collector_->get_total_blocks();
+    size_t unique_blocks = collector_->get_unique_blocks();
+    uint64_t total_hits = collector_->get_total_hits();
+    
     try {
         bool success = collector_->write_drcov_file(output_path);
         
         if (success) {
+            // Verify file was actually created
+            if (!std::filesystem::exists(output_path)) {
+                log_.error("coverage file was not created", redlog::field("path", output_path));
+                return false;
+            }
+            
+            // Show neat statistics at info level
+            log_.info("Coverage collection completed successfully");
+            log_.info("  Basic blocks:     " + std::to_string(unique_blocks) + " unique, " + std::to_string(total_hits) + " total executions");
+            log_.info("  Average hits:     " + std::to_string(unique_blocks > 0 ? (double)total_hits / unique_blocks : 0.0));
+            log_.info("  Modules traced:   " + std::to_string(stats.size()));
+            log_.info("  Output file:      " + output_path);
+            
             log_.debug("coverage data exported successfully", redlog::field("output_path", output_path));
         } else {
             log_.error("failed to export coverage data", redlog::field("output_path", output_path));
@@ -207,9 +235,9 @@ void coverage_tracer::print_statistics() const {
     auto stats = collector_->get_coverage_stats();
     
     log_.info("Coverage Statistics:");
-    log_.info("  Total Basic Blocks", redlog::field("count", format_number(get_basic_block_count())));
-    log_.info("  Unique Blocks", redlog::field("count", format_number(get_unique_block_count())));
-    log_.info("  Total Hits", redlog::field("count", format_number(get_total_hits())));
+    log_.info("  Total Basic Blocks", redlog::field("count", w1::framework::utils::format_number(get_basic_block_count())));
+    log_.info("  Unique Blocks", redlog::field("count", w1::framework::utils::format_number(get_unique_block_count())));
+    log_.info("  Total Hits", redlog::field("count", w1::framework::utils::format_number(get_total_hits())));
     log_.info("  Modules", redlog::field("count", stats.size()));
     
     if (config_.debug_mode && !stats.empty()) {
@@ -217,7 +245,7 @@ void coverage_tracer::print_statistics() const {
         for (const auto& [module_id, block_count] : stats) {
             log_.info("    Module coverage", 
                      redlog::field("module_id", module_id),
-                     redlog::field("blocks", format_number(block_count)));
+                     redlog::field("blocks", w1::framework::utils::format_number(block_count)));
         }
     }
 }
@@ -262,8 +290,8 @@ bool coverage_tracer::discover_and_register_modules() {
                     log_.debug("registered module",
                               redlog::field("id", module_id),
                               redlog::field("name", module_name),
-                              redlog::field("start", map.range.start()),
-                              redlog::field("end", map.range.end()),
+                              redlog::field("start", w1::framework::utils::format_hex(map.range.start())),
+                              redlog::field("end", w1::framework::utils::format_hex(map.range.end())),
                               redlog::field("size", map.range.end() - map.range.start()));
                 }
             }

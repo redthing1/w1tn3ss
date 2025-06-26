@@ -166,23 +166,6 @@ protected:
         }
         return "output.dat";
     }
-
-    /**
-     * @brief Utility function to format numbers with thousands separators
-     */
-    static std::string format_number(uint64_t number) {
-        std::string result = std::to_string(number);
-        std::string formatted;
-        int count = 0;
-        for (int i = result.length() - 1; i >= 0; --i) {
-            if (count && count % 3 == 0) {
-                formatted = ',' + formatted;
-            }
-            formatted = result[i] + formatted;
-            count++;
-        }
-        return formatted;
-    }
 };
 
 } // namespace w1::framework

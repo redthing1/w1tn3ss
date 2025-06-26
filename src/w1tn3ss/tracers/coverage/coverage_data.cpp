@@ -1,5 +1,6 @@
 #include "coverage_data.hpp"
 #include "w1cov_constants.hpp"
+#include "../../framework/utils.hpp"
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
@@ -7,6 +8,7 @@
 #include <cstring>
 
 namespace w1::coverage {
+
 
 coverage_collector::coverage_collector()
     : log_(redlog::get_logger("w1tn3ss.coverage")), next_module_id_(0), exclude_system_(true),
@@ -26,7 +28,7 @@ uint16_t coverage_collector::add_module(const std::string& path, uint64_t base, 
 
   // check if we should exclude system modules
   if (exclude_system_ && is_system_module(path)) {
-    log_.verbose("excluding system module", redlog::field("path", path));
+    log_.trace("excluding system module", redlog::field("path", path));
     return UINT16_MAX; // invalid module id
   }
 
@@ -125,11 +127,7 @@ void coverage_collector::record_basic_block_with_module_internal(uint64_t addres
     basic_blocks_.emplace_back(address, size, module_id);
   }
 
-  log_.trace(
-      "basic block recorded", redlog::field("address", address), redlog::field("size", size),
-      redlog::field("id", module_id), redlog::field("hitcount", hitcounts_[address]),
-      redlog::field("new", is_new_address)
-  );
+  // Don't log individual basic blocks - there can be millions!
 }
 
 size_t coverage_collector::get_total_blocks() const {
@@ -208,7 +206,7 @@ drcov::coverage_data coverage_collector::export_drcov_data() const {
 
       log_.trace(
           "added module to drcov", redlog::field("id", module.id), redlog::field("path", module.path),
-          redlog::field("base", module.base_address), redlog::field("end", module.end_address),
+          redlog::field("base", w1::framework::utils::format_hex(module.base_address)), redlog::field("end", w1::framework::utils::format_hex(module.end_address)),
           redlog::field("size", module.end_address - module.base_address)
       );
 
@@ -278,10 +276,7 @@ drcov::coverage_data coverage_collector::export_drcov_data() const {
       builder.add_coverage(block.module_id, offset, block.size, hitcount);
       valid_blocks++;
 
-      log_.trace(
-          "added basic block to drcov", redlog::field("id", block.module_id), redlog::field("address", block.address),
-          redlog::field("offset", offset), redlog::field("size", block.size), redlog::field("hitcount", hitcount)
-      );
+      // Don't log individual basic blocks - there can be millions!
 
     } catch (const std::exception& e) {
       log_.error(
