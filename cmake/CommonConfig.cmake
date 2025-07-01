@@ -12,7 +12,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 # critical windows safeseh hack for qbdi assembly compatibility
-if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 4)
+if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 4 AND MSVC)
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /SAFESEH:NO")
     set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} /SAFESEH:NO")
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SAFESEH:NO")
@@ -23,7 +23,6 @@ function(apply_common_compile_options target)
     target_compile_features(${target} PRIVATE cxx_std_17)
     target_compile_options(${target} PRIVATE
         $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall -Wextra -O2>
-        $<$<CXX_COMPILER_ID:MSVC>:/W4 /O2>
     )
 endfunction()
 

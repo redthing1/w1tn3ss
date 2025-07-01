@@ -16,6 +16,7 @@ old/
 build/
 build-*/
 build_*/
+/test-*
 
 # Created by https://www.toptal.com/developers/gitignore/api/c,c++,cmake,meson,linux,windows,macos,python,lua
 # Edit at https://www.toptal.com/developers/gitignore?templates=c,c++,cmake,meson,linux,windows,macos,python,lua
