@@ -3,16 +3,38 @@
 #include <string>
 
 #include <redlog/redlog.hpp>
+#include "ext/args.hpp"
 
-#include "cli.hpp"
 #include "commands/cover.hpp"
 #include "commands/inject.hpp"
 #include "commands/inspect.hpp"
 #include "commands/read_drcov.hpp"
 
+namespace cli {
+args::Group arguments("arguments");
+args::HelpFlag help_flag(arguments, "help", "help", {'h', "help"});
+args::CounterFlag verbosity_flag(arguments, "verbosity", "verbosity level", {'v'});
+
+void apply_verbosity() {
+  // apply verbosity
+  int verbosity = args::get(verbosity_flag);
+  redlog::set_level(redlog::level::info);
+  if (verbosity == 1) {
+    redlog::set_level(redlog::level::verbose);
+  } else if (verbosity == 2) {
+    redlog::set_level(redlog::level::trace);
+  } else if (verbosity == 3) {
+    redlog::set_level(redlog::level::debug);
+  } else if (verbosity >= 4) {
+    redlog::set_level(redlog::level::pedantic);
+  }
+}
+} // namespace cli
+
 namespace {
 auto log_main = redlog::get_logger("w1tool");
-}
+std::string g_executable_path;
+} // namespace
 
 void cmd_inject(args::Subparser& parser) {
   cli::apply_verbosity();
@@ -45,13 +67,19 @@ void cmd_cover(args::Subparser& parser) {
   args::ValueFlag<std::string> name(parser, "name", "process name to attach to", {'n', "name"});
   args::ValueFlag<std::string> output(parser, "path", "output file path", {'o', "output"});
   args::Flag exclude_system(parser, "exclude-system", "exclude system libraries", {"exclude-system"});
-  args::Flag debug(parser, "debug", "enable debug output", {"debug"});
+  args::Flag track_hitcounts(parser, "track-hitcounts", "track hit counts in coverage data", {"track-hitcounts"});
+  args::ValueFlag<std::string> module_filter(parser, "modules", "comma-separated list of modules to filter", {'m', "module-filter"});
+  args::ValueFlag<int> debug_level(parser, "level", "debug level override - defaults to passthrough verbosity", {"debug"});
   args::ValueFlag<std::string> format(parser, "format", "output format (drcov, text)", {"format"});
   args::Flag suspended(parser, "suspended", "start process in suspended state (only with --spawn)", {"suspended"});
-  args::PositionalList<std::string> args(parser, "args", "binary and arguments (use -- to separate w1tool args from target args)");
+  args::PositionalList<std::string> args(
+      parser, "args", "binary and arguments (use -- to separate w1tool args from target args)"
+  );
   parser.Parse();
 
-  w1tool::commands::cover(library, spawn, pid, name, output, exclude_system, debug, format, suspended, args, "w1tool");
+  w1tool::commands::cover(
+      library, spawn, pid, name, output, exclude_system, track_hitcounts, module_filter, debug_level, format, suspended, args, g_executable_path
+  );
 }
 
 void cmd_read_drcov(args::Subparser& parser) {
@@ -67,8 +95,12 @@ void cmd_read_drcov(args::Subparser& parser) {
 }
 
 int main(int argc, char* argv[]) {
-  args::ArgumentParser parser("w1tool - cross-platform dynamic binary analysis tool",
-                              "inject libraries, trace coverage, and analyze binaries");
+  // Store executable path for library auto-discovery
+  g_executable_path = argv[0];
+
+  args::ArgumentParser parser(
+      "w1tool - cross-platform dynamic binary analysis tool", "inject libraries, trace coverage, and analyze binaries"
+  );
   parser.helpParams.showTerminator = false;
   parser.SetArgumentSeparations(false, false, true, true);
   parser.LongSeparator(" ");

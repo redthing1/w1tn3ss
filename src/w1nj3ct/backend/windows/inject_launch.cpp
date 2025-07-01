@@ -317,15 +317,15 @@ BOOL inject_dll_launch_suspended(
     std::stringstream ss;
     ss << "Process created and suspended (PID: " << pi.dwProcessId << ")";
     log_msg(ss.str());
-    
+
     // Output to console for user interaction
     std::cout << "Process created and suspended (PID: " << pi.dwProcessId << ")" << std::endl;
     std::cout << "Binary: " << std::string(binary_path.begin(), binary_path.end()) << std::endl;
     std::cout << "DLL injected successfully. Press Enter to resume process..." << std::endl;
-    
+
     // Wait for user input
     std::cin.get();
-    
+
     log_msg("User resumed process, continuing execution");
   }
 
@@ -343,7 +343,7 @@ BOOL inject_dll_launch_suspended(
   if (wait_for_completion) {
     log_msg("Waiting for target process to complete");
     DWORD wait_result = WaitForSingleObject(pi.hProcess, INFINITE);
-    
+
     if (wait_result != WAIT_OBJECT_0) {
       DWORD error = GetLastError();
       std::stringstream ss;

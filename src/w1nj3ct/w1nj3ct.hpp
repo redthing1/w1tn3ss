@@ -84,7 +84,7 @@ struct config {
 
   // BEHAVIOR
   std::chrono::milliseconds timeout{5000};
-  bool suspended = false; // start process in suspended state (launch method only)
+  bool suspended = false;           // start process in suspended state (launch method only)
   bool wait_for_completion = false; // wait for process completion (launch method only)
 
   // LAUNCH OPTIONS (when using binary_path)

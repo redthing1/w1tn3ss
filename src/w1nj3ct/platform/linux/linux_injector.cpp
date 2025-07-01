@@ -295,8 +295,8 @@ result inject_preload(const config& cfg) {
       } else if (WIFSIGNALED(status)) {
         int signal = WTERMSIG(status);
         log.error(
-            "child process terminated by signal", redlog::field("child_pid", child_pid), redlog::field("signal", signal),
-            redlog::field("execution_time_ms", launch_ms)
+            "child process terminated by signal", redlog::field("child_pid", child_pid),
+            redlog::field("signal", signal), redlog::field("execution_time_ms", launch_ms)
         );
         return make_error_result(
             error_code::launch_failed, "child process terminated by signal " + std::to_string(signal)

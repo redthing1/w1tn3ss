@@ -369,9 +369,7 @@ result inject_preload(const config& cfg) {
         return make_error_result(error_code::launch_failed, "child process exited with unknown status");
       }
     } else {
-      log.info(
-          "preload injection started successfully - not waiting for completion", redlog::field("pid", child_pid)
-      );
+      log.info("preload injection started successfully - not waiting for completion", redlog::field("pid", child_pid));
       return make_success_result(child_pid);
     }
   } else {

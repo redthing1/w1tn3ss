@@ -197,8 +197,8 @@ bool coverage_tracer::should_trace_module(const w1::util::module_info& mod) cons
     return false;
   }
 
-  if (!config_.target_modules.empty()) {
-    for (const auto& target : config_.target_modules) {
+  if (!config_.module_filter.empty()) {
+    for (const auto& target : config_.module_filter) {
       if (mod.name.find(target) != std::string::npos) {
         return true;
       }

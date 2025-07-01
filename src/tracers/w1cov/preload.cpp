@@ -27,17 +27,27 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
   w1::util::env_config config_loader("W1COV_");
   w1cov::coverage_config config;
 
-  bool verbose = config_loader.get<bool>("VERBOSE", false);
+  int debug_level = config_loader.get<int>("VERBOSE", 0);
+
   config.output_file = config_loader.get<std::string>("OUTPUT_FILE", config.output_file);
   config.exclude_system_modules = config_loader.get<bool>("EXCLUDE_SYSTEM", config.exclude_system_modules);
   config.track_hitcounts = config_loader.get<bool>("TRACK_HITCOUNTS", config.track_hitcounts);
-  auto target_modules_env = config_loader.get_list("TARGET_MODULES");
+  auto target_modules_env = config_loader.get_list("MODULE_FILTER");
   if (!target_modules_env.empty()) {
-    config.target_modules = target_modules_env;
+    config.module_filter = target_modules_env;
   }
 
-  if (verbose) {
+  // set log level based on debug level
+  if (debug_level >= 4) {
+    redlog::set_level(redlog::level::pedantic);
+  } else if (debug_level >= 3) {
     redlog::set_level(redlog::level::debug);
+  } else if (debug_level >= 2) {
+    redlog::set_level(redlog::level::trace);
+  } else if (debug_level >= 1) {
+    redlog::set_level(redlog::level::verbose);
+  } else {
+    redlog::set_level(redlog::level::info);
   }
 
   // create tracer
@@ -61,10 +71,7 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
   log.inf("engine instrumentation successful");
 
   // run engine
-  log.inf(
-      "running engine", redlog::field("start", "0x%08x", start),
-      redlog::field("stop", "0x%08x", stop)
-  );
+  log.inf("running engine", redlog::field("start", "0x%08x", start), redlog::field("stop", "0x%08x", stop));
   if (!g_engine->run(start, stop)) {
     log.err("engine run failed");
     return QBDIPRELOAD_ERR_STARTUP_FAILED;
@@ -78,19 +85,19 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
 
 QBDI_EXPORT int qbdipreload_on_exit(int status) {
   auto log = redlog::get_logger("w1cov.preload");
-  
+
   log.inf("qbdipreload_on_exit called", redlog::field("status", status));
-  
+
   if (g_tracer) {
     log.inf("shutting down tracer and exporting coverage");
     g_tracer->shutdown();
     g_tracer.reset();
   }
-  
+
   if (g_engine) {
     g_engine.reset();
   }
-  
+
   log.inf("qbdipreload_on_exit completed");
   return QBDIPRELOAD_NO_ERROR;
 }

@@ -1,17 +1,23 @@
 #include "cover.hpp"
 #include "common/platform_utils.hpp"
 #include "w1nj3ct.hpp"
+#include "ext/args.hpp"
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
 #include <redlog/redlog.hpp>
 
+// forward declare CLI symbols from main.cpp
+namespace cli {
+extern args::CounterFlag verbosity_flag;
+}
+
 namespace w1tool::commands {
 
 /**
- * @brief Automatically find the w1cov_qbdipreload library relative to the executable
- * @param executable_path Path to the current executable
- * @return Path to the library if found, empty string otherwise
+ * @brief automatically find the w1cov_qbdipreload library relative to the executable
+ * @param executable_path path to the current executable
+ * @return path to the library if found, empty string otherwise
  */
 std::string find_qbdipreload_library(const std::string& executable_path) {
   auto log = redlog::get_logger("w1tool.cover.autodiscovery");
@@ -63,8 +69,9 @@ std::string find_qbdipreload_library(const std::string& executable_path) {
 int cover(
     args::ValueFlag<std::string>& library_flag, args::Flag& spawn_flag, args::ValueFlag<int>& pid_flag,
     args::ValueFlag<std::string>& name_flag, args::ValueFlag<std::string>& output_flag, args::Flag& exclude_system_flag,
-    args::Flag& debug_flag, args::ValueFlag<std::string>& format_flag, args::Flag& suspended_flag,
-    args::PositionalList<std::string>& args_list, const std::string& executable_path
+    args::Flag& track_hitcounts_flag, args::ValueFlag<std::string>& module_filter_flag, args::ValueFlag<int>& debug_level_flag,
+    args::ValueFlag<std::string>& format_flag, args::Flag& suspended_flag, args::PositionalList<std::string>& args_list,
+    const std::string& executable_path
 ) {
 
   auto log = redlog::get_logger("w1tool.cover");
@@ -89,7 +96,7 @@ int cover(
     lib_path = find_qbdipreload_library(executable_path);
 
     if (lib_path.empty()) {
-      log.error("w1cov_qbdipreload library not found. Please specify with -L/--w1cov-library");
+      log.err("w1cov_qbdipreload library not found. please specify with -L/--w1cov-library");
       log.info("searched for library next to executable and in common build locations");
       return 1;
     }
@@ -110,13 +117,19 @@ int cover(
   }
 
   if (target_count != 1) {
-    log.error("exactly one target required: specify -s/--spawn, --pid, or --name");
+    log.err("exactly one target required: specify -s/--spawn, --pid, or --name");
     return 1;
   }
 
   // validate suspended flag usage
   if (suspended_flag && !spawn_flag) {
-    log.error("--suspended can only be used with -s/--spawn (launch tracing)");
+    log.err("--suspended can only be used with -s/--spawn (launch tracing)");
+    return 1;
+  }
+
+  // validate library path exists if provided
+  if (library_flag && !std::filesystem::exists(args::get(library_flag))) {
+    log.err("specified library path does not exist", redlog::field("path", args::get(library_flag)));
     return 1;
   }
 
@@ -124,30 +137,44 @@ int cover(
   w1::inject::config cfg;
   cfg.library_path = lib_path;
 
-  // Set environment variables for w1cov
+  // set environment variables for w1cov
   if (exclude_system_flag) {
     cfg.env_vars["W1COV_EXCLUDE_SYSTEM"] = "true";
   } else {
     cfg.env_vars["W1COV_EXCLUDE_SYSTEM"] = "false";
   }
 
-  if (debug_flag) {
-    cfg.env_vars["W1COV_VERBOSE"] = "true";
+  // set debug level: use override if provided, otherwise passthrough w1tool verbosity
+  int effective_debug_level = 0;
+  
+  if (debug_level_flag) {
+    // debug level override provided
+    effective_debug_level = args::get(debug_level_flag);
   } else {
-    cfg.env_vars["W1COV_VERBOSE"] = "false";
+    // passthrough w1tool verbosity
+    effective_debug_level = args::get(cli::verbosity_flag);
+  }
+  
+  cfg.env_vars["W1COV_VERBOSE"] = std::to_string(effective_debug_level);
+
+  // set track hitcounts flag
+  if (track_hitcounts_flag) {
+    cfg.env_vars["W1COV_TRACK_HITCOUNTS"] = "true";
+  } else {
+    cfg.env_vars["W1COV_TRACK_HITCOUNTS"] = "false";
   }
 
-  // Set additional w1cov configuration
-  cfg.env_vars["W1COV_TRACK_HITCOUNTS"] = "true";
-  cfg.env_vars["W1COV_ENABLE_RESCANNING"] = "true";
-  cfg.env_vars["W1COV_MAX_BASIC_BLOCKS"] = "1000000";
+  // set module filter if provided
+  if (module_filter_flag) {
+    cfg.env_vars["W1COV_MODULE_FILTER"] = args::get(module_filter_flag);
+  }
 
-  // Set output format (validate but don't pass to w1cov - it only outputs drcov)
+  // set output format (validate but don't pass to w1cov - it only outputs drcov)
   std::string format = "drcov"; // default
   if (format_flag) {
     format = args::get(format_flag);
     if (format != "drcov" && format != "text") {
-      log.error("invalid format, supported: drcov, text", redlog::field("format", format));
+      log.err("invalid format, supported: drcov, text", redlog::field("format", format));
       return 1;
     }
     if (format == "text") {
@@ -156,12 +183,12 @@ int cover(
     }
   }
 
-  // Set output file
+  // set output file
   std::string output_file;
   if (output_flag) {
     output_file = args::get(output_flag);
   } else {
-    // Generate default output filename using cross-platform path handling
+    // generate default output filename using cross-platform path handling
     if (spawn_flag && !args_list.Get().empty()) {
       std::vector<std::string> all_args = args::get(args_list);
       std::string binary_path = all_args[0];
@@ -177,23 +204,24 @@ int cover(
   log.info(
       "coverage tracing configuration", redlog::field("output_file", output_file), redlog::field("format", format),
       redlog::field("exclude_system", exclude_system_flag ? "true" : "false"),
-      redlog::field("debug", debug_flag ? "true" : "false")
+      redlog::field("track_hitcounts", track_hitcounts_flag ? "true" : "false"),
+      redlog::field("debug_level", effective_debug_level)
   );
 
   w1::inject::result result;
 
-  // Execute coverage tracing based on target type
+  // execute coverage tracing based on target type
   if (spawn_flag) {
-    // Launch-time coverage with positional arguments
+    // launch-time coverage with positional arguments
     if (args_list.Get().empty()) {
-      log.error("binary path required when using -s/--spawn flag");
+      log.err("binary path required when using -s/--spawn flag");
       return 1;
     }
 
     std::vector<std::string> all_args = args::get(args_list);
     std::string binary_path = all_args[0];
 
-    // Extract arguments after the binary (everything after first arg)
+    // extract arguments after the binary (everything after first arg)
     std::vector<std::string> binary_args;
     if (all_args.size() > 1) {
       binary_args.assign(all_args.begin() + 1, all_args.end());
@@ -213,7 +241,7 @@ int cover(
     result = w1::inject::inject(cfg);
 
   } else if (pid_flag) {
-    // Runtime coverage by PID
+    // runtime coverage by PID
     int target_pid = args::get(pid_flag);
     log.info(
         "starting runtime coverage tracing", redlog::field("method", "pid"), redlog::field("target_pid", target_pid)
@@ -221,11 +249,11 @@ int cover(
 
     cfg.injection_method = w1::inject::method::runtime;
     cfg.pid = target_pid;
-    // Note: wait_for_completion not applicable for runtime injection
+    // note: wait_for_completion not applicable for runtime injection
     result = w1::inject::inject(cfg);
 
   } else if (name_flag) {
-    // Runtime coverage by process name
+    // runtime coverage by process name
     std::string process_name = args::get(name_flag);
     log.info(
         "starting runtime coverage tracing", redlog::field("method", "name"),
@@ -234,32 +262,32 @@ int cover(
 
     cfg.injection_method = w1::inject::method::runtime;
     cfg.process_name = process_name;
-    // Note: wait_for_completion not applicable for runtime injection
+    // note: wait_for_completion not applicable for runtime injection
     result = w1::inject::inject(cfg);
   }
 
-  // Handle result
+  // handle result
   if (result.success()) {
     log.info("coverage tracing completed successfully", redlog::field("output_file", output_file));
     if (result.target_pid > 0) {
       log.info("target process", redlog::field("pid", result.target_pid));
     }
 
-    // Check that the output file was created
+    // check that the output file was created
     if (!std::filesystem::exists(output_file)) {
-      log.error("output file not created", redlog::field("output_file", output_file));
+      log.err("output file not created", redlog::field("output_file", output_file));
       return 1;
     }
 
-    std::cout << "Coverage tracing completed successfully.\n";
-    std::cout << "Output file: " << output_file << "\n";
+    std::cout << "coverage tracing completed successfully.\n";
+    std::cout << "output file: " << output_file << "\n";
     if (format == "drcov") {
-      std::cout << "Use 'w1tool read-drcov --file " << output_file << "' to analyze results.\n";
+      std::cout << "use 'w1tool read-drcov --file " << output_file << "' to analyze results.\n";
     }
 
     return 0;
   } else {
-    log.error("coverage tracing failed", redlog::field("error", result.error_message));
+    log.err("coverage tracing failed", redlog::field("error", result.error_message));
     return 1;
   }
 }
