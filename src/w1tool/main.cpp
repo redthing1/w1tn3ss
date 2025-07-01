@@ -40,13 +40,16 @@ void cmd_inject(args::Subparser& parser) {
   cli::apply_verbosity();
 
   args::ValueFlag<std::string> library(parser, "path", "path to injection library", {'L', "library"});
+  args::Flag spawn(parser, "spawn", "spawn new process for injection", {'s', "spawn"});
   args::ValueFlag<std::string> name(parser, "name", "target process name", {'n', "name"});
   args::ValueFlag<int> pid(parser, "pid", "target process id", {'p', "pid"});
-  args::ValueFlag<std::string> binary(parser, "path", "binary to launch with injection", {'b', "binary"});
-  args::Flag suspended(parser, "suspended", "start process in suspended state (only with --binary)", {"suspended"});
+  args::Flag suspended(parser, "suspended", "start process in suspended state (only with --spawn)", {"suspended"});
+  args::PositionalList<std::string> args(
+      parser, "args", "binary and arguments (use -- to separate w1tool args from target args)"
+  );
   parser.Parse();
 
-  w1tool::commands::inject(library, name, pid, binary, suspended);
+  w1tool::commands::inject(library, spawn, name, pid, suspended, args);
 }
 
 void cmd_inspect(args::Subparser& parser) {
