@@ -315,7 +315,8 @@ BOOL inject_dll_launch_suspended(
 
   if (interactive_resume) {
     std::stringstream ss;
-    ss << "process created and suspended (PID: " << pi.dwProcessId << ")" log_msg(ss.str());
+    ss << "process created and suspended (PID: " << pi.dwProcessId << ")";
+    log_msg(ss.str());
 
     // output to console for user interaction
     std::cout << "process created and suspended (PID: " << pi.dwProcessId << ")" << std::endl;
