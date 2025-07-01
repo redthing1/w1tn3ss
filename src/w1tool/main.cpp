@@ -44,9 +44,7 @@ void cmd_inject(args::Subparser& parser) {
   args::ValueFlag<std::string> name(parser, "name", "target process name", {'n', "name"});
   args::ValueFlag<int> pid(parser, "pid", "target process id", {'p', "pid"});
   args::Flag suspended(parser, "suspended", "start process in suspended state (only with --spawn)", {"suspended"});
-  args::PositionalList<std::string> args(
-      parser, "args", "binary and arguments (use -- to separate w1tool args from target args)"
-  );
+  args::PositionalList<std::string> args(parser, "args", "binary -- arguments");
   parser.Parse();
 
   w1tool::commands::inject(library, spawn, name, pid, suspended, args);
@@ -74,14 +72,10 @@ void cmd_cover(args::Subparser& parser) {
   args::ValueFlag<std::string> module_filter(
       parser, "modules", "comma-separated list of modules to filter", {'m', "module-filter"}
   );
-  args::ValueFlag<int> debug_level(
-      parser, "level", "debug level override - defaults to passthrough verbosity", {"debug"}
-  );
+  args::ValueFlag<int> debug_level(parser, "level", "debug level override", {"debug"});
   args::ValueFlag<std::string> format(parser, "format", "output format (drcov, text)", {"format"});
   args::Flag suspended(parser, "suspended", "start process in suspended state (only with --spawn)", {"suspended"});
-  args::PositionalList<std::string> args(
-      parser, "args", "binary and arguments (use -- to separate w1tool args from target args)"
-  );
+  args::PositionalList<std::string> args(parser, "args", "binary -- arguments");
   parser.Parse();
 
   w1tool::commands::cover(
