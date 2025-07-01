@@ -1,6 +1,8 @@
-set(EXECUTABLE_NAME w1tool)
+cmake_minimum_required(VERSION 3.16)
 
-set(SOURCES
+include(${CMAKE_SOURCE_DIR}/cmake/CommonConfig.cmake)
+
+add_executable(w1tool
     main.cpp
     commands/inject.cpp
     commands/inspect.cpp
@@ -8,46 +10,21 @@ set(SOURCES
     commands/read_drcov.cpp
 )
 
-add_executable(${EXECUTABLE_NAME} ${SOURCES})
+set_target_properties(w1tool PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
-# set output directory to be flat
-set_target_properties(${EXECUTABLE_NAME} PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
+target_include_directories(w1tool PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_SOURCE_DIR}/src
 )
 
-
-target_include_directories(${EXECUTABLE_NAME}
-    PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}
-        ${CMAKE_SOURCE_DIR}/src
+target_link_libraries(w1tool PRIVATE
+    w1tn3ss
+    w1nj3ct
+    common
+    redlog::redlog
 )
 
-target_link_libraries(${EXECUTABLE_NAME}
-    PRIVATE
-        w1tn3ss
-        w1nj3ct
-        common
-        redlog::redlog
-)
+apply_common_compile_options(w1tool)
+apply_windows_definitions(w1tool)
 
-target_compile_features(${EXECUTABLE_NAME} PRIVATE cxx_std_20)
-
-# Windows compile definitions
-if(WIN32)
-    target_compile_definitions(${EXECUTABLE_NAME} PRIVATE
-        _WIN32_WINNT=0x0601  # Windows 7+
-        NOMINMAX
-        WIN32_LEAN_AND_MEAN
-        _CRT_SECURE_NO_WARNINGS
-    )
-endif()
-
-# enable sanitizers for main executable in debug builds
-if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT WIN32)
-    target_compile_options(${EXECUTABLE_NAME} PRIVATE ${SANITIZER_FLAGS})
-    target_link_options(${EXECUTABLE_NAME} PRIVATE ${SANITIZER_FLAGS})
-endif()
-
-install(TARGETS ${EXECUTABLE_NAME}
-    RUNTIME DESTINATION bin
-)
+install(TARGETS w1tool RUNTIME DESTINATION bin)

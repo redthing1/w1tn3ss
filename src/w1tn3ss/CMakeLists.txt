@@ -1,7 +1,7 @@
-# w1tn3ss Framework Static Library
 cmake_minimum_required(VERSION 3.16)
 
-# w1tn3ss static library
+include(${CMAKE_SOURCE_DIR}/cmake/CommonConfig.cmake)
+
 add_library(w1tn3ss STATIC
     util/env_config.cpp
     util/module_discovery.cpp
@@ -9,29 +9,13 @@ add_library(w1tn3ss STATIC
     util/module_range_index.cpp
 )
 
-target_include_directories(w1tn3ss PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}
-)
+target_include_directories(w1tn3ss PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 target_link_libraries(w1tn3ss PUBLIC
     QBDI_static
     redlog::redlog
 )
 
-target_compile_features(w1tn3ss PUBLIC cxx_std_17)
-
-# Set appropriate compiler flags
-target_compile_options(w1tn3ss PRIVATE
-    $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall -Wextra -O2>
-    $<$<CXX_COMPILER_ID:MSVC>:/W4 /O2>
-)
-
-# Set output directory
-set_target_properties(w1tn3ss PROPERTIES
-    ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
-)
-
-# Platform-specific settings
-if(UNIX AND NOT APPLE)
-    target_link_libraries(w1tn3ss PUBLIC dl)
-endif()
+apply_common_compile_options(w1tn3ss)
+set_standard_output_dirs(w1tn3ss)
+apply_platform_linking(w1tn3ss)

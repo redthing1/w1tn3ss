@@ -1,19 +1,16 @@
-set(LIBRARY_NAME common)
+cmake_minimum_required(VERSION 3.16)
 
-# Header-only library with external dependencies
-add_library(${LIBRARY_NAME} INTERFACE)
+include(${CMAKE_SOURCE_DIR}/cmake/CommonConfig.cmake)
 
-# Include directories for external headers
-target_include_directories(${LIBRARY_NAME}
-    INTERFACE
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-        $<INSTALL_INTERFACE:include/common>
+add_library(common INTERFACE)
+
+target_include_directories(common INTERFACE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+    $<INSTALL_INTERFACE:include/common>
 )
 
-# This is a header-only library, so we only need to specify interface requirements
-target_compile_features(${LIBRARY_NAME} INTERFACE cxx_std_20)
+target_compile_features(common INTERFACE cxx_std_17)
 
-# Install rules for headers
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/ext/
     DESTINATION include/common/ext
     FILES_MATCHING PATTERN "*.hpp" PATTERN "*.h"
@@ -23,6 +20,4 @@ install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/platform_utils.hpp
     DESTINATION include/common
 )
 
-install(TARGETS ${LIBRARY_NAME}
-    EXPORT w1tn3ssTargets
-)
+install(TARGETS common EXPORT w1tn3ssTargets)
