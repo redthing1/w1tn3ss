@@ -123,4 +123,36 @@ QBDI::VMAction coverage_tracer::on_basic_block_entry(
     return QBDI::VMAction::CONTINUE;
 }
 
+size_t coverage_tracer::get_basic_block_count() const {
+    return collector_.get_basic_block_count();
+}
+
+size_t coverage_tracer::get_module_count() const {
+    return collector_.get_module_count();
+}
+
+uint64_t coverage_tracer::get_total_hits() const {
+    return collector_.get_total_hits();
+}
+
+void coverage_tracer::print_statistics() const {
+    auto log = redlog::get_logger("w1cov.tracer");
+    
+    size_t bb_count = collector_.get_basic_block_count();
+    size_t module_count = collector_.get_module_count();
+    uint64_t total_hits = collector_.get_total_hits();
+    size_t traced_modules = module_tracker_.traced_module_count();
+    
+    log.inf("=== Coverage Statistics ===");
+    log.inf("Basic blocks hit", redlog::field("count", bb_count));
+    log.inf("Modules instrumented", redlog::field("count", module_count));
+    log.inf("Traced modules", redlog::field("count", traced_modules));
+    log.inf("Total hits", redlog::field("count", total_hits));
+    
+    if (bb_count > 0 && total_hits > 0) {
+        double avg_hits = static_cast<double>(total_hits) / bb_count;
+        log.inf("Average hits per block", redlog::field("average", "%.2f", avg_hits));
+    }
+}
+
 } // namespace w1cov

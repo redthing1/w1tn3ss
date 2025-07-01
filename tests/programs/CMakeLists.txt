@@ -24,12 +24,13 @@ set_target_properties(control_flow_1 PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs
 )
 
-# standalone coverage test program (disabled - implementation not complete)
-# add_executable(test_standalone_coverage test_standalone_coverage.cpp)
-# target_link_libraries(test_standalone_coverage PRIVATE w1cov)
-# set_target_properties(test_standalone_coverage PROPERTIES
-#     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs
-# )
+# standalone coverage test program
+add_executable(test_standalone_coverage test_standalone_coverage.cpp)
+target_include_directories(test_standalone_coverage PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries(test_standalone_coverage PRIVATE w1cov_static w1tn3ss QBDI_static redlog::redlog)
+set_target_properties(test_standalone_coverage PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs
+)
 
 # runtime injection target program
 add_executable(runtime_injection_target runtime_injection_target.c)

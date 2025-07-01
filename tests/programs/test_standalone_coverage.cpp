@@ -1,4 +1,4 @@
-#include "../../src/w1tn3ss/tracers/coverage/w1cov_standalone.hpp"
+#include "../../src/tracers/w1cov/session.hpp"
 #include <cstdint>
 #include <iostream>
 
@@ -21,35 +21,29 @@ extern "C" uint64_t simple_math(uint64_t a, uint64_t b) {
 int main() {
   std::cout << "Testing w1cov standalone implementation...\n";
 
-  w1::coverage::coverage_session tracer;
+  w1cov::session session;
+  session.add_target_module_pattern("test_standalone_coverage");
 
-  if (!tracer.initialize()) {
+  if (!session.initialize()) {
     std::cout << "Failed to initialize tracer\n";
     return 1;
   }
 
   // Trace function multiple times to see basic block coverage and hitcounts
   uint64_t result1, result2;
-  if (!tracer.trace_function((void *)simple_math, {10, 5}, &result1)) {
+  if (!session.trace_function((void *)simple_math, {10, 5}, &result1)) {
     std::cout << "Failed to trace function (first call)\n";
     return 1;
   }
 
-  if (!tracer.trace_function((void *)simple_math, {3, 8}, &result2)) {
+  if (!session.trace_function((void *)simple_math, {3, 8}, &result2)) {
     std::cout << "Failed to trace function (second call)\n";
     return 1;
   }
 
   std::cout << "Function results: " << result1 << ", " << result2 << "\n";
-  std::cout << "Unique blocks: " << tracer.get_unique_block_count() << "\n";
-  std::cout << "Total hits: " << tracer.get_total_hits() << "\n";
-
-  tracer.print_statistics();
-
-  if (!tracer.export_data("test_standalone_coverage.drcov")) {
-    std::cout << "Failed to export coverage\n";
-    return 1;
-  }
+  std::cout << "Unique blocks: " << session.get_basic_block_count() << "\n";
+  std::cout << "Total hits: " << session.get_total_hits() << "\n";
 
   std::cout << "Standalone coverage test completed\n";
   return 0;

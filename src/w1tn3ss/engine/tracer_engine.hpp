@@ -64,6 +64,7 @@ public:
 
   bool call(QBDI::rword* retval, QBDI::rword function_ptr, const std::vector<QBDI::rword>& args) {
     if (!vm_) {
+      log_.error("QBDI::VM instance is null, cannot call function");
       return false;
     }
 

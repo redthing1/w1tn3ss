@@ -1,29 +1,25 @@
-# w1cov - Reference Coverage Tracer
+# w1mem - Memory Access Tracer
 cmake_minimum_required(VERSION 3.16)
 
-# w1cov tracer library - can be built as shared or static
+# w1mem tracer library - can be built as shared or static
 if(WITNESS_BUILD_SHARED)
-    add_library(w1cov_qbdipreload SHARED
+    add_library(w1mem_qbdipreload SHARED
         preload.cpp
-        coverage_tracer.cpp
-        coverage_collector.cpp
-        coverage_module_tracker.cpp
-        session.cpp
+        memory_tracer.cpp
+        memory_collector.cpp
     )
 endif()
 
 if(WITNESS_BUILD_STATIC)
-    add_library(w1cov_static STATIC
+    add_library(w1mem_static STATIC
         preload.cpp
-        coverage_tracer.cpp
-        coverage_collector.cpp
-        coverage_module_tracker.cpp
-        session.cpp
+        memory_tracer.cpp
+        memory_collector.cpp
     )
 endif()
 
-# Function to configure a w1cov target
-function(configure_w1cov_target target_name)
+# Function to configure a w1mem target
+function(configure_w1mem_target target_name)
     target_include_directories(${target_name} PRIVATE
         ${CMAKE_SOURCE_DIR}/src
         ${CMAKE_SOURCE_DIR}/src/third_party/qbdi/tools/QBDIPreload/include
@@ -36,7 +32,7 @@ function(configure_w1cov_target target_name)
     )
     
     # Link QBDIPreload for shared library version
-    if(${target_name} STREQUAL "w1cov_qbdipreload")
+    if(${target_name} STREQUAL "w1mem_qbdipreload")
         target_link_libraries(${target_name} PRIVATE QBDIPreload)
     endif()
 
@@ -68,9 +64,9 @@ endfunction()
 
 # Configure targets
 if(WITNESS_BUILD_SHARED)
-    configure_w1cov_target(w1cov_qbdipreload)
+    configure_w1mem_target(w1mem_qbdipreload)
 endif()
 
 if(WITNESS_BUILD_STATIC)
-    configure_w1cov_target(w1cov_static)
+    configure_w1mem_target(w1mem_static)
 endif()

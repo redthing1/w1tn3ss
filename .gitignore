@@ -4,6 +4,7 @@ claude/
 CLAUDE.md
 
 *.drcov
+*.json
 
 temp/
 plans/
