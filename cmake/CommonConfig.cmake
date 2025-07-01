@@ -23,6 +23,7 @@ function(apply_common_compile_options target)
     target_compile_features(${target} PRIVATE cxx_std_17)
     target_compile_options(${target} PRIVATE
         $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall -Wextra -O2>
+        $<$<CXX_COMPILER_ID:MSVC>:/EHsc>
     )
 endfunction()
 

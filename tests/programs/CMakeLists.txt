@@ -2,30 +2,40 @@
 
 # simple target program
 add_executable(simple_target simple_target.c)
+apply_common_compile_options(simple_target)
+apply_windows_definitions(simple_target)
 set_target_properties(simple_target PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs
 )
 
 # long running target program
 add_executable(long_running_target long_running_target.c)
+apply_common_compile_options(long_running_target)
+apply_windows_definitions(long_running_target)
 set_target_properties(long_running_target PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs
 )
 
 # multi-threaded target program
 add_executable(multi_threaded_target multi_threaded_target.c)
+apply_common_compile_options(multi_threaded_target)
+apply_windows_definitions(multi_threaded_target)
 set_target_properties(multi_threaded_target PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs
 )
 
 # control flow crackme program
 add_executable(control_flow_1 control_flow_1.cpp)
+apply_common_compile_options(control_flow_1)
+apply_windows_definitions(control_flow_1)
 set_target_properties(control_flow_1 PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs
 )
 
 # standalone coverage test program
 add_executable(test_standalone_coverage test_standalone_coverage.cpp)
+apply_common_compile_options(test_standalone_coverage)
+apply_windows_definitions(test_standalone_coverage)
 target_include_directories(test_standalone_coverage PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries(test_standalone_coverage PRIVATE w1cov_static w1tn3ss QBDI_static redlog::redlog)
 set_target_properties(test_standalone_coverage PROPERTIES
@@ -34,6 +44,8 @@ set_target_properties(test_standalone_coverage PROPERTIES
 
 # runtime injection target program
 add_executable(runtime_injection_target runtime_injection_target.c)
+apply_common_compile_options(runtime_injection_target)
+apply_windows_definitions(runtime_injection_target)
 set_target_properties(runtime_injection_target PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs
 )
@@ -42,12 +54,16 @@ set_target_properties(runtime_injection_target PROPERTIES
 if(UNIX AND NOT APPLE)
     # linux injection target with linux-specific features
     add_executable(linux_target linux_target.c)
+    apply_common_compile_options(linux_target)
+    apply_windows_definitions(linux_target)
     set_target_properties(linux_target PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs
     )
     
     # linux daemon target for testing background process injection
     add_executable(linux_daemon linux_daemon.c)
+    apply_common_compile_options(linux_daemon)
+    apply_windows_definitions(linux_daemon)
     set_target_properties(linux_daemon PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs
     )
