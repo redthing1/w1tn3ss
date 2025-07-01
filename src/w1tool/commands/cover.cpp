@@ -125,20 +125,24 @@ int cover(
   cfg.library_path = lib_path;
 
   // Set environment variables for w1cov
-  cfg.env_vars["W1COV_ENABLED"] = "1";
-
   if (exclude_system_flag) {
-    cfg.env_vars["W1COV_EXCLUDE_SYSTEM"] = "1";
+    cfg.env_vars["W1COV_EXCLUDE_SYSTEM"] = "true";
+  } else {
+    cfg.env_vars["W1COV_EXCLUDE_SYSTEM"] = "false";
   }
 
   if (debug_flag) {
-    cfg.env_vars["W1COV_DEBUG"] = "1";
+    cfg.env_vars["W1COV_VERBOSE"] = "true";
   } else {
-    // Normal operation - suppress verbose logging from coverage components
-    cfg.env_vars["W1COV_QUIET"] = "1";
+    cfg.env_vars["W1COV_VERBOSE"] = "false";
   }
 
-  // Set output format
+  // Set additional w1cov configuration
+  cfg.env_vars["W1COV_TRACK_HITCOUNTS"] = "true";
+  cfg.env_vars["W1COV_ENABLE_RESCANNING"] = "true";
+  cfg.env_vars["W1COV_MAX_BASIC_BLOCKS"] = "1000000";
+
+  // Set output format (validate but don't pass to w1cov - it only outputs drcov)
   std::string format = "drcov"; // default
   if (format_flag) {
     format = args::get(format_flag);
@@ -146,8 +150,11 @@ int cover(
       log.error("invalid format, supported: drcov, text", redlog::field("format", format));
       return 1;
     }
+    if (format == "text") {
+      log.warn("text format not yet implemented, using drcov format");
+      format = "drcov";
+    }
   }
-  cfg.env_vars["W1COV_FORMAT"] = format;
 
   // Set output file
   std::string output_file;
@@ -236,6 +243,12 @@ int cover(
     log.info("coverage tracing completed successfully", redlog::field("output_file", output_file));
     if (result.target_pid > 0) {
       log.info("target process", redlog::field("pid", result.target_pid));
+    }
+
+    // Check that the output file was created
+    if (!std::filesystem::exists(output_file)) {
+      log.error("output file not created", redlog::field("output_file", output_file));
+      return 1;
     }
 
     std::cout << "Coverage tracing completed successfully.\n";

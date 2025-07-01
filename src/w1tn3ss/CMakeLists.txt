@@ -1,242 +1,35 @@
-set(LIBRARY_NAME w1tn3ss)
+# w1tn3ss Framework Static Library
+cmake_minimum_required(VERSION 3.16)
 
-# Framework headers (header-only components)
-set(FRAMEWORK_HEADERS
-    framework/callback_registrar.hpp
-    framework/module_discovery.hpp
-    framework/env_config.hpp
-    framework/performance_monitor.hpp
-    framework/tracer_base.hpp
-    framework/utils.hpp
+# w1tn3ss static library
+add_library(w1tn3ss STATIC
+    util/env_config.cpp
+    util/module_discovery.cpp
 )
 
-# Create main w1tn3ss library sources
-set(SOURCES
-    w1tn3ss.cpp
-    framework/module_discovery.cpp
-    tracers/coverage/coverage_data.cpp
-    tracers/coverage/coverage_tracer.cpp
-    tracers/coverage/coverage_config.cpp
+target_include_directories(w1tn3ss PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-set(HEADERS
-    w1tn3ss.hpp
-    ${FRAMEWORK_HEADERS}
-    tracers/coverage/coverage_data.hpp
-    tracers/coverage/coverage_tracer.hpp
-    tracers/coverage/coverage_config.hpp
-    tracers/coverage/w1cov_constants.hpp
-    tracers/coverage/w1cov_standalone.hpp
-    formats/drcov.hpp
+target_link_libraries(w1tn3ss PUBLIC
+    QBDI_static
+    redlog::redlog
 )
 
-# Create w1tn3ss library targets based on options
-set(W1TN3SS_TARGETS)
+target_compile_features(w1tn3ss PUBLIC cxx_std_17)
 
-if(WITNESS_BUILD_STATIC)
-    add_library(${LIBRARY_NAME}_static STATIC ${SOURCES})
-    list(APPEND W1TN3SS_TARGETS ${LIBRARY_NAME}_static)
-endif()
-
-if(WITNESS_BUILD_SHARED)
-    add_library(${LIBRARY_NAME}_shared SHARED ${SOURCES})
-    # Configure shared library with export/import declarations
-    target_compile_definitions(${LIBRARY_NAME}_shared PRIVATE W1TN3SS_EXPORTS)
-    target_compile_definitions(${LIBRARY_NAME}_shared INTERFACE W1TN3SS_IMPORTS)
-    list(APPEND W1TN3SS_TARGETS ${LIBRARY_NAME}_shared)
-endif()
-
-# Create alias for backwards compatibility
-if(WITNESS_BUILD_SHARED)
-    add_library(${LIBRARY_NAME} ALIAS ${LIBRARY_NAME}_shared)
-elseif(WITNESS_BUILD_STATIC)
-    add_library(${LIBRARY_NAME} ALIAS ${LIBRARY_NAME}_static)
-else()
-    message(FATAL_ERROR "At least one of WITNESS_BUILD_STATIC or WITNESS_BUILD_SHARED must be ON")
-endif()
-
-# Set target properties for enabled libraries
-if(WITNESS_BUILD_STATIC)
-    set_target_properties(${LIBRARY_NAME}_static PROPERTIES
-        PUBLIC_HEADER "${HEADERS}"
-        ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
-        PREFIX ""
-        OUTPUT_NAME "w1tn3ss"
-    )
-endif()
-
-if(WITNESS_BUILD_SHARED)
-    set_target_properties(${LIBRARY_NAME}_shared PROPERTIES
-        PUBLIC_HEADER "${HEADERS}"
-        LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
-        ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
-        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
-        PREFIX ""
-        OUTPUT_NAME "w1tn3ss"
-    )
-endif()
-
-
-# Include directories for enabled targets
-foreach(target ${W1TN3SS_TARGETS})
-    target_include_directories(${target}
-        PUBLIC
-            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-            $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src>
-            $<INSTALL_INTERFACE:include>
-        PRIVATE
-            ${CMAKE_CURRENT_SOURCE_DIR}
-    )
-endforeach()
-
-# Link libraries for enabled targets
-foreach(target ${W1TN3SS_TARGETS})
-    target_link_libraries(${target}
-        PUBLIC
-            QBDI_static
-            common
-            redlog::redlog
-    )
-endforeach()
-
-# Compiler flags for enabled targets
-foreach(target ${W1TN3SS_TARGETS})
-    target_compile_features(${target} PUBLIC cxx_std_17)
-endforeach()
-
-# Sanitizers disabled by default
-# if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT WIN32)
-#     target_compile_options(${LIBRARY_NAME} PRIVATE ${SANITIZER_FLAGS})
-#     target_link_options(${LIBRARY_NAME} PRIVATE ${SANITIZER_FLAGS})
-# endif()
-
-if(WIN32)
-    foreach(target ${W1TN3SS_TARGETS})
-        target_compile_definitions(${target} PRIVATE
-            _WIN32_WINNT=0x0601  # Windows 7+
-            NOMINMAX
-            WIN32_LEAN_AND_MEAN
-            _CRT_SECURE_NO_WARNINGS
-        )
-    endforeach()
-endif()
-
-# w1cov coverage libraries
-set(W1COV_STANDALONE_TARGETS)
-
-# w1cov_qbdipreload library (QBDIPreload-based) - shared only
-set(W1COV_QBDIPRELOAD_SOURCES
-    framework/module_discovery.cpp
-    tracers/coverage/coverage_data.cpp
-    tracers/coverage/coverage_tracer.cpp
-    tracers/coverage/coverage_config.cpp
-    tracers/coverage/w1cov_qbdipreload.cpp
+# Set appropriate compiler flags
+target_compile_options(w1tn3ss PRIVATE
+    $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall -Wextra -O2>
+    $<$<CXX_COMPILER_ID:MSVC>:/W4 /O2>
 )
 
-add_library(w1cov_qbdipreload SHARED ${W1COV_QBDIPRELOAD_SOURCES})
-
-set_target_properties(w1cov_qbdipreload PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
-    ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
-    PREFIX ""
-    OUTPUT_NAME "w1cov_qbdipreload"
+# Set output directory
+set_target_properties(w1tn3ss PROPERTIES
+    ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
 )
 
-target_include_directories(w1cov_qbdipreload
-    PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}
-        ${CMAKE_SOURCE_DIR}/src/third_party/qbdi/tools/QBDIPreload/include
-)
-
-target_link_libraries(w1cov_qbdipreload
-    PRIVATE
-        QBDIPreload
-        QBDI_static
-        redlog::redlog
-)
-
-target_compile_features(w1cov_qbdipreload PRIVATE cxx_std_17)
-
-if(WIN32)
-    target_compile_definitions(w1cov_qbdipreload PRIVATE
-        _WIN32_WINNT=0x0601
-        NOMINMAX
-        WIN32_LEAN_AND_MEAN
-        _CRT_SECURE_NO_WARNINGS
-    )
+# Platform-specific settings
+if(UNIX AND NOT APPLE)
+    target_link_libraries(w1tn3ss PUBLIC dl)
 endif()
-
-# Standalone w1cov library using shared core
-set(W1COV_STANDALONE_SOURCES
-    framework/module_discovery.cpp
-    tracers/coverage/coverage_data.cpp
-    tracers/coverage/coverage_tracer.cpp
-    tracers/coverage/coverage_config.cpp
-)
-
-if(WITNESS_BUILD_STATIC)
-    add_library(w1cov_static STATIC ${W1COV_STANDALONE_SOURCES})
-    list(APPEND W1COV_STANDALONE_TARGETS w1cov_static)
-endif()
-
-if(WITNESS_BUILD_SHARED)
-    add_library(w1cov_shared SHARED ${W1COV_STANDALONE_SOURCES})
-    list(APPEND W1COV_STANDALONE_TARGETS w1cov_shared)
-endif()
-
-# Create alias for backwards compatibility
-if(WITNESS_BUILD_SHARED)
-    add_library(w1cov ALIAS w1cov_shared)
-elseif(WITNESS_BUILD_STATIC)
-    add_library(w1cov ALIAS w1cov_static)
-endif()
-
-# Configure w1cov targets
-if(WITNESS_BUILD_STATIC)
-    set_target_properties(w1cov_static PROPERTIES
-        ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
-        PREFIX ""
-        OUTPUT_NAME "w1cov"
-    )
-endif()
-
-if(WITNESS_BUILD_SHARED)
-    set_target_properties(w1cov_shared PROPERTIES
-        LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
-        ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
-        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
-        PREFIX ""
-        OUTPUT_NAME "w1cov"
-    )
-endif()
-
-
-# Configure w1cov standalone targets
-foreach(target ${W1COV_STANDALONE_TARGETS})
-    target_include_directories(${target}
-        PRIVATE
-            ${CMAKE_CURRENT_SOURCE_DIR}
-            ${CMAKE_SOURCE_DIR}/src
-    )
-    
-    target_link_libraries(${target}
-        PUBLIC
-            QBDI_static
-            common
-            redlog::redlog
-    )
-    
-    target_compile_features(${target} PRIVATE cxx_std_17)
-    
-    if(WIN32)
-        target_compile_definitions(${target} PRIVATE
-            _WIN32_WINNT=0x0601
-            NOMINMAX
-            WIN32_LEAN_AND_MEAN
-            _CRT_SECURE_NO_WARNINGS
-        )
-    endif()
-endforeach()
-
-

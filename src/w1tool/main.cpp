@@ -1,134 +1,94 @@
+#include <cstdlib>
+#include <iostream>
+#include <string>
+
+#include <redlog/redlog.hpp>
+
+#include "cli.hpp"
 #include "commands/cover.hpp"
 #include "commands/inject.hpp"
 #include "commands/inspect.hpp"
 #include "commands/read_drcov.hpp"
-#include "ext/args.hpp"
-#include <cstdlib>
-#include <iostream>
-#include <redlog/redlog.hpp>
-#include <string>
-#ifdef _WIN32
-#include <io.h>
-#else
-#include <unistd.h>
-#endif
+
+namespace {
+auto log_main = redlog::get_logger("w1tool");
+}
+
+void cmd_inject(args::Subparser& parser) {
+  cli::apply_verbosity();
+
+  args::ValueFlag<std::string> library(parser, "path", "path to injection library", {'L', "library"});
+  args::ValueFlag<std::string> name(parser, "name", "target process name", {'n', "name"});
+  args::ValueFlag<int> pid(parser, "pid", "target process id", {'p', "pid"});
+  args::ValueFlag<std::string> binary(parser, "path", "binary to launch with injection", {'b', "binary"});
+  args::Flag suspended(parser, "suspended", "start process in suspended state (only with --binary)", {"suspended"});
+  parser.Parse();
+
+  w1tool::commands::inject(library, name, pid, binary, suspended);
+}
+
+void cmd_inspect(args::Subparser& parser) {
+  cli::apply_verbosity();
+
+  args::ValueFlag<std::string> binary(parser, "path", "path to binary file", {'b', "binary"});
+  parser.Parse();
+
+  w1tool::commands::inspect(binary);
+}
+
+void cmd_cover(args::Subparser& parser) {
+  cli::apply_verbosity();
+
+  args::ValueFlag<std::string> library(parser, "path", "path to w1cov library", {'L', "w1cov-library"});
+  args::Flag spawn(parser, "spawn", "spawn new process for tracing", {'s', "spawn"});
+  args::ValueFlag<int> pid(parser, "pid", "process ID to attach to", {'p', "pid"});
+  args::ValueFlag<std::string> name(parser, "name", "process name to attach to", {'n', "name"});
+  args::ValueFlag<std::string> output(parser, "path", "output file path", {'o', "output"});
+  args::Flag exclude_system(parser, "exclude-system", "exclude system libraries", {"exclude-system"});
+  args::Flag debug(parser, "debug", "enable debug output", {"debug"});
+  args::ValueFlag<std::string> format(parser, "format", "output format (drcov, text)", {"format"});
+  args::Flag suspended(parser, "suspended", "start process in suspended state (only with --spawn)", {"suspended"});
+  args::PositionalList<std::string> args(parser, "args", "binary and arguments (use -- to separate w1tool args from target args)");
+  parser.Parse();
+
+  w1tool::commands::cover(library, spawn, pid, name, output, exclude_system, debug, format, suspended, args, "w1tool");
+}
+
+void cmd_read_drcov(args::Subparser& parser) {
+  cli::apply_verbosity();
+
+  args::ValueFlag<std::string> file(parser, "path", "path to DrCov file", {'f', "file"});
+  args::Flag summary(parser, "summary", "show summary only", {'s', "summary"});
+  args::Flag detailed(parser, "detailed", "show detailed basic block listing", {'d', "detailed"});
+  args::ValueFlag<std::string> module(parser, "module", "filter by module name (substring match)", {'m', "module"});
+  parser.Parse();
+
+  w1tool::commands::read_drcov(file, summary, detailed, module);
+}
 
 int main(int argc, char* argv[]) {
-  auto log = redlog::get_logger("w1tool");
-
-  // configure default logging level (warn for quiet operation)
-  redlog::set_level(redlog::level::warn);
-
-  log.debug("w1tool starting");
-
-  args::ArgumentParser parser("w1tool - cross-platform dynamic binary analysis tool");
-  parser.helpParams.proglineShowFlags = true;
+  args::ArgumentParser parser("w1tool - cross-platform dynamic binary analysis tool",
+                              "inject libraries, trace coverage, and analyze binaries");
   parser.helpParams.showTerminator = false;
+  parser.SetArgumentSeparations(false, false, true, true);
+  parser.LongSeparator(" ");
 
-  // global options group
-  args::Group global_options("global options");
-  args::HelpFlag help(global_options, "help", "show help", {'h', "help"});
-  args::CounterFlag verbose(global_options, "verbose", "increase verbosity", {'v', "verbose"});
-  args::Flag quiet(global_options, "quiet", "disable colored output", {'q', "quiet"});
-
-  args::GlobalOptions globals(parser, global_options);
+  args::GlobalOptions globals(parser, cli::arguments);
   args::Group commands(parser, "commands");
 
-  // inject subcommand
-  args::Command inject(commands, "inject", "inject library into target process");
-  args::ValueFlag<std::string> inject_library(inject, "path", "path to injection library", {'L', "library"});
-  args::ValueFlag<std::string> inject_name(inject, "name", "target process name", {'n', "name"});
-  args::ValueFlag<int> inject_pid(inject, "pid", "target process id", {'p', "pid"});
-  args::ValueFlag<std::string> inject_binary(inject, "path", "binary to launch with injection", {'b', "binary"});
-  args::Flag inject_suspended(inject, "suspended", "start process in suspended state (only with --binary)", {"suspended"});
-
-  // inspect subcommand
-  args::Command inspect(commands, "inspect", "inspect binary file");
-  args::ValueFlag<std::string> inspect_binary(inspect, "path", "path to binary file", {'b', "binary"});
-
-  // cover subcommand
-  args::Command cover(commands, "cover", "perform coverage tracing with configurable options");
-  args::ValueFlag<std::string> cover_library(cover, "path", "path to w1cov library", {'L', "w1cov-library"});
-  args::Flag cover_spawn(cover, "spawn", "spawn new process for tracing", {'s', "spawn"});
-  args::ValueFlag<int> cover_pid(cover, "pid", "process ID to attach to", {'p', "pid"});
-  args::ValueFlag<std::string> cover_name(cover, "name", "process name to attach to", {'n', "name"});
-  args::ValueFlag<std::string> cover_output(cover, "path", "output file path", {'o', "output"});
-  args::Flag cover_exclude_system(cover, "exclude-system", "exclude system libraries", {"exclude-system"});
-  args::Flag cover_debug(cover, "debug", "enable debug output", {"debug"});
-  args::ValueFlag<std::string> cover_format(cover, "format", "output format (drcov, text)", {"format"});
-  args::Flag cover_suspended(cover, "suspended", "start process in suspended state (only with --spawn)", {"suspended"});
-  args::PositionalList<std::string> cover_args(
-      cover, "args", "binary and arguments (use -- to separate w1tool args from target args)"
-  );
-
-  // read-drcov subcommand
-  args::Command read_drcov(commands, "read-drcov", "analyze DrCov coverage files");
-  args::ValueFlag<std::string> read_drcov_file(read_drcov, "path", "path to DrCov file", {'f', "file"});
-  args::Flag read_drcov_summary(read_drcov, "summary", "show summary only", {'s', "summary"});
-  args::Flag read_drcov_detailed(read_drcov, "detailed", "show detailed basic block listing", {'d', "detailed"});
-  args::ValueFlag<std::string> read_drcov_module(
-      read_drcov, "module", "filter by module name (substring match)", {'m', "module"}
-  );
+  args::Command inject_cmd(commands, "inject", "inject library into target process", &cmd_inject);
+  args::Command inspect_cmd(commands, "inspect", "inspect binary file", &cmd_inspect);
+  args::Command cover_cmd(commands, "cover", "perform coverage tracing with configurable options", &cmd_cover);
+  args::Command read_drcov_cmd(commands, "read-drcov", "analyze DrCov coverage files", &cmd_read_drcov);
 
   try {
     parser.ParseCLI(argc, argv);
-
-    // apply logging configuration - verbose flags take precedence over log-level
-    if (verbose) {
-      int verbosity = args::get(verbose);
-      redlog::set_level(redlog::level::info);
-
-      if (verbosity == 1) {
-        redlog::set_level(redlog::level::verbose);
-      } else if (verbosity == 2) {
-        redlog::set_level(redlog::level::trace);
-      } else if (verbosity >= 3) {
-        redlog::set_level(redlog::level::debug);
-      }
-
-      log.debug(
-          "verbosity level set", redlog::field("count", verbosity),
-          redlog::field("level", redlog::level_name(redlog::get_level()))
-      );
-    }
-
-    // Detect terminal capabilities for cross-platform color support
-    bool is_terminal = false;
-#ifdef _WIN32
-    is_terminal = _isatty(_fileno(stdout));
-#else
-    is_terminal = isatty(STDOUT_FILENO);
-#endif
-
-    if (quiet || !is_terminal) {
-      redlog::set_theme(redlog::themes::plain);
-    }
-
-    if (inject) {
-      return w1tool::commands::inject(inject_library, inject_name, inject_pid, inject_binary, inject_suspended);
-    } else if (inspect) {
-      return w1tool::commands::inspect(inspect_binary);
-    } else if (cover) {
-      return w1tool::commands::cover(
-          cover_library, cover_spawn, cover_pid, cover_name, cover_output, cover_exclude_system, cover_debug,
-          cover_format, cover_suspended, cover_args, argv[0]
-      );
-    } else if (read_drcov) {
-      return w1tool::commands::read_drcov(read_drcov_file, read_drcov_summary, read_drcov_detailed, read_drcov_module);
-    } else {
-      // show help by default when no command specified
-      std::cout << parser;
-      return 0;
-    }
-  } catch (const args::Help&) {
+  } catch (args::Help) {
     std::cout << parser;
     return 0;
-  } catch (const args::ParseError& e) {
-    log.error("command line parse error", redlog::field("error", e.what()));
-    std::cout << parser;
-    return 1;
-  } catch (const std::exception& e) {
-    log.error("unexpected error", redlog::field("error", e.what()));
+  } catch (args::ParseError& e) {
+    std::cerr << e.what() << std::endl;
+    std::cerr << parser;
     return 1;
   }
 

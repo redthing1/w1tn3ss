@@ -123,6 +123,7 @@ add_subdirectory(src/third_party/redlog_cpp)
 # add project subdirectories
 add_subdirectory(src/common)
 add_subdirectory(src/w1tn3ss)
+add_subdirectory(src/tracers)
 add_subdirectory(src/w1nj3ct)
 add_subdirectory(src/w1tool)
 
