@@ -141,21 +141,6 @@ template <> double env_config::get<double>(const std::string& name, double defau
   }
 }
 
-template <> size_t env_config::get<size_t>(const std::string& name, size_t default_value) const {
-  std::string value = get_env_value(name);
-  if (value.empty()) {
-    return default_value;
-  }
-
-  try {
-    return static_cast<size_t>(std::stoull(value));
-  } catch (const std::exception& e) {
-    std::cerr << "Warning: Failed to parse " << build_env_name(name) << " as size_t: " << e.what() << ", using default"
-              << std::endl;
-    return default_value;
-  }
-}
-
 std::vector<std::string> env_config::get_list(const std::string& name, char delimiter) const {
   std::string value = get_env_value(name);
   std::vector<std::string> result;
