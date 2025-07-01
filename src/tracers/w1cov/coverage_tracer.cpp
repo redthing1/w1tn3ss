@@ -45,9 +45,11 @@ void coverage_tracer::shutdown() {
 
   size_t bb_count = collector_.get_basic_block_count();
   size_t module_count = collector_.get_module_count();
+  uint64_t total_hits = collector_.get_total_hits();
 
   log.info(
-      "coverage collection completed", redlog::field("basic_blocks", bb_count), redlog::field("modules", module_count)
+      "coverage collection completed", redlog::field("basic_blocks", bb_count), 
+      redlog::field("modules", module_count), redlog::field("total_hits", total_hits)
   );
 
   // Early return if no data to export
@@ -57,20 +59,24 @@ void coverage_tracer::shutdown() {
   }
 
   try {
-    log.vrb("opening output file", redlog::field("output_file", config_.output_file));
-    std::ofstream file(config_.output_file, std::ios::binary);
-    if (!file) {
-      log.err("failed to open output file", redlog::field("output_file", config_.output_file));
-      return;
+    log.vrb("building coverage data with drcov builder");
+    drcov::coverage_data data = collector_.build_drcov_data();
+    log.vrb("coverage data built successfully", redlog::field("modules", data.modules.size()), 
+            redlog::field("basic_blocks", data.basic_blocks.size()));
+
+    // validate export data before writing
+    if (data.modules.empty()) {
+      log.wrn("no modules in coverage data, creating empty file");
+    }
+    
+    if (data.basic_blocks.empty()) {
+      log.wrn("no basic blocks in coverage data");
     }
 
-    log.vrb("building coverage data");
-    drcov::coverage_data data = collector_.build_drcov_data();
-    log.vrb("coverage data built successfully");
-
-    log.vrb("writing coverage data to file");
+    log.vrb("writing coverage data to file", redlog::field("output_file", config_.output_file));
+    
     try {
-      drcov::write(file, data);
+      drcov::write(config_.output_file, data);
       log.vrb("coverage data written successfully");
     } catch (const std::exception& write_e) {
       log.err("exception during drcov write", redlog::field("error", write_e.what()));
@@ -80,7 +86,14 @@ void coverage_tracer::shutdown() {
       throw;
     }
 
-    file.close();
+    // verify file was created
+    std::ifstream verify_file(config_.output_file);
+    if (!verify_file.good()) {
+      log.err("output file verification failed", redlog::field("output_file", config_.output_file));
+      return;
+    }
+    verify_file.close();
+
     log.info("coverage data export completed", redlog::field("output_file", config_.output_file));
 
   } catch (const std::exception& e) {
