@@ -22,7 +22,7 @@ namespace w1tool::commands {
 std::string find_qbdipreload_library(const std::string& executable_path) {
   auto log = redlog::get_logger("w1tool.cover.autodiscovery");
 
-  // Convert executable path to absolute path to handle relative paths like "./w1tool"
+  // convert executable path to absolute path to handle relative paths like "./w1tool"
   std::filesystem::path exec_path;
   try {
     exec_path = std::filesystem::canonical(executable_path);
@@ -36,7 +36,7 @@ std::string find_qbdipreload_library(const std::string& executable_path) {
 
   std::filesystem::path exec_dir = exec_path.parent_path();
 
-  // Get platform-specific library extension
+  // get platform-specific library extension
   std::string lib_ext = w1::common::platform_utils::get_library_extension();
   std::string lib_name = "w1cov_qbdipreload" + lib_ext;
 
@@ -44,7 +44,7 @@ std::string find_qbdipreload_library(const std::string& executable_path) {
       "searching for library", redlog::field("library_name", lib_name), redlog::field("exec_dir", exec_dir.string())
   );
 
-  // Search paths relative to executable directory
+  // search paths relative to executable directory
   std::vector<std::filesystem::path> search_paths = {
       exec_dir / lib_name,                // Same directory as executable
       exec_dir / ".." / "lib" / lib_name, // ../lib/ (for installed layouts)
@@ -76,7 +76,7 @@ int cover(
 
   auto log = redlog::get_logger("w1tool.cover");
 
-  // Log platform information for debugging
+  // log platform information for debugging
   std::string platform = w1::common::platform_utils::get_platform_name();
   log.debug("platform detected", redlog::field("platform", platform));
 
@@ -84,13 +84,13 @@ int cover(
     log.warn("runtime injection may not be supported on this platform", redlog::field("platform", platform));
   }
 
-  // Determine library path - use specified path or auto-discover
+  // determine library path - use specified path or auto-discover
   std::string lib_path;
   if (library_flag) {
     lib_path = args::get(library_flag);
     log.debug("using w1cov library", redlog::field("path", lib_path));
   } else {
-    // Auto-discover library path
+    // auto-discover library path
     log.debug("attempting to auto-discover w1cov library");
 
     lib_path = find_qbdipreload_library(executable_path);
@@ -104,7 +104,7 @@ int cover(
     log.info("auto-discovered library", redlog::field("path", lib_path));
   }
 
-  // Validate target specification
+  // validate target specification
   int target_count = 0;
   if (spawn_flag) {
     target_count++;
@@ -133,7 +133,7 @@ int cover(
     return 1;
   }
 
-  // Prepare injection configuration
+  // prepare injection configuration
   w1::inject::config cfg;
   cfg.library_path = lib_path;
 

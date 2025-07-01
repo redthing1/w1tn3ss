@@ -83,7 +83,7 @@ int read_drcov(
   auto log = redlog::get_logger("w1tool.read-drcov");
 
   if (!file_flag) {
-    log.error("DrCov file path required");
+    log.error("drCov file path required");
     return 1;
   }
 
@@ -91,24 +91,24 @@ int read_drcov(
   log.info("analyzing DrCov file", redlog::field("file", file_path));
 
   try {
-    // Read and parse the DrCov file
+    // read and parse the DrCov file
     auto coverage_data = drcov::read(file_path);
 
-    // Print header information
+    // print header information
     std::cout << "=== DrCov File Analysis ===\n";
-    std::cout << "File: " << file_path << "\n";
-    std::cout << "Version: " << coverage_data.header.version << "\n";
-    std::cout << "Flavor: " << coverage_data.header.flavor << "\n";
-    std::cout << "Module Table Version: " << static_cast<uint32_t>(coverage_data.module_version) << "\n";
-    std::cout << "Has Hitcounts: " << (coverage_data.has_hitcounts() ? "Yes" : "No") << "\n";
+    std::cout << "file: " << file_path << "\n";
+    std::cout << "version: " << coverage_data.header.version << "\n";
+    std::cout << "flavor: " << coverage_data.header.flavor << "\n";
+    std::cout << "module table version: " << static_cast<uint32_t>(coverage_data.module_version) << "\n";
+    std::cout << "has hitcounts: " << (coverage_data.has_hitcounts() ? "yes" : "no") << "\n";
     std::cout << "\n";
 
-    // Print summary
+    // print summary
     std::cout << "=== Summary ===\n";
-    std::cout << "Total Modules: " << format_number(coverage_data.modules.size()) << "\n";
-    std::cout << "Total Basic Blocks: " << format_number(coverage_data.basic_blocks.size()) << "\n";
+    std::cout << "total modules: " << format_number(coverage_data.modules.size()) << "\n";
+    std::cout << "total basic blocks: " << format_number(coverage_data.basic_blocks.size()) << "\n";
 
-    // Calculate coverage stats
+    // calculate coverage stats
     auto stats = coverage_data.get_coverage_stats();
     uint64_t total_coverage_bytes = 0;
     uint64_t total_hitcount = 0;
@@ -122,10 +122,10 @@ int read_drcov(
       }
     }
 
-    std::cout << "Total Coverage: " << format_bytes(total_coverage_bytes) << "\n";
+    std::cout << "total coverage: " << format_bytes(total_coverage_bytes) << "\n";
     if (coverage_data.has_hitcounts()) {
-      std::cout << "Total Hits: " << format_hits(total_hitcount) << "\n";
-      std::cout << "Average Hits per Block: " << std::fixed << std::setprecision(2)
+      std::cout << "total hits: " << format_hits(total_hitcount) << "\n";
+      std::cout << "average hits per block: " << std::fixed << std::setprecision(2)
                 << (coverage_data.basic_blocks.empty()
                         ? 0.0
                         : static_cast<double>(total_hitcount) / coverage_data.basic_blocks.size())
@@ -133,7 +133,7 @@ int read_drcov(
     }
     std::cout << "\n";
 
-    // Module summary
+    // module summary
     std::cout << "=== Module Coverage ===\n";
     if (coverage_data.has_hitcounts()) {
       std::cout << std::left << std::setw(4) << "ID" << std::setw(8) << "Blocks" << std::setw(12) << "Size"
@@ -151,7 +151,7 @@ int read_drcov(
       auto it = stats.find(module.id);
       size_t block_count = (it != stats.end()) ? it->second : 0;
 
-      // Calculate total bytes and hits for this module
+      // calculate total bytes and hits for this module
       uint64_t module_bytes = 0;
       uint64_t module_hits = 0;
 
@@ -177,7 +177,7 @@ int read_drcov(
     }
     std::cout << "\n";
 
-    // Detailed analysis if requested
+    // detailed analysis if requested
     if (detailed_flag) {
       std::cout << "=== Detailed Basic Blocks ===\n";
       if (coverage_data.has_hitcounts()) {
@@ -213,27 +213,27 @@ int read_drcov(
       std::cout << "\n";
     }
 
-    // Module-specific analysis if requested
+    // module-specific analysis if requested
     if (module_flag) {
       std::string module_filter = args::get(module_flag);
       std::cout << "=== Module-Specific Analysis: " << module_filter << " ===\n";
 
-      // Find matching modules (by name substring)
+      // find matching modules (by name substring)
       bool found = false;
       for (const auto& module : coverage_data.modules) {
         if (module.path.find(module_filter) != std::string::npos) {
           found = true;
 
-          std::cout << "Module ID: " << module.id << "\n";
-          std::cout << "Name: " << module.path << "\n";
-          std::cout << "Base: 0x" << std::hex << module.base << std::dec << "\n";
-          std::cout << "End: 0x" << std::hex << module.end << std::dec << "\n";
-          std::cout << "Size: " << (module.end - module.base) << " bytes\n";
+          std::cout << "module ID: " << module.id << "\n";
+          std::cout << "name: " << module.path << "\n";
+          std::cout << "base: 0x" << std::hex << module.base << std::dec << "\n";
+          std::cout << "end: 0x" << std::hex << module.end << std::dec << "\n";
+          std::cout << "size: " << (module.end - module.base) << " bytes\n";
 
-          // Count blocks for this module
+          // count blocks for this module
           auto it = stats.find(module.id);
           size_t block_count = (it != stats.end()) ? it->second : 0;
-          std::cout << "Covered Blocks: " << format_number(block_count) << "\n";
+          std::cout << "covered blocks: " << format_number(block_count) << "\n";
 
           uint64_t module_bytes = 0;
           uint64_t module_hits = 0;
@@ -248,10 +248,10 @@ int read_drcov(
             }
           }
 
-          std::cout << "Covered Bytes: " << format_bytes(module_bytes) << "\n";
+          std::cout << "covered bytes: " << format_bytes(module_bytes) << "\n";
           if (coverage_data.has_hitcounts()) {
-            std::cout << "Total Hits: " << format_hits(module_hits) << "\n";
-            std::cout << "Average Hits per Block: " << std::fixed << std::setprecision(2)
+            std::cout << "total hits: " << format_hits(module_hits) << "\n";
+            std::cout << "average hits per block: " << std::fixed << std::setprecision(2)
                       << (block_count == 0 ? 0.0 : static_cast<double>(module_hits) / block_count) << "\n";
           }
           std::cout << "\n";
@@ -259,7 +259,7 @@ int read_drcov(
       }
 
       if (!found) {
-        std::cout << "No modules found matching: " << module_filter << "\n";
+        std::cout << "no modules found matching: " << module_filter << "\n";
       }
     }
 

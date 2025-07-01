@@ -9,7 +9,7 @@ namespace w1tool::commands {
  *
  * @param library_flag path to w1cov library (auto-detected if not specified)
  * @param spawn_flag spawn new process for tracing
- * @param pid_flag process ID to attach to for runtime tracing
+ * @param pid_flag process id to attach to for runtime tracing
  * @param name_flag process name to attach to for runtime tracing
  * @param output_flag output file path for coverage data (optional)
  * @param exclude_system_flag exclude system libraries from coverage (optional)

@@ -98,7 +98,7 @@ result inject_runtime(const config& cfg) {
 }
 
 result inject_preload(const config& cfg) {
-  // Windows launch injection using suspended process approach
+  // windows launch injection using suspended process approach
 
   // validate we have a binary path for launch injection
   if (!cfg.binary_path) {

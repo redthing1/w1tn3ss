@@ -57,7 +57,7 @@
 #include <variant>
 #include <vector>
 
-// Endianness detection for portable binary I/O
+// endianness detection for portable binary I/O
 #if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 #define DRCOV_LITTLE_ENDIAN 1
 #elif defined(_WIN32)
@@ -276,7 +276,7 @@ struct coverage_data {
       }
     }
 
-    // Validate hitcount data if present
+    // validate hitcount data if present
     if (!hitcounts.empty() && hitcounts.size() != basic_blocks.size()) {
       throw parse_error(
           error_code::validation_error, "Hitcount array size (" + std::to_string(hitcounts.size()) +
@@ -397,7 +397,7 @@ public:
     std::tie(data.modules, data.module_version) = parse_module_table(stream);
     data.basic_blocks = parse_bb_table(stream);
 
-    // Try to parse hitcount table if the flavor indicates hits support
+    // try to parse hitcount table if the flavor indicates hits support
     if (data.header.flavor == constants::drcov_hits_flavor) {
       data.hitcounts = parse_hitcount_table(stream, data.basic_blocks.size());
     }
@@ -635,20 +635,20 @@ private:
   static std::vector<uint32_t> parse_hitcount_table(std::istream& stream, size_t expected_count) {
     std::string line;
 
-    // Try to read hitcount table header
+    // try to read hitcount table header
     if (!std::getline(stream, line)) {
-      // No hitcount table found - this is OK for backward compatibility
+      // no hitcount table found - this is OK for backward compatibility
       return {};
     }
 
-    // Check if this is actually a hitcount table header
+    // check if this is actually a hitcount table header
     if (line.rfind(constants::hitcount_table_prefix, 0) != 0) {
-      // Not a hitcount table - put the line back and return empty
-      // Note: In practice this is difficult to do with ifstream, but we can return empty
+      // not a hitcount table - put the line back and return empty
+      // note: In practice this is difficult to do with ifstream, but we can return empty
       return {};
     }
 
-    // Parse hitcount table header: "Hit Count Table: version 1, count <N>"
+    // parse hitcount table header: "Hit Count Table: version 1, count <N>"
     size_t version = 0;
     size_t count = 0;
     try {
@@ -658,14 +658,14 @@ private:
         throw parse_error(error_code::invalid_hitcount_table, "Invalid hitcount table header format");
       }
 
-      // Parse version
+      // parse version
       auto version_part = detail::trim(parts[0]);
       if (version_part.find("version") != 0) {
         throw parse_error(error_code::invalid_hitcount_table, "Missing version in hitcount table header");
       }
       version = std::stoul(version_part.substr(8)); // "version ".length()
 
-      // Parse count
+      // parse count
       auto count_part = detail::trim(parts[1]);
       if (count_part.find("count") != 0) {
         throw parse_error(error_code::invalid_hitcount_table, "Missing count in hitcount table header");
@@ -678,14 +678,14 @@ private:
       );
     }
 
-    // Validate version
+    // validate version
     if (version != 1) {
       throw parse_error(
           error_code::invalid_hitcount_table, "Unsupported hitcount table version: " + std::to_string(version)
       );
     }
 
-    // Validate count matches basic blocks
+    // validate count matches basic blocks
     if (count != expected_count) {
       throw parse_error(
           error_code::invalid_hitcount_table, "Hitcount table count (" + std::to_string(count) +
@@ -698,14 +698,14 @@ private:
       return {};
     }
 
-    // Read binary hitcount data
+    // read binary hitcount data
     std::vector<uint8_t> binary_data(count * sizeof(uint32_t));
     stream.read(reinterpret_cast<char*>(binary_data.data()), binary_data.size());
     if (static_cast<size_t>(stream.gcount()) != binary_data.size()) {
       throw parse_error(error_code::invalid_binary_data, "Failed to read complete hitcount table binary data");
     }
 
-    // Convert binary data to hitcounts
+    // convert binary data to hitcounts
     std::vector<uint32_t> hitcounts;
     hitcounts.reserve(count);
     for (size_t i = 0; i < count; ++i) {
@@ -734,7 +734,7 @@ public:
     write_module_table(data, stream);
     write_bb_table(data.basic_blocks, stream);
 
-    // Write hitcount table if present
+    // write hitcount table if present
     if (data.has_hitcounts()) {
       write_hitcount_table(data.hitcounts, stream);
     }
@@ -840,10 +840,10 @@ private:
       return;
     }
 
-    // Write hitcount table header
+    // write hitcount table header
     stream << constants::hitcount_table_prefix << "version 1, count " << hitcounts.size() << "\n";
 
-    // Write binary hitcount data
+    // write binary hitcount data
     std::vector<uint8_t> binary_data(hitcounts.size() * sizeof(uint32_t));
     for (size_t i = 0; i < hitcounts.size(); ++i) {
       uint8_t* hitcount_data = binary_data.data() + (i * sizeof(uint32_t));

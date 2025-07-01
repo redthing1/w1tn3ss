@@ -97,7 +97,7 @@ void cmd_read_drcov(args::Subparser& parser) {
 }
 
 int main(int argc, char* argv[]) {
-  // Store executable path for library auto-discovery
+  // store executable path for library auto-discovery
   g_executable_path = argv[0];
 
   args::ArgumentParser parser(

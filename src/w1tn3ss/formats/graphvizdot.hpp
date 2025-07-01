@@ -10,23 +10,23 @@ prioritizes a clean API, ease of use, and deterministic output.
 
 Usage Example:
 
-// Create a directed graph with a specified ID.
+// create a directed graph with a specified ID.
 graphvizdot::graph my_graph("example_graph", graphvizdot::graph_type::directed);
 
-// Set a global graph attribute using a type-safe enum.
+// set a global graph attribute using a type-safe enum.
 my_graph.set_rank_dir(graphvizdot::rank_dir::left_to_right);
 
-// Add nodes and chain attribute settings for a fluent configuration.
+// add nodes and chain attribute settings for a fluent configuration.
 my_graph.add_node("Start").set("shape", "Mdiamond").set("color", "green");
 my_graph.add_node("End").set("shape", "Msquare").set("color", "red");
 
-// Add an edge connecting two nodes and set its label.
+// add an edge connecting two nodes and set its label.
 my_graph.add_edge("Start", "End").set("label", "initial transition");
 
-// Generate and print the DOT file content to standard output.
+// generate and print the DOT file content to standard output.
 std::cout << my_graph.to_string() << std::endl;
 
-// Alternatively, write the output directly to a file.
+// alternatively, write the output directly to a file.
 my_graph.write_to_file("example.dot");
 
 */

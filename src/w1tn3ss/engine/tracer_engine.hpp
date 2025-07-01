@@ -90,9 +90,9 @@ public:
 
   QBDI::VM* get_vm() const { return vm_; }
 
-  // Parameterized callback registration methods (public interface)
+  // parameterized callback registration methods (public interface)
 
-  // Address-specific instruction callbacks
+  // address-specific instruction callbacks
   uint32_t add_code_addr_callback(QBDI::rword address, QBDI::InstPosition pos) {
     if constexpr (has_code_addr_callback_v<TTracer>) {
       log_.vrb(
@@ -126,7 +126,7 @@ public:
     }
   }
 
-  // Address range instruction callbacks
+  // address range instruction callbacks
   uint32_t add_code_range_callback(QBDI::rword start, QBDI::rword end, QBDI::InstPosition pos) {
     if constexpr (has_code_range_callback_v<TTracer>) {
       log_.vrb(
@@ -161,7 +161,7 @@ public:
     }
   }
 
-  // Mnemonic-specific instruction callbacks
+  // mnemonic-specific instruction callbacks
   uint32_t add_mnemonic_callback(const char* mnemonic, QBDI::InstPosition pos) {
     if constexpr (has_mnemonic_callback_v<TTracer>) {
       log_.vrb(
@@ -192,7 +192,7 @@ public:
     }
   }
 
-  // Virtual memory address callbacks (high performance cost)
+  // virtual memory address callbacks (high performance cost)
   uint32_t add_mem_addr_callback(QBDI::rword address, QBDI::MemoryAccessType type) {
     if constexpr (has_mem_addr_callback_v<TTracer>) {
       log_.vrb(
@@ -226,7 +226,7 @@ public:
     }
   }
 
-  // Virtual memory range callbacks (high performance cost)
+  // virtual memory range callbacks (high performance cost)
   uint32_t add_mem_range_callback(QBDI::rword start, QBDI::rword end, QBDI::MemoryAccessType type) {
     if constexpr (has_mem_range_callback_v<TTracer>) {
       log_.vrb(
@@ -261,7 +261,7 @@ public:
     }
   }
 
-  // Instruction rule callbacks
+  // instruction rule callbacks
   uint32_t add_instr_rule_callback(QBDI::AnalysisType type) {
     if constexpr (has_instr_rule_callback_v<TTracer>) {
       log_.vrb("registering instruction rule callback", redlog::field("type", type));
@@ -289,7 +289,7 @@ public:
     }
   }
 
-  // Instruction rule range callbacks
+  // instruction rule range callbacks
   uint32_t add_instr_rule_range_callback(QBDI::rword start, QBDI::rword end, QBDI::AnalysisType type) {
     if constexpr (has_instr_rule_range_callback_v<TTracer>) {
       log_.vrb(
@@ -325,7 +325,7 @@ public:
     }
   }
 
-  // Instruction rule range set callbacks
+  // instruction rule range set callbacks
   uint32_t add_instr_rule_range_set_callback(const QBDI::RangeSet<QBDI::rword>& range, QBDI::AnalysisType type) {
     if constexpr (has_instr_rule_range_set_callback_v<TTracer>) {
       log_.vrb("registering instruction rule range set callback", redlog::field("type", type));
@@ -367,7 +367,7 @@ private:
 
   // -- SFINAE queries
 
-  // Instruction callbacks (addCodeCB)
+  // instruction callbacks (addCodeCB)
   template <typename T, typename = void> struct has_instruction_preinst_callback : std::false_type {};
   template <typename T>
   struct has_instruction_preinst_callback<
@@ -439,7 +439,7 @@ private:
              std::declval<QBDI::FPRState*>()
          ))>> : std::true_type {};
 
-  // Memory access callbacks (addMemAccessCB)
+  // memory access callbacks (addMemAccessCB)
   template <typename T, typename = void> struct has_memory_read_callback : std::false_type {};
   template <typename T>
   struct has_memory_read_callback<
@@ -463,7 +463,7 @@ private:
 
   // -- SFINAE results
 
-  // Instruction callbacks
+  // instruction callbacks
   template <typename T>
   static constexpr bool has_instruction_preinst_callback_v = has_instruction_preinst_callback<T>::value;
   template <typename T>
@@ -481,13 +481,13 @@ private:
   template <typename T>
   static constexpr bool has_exec_transfer_return_callback_v = has_exec_transfer_return_callback<T>::value;
 
-  // Memory access callbacks
+  // memory access callbacks
   template <typename T> static constexpr bool has_memory_read_callback_v = has_memory_read_callback<T>::value;
   template <typename T> static constexpr bool has_memory_write_callback_v = has_memory_write_callback<T>::value;
   template <typename T>
   static constexpr bool has_memory_read_write_callback_v = has_memory_read_write_callback<T>::value;
 
-  // Address-specific callbacks (addCodeAddrCB, addCodeRangeCB)
+  // address-specific callbacks (addCodeAddrCB, addCodeRangeCB)
   template <typename T, typename = void> struct has_code_addr_callback : std::false_type {};
   template <typename T>
   struct has_code_addr_callback<
@@ -502,7 +502,7 @@ private:
              std::declval<QBDI::VMInstanceRef>(), std::declval<QBDI::GPRState*>(), std::declval<QBDI::FPRState*>()
          ))>> : std::true_type {};
 
-  // Mnemonic-specific callbacks (addMnemonicCB)
+  // mnemonic-specific callbacks (addMnemonicCB)
   template <typename T, typename = void> struct has_mnemonic_callback : std::false_type {};
   template <typename T>
   struct has_mnemonic_callback<
@@ -514,7 +514,7 @@ private:
   template <typename T> static constexpr bool has_code_range_callback_v = has_code_range_callback<T>::value;
   template <typename T> static constexpr bool has_mnemonic_callback_v = has_mnemonic_callback<T>::value;
 
-  // Virtual memory address callbacks (addMemAddrCB, addMemRangeCB)
+  // virtual memory address callbacks (addMemAddrCB, addMemRangeCB)
   template <typename T, typename = void> struct has_mem_addr_callback : std::false_type {};
   template <typename T>
   struct has_mem_addr_callback<
@@ -529,7 +529,7 @@ private:
              std::declval<QBDI::VMInstanceRef>(), std::declval<QBDI::GPRState*>(), std::declval<QBDI::FPRState*>()
          ))>> : std::true_type {};
 
-  // Instruction rule callbacks (addInstrRule, addInstrRuleRange, addInstrRuleRangeSet)
+  // instruction rule callbacks (addInstrRule, addInstrRuleRange, addInstrRuleRangeSet)
   template <typename T, typename = void> struct has_instr_rule_callback : std::false_type {};
   template <typename T>
   struct has_instr_rule_callback<
@@ -635,7 +635,7 @@ private:
 
   // - Callback registration methods
 
-  // Instruction callbacks (addCodeCB) - using macros
+  // instruction callbacks (addCodeCB) - using macros
   W1_REGISTER_INST_CALLBACK(instruction_preinst, QBDI::PREINST, on_instruction_preinst)
   W1_REGISTER_INST_CALLBACK(instruction_postinst, QBDI::POSTINST, on_instruction_postinst)
 
@@ -648,12 +648,12 @@ private:
   W1_REGISTER_VM_EVENT_CALLBACK(exec_transfer_call, QBDI::EXEC_TRANSFER_CALL, on_exec_transfer_call)
   W1_REGISTER_VM_EVENT_CALLBACK(exec_transfer_return, QBDI::EXEC_TRANSFER_RETURN, on_exec_transfer_return)
 
-  // Memory access callbacks (addMemAccessCB) - using macros
+  // memory access callbacks (addMemAccessCB) - using macros
   W1_REGISTER_MEM_ACCESS_CALLBACK(memory_read, QBDI::MEMORY_READ, on_memory_read)
   W1_REGISTER_MEM_ACCESS_CALLBACK(memory_write, QBDI::MEMORY_WRITE, on_memory_write)
   W1_REGISTER_MEM_ACCESS_CALLBACK(memory_read_write, QBDI::MEMORY_READ_WRITE, on_memory_read_write)
 
-// Clean up macros to avoid polluting global namespace
+// clean up macros to avoid polluting global namespace
 #undef W1_REGISTER_INST_CALLBACK
 #undef W1_REGISTER_VM_EVENT_CALLBACK
 #undef W1_REGISTER_MEM_ACCESS_CALLBACK
@@ -661,7 +661,7 @@ private:
   void register_all_callbacks() {
     log_.inf("registering callbacks...");
 
-    // Instruction callbacks (addCodeCB)
+    // instruction callbacks (addCodeCB)
     register_instruction_preinst_callback();
     register_instruction_postinst_callback();
 
@@ -674,12 +674,12 @@ private:
     register_exec_transfer_call_callback();
     register_exec_transfer_return_callback();
 
-    // Memory access callbacks (addMemAccessCB)
+    // memory access callbacks (addMemAccessCB)
     register_memory_read_callback();
     register_memory_write_callback();
     register_memory_read_write_callback();
 
-    // Note: SYSCALL_ENTRY and SYSCALL_EXIT are not implemented in current QBDI version
+    // note: SYSCALL_ENTRY and SYSCALL_EXIT are not implemented in current QBDI version
 
     log_.inf("callback registration complete");
   }

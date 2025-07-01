@@ -82,7 +82,7 @@ inline std::vector<std::string> get_system_library_paths() {
  */
 inline bool is_system_library_path(const std::string& path) {
   if (path.empty() || path == "[anonymous]" || path.find("[") == 0) {
-    return true; // Anonymous mappings are usually system
+    return true; // anonymous mappings are usually system
   }
 
   auto system_paths = get_system_library_paths();
@@ -92,7 +92,7 @@ inline bool is_system_library_path(const std::string& path) {
     }
   }
 
-  // Check for common system library name patterns
+  // check for common system library name patterns
 #ifdef __APPLE__
   return path.find("libsystem_") != std::string::npos || path.find("libc++") != std::string::npos ||
          path.find("libdyld") != std::string::npos || path.find(".framework/") != std::string::npos;
@@ -145,7 +145,7 @@ inline std::string get_preload_env_var() {
 #elif defined(__linux__)
   return "LD_PRELOAD";
 #elif defined(_WIN32)
-  return ""; // Windows doesn't use environment variables for DLL injection
+  return ""; // windows doesn't use environment variables for DLL injection
 #else
   return "";
 #endif

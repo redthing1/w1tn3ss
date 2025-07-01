@@ -17,10 +17,10 @@ public:
   void shutdown();
   const char* get_name() const { return "w1mem"; }
 
-  // Required callbacks for tracer_engine
+  // required callbacks for tracer_engine
   QBDI::VMAction on_instruction_postinst(QBDI::VMInstanceRef vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr);
 
-  // Statistics access
+  // statistics access
   const memory_stats& get_stats() const;
   size_t get_trace_size() const;
   void export_report() const;

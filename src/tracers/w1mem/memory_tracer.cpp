@@ -17,14 +17,14 @@ memory_tracer::memory_tracer(const memory_config& config)
 bool memory_tracer::initialize(w1::tracer_engine<memory_tracer>& engine) {
   log_.inf("initializing memory tracer");
 
-  // Enable QBDI memory recording for efficient collection
+  // enable QBDI memory recording for efficient collection
   QBDI::VM* vm = engine.get_vm();
   if (!vm) {
     log_.error("VM instance is null");
     return false;
   }
 
-  // Enable memory access recording
+  // enable memory access recording
   memory_recording_enabled_ = vm->recordMemoryAccess(QBDI::MEMORY_READ_WRITE);
   if (!memory_recording_enabled_) {
     log_.warn("memory recording not supported on this platform, using callback fallback");
@@ -43,18 +43,18 @@ QBDI::VMAction memory_tracer::on_instruction_postinst(
     QBDI::VMInstanceRef vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr
 ) {
 
-  // Count this instruction
+  // count this instruction
   collector_.record_instruction();
 
   if (memory_recording_enabled_) {
-    // Get memory accesses for this instruction
+    // get memory accesses for this instruction
     std::vector<QBDI::MemoryAccess> accesses = vm->getInstMemoryAccess();
 
-    // Get instruction analysis for context
+    // get instruction analysis for context
     const QBDI::InstAnalysis* analysis = vm->getInstAnalysis();
     uint64_t instruction_addr = analysis ? analysis->address : 0;
 
-    // Record each memory access
+    // record each memory access
     for (const auto& access : accesses) {
       uint8_t access_type = 0;
       if (access.type & QBDI::MEMORY_READ) {

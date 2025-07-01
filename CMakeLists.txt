@@ -156,10 +156,14 @@ if(CLANG_FORMAT_EXECUTABLE)
         "${CMAKE_SOURCE_DIR}/src/w1nj3ct/*.hpp"
         "${CMAKE_SOURCE_DIR}/src/w1tool/*.cpp"
         "${CMAKE_SOURCE_DIR}/src/w1tool/*.hpp"
+        "${CMAKE_SOURCE_DIR}/src/tracers/*.cpp"
+        "${CMAKE_SOURCE_DIR}/src/tracers/*.hpp"
         "${CMAKE_SOURCE_DIR}/src/common/*.cpp"
         "${CMAKE_SOURCE_DIR}/src/common/*.hpp"
         "${CMAKE_SOURCE_DIR}/tests/*.cpp"
         "${CMAKE_SOURCE_DIR}/tests/*.hpp"
+        "${CMAKE_SOURCE_DIR}/examples/*.cpp"
+        "${CMAKE_SOURCE_DIR}/examples/*.hpp"
     )
     
     # Create format target
@@ -196,3 +200,6 @@ if(CLANG_FORMAT_EXECUTABLE)
 else()
     message(WARNING "clang-format not found. Install clang-format to enable code formatting targets.")
 endif()
+
+# Enable compilation database generation for IDE support and external tools
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)

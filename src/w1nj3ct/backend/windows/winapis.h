@@ -2,7 +2,7 @@
 
 #include <windows.h>
 
-// Define NTSTATUS if not already defined
+// define NTSTATUS if not already defined
 #ifndef NTSTATUS
 typedef LONG NTSTATUS;
 #endif
@@ -28,7 +28,7 @@ typedef NTSTATUS (WINAPI* LPFUN_NtCreateThreadEx)(
     LPTHREAD_START_ROUTINE lpStartAddress, LPVOID lpParameter, BOOL CreateSuspended, ULONG StackZeroBits,
     ULONG SizeOfStackCommit, ULONG SizeOfStackReserve, LPVOID lpBytesBuffer
 );
-// Function Pointer Typedef for RtlCreateUserThread
+// function Pointer Typedef for RtlCreateUserThread
 typedef DWORD (WINAPI* pRtlCreateUserThread)(
     IN HANDLE ProcessHandle, IN PSECURITY_DESCRIPTOR SecurityDescriptor, IN BOOL CreateSuspended,
     IN ULONG StackZeroBits, IN OUT PULONG StackReserved, IN OUT PULONG StackCommit, IN LPVOID StartAddress,

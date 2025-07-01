@@ -323,7 +323,7 @@ void interval_tree<S, V>::visit_overlapping_impl(
     if (interval.start >= query_stop) {
       break;
     }
-    // The interval must not be empty (start < stop) for it to overlap.
+    // the interval must not be empty (start < stop) for it to overlap.
     if (interval.stop > query_start && interval.start < interval.stop) {
       visitor(interval);
     }

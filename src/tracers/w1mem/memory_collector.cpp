@@ -22,7 +22,7 @@ void memory_collector::record_memory_access(
     uint64_t instruction_addr, uint64_t memory_addr, uint32_t size, uint8_t access_type
 ) {
 
-  // Update statistics
+  // update statistics
   if (access_type == 1) { // read
     stats_.total_reads++;
     stats_.total_bytes_read += size;
@@ -37,7 +37,7 @@ void memory_collector::record_memory_access(
     }
   }
 
-  // Record trace entry if enabled and not overflowed
+  // record trace entry if enabled and not overflowed
   if (collect_trace_ && !trace_overflow_) {
     if (trace_.size() < max_trace_entries_) {
       memory_access_entry entry;

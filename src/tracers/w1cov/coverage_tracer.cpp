@@ -80,14 +80,14 @@ void coverage_tracer::print_statistics() const {
   size_t traced_modules = module_tracker_.traced_module_count();
 
   log.inf("=== Coverage Statistics ===");
-  log.inf("Basic blocks hit", redlog::field("count", bb_count));
-  log.inf("Modules instrumented", redlog::field("count", module_count));
-  log.inf("Traced modules", redlog::field("count", traced_modules));
-  log.inf("Total hits", redlog::field("count", total_hits));
+  log.inf("basic blocks hit", redlog::field("count", bb_count));
+  log.inf("modules instrumented", redlog::field("count", module_count));
+  log.inf("traced modules", redlog::field("count", traced_modules));
+  log.inf("total hits", redlog::field("count", total_hits));
 
   if (bb_count > 0 && total_hits > 0) {
     double avg_hits = static_cast<double>(total_hits) / bb_count;
-    log.inf("Average hits per block", redlog::field("average", "%.2f", avg_hits));
+    log.inf("average hits per block", redlog::field("average", "%.2f", avg_hits));
   }
 }
 

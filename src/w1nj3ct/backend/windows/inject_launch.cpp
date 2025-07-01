@@ -8,7 +8,7 @@
 #include "inject.hpp"
 #include "util.hpp"
 
-// Convert std::string to std::wstring
+// convert std::string to std::wstring
 std::wstring string_to_wstring(const std::string& str) {
   if (str.empty()) {
     return std::wstring();
@@ -19,7 +19,7 @@ std::wstring string_to_wstring(const std::string& str) {
   return result;
 }
 
-// Build command line string from binary path and arguments
+// build command line string from binary path and arguments
 std::wstring build_command_line(const std::wstring& binary_path, const std::vector<std::string>& args) {
   std::wstring cmd_line = L"\"" + binary_path + L"\"";
 
@@ -35,9 +35,9 @@ BOOL inject_dll_launch_suspended(
     const std::map<std::string, std::string>& env_vars, DWORD* out_pid, bool interactive_resume,
     bool wait_for_completion
 ) {
-  log_msg("Starting Windows launch injection with suspended process");
+  log_msg("starting Windows launch injection with suspended process");
 
-  // Validate library exists
+  // validate library exists
   if (GetFileAttributesW(dll_path.c_str()) == INVALID_FILE_ATTRIBUTES) {
     std::stringstream ss;
     ss << "Library not found at path: " << std::string(dll_path.begin(), dll_path.end());
@@ -45,7 +45,7 @@ BOOL inject_dll_launch_suspended(
     return FALSE;
   }
 
-  // Validate binary exists
+  // validate binary exists
   if (GetFileAttributesW(binary_path.c_str()) == INVALID_FILE_ATTRIBUTES) {
     std::stringstream ss;
     ss << "Binary not found at path: " << std::string(binary_path.begin(), binary_path.end());
@@ -53,7 +53,7 @@ BOOL inject_dll_launch_suspended(
     return FALSE;
   }
 
-  // Build command line
+  // build command line
   std::wstring command_line = build_command_line(binary_path, args);
 
   {
@@ -62,19 +62,19 @@ BOOL inject_dll_launch_suspended(
     log_msg(ss.str());
   }
 
-  // Build environment block
+  // build environment block
   LPVOID environment_block = nullptr;
   if (!env_vars.empty()) {
-    log_msg("Building environment block");
+    log_msg("building environment block");
 
     // Get current environment
     LPWCH current_env = GetEnvironmentStringsW();
     if (!current_env) {
-      log_msg("Failed to get current environment");
+      log_msg("failed to get current environment");
       return FALSE;
     }
 
-    // Parse current environment into a map
+    // parse current environment into a map
     std::map<std::wstring, std::wstring> env_map;
     LPWCH env_ptr = current_env;
     while (*env_ptr) {
@@ -89,18 +89,18 @@ BOOL inject_dll_launch_suspended(
     }
     FreeEnvironmentStringsW(current_env);
 
-    // Add/override with custom environment variables
+    // add/override with custom environment variables
     for (const auto& [key, value] : env_vars) {
       std::wstring wkey = string_to_wstring(key);
       std::wstring wvalue = string_to_wstring(value);
       env_map[wkey] = wvalue;
 
       std::stringstream ss;
-      ss << "Setting environment variable: " << key << "=" << value;
+      ss << "setting environment variable: " << key << "=" << value;
       log_msg(ss.str());
     }
 
-    // Build environment block
+    // build environment block
     std::wstring env_block;
     for (const auto& [key, value] : env_map) {
       env_block += key + L"=" + value + L'\0';
@@ -111,36 +111,36 @@ BOOL inject_dll_launch_suspended(
     size_t env_size = env_block.size() * sizeof(wchar_t);
     environment_block = malloc(env_size);
     if (!environment_block) {
-      log_msg("Failed to allocate memory for environment block");
+      log_msg("failed to allocate memory for environment block");
       return FALSE;
     }
     memcpy(environment_block, env_block.c_str(), env_size);
 
     std::stringstream ss;
-    ss << "Environment block created with " << env_map.size() << " variables";
+    ss << "environment block created with " << env_map.size() << " variables";
     log_msg(ss.str());
   }
 
   {
     std::stringstream ss;
-    ss << "Command line: " << std::string(command_line.begin(), command_line.end());
+    ss << "command line: " << std::string(command_line.begin(), command_line.end());
     log_msg(ss.str());
   }
 
   {
     std::stringstream ss;
-    ss << "Library to inject: " << std::string(dll_path.begin(), dll_path.end());
+    ss << "library to inject: " << std::string(dll_path.begin(), dll_path.end());
     log_msg(ss.str());
   }
 
-  // Create process in suspended state
+  // create process in suspended state
   STARTUPINFOW si = {0};
   PROCESS_INFORMATION pi = {0};
   si.cb = sizeof(si);
 
-  log_msg("Creating suspended process");
+  log_msg("creating suspended process");
 
-  // CreateProcessW modifies the command line, so we need a mutable copy
+  // createProcessW modifies the command line, so we need a mutable copy
   std::vector<wchar_t> cmd_line_buffer(command_line.begin(), command_line.end());
   cmd_line_buffer.push_back(L'\0');
 
@@ -175,12 +175,12 @@ BOOL inject_dll_launch_suspended(
 
   {
     std::stringstream ss;
-    ss << "Process created successfully with PID: " << pi.dwProcessId;
+    ss << "process created successfully with PID: " << pi.dwProcessId;
     log_msg(ss.str());
   }
 
-  // Get address of LoadLibraryW function
-  log_msg("Getting address of LoadLibraryW");
+  // get address of LoadLibraryW function
+  log_msg("getting address of LoadLibraryW");
   LPTHREAD_START_ROUTINE load_library_addr =
       (LPTHREAD_START_ROUTINE) GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "LoadLibraryW");
 
@@ -200,12 +200,12 @@ BOOL inject_dll_launch_suspended(
 
   {
     std::stringstream ss;
-    ss << "LoadLibraryW address obtained: " << std::hex << load_library_addr;
+    ss << "loadLibraryW address obtained: " << std::hex << load_library_addr;
     log_msg(ss.str());
   }
 
-  // Allocate memory in the target process for the DLL path
-  log_msg("Allocating memory in suspended process");
+  // allocate memory in the target process for the DLL path
+  log_msg("allocating memory in suspended process");
   SIZE_T dll_path_size = (dll_path.length() + 1) * sizeof(wchar_t);
   LPVOID remote_memory = VirtualAllocEx(pi.hProcess, NULL, dll_path_size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 
@@ -223,10 +223,10 @@ BOOL inject_dll_launch_suspended(
     return FALSE;
   }
 
-  log_msg("Memory allocated successfully");
+  log_msg("memory allocated successfully");
 
-  // Write the DLL path to the allocated memory
-  log_msg("Writing DLL path to process memory");
+  // write the DLL path to the allocated memory
+  log_msg("writing DLL path to process memory");
   SIZE_T bytes_written;
   if (!WriteProcessMemory(pi.hProcess, remote_memory, dll_path.c_str(), dll_path_size, &bytes_written)) {
     DWORD error = GetLastError();
@@ -244,7 +244,7 @@ BOOL inject_dll_launch_suspended(
   }
 
   if (bytes_written != dll_path_size) {
-    log_msg("Incomplete write to process memory");
+    log_msg("incomplete write to process memory");
     VirtualFreeEx(pi.hProcess, remote_memory, 0, MEM_RELEASE);
     TerminateProcess(pi.hProcess, -1);
     CloseHandle(pi.hThread);
@@ -257,8 +257,8 @@ BOOL inject_dll_launch_suspended(
 
   log_msg("DLL path written successfully");
 
-  // Create remote thread to load the library
-  log_msg("Creating remote thread to load library");
+  // create remote thread to load the library
+  log_msg("creating remote thread to load library");
   HANDLE remote_thread = CreateRemoteThread(pi.hProcess, NULL, 0, load_library_addr, remote_memory, 0, NULL);
 
   if (!remote_thread) {
@@ -276,10 +276,10 @@ BOOL inject_dll_launch_suspended(
     return FALSE;
   }
 
-  log_msg("Remote thread created successfully");
+  log_msg("remote thread created successfully");
 
-  // Wait for the remote thread to complete (library loading)
-  log_msg("Waiting for library loading to complete");
+  // wait for the remote thread to complete (library loading)
+  log_msg("waiting for library loading to complete");
   DWORD wait_result = WaitForSingleObject(remote_thread, INFINITE);
   if (wait_result != WAIT_OBJECT_0) {
     DWORD error = GetLastError();
@@ -297,51 +297,50 @@ BOOL inject_dll_launch_suspended(
     return FALSE;
   }
 
-  // Check if library loading was successful
+  // check if library loading was successful
   DWORD exit_code;
   if (GetExitCodeThread(remote_thread, &exit_code)) {
     std::stringstream ss;
-    ss << "Library loading thread exit code: " << exit_code;
+    ss << "library loading thread exit code: " << exit_code;
     log_msg(ss.str());
     if (exit_code == 0) {
-      log_msg("Warning: Library loading may have failed (exit code is 0)");
+      log_msg("warning: library loading may have failed (exit code is 0)");
     }
   }
 
   CloseHandle(remote_thread);
   VirtualFreeEx(pi.hProcess, remote_memory, 0, MEM_RELEASE);
 
-  log_msg("Library loading completed");
+  log_msg("library loading completed");
 
   if (interactive_resume) {
     std::stringstream ss;
-    ss << "Process created and suspended (PID: " << pi.dwProcessId << ")";
-    log_msg(ss.str());
+    ss << "process created and suspended (PID: " << pi.dwProcessId << ")" log_msg(ss.str());
 
-    // Output to console for user interaction
-    std::cout << "Process created and suspended (PID: " << pi.dwProcessId << ")" << std::endl;
-    std::cout << "Binary: " << std::string(binary_path.begin(), binary_path.end()) << std::endl;
+    // output to console for user interaction
+    std::cout << "process created and suspended (PID: " << pi.dwProcessId << ")" << std::endl;
+    std::cout << "binary: " << std::string(binary_path.begin(), binary_path.end()) << std::endl;
     std::cout << "DLL injected successfully. Press Enter to resume process..." << std::endl;
 
-    // Wait for user input
+    // wait for user input
     std::cin.get();
 
-    log_msg("User resumed process, continuing execution");
+    log_msg("user resumed process, continuing execution");
   }
 
-  // Resume the main thread
+  // resume the main thread
   ResumeThread(pi.hThread);
 
-  log_msg("Process resumed successfully");
+  log_msg("process resumed successfully");
 
-  // Set output PID if requested
+  // set output PID if requested
   if (out_pid) {
     *out_pid = pi.dwProcessId;
   }
 
-  // Conditionally wait for process completion based on configuration
+  // conditionally wait for process completion based on configuration
   if (wait_for_completion) {
-    log_msg("Waiting for target process to complete");
+    log_msg("waiting for target process to complete");
     DWORD wait_result = WaitForSingleObject(pi.hProcess, INFINITE);
 
     if (wait_result != WAIT_OBJECT_0) {
@@ -349,34 +348,34 @@ BOOL inject_dll_launch_suspended(
       std::stringstream ss;
       ss << "Wait for process completion failed. Error code: " << error;
       log_msg(ss.str());
-      // Continue with cleanup, but note the error
+      // continue with cleanup, but note the error
     }
 
-    // Get process exit code
+    // get process exit code
     DWORD process_exit_code = 0;
     if (GetExitCodeProcess(pi.hProcess, &process_exit_code)) {
       std::stringstream ss;
-      ss << "Target process completed with exit code: " << process_exit_code;
+      ss << "target process completed with exit code: " << process_exit_code;
       log_msg(ss.str());
     } else {
-      log_msg("Failed to get process exit code");
+      log_msg("failed to get process exit code");
     }
   } else {
-    log_msg("Process launched successfully - not waiting for completion");
+    log_msg("process launched successfully - not waiting for completion");
   }
 
-  // Clean up handles
+  // clean up handles
   CloseHandle(pi.hThread);
   CloseHandle(pi.hProcess);
 
-  // Clean up environment block
+  // clean up environment block
   if (environment_block) {
     free(environment_block);
   }
 
   {
     std::stringstream ss;
-    ss << "Launch injection completed successfully for PID: " << pi.dwProcessId;
+    ss << "launch injection completed successfully for PID: " << pi.dwProcessId;
     log_msg(ss.str());
   }
 

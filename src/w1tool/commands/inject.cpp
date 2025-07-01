@@ -17,7 +17,7 @@ int inject(
     return 1;
   }
 
-  // Validate target specification
+  // validate target specification
   int target_count = 0;
   if (spawn_flag) {
     target_count++;

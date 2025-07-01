@@ -26,11 +26,11 @@ struct MANUAL_MAPPING_DATA {
   HINSTANCE hMod;
 };
 
-// delare functions.
+// declare functions.
 // perform memory mapping manually in remote process.
 BOOL ManualMap(HANDLE hProc, const char* szDllFile);
 
-// performs relocations and loading of dll into procecss from within the process itself.
+// performs relocations and loading of dll into process from within the process itself.
 void __stdcall LoaderStub(BYTE* imageBase);
 
 BOOL inject_dll_reflective_loader(HANDLE h_process, const std::wstring& dll_path) {
@@ -40,7 +40,7 @@ BOOL inject_dll_reflective_loader(HANDLE h_process, const std::wstring& dll_path
   return ManualMap(h_process, narrow_dll_path.c_str());
 }
 
-// function delcaration.
+// function declaration.
 BOOL ManualMap(HANDLE hProc, const char* szDllFile) {
   // declare necessary variables.
   BYTE* pSrcData = nullptr;
@@ -191,7 +191,7 @@ BOOL ManualMap(HANDLE hProc, const char* szDllFile) {
   // write our loader stub into remote process' memory.
   WriteProcessMemory(hProc, pLoaderStub, LoaderStub, 0x1000, nullptr);
 
-  // create thread in remote process that will start the loader using our DLL and the map data structure as an argumnet.
+  // create thread in remote process that will start the loader using our DLL and the map data structure as an argument.
   printf("[*] Creating Thread in remote process that will start the loading routine\n");
   HANDLE hThread = CreateRemoteThread(
       hProc, nullptr, 0, reinterpret_cast<LPTHREAD_START_ROUTINE>(pLoaderStub), pTargetBase, 0, NULL

@@ -5,10 +5,10 @@
 namespace w1tool::commands {
 
 /**
- * Inspect command - analyzes binary files
+ * inspect command - analyzes binary files
  *
- * @param binary_flag Path to binary file to inspect
- * @return Exit code (0 for success, 1 for failure)
+ * @param binary_flag path to binary file to inspect
+ * @return exit code (0 for success, 1 for failure)
  */
 int inspect(args::ValueFlag<std::string>& binary_flag);
 

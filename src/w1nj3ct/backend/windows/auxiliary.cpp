@@ -6,7 +6,7 @@
 #include "util.hpp"
 
 DWORD find_pid_by_name(const std::wstring& process_name) {
-  log_msg("Searching for process ID by name");
+  log_msg("searching for process ID by name");
 
   HANDLE h_snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
   if (h_snapshot == INVALID_HANDLE_VALUE) {
@@ -41,17 +41,17 @@ DWORD find_pid_by_name(const std::wstring& process_name) {
 
   if (pid != 0) {
     std::stringstream ss;
-    ss << "Process ID found: " << pid;
+    ss << "process ID found: " << pid;
     log_msg(ss.str());
   } else {
-    log_msg("Process not found");
+    log_msg("process not found");
   }
 
   return pid;
 }
 
 DWORD get_thread_id(DWORD pid) {
-  log_msg("Searching for thread ID");
+  log_msg("searching for thread ID");
 
   HANDLE h_snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
   if (h_snapshot == INVALID_HANDLE_VALUE) {
@@ -95,17 +95,17 @@ DWORD get_thread_id(DWORD pid) {
 
   if (thread_id != 0) {
     std::stringstream ss;
-    ss << "Thread ID found: " << thread_id;
+    ss << "thread ID found: " << thread_id;
     log_msg(ss.str());
   } else {
-    log_msg("Thread not found");
+    log_msg("thread not found");
   }
 
   return thread_id;
 }
 
 BOOL set_se_debug_privilege() {
-  log_msg("Attempting to set SeDebugPrivilege");
+  log_msg("attempting to set SeDebugPrivilege");
 
   HANDLE h_token = NULL;
   TOKEN_PRIVILEGES tp;
@@ -142,7 +142,7 @@ BOOL set_se_debug_privilege() {
   }
 
   if (GetLastError() == ERROR_NOT_ALL_ASSIGNED) {
-    log_msg("Warning: The token does not have the specified privilege");
+    log_msg("warning: the token does not have the specified privilege");
     CloseHandle(h_token);
     return FALSE;
   }

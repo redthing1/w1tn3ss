@@ -225,7 +225,7 @@ result inject_preload(const config& cfg) {
     log.verbose("adding environment variable", redlog::field("key", key), redlog::field("value", value));
   }
 
-  // Add LD_PRELOAD
+  // add LD_PRELOAD
   env["LD_PRELOAD"] = cfg.library_path;
   log.info("configured LD_PRELOAD", redlog::field("library_path", cfg.library_path));
 
@@ -423,8 +423,8 @@ std::optional<process_info> get_process_info(int pid) {
 }
 
 bool check_injection_capabilities() {
-  // Use the kubo injector's capability check if available
-  // For now, do a basic ptrace capability test
+  // use the kubo injector's capability check if available
+  // for now, do a basic ptrace capability test
   pid_t child_pid = fork();
   if (child_pid == 0) {
     // child process - sleep briefly then exit

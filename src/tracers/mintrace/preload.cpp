@@ -55,10 +55,7 @@ public:
     QBDI::rword block_start = state->basicBlockStart;
     QBDI::rword block_size = state->basicBlockEnd - state->basicBlockStart;
 
-    log_.trc(
-        "basic block entry", redlog::field("start", "0x%08x", block_start),
-        redlog::field("size", block_size)
-    );
+    log_.trc("basic block entry", redlog::field("start", "0x%08x", block_start), redlog::field("size", block_size));
 
     return QBDI::VMAction::CONTINUE;
   }
@@ -110,10 +107,7 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
   log.inf("engine instrumentation successful");
 
   // run engine
-  log.inf(
-      "running engine", redlog::field("start", "0x%08x", start),
-      redlog::field("stop", "0x%08x", stop)
-  );
+  log.inf("running engine", redlog::field("start", "0x%08x", start), redlog::field("stop", "0x%08x", stop));
   if (!g_engine->run(start, stop)) {
     log.error("engine run failed");
     return QBDIPRELOAD_ERR_STARTUP_FAILED;

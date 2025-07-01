@@ -24,7 +24,7 @@ void coverage_collector::record_basic_block(QBDI::rword address, uint16_t size, 
   // increment hitcount for this address
   hitcounts_[address]++;
 
-  // check if this is a new address  
+  // check if this is a new address
   auto it = address_to_bb_index_.find(address);
   if (it == address_to_bb_index_.end()) {
     // new basic block
@@ -54,15 +54,12 @@ drcov::coverage_data coverage_collector::build_drcov_data() const {
 
   log.trc(
       "building drcov data", redlog::field("module_count", modules_.size()),
-      redlog::field("basic_block_count", basic_blocks_.size()),
-      redlog::field("total_hits", get_total_hits())
+      redlog::field("basic_block_count", basic_blocks_.size()), redlog::field("total_hits", get_total_hits())
   );
 
   // create drcov builder with hitcount support enabled
-  auto builder = drcov::builder()
-      .set_flavor("w1cov")
-      .enable_hitcounts()
-      .set_module_version(drcov::module_table_version::v2);
+  auto builder =
+      drcov::builder().set_flavor("w1cov").enable_hitcounts().set_module_version(drcov::module_table_version::v2);
 
   // pass 1: add modules with validation
   size_t valid_modules = 0;
@@ -77,9 +74,8 @@ drcov::coverage_data coverage_collector::build_drcov_data() const {
       // validate module data before adding
       if (mod.base_address >= mod.base_address + mod.size) {
         log.wrn(
-            "invalid module address range detected", redlog::field("id", i), 
-            redlog::field("name", mod.name), redlog::field("base", mod.base_address), 
-            redlog::field("end", mod.base_address + mod.size)
+            "invalid module address range detected", redlog::field("id", i), redlog::field("name", mod.name),
+            redlog::field("base", mod.base_address), redlog::field("end", mod.base_address + mod.size)
         );
         invalid_modules++;
         continue;
@@ -93,28 +89,26 @@ drcov::coverage_data coverage_collector::build_drcov_data() const {
 
       // use path if available, otherwise use name
       std::string module_path = !mod.path.empty() ? mod.path : mod.name;
-      
+
       builder.add_module(module_path, mod.base_address, mod.base_address + mod.size, mod.base_address);
       valid_modules++;
 
       log.trc(
           "added module to drcov", redlog::field("id", i), redlog::field("name", mod.name),
-          redlog::field("base", "0x%08x", mod.base_address), 
-          redlog::field("size", mod.size)
+          redlog::field("base", "0x%08x", mod.base_address), redlog::field("size", mod.size)
       );
 
     } catch (const std::exception& e) {
       log.err(
-          "failed to add module to drcov builder", redlog::field("id", i), 
-          redlog::field("name", mod.name), redlog::field("error", e.what())
+          "failed to add module to drcov builder", redlog::field("id", i), redlog::field("name", mod.name),
+          redlog::field("error", e.what())
       );
       invalid_modules++;
     }
   }
 
   log.dbg(
-      "module processing completed", redlog::field("valid", valid_modules), 
-      redlog::field("invalid", invalid_modules)
+      "module processing completed", redlog::field("valid", valid_modules), redlog::field("invalid", invalid_modules)
   );
 
   // pass 2: add basic blocks with hitcounts and validation
@@ -142,8 +136,7 @@ drcov::coverage_data coverage_collector::build_drcov_data() const {
       if (bb.address < module.base_address || bb.address >= module.base_address + module.size) {
         log.wrn(
             "basic block address outside module bounds", redlog::field("module_id", bb.module_id),
-            redlog::field("address", "0x%08x", bb.address), 
-            redlog::field("base", "0x%08x", module.base_address),
+            redlog::field("address", "0x%08x", bb.address), redlog::field("base", "0x%08x", module.base_address),
             redlog::field("end", "0x%08x", module.base_address + module.size)
         );
         invalid_blocks++;
@@ -212,13 +205,9 @@ drcov::coverage_data coverage_collector::build_drcov_data() const {
   }
 }
 
-size_t coverage_collector::get_basic_block_count() const { 
-  return basic_blocks_.size(); 
-}
+size_t coverage_collector::get_basic_block_count() const { return basic_blocks_.size(); }
 
-size_t coverage_collector::get_module_count() const { 
-  return modules_.size(); 
-}
+size_t coverage_collector::get_module_count() const { return modules_.size(); }
 
 uint64_t coverage_collector::get_total_hits() const {
   uint64_t total = 0;

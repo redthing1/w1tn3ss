@@ -268,7 +268,7 @@ result inject_preload(const config& cfg) {
     log.verbose("adding environment variable", redlog::field("key", key), redlog::field("value", value));
   }
 
-  // Add DYLD_INSERT_LIBRARIES
+  // add DYLD_INSERT_LIBRARIES
   env["DYLD_INSERT_LIBRARIES"] = cfg.library_path;
   log.info("configured DYLD_INSERT_LIBRARIES", redlog::field("library_path", cfg.library_path));
 
