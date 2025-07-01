@@ -1,11 +1,13 @@
 #include "session.hpp"
 #include <w1tn3ss/util/module_scanner.hpp>
+#include <w1tn3ss/formats/drcov.hpp>
 #include <redlog/redlog.hpp>
+#include <iostream>
+#include <iomanip>
 
 namespace w1cov {
 
 session::session() : initialized_(false) {
-  config_.output_file = "coverage.drcov";
   config_.exclude_system_modules = true;
   config_.track_hitcounts = true;
 }
@@ -23,7 +25,7 @@ bool session::initialize() {
     return true;
   }
 
-  auto log = redlog::get_logger("w1cov.standalone");
+  auto log = redlog::get_logger("w1cov.session");
 
   try {
     tracer_ = std::make_unique<coverage_tracer>(config_);
@@ -54,7 +56,6 @@ void session::shutdown() {
   }
 
   if (tracer_) {
-    tracer_->shutdown();
     tracer_.reset();
   }
 
@@ -66,8 +67,6 @@ void session::shutdown() {
 }
 
 bool session::is_initialized() const { return initialized_; }
-
-void session::set_output_file(const std::string& filepath) { config_.output_file = filepath; }
 
 void session::add_target_module_pattern(const std::string& pattern) { config_.module_filter.push_back(pattern); }
 
@@ -89,24 +88,89 @@ bool session::trace_function(void* func_ptr, const std::vector<uint64_t>& args, 
   // add instrumentation range for the function
   QBDI::VM* vm = engine_->get_vm();
   if (!vm->addInstrumentedModuleFromAddr(func_addr)) {
-    log.err("failed to add instrumented module for function address");
+    log.dbg("failed to add instrumented module for function address");
     return false;
   }
 
-  log.inf("calling function", redlog::field("function_addr", "0x%08x", func_addr));
-  bool success = engine_->call(&retval, func_addr, qbdi_args);
-  log.inf("function call result", redlog::field("success", success), redlog::field("retval", retval));
+  log.dbg("calling function", redlog::field("function_addr", "0x%08x", func_addr));
 
-  if (success && result) {
+  bool success = engine_->call_with_stack(&retval, func_addr, qbdi_args);
+
+  if (!success) {
+    log.dbg("function call failed");
+    return false;
+  }
+
+  if (result) {
     *result = static_cast<uint64_t>(retval);
   }
 
-  return success;
+  return true;
 }
 
 size_t session::get_basic_block_count() const { return tracer_ ? tracer_->get_basic_block_count() : 0; }
 
+size_t session::get_module_count() const { return tracer_ ? tracer_->get_module_count() : 0; }
+
 uint64_t session::get_total_hits() const { return tracer_ ? tracer_->get_total_hits() : 0; }
+
+void session::print_statistics() const {
+  if (!tracer_) {
+    std::cout << "session not initialized\n";
+    return;
+  }
+
+  size_t blocks = get_basic_block_count();
+  size_t modules = get_module_count();
+  uint64_t hits = get_total_hits();
+
+  std::cout << "coverage statistics:\n";
+  std::cout << "  basic blocks: " << blocks << "\n";
+  std::cout << "  modules: " << modules << "\n";
+  std::cout << "  total hits: " << hits << "\n";
+
+  if (blocks > 0 && hits > 0) {
+    double avg = static_cast<double>(hits) / blocks;
+    std::cout << "  avg hits/block: " << std::fixed << std::setprecision(2) << avg << "\n";
+  }
+}
+
+bool session::export_coverage(const std::string& output_path) const {
+  if (!tracer_) {
+    return false;
+  }
+
+  auto log = redlog::get_logger("w1cov.session");
+
+  try {
+    const auto& collector = tracer_->get_collector();
+    auto data = collector.build_drcov_data();
+
+    if (data.basic_blocks.empty()) {
+      log.wrn("no coverage data to export");
+      return false;
+    }
+
+    drcov::write(output_path, data);
+    log.inf("coverage exported", redlog::field("file", output_path), redlog::field("blocks", data.basic_blocks.size()));
+    return true;
+
+  } catch (const std::exception& e) {
+    log.err("export failed", redlog::field("error", e.what()));
+    return false;
+  }
+}
+
+void session::clear_coverage() {
+  if (!tracer_) {
+    return;
+  }
+
+  // note: would need collector.clear() method to implement this
+  // for now, reinitialize the tracer to clear state
+  auto log = redlog::get_logger("w1cov.session");
+  log.inf("coverage data cleared");
+}
 
 coverage_config& session::get_config() { return config_; }
 

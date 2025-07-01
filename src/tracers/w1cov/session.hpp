@@ -19,13 +19,17 @@ public:
   void shutdown();
   bool is_initialized() const;
 
-  void set_output_file(const std::string& filepath);
   void add_target_module_pattern(const std::string& pattern);
 
   bool trace_function(void* func_ptr, const std::vector<uint64_t>& args = {}, uint64_t* result = nullptr);
 
   size_t get_basic_block_count() const;
+  size_t get_module_count() const;
   uint64_t get_total_hits() const;
+  void print_statistics() const;
+
+  bool export_coverage(const std::string& output_path) const;
+  void clear_coverage();
 
   coverage_config& get_config();
 

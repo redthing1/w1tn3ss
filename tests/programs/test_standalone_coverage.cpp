@@ -45,6 +45,12 @@ int main() {
   std::cout << "Unique blocks: " << session.get_basic_block_count() << "\n";
   std::cout << "Total hits: " << session.get_total_hits() << "\n";
 
+  session.print_statistics();
+
+  if (session.export_coverage("test_coverage.drcov")) {
+    std::cout << "Coverage exported successfully\n";
+  }
+
   std::cout << "Standalone coverage test completed\n";
   return 0;
 }

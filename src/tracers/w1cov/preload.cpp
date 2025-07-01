@@ -6,6 +6,7 @@
 
 #include <w1tn3ss/engine/tracer_engine.hpp>
 #include <w1tn3ss/util/env_config.hpp>
+#include <w1tn3ss/formats/drcov.hpp>
 
 #include "coverage_config.hpp"
 #include "coverage_tracer.hpp"
@@ -13,6 +14,7 @@
 // globals
 static std::unique_ptr<w1cov::coverage_tracer> g_tracer;
 static std::unique_ptr<w1::tracer_engine<w1cov::coverage_tracer>> g_engine;
+static w1cov::coverage_config g_config;
 
 extern "C" {
 
@@ -25,16 +27,15 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
 
   // get config
   w1::util::env_config config_loader("W1COV_");
-  w1cov::coverage_config config;
 
   int debug_level = config_loader.get<int>("VERBOSE", 0);
 
-  config.output_file = config_loader.get<std::string>("OUTPUT_FILE", config.output_file);
-  config.exclude_system_modules = config_loader.get<bool>("EXCLUDE_SYSTEM", config.exclude_system_modules);
-  config.track_hitcounts = config_loader.get<bool>("TRACK_HITCOUNTS", config.track_hitcounts);
+  g_config.output_file = config_loader.get<std::string>("OUTPUT_FILE", g_config.output_file);
+  g_config.exclude_system_modules = config_loader.get<bool>("EXCLUDE_SYSTEM", g_config.exclude_system_modules);
+  g_config.track_hitcounts = config_loader.get<bool>("TRACK_HITCOUNTS", g_config.track_hitcounts);
   auto target_modules_env = config_loader.get_list("MODULE_FILTER");
   if (!target_modules_env.empty()) {
-    config.module_filter = target_modules_env;
+    g_config.module_filter = target_modules_env;
   }
 
   // set log level based on debug level
@@ -52,7 +53,7 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
 
   // create tracer
   log.inf("creating tracer");
-  g_tracer = std::make_unique<w1cov::coverage_tracer>(config);
+  g_tracer = std::make_unique<w1cov::coverage_tracer>(g_config);
 
   // create engine
   log.inf("creating tracer engine");
@@ -90,6 +91,20 @@ QBDI_EXPORT int qbdipreload_on_exit(int status) {
 
   if (g_tracer) {
     log.inf("shutting down tracer and exporting coverage");
+
+    // export coverage before shutdown
+    try {
+      auto data = g_tracer->get_collector().build_drcov_data();
+      if (!data.basic_blocks.empty()) {
+        drcov::write(g_config.output_file, data);
+        log.inf("coverage data export completed", redlog::field("output_file", g_config.output_file));
+      } else {
+        log.wrn("no basic blocks collected, skipping export");
+      }
+    } catch (const std::exception& e) {
+      log.err("exception during coverage export", redlog::field("error", e.what()));
+    }
+
     g_tracer->shutdown();
     g_tracer.reset();
   }

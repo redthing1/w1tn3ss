@@ -75,6 +75,19 @@ public:
     return vm_->call(retval, function_ptr, args);
   }
 
+  bool call_with_stack(QBDI::rword* retval, QBDI::rword function_ptr, const std::vector<QBDI::rword>& args) {
+    if (!vm_) {
+      log_.error("QBDI::VM instance is null, cannot call function");
+      return false;
+    }
+
+    log_.inf(
+        "executing QBDI::VM::switchStackAndCall", redlog::field("tracer", tracer_.get_name()),
+        redlog::field("function_ptr", "0x%08x", function_ptr), redlog::field("args", args)
+    );
+    return vm_->switchStackAndCall(retval, function_ptr, args);
+  }
+
   QBDI::VM* get_vm() const { return vm_; }
 
   // Parameterized callback registration methods (public interface)
