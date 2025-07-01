@@ -7,6 +7,7 @@ if(WITNESS_BUILD_SHARED)
         preload.cpp
         coverage_tracer.cpp
         coverage_collector.cpp
+        coverage_module_tracker.cpp
     )
 endif()
 
@@ -15,6 +16,7 @@ if(WITNESS_BUILD_STATIC)
         preload.cpp
         coverage_tracer.cpp
         coverage_collector.cpp
+        coverage_module_tracker.cpp
     )
 endif()
 

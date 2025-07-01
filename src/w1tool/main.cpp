@@ -68,8 +68,12 @@ void cmd_cover(args::Subparser& parser) {
   args::ValueFlag<std::string> output(parser, "path", "output file path", {'o', "output"});
   args::Flag exclude_system(parser, "exclude-system", "exclude system libraries", {"exclude-system"});
   args::Flag track_hitcounts(parser, "track-hitcounts", "track hit counts in coverage data", {"track-hitcounts"});
-  args::ValueFlag<std::string> module_filter(parser, "modules", "comma-separated list of modules to filter", {'m', "module-filter"});
-  args::ValueFlag<int> debug_level(parser, "level", "debug level override - defaults to passthrough verbosity", {"debug"});
+  args::ValueFlag<std::string> module_filter(
+      parser, "modules", "comma-separated list of modules to filter", {'m', "module-filter"}
+  );
+  args::ValueFlag<int> debug_level(
+      parser, "level", "debug level override - defaults to passthrough verbosity", {"debug"}
+  );
   args::ValueFlag<std::string> format(parser, "format", "output format (drcov, text)", {"format"});
   args::Flag suspended(parser, "suspended", "start process in suspended state (only with --spawn)", {"suspended"});
   args::PositionalList<std::string> args(
@@ -78,7 +82,8 @@ void cmd_cover(args::Subparser& parser) {
   parser.Parse();
 
   w1tool::commands::cover(
-      library, spawn, pid, name, output, exclude_system, track_hitcounts, module_filter, debug_level, format, suspended, args, g_executable_path
+      library, spawn, pid, name, output, exclude_system, track_hitcounts, module_filter, debug_level, format, suspended,
+      args, g_executable_path
   );
 }
 

@@ -5,6 +5,8 @@ cmake_minimum_required(VERSION 3.16)
 add_library(w1tn3ss STATIC
     util/env_config.cpp
     util/module_discovery.cpp
+    util/module_scanner.cpp
+    util/module_range_index.cpp
 )
 
 target_include_directories(w1tn3ss PUBLIC

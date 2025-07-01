@@ -69,9 +69,9 @@ std::string find_qbdipreload_library(const std::string& executable_path) {
 int cover(
     args::ValueFlag<std::string>& library_flag, args::Flag& spawn_flag, args::ValueFlag<int>& pid_flag,
     args::ValueFlag<std::string>& name_flag, args::ValueFlag<std::string>& output_flag, args::Flag& exclude_system_flag,
-    args::Flag& track_hitcounts_flag, args::ValueFlag<std::string>& module_filter_flag, args::ValueFlag<int>& debug_level_flag,
-    args::ValueFlag<std::string>& format_flag, args::Flag& suspended_flag, args::PositionalList<std::string>& args_list,
-    const std::string& executable_path
+    args::Flag& track_hitcounts_flag, args::ValueFlag<std::string>& module_filter_flag,
+    args::ValueFlag<int>& debug_level_flag, args::ValueFlag<std::string>& format_flag, args::Flag& suspended_flag,
+    args::PositionalList<std::string>& args_list, const std::string& executable_path
 ) {
 
   auto log = redlog::get_logger("w1tool.cover");
@@ -146,7 +146,7 @@ int cover(
 
   // set debug level: use override if provided, otherwise passthrough w1tool verbosity
   int effective_debug_level = 0;
-  
+
   if (debug_level_flag) {
     // debug level override provided
     effective_debug_level = args::get(debug_level_flag);
@@ -154,7 +154,7 @@ int cover(
     // passthrough w1tool verbosity
     effective_debug_level = args::get(cli::verbosity_flag);
   }
-  
+
   cfg.env_vars["W1COV_VERBOSE"] = std::to_string(effective_debug_level);
 
   // set track hitcounts flag
