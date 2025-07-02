@@ -1,5 +1,6 @@
 #include "cover.hpp"
 #include "common/platform_utils.hpp"
+#include "tracer_discovery.hpp"
 #include "w1nj3ct.hpp"
 #include "ext/args.hpp"
 #include <cstdlib>
@@ -13,58 +14,6 @@ extern args::CounterFlag verbosity_flag;
 }
 
 namespace w1tool::commands {
-
-/**
- * @brief automatically find the w1cov_qbdipreload library relative to the executable
- * @param executable_path path to the current executable
- * @return path to the library if found, empty string otherwise
- */
-std::string find_qbdipreload_library(const std::string& executable_path) {
-  auto log = redlog::get_logger("w1tool.cover.autodiscovery");
-
-  // convert executable path to absolute path to handle relative paths like "./w1tool"
-  std::filesystem::path exec_path;
-  try {
-    exec_path = std::filesystem::canonical(executable_path);
-  } catch (const std::exception& e) {
-    log.debug(
-        "failed to canonicalize executable path, using as-is", redlog::field("path", executable_path),
-        redlog::field("error", e.what())
-    );
-    exec_path = std::filesystem::path(executable_path);
-  }
-
-  std::filesystem::path exec_dir = exec_path.parent_path();
-
-  // get platform-specific library extension
-  std::string lib_ext = w1::common::platform_utils::get_library_extension();
-  std::string lib_name = "w1cov_qbdipreload" + lib_ext;
-
-  log.debug(
-      "searching for library", redlog::field("library_name", lib_name), redlog::field("exec_dir", exec_dir.string())
-  );
-
-  // search paths relative to executable directory
-  std::vector<std::filesystem::path> search_paths = {
-      exec_dir / lib_name,                // Same directory as executable
-      exec_dir / ".." / "lib" / lib_name, // ../lib/ (for installed layouts)
-      exec_dir / "lib" / lib_name,        // lib/ subdirectory
-      exec_dir / ".." / lib_name,         // Parent directory
-  };
-
-  for (const auto& candidate_path : search_paths) {
-    log.debug("checking candidate path", redlog::field("path", candidate_path.string()));
-
-    if (std::filesystem::exists(candidate_path) && std::filesystem::is_regular_file(candidate_path)) {
-      std::string found_path = std::filesystem::canonical(candidate_path).string();
-      log.info("found qbdipreload library", redlog::field("path", found_path));
-      return found_path;
-    }
-  }
-
-  log.debug("qbdipreload library not found in standard locations");
-  return "";
-}
 
 int cover(
     args::ValueFlag<std::string>& library_flag, args::Flag& spawn_flag, args::ValueFlag<int>& pid_flag,
@@ -93,7 +42,7 @@ int cover(
     // auto-discover library path
     log.debug("attempting to auto-discover w1cov library");
 
-    lib_path = find_qbdipreload_library(executable_path);
+    lib_path = w1tool::tracer_discovery::find_tracer_library(executable_path, "w1cov");
 
     if (lib_path.empty()) {
       log.err("w1cov_qbdipreload library not found. please specify with -L/--w1cov-library");

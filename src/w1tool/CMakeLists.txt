@@ -8,6 +8,8 @@ add_executable(w1tool
     commands/inspect.cpp
     commands/cover.cpp
     commands/read_drcov.cpp
+    commands/tracer.cpp
+    tracer_discovery.cpp
 )
 
 set_target_properties(w1tool PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})

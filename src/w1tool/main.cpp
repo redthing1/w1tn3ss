@@ -9,6 +9,7 @@
 #include "commands/inject.hpp"
 #include "commands/inspect.hpp"
 #include "commands/read_drcov.hpp"
+#include "commands/tracer.hpp"
 
 namespace cli {
 args::Group arguments("arguments");
@@ -96,6 +97,26 @@ void cmd_read_drcov(args::Subparser& parser) {
   w1tool::commands::read_drcov(file, summary, detailed, module);
 }
 
+void cmd_tracer(args::Subparser& parser) {
+  cli::apply_verbosity();
+
+  args::ValueFlag<std::string> library(parser, "path", "path to tracer library", {'L', "library"});
+  args::ValueFlag<std::string> name(parser, "name", "tracer name (w1cov, w1mem, mintrace, etc.)", {'n', "name"});
+  args::Flag spawn(parser, "spawn", "spawn new process for tracing", {'s', "spawn"});
+  args::ValueFlag<int> pid(parser, "pid", "process ID to attach to", {'p', "pid"});
+  args::ValueFlag<std::string> process_name(parser, "process", "process name to attach to", {"process-name"});
+  args::ValueFlagList<std::string> config(parser, "config", "configuration key=value pairs", {'c', "config"});
+  args::ValueFlag<int> debug_level(parser, "level", "debug level override", {"debug"});
+  args::Flag list_tracers(parser, "list", "list available tracers", {"list-tracers"});
+  args::Flag suspended(parser, "suspended", "start process in suspended state (only with --spawn)", {"suspended"});
+  args::PositionalList<std::string> args(parser, "args", "binary -- arguments");
+  parser.Parse();
+
+  w1tool::commands::tracer(
+      library, name, spawn, pid, process_name, config, debug_level, list_tracers, suspended, args, g_executable_path
+  );
+}
+
 int main(int argc, char* argv[]) {
   // store executable path for library auto-discovery
   g_executable_path = argv[0];
@@ -114,6 +135,7 @@ int main(int argc, char* argv[]) {
   args::Command inspect_cmd(commands, "inspect", "inspect binary file", &cmd_inspect);
   args::Command cover_cmd(commands, "cover", "perform coverage tracing with configurable options", &cmd_cover);
   args::Command read_drcov_cmd(commands, "read-drcov", "analyze DrCov coverage files", &cmd_read_drcov);
+  args::Command tracer_cmd(commands, "tracer", "run arbitrary tracer with flexible configuration", &cmd_tracer);
 
   try {
     parser.ParseCLI(argc, argv);
