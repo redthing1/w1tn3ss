@@ -3,8 +3,10 @@
 claude/
 CLAUDE.md
 
-*.drcov
-*.json
+/*.drcov
+/*.json
+/*.txt
+/*.bin
 
 temp/
 plans/
