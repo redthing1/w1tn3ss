@@ -26,17 +26,10 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
   log.inf("qbdipreload_on_run called");
 
   // get config
+  g_config = w1cov::coverage_config::from_environment();
+
   w1::util::env_config config_loader("W1COV_");
-
   int debug_level = config_loader.get<int>("VERBOSE", 0);
-
-  g_config.output_file = config_loader.get<std::string>("OUTPUT_FILE", g_config.output_file);
-  g_config.exclude_system_modules = config_loader.get<bool>("EXCLUDE_SYSTEM", g_config.exclude_system_modules);
-  g_config.track_hitcounts = config_loader.get<bool>("TRACK_HITCOUNTS", g_config.track_hitcounts);
-  auto target_modules_env = config_loader.get_list("MODULE_FILTER");
-  if (!target_modules_env.empty()) {
-    g_config.module_filter = target_modules_env;
-  }
 
   // set log level based on debug level
   if (debug_level >= 4) {
