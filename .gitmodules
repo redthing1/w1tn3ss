@@ -7,3 +7,9 @@
 [submodule "src/third_party/sol2"]
 	path = src/third_party/sol2
 	url = https://github.com/ThePhD/sol2
+[submodule "src/third_party/luajit_cmake"]
+	path = src/third_party/luajit_cmake
+	url = https://github.com/zhaozg/luajit-cmake
+[submodule "src/third_party/luajit"]
+	path = src/third_party/luajit
+	url = https://github.com/LuaJIT/LuaJIT

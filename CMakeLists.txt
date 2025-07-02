@@ -14,11 +14,24 @@ option(WITNESS_QBDI_EXTRAS "Build QBDI with examples, tests and additional tools
 # load configuration modules
 include(${CMAKE_SOURCE_DIR}/cmake/CommonConfig.cmake)
 include(${CMAKE_SOURCE_DIR}/cmake/PlatformConfig.cmake)
+include(${CMAKE_SOURCE_DIR}/cmake/LuaConfig.cmake)
 
 # configure platform and architecture
 detect_qbdi_platform()
 detect_architecture()
 configure_qbdi_options()
+
+# print witness configuration block
+message(STATUS "")
+message(STATUS "== WITNESS Config ==")
+message(STATUS "Platform:              ${QBDI_PLATFORM}")
+message(STATUS "Architecture:          ${WITNESS_ARCH}")
+message(STATUS "Build Type:            ${CMAKE_BUILD_TYPE}")
+message(STATUS "Static Libraries:      ${WITNESS_BUILD_STATIC}")
+message(STATUS "Shared Libraries:      ${WITNESS_BUILD_SHARED}")
+message(STATUS "Scripting Support:     ${WITNESS_SCRIPT}")
+message(STATUS "Tests:                 ${BUILD_TESTS}")
+message(STATUS "")
 
 # add third-party libraries
 add_subdirectory(src/third_party/qbdi)
