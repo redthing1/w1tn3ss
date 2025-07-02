@@ -35,6 +35,14 @@ set_target_properties(runtime_injection_target PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs
 )
 
+# simple demo program for script testing
+add_executable(simple_demo simple_demo.c)
+apply_common_compile_options(simple_demo)
+apply_windows_definitions(simple_demo)
+set_target_properties(simple_demo PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs
+)
+
 # linux-specific target programs
 if(UNIX AND NOT APPLE)
     # linux injection target with linux-specific features
@@ -85,7 +93,7 @@ elseif(UNIX)
 endif()
 
 # install targets
-set(PROGRAM_TARGETS multi_threaded_target control_flow_1 runtime_injection_target)
+set(PROGRAM_TARGETS multi_threaded_target control_flow_1 runtime_injection_target simple_demo)
 
 # add linux-specific targets to install list
 if(UNIX AND NOT APPLE)
