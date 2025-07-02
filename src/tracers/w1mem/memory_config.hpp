@@ -7,7 +7,7 @@ namespace w1mem {
 
 struct memory_config {
   std::string output_path;
-  size_t max_trace_entries;
+  uint64_t max_trace_entries;
   bool collect_trace;
   bool verbose;
 
@@ -16,7 +16,7 @@ struct memory_config {
 
     memory_config config;
     config.output_path = loader.get<std::string>("OUTPUT", "w1mem_trace.json");
-    config.max_trace_entries = loader.get<size_t>("MAX_TRACE", 100000);
+    config.max_trace_entries = loader.get<uint64_t>("MAX_TRACE", 100000);
     config.collect_trace = !loader.get<bool>("STATS_ONLY", false);
     config.verbose = loader.get<bool>("VERBOSE", false);
 
