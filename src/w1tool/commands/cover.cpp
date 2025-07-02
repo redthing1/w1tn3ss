@@ -1,7 +1,5 @@
 #include "cover.hpp"
-#include "common/platform_utils.hpp"
-#include "tracer_discovery.hpp"
-#include "w1nj3ct.hpp"
+#include "tracer.hpp"
 #include "ext/args.hpp"
 #include <cstdlib>
 #include <filesystem>
@@ -22,38 +20,9 @@ int cover(
     args::ValueFlag<int>& debug_level_flag, args::ValueFlag<std::string>& format_flag, args::Flag& suspended_flag,
     args::PositionalList<std::string>& args_list, const std::string& executable_path
 ) {
-
   auto log = redlog::get_logger("w1tool.cover");
 
-  // log platform information for debugging
-  std::string platform = w1::common::platform_utils::get_platform_name();
-  log.debug("platform detected", redlog::field("platform", platform));
-
-  if (!w1::common::platform_utils::supports_runtime_injection()) {
-    log.warn("runtime injection may not be supported on this platform", redlog::field("platform", platform));
-  }
-
-  // determine library path - use specified path or auto-discover
-  std::string lib_path;
-  if (library_flag) {
-    lib_path = args::get(library_flag);
-    log.debug("using w1cov library", redlog::field("path", lib_path));
-  } else {
-    // auto-discover library path
-    log.debug("attempting to auto-discover w1cov library");
-
-    lib_path = w1tool::tracer_discovery::find_tracer_library(executable_path, "w1cov");
-
-    if (lib_path.empty()) {
-      log.err("w1cov_qbdipreload library not found. please specify with -L/--w1cov-library");
-      log.info("searched for library next to executable and in common build locations");
-      return 1;
-    }
-
-    log.info("auto-discovered library", redlog::field("path", lib_path));
-  }
-
-  // validate target specification
+  // validate target
   int target_count = 0;
   if (spawn_flag) {
     target_count++;
@@ -70,55 +39,13 @@ int cover(
     return 1;
   }
 
-  // validate suspended flag usage
+  // validate suspended flag
   if (suspended_flag && !spawn_flag) {
     log.err("--suspended can only be used with -s/--spawn (launch tracing)");
     return 1;
   }
 
-  // validate library path exists if provided
-  if (library_flag && !std::filesystem::exists(args::get(library_flag))) {
-    log.err("specified library path does not exist", redlog::field("path", args::get(library_flag)));
-    return 1;
-  }
-
-  // prepare injection configuration
-  w1::inject::config cfg;
-  cfg.library_path = lib_path;
-
-  // set environment variables for w1cov
-  if (exclude_system_flag) {
-    cfg.env_vars["W1COV_EXCLUDE_SYSTEM"] = "true";
-  } else {
-    cfg.env_vars["W1COV_EXCLUDE_SYSTEM"] = "false";
-  }
-
-  // set debug level: use override if provided, otherwise passthrough w1tool verbosity
-  int effective_debug_level = 0;
-
-  if (debug_level_flag) {
-    // debug level override provided
-    effective_debug_level = args::get(debug_level_flag);
-  } else {
-    // passthrough w1tool verbosity
-    effective_debug_level = args::get(cli::verbosity_flag);
-  }
-
-  cfg.env_vars["W1COV_VERBOSE"] = std::to_string(effective_debug_level);
-
-  // set track hitcounts flag
-  if (track_hitcounts_flag) {
-    cfg.env_vars["W1COV_TRACK_HITCOUNTS"] = "true";
-  } else {
-    cfg.env_vars["W1COV_TRACK_HITCOUNTS"] = "false";
-  }
-
-  // set module filter if provided
-  if (module_filter_flag) {
-    cfg.env_vars["W1COV_MODULE_FILTER"] = args::get(module_filter_flag);
-  }
-
-  // set output format (validate but don't pass to w1cov - it only outputs drcov)
+  // validate output format
   std::string format = "drcov"; // default
   if (format_flag) {
     format = args::get(format_flag);
@@ -132,12 +59,12 @@ int cover(
     }
   }
 
-  // set output file
+  // determine output file
   std::string output_file;
   if (output_flag) {
     output_file = args::get(output_flag);
   } else {
-    // generate default output filename using cross-platform path handling
+    // generate default filename
     if (spawn_flag && !args_list.Get().empty()) {
       std::vector<std::string> all_args = args::get(args_list);
       std::string binary_path = all_args[0];
@@ -148,81 +75,69 @@ int cover(
       output_file = "coverage." + format;
     }
   }
-  cfg.env_vars["W1COV_OUTPUT_FILE"] = output_file;
 
-  log.info(
-      "coverage tracing configuration", redlog::field("output_file", output_file), redlog::field("format", format),
-      redlog::field("exclude_system", exclude_system_flag ? "true" : "false"),
-      redlog::field("track_hitcounts", track_hitcounts_flag ? "true" : "false"),
-      redlog::field("debug_level", effective_debug_level)
-  );
+  // build execution parameters
+  tracer_execution_params params;
+  params.tracer_name = "w1cov";
+  params.executable_path = executable_path;
 
-  w1::inject::result result;
+  if (library_flag) {
+    params.library_path = args::get(library_flag);
+  }
 
-  // execute coverage tracing based on target type
+  // set debug level
+  if (debug_level_flag) {
+    params.debug_level = args::get(debug_level_flag);
+  } else {
+    params.debug_level = args::get(cli::verbosity_flag);
+  }
+
+  // translate cover flags to w1cov config
+  params.config_map["exclude_system"] = exclude_system_flag ? "true" : "false";
+  params.config_map["track_hitcounts"] = track_hitcounts_flag ? "true" : "false";
+  params.config_map["output_file"] = output_file;
+
+  if (module_filter_flag) {
+    params.config_map["module_filter"] = args::get(module_filter_flag);
+  }
+
+  // set target
   if (spawn_flag) {
-    // launch-time coverage with positional arguments
     if (args_list.Get().empty()) {
       log.err("binary path required when using -s/--spawn flag");
       return 1;
     }
 
     std::vector<std::string> all_args = args::get(args_list);
-    std::string binary_path = all_args[0];
+    params.spawn_target = true;
+    params.binary_path = all_args[0];
+    params.suspended = suspended_flag;
 
-    // extract arguments after the binary (everything after first arg)
-    std::vector<std::string> binary_args;
+    // extract binary arguments
     if (all_args.size() > 1) {
-      binary_args.assign(all_args.begin() + 1, all_args.end());
+      params.binary_args.assign(all_args.begin() + 1, all_args.end());
     }
-
-    log.info(
-        "starting launch-time coverage tracing", redlog::field("binary", binary_path),
-        redlog::field("args_count", binary_args.size()), redlog::field("suspended", suspended_flag ? "true" : "false")
-    );
-
-    cfg.injection_method = w1::inject::method::launch;
-    cfg.binary_path = binary_path;
-    cfg.args = binary_args;
-    cfg.suspended = suspended_flag;
-    cfg.wait_for_completion = true; // cover command should wait for completion
-
-    result = w1::inject::inject(cfg);
 
   } else if (pid_flag) {
-    // runtime coverage by PID
-    int target_pid = args::get(pid_flag);
-    log.info(
-        "starting runtime coverage tracing", redlog::field("method", "pid"), redlog::field("target_pid", target_pid)
-    );
-
-    cfg.injection_method = w1::inject::method::runtime;
-    cfg.pid = target_pid;
-    // note: wait_for_completion not applicable for runtime injection
-    result = w1::inject::inject(cfg);
+    params.target_pid = args::get(pid_flag);
 
   } else if (name_flag) {
-    // runtime coverage by process name
-    std::string process_name = args::get(name_flag);
-    log.info(
-        "starting runtime coverage tracing", redlog::field("method", "name"),
-        redlog::field("process_name", process_name)
-    );
-
-    cfg.injection_method = w1::inject::method::runtime;
-    cfg.process_name = process_name;
-    // note: wait_for_completion not applicable for runtime injection
-    result = w1::inject::inject(cfg);
+    params.process_name = args::get(name_flag);
   }
 
-  // handle result
-  if (result.success()) {
-    log.info("coverage tracing completed successfully", redlog::field("output_file", output_file));
-    if (result.target_pid > 0) {
-      log.info("target process", redlog::field("pid", result.target_pid));
-    }
+  log.info(
+      "coverage tracing configuration", redlog::field("output_file", output_file), redlog::field("format", format),
+      redlog::field("exclude_system", exclude_system_flag ? "true" : "false"),
+      redlog::field("track_hitcounts", track_hitcounts_flag ? "true" : "false"),
+      redlog::field("debug_level", params.debug_level)
+  );
 
-    // check that the output file was created
+  // execute w1cov tracing
+  int result = execute_tracer_impl(params);
+
+  // handle cover post-processing
+  if (result == 0) {
+    // check output file created
     if (!std::filesystem::exists(output_file)) {
       log.err("output file not created", redlog::field("output_file", output_file));
       return 1;
@@ -233,12 +148,9 @@ int cover(
     if (format == "drcov") {
       std::cout << "use 'w1tool read-drcov --file " << output_file << "' to analyze results.\n";
     }
-
-    return 0;
-  } else {
-    log.err("coverage tracing failed", redlog::field("error", result.error_message));
-    return 1;
   }
+
+  return result;
 }
 
 } // namespace w1tool::commands

@@ -7,6 +7,7 @@ add_library(w1tn3ss STATIC
     util/module_discovery.cpp
     util/module_scanner.cpp
     util/module_range_index.cpp
+    util/signal_handler.cpp
 )
 
 target_include_directories(w1tn3ss PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
