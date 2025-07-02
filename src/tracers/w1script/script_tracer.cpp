@@ -15,16 +15,16 @@ bool script_tracer::initialize(w1::tracer_engine<script_tracer>& engine) {
 #ifdef WITNESS_SCRIPT_ENABLED
   if (!cfg_.is_valid()) {
     auto log = redlog::get_logger("w1script.tracer");
-    log.err("Invalid configuration. W1SCRIPT_SCRIPT must be specified.");
+    log.err("invalid configuration. W1SCRIPT_SCRIPT must be specified.");
     return false;
   }
 
   auto log = redlog::get_logger("w1script.tracer");
-  log.inf("Initializing with Lua support");
-  log.inf("Script path", redlog::field("path", cfg_.script_path));
+  log.inf("initializing with Lua support");
+  log.inf("script path", redlog::field("path", cfg_.script_path));
 
   if (!load_script()) {
-    log.err("Failed to load script");
+    log.err("failed to load script");
     return false;
   }
 
@@ -36,18 +36,18 @@ bool script_tracer::initialize(w1::tracer_engine<script_tracer>& engine) {
     if (vm) {
       bool memory_recording_enabled = vm->recordMemoryAccess(QBDI::MEMORY_READ_WRITE);
       if (memory_recording_enabled) {
-        log.inf("Memory recording enabled for script");
+        log.inf("memory recording enabled for script");
       } else {
-        log.wrn("Memory recording not supported on this platform");
+        log.wrn("memory recording not supported on this platform");
       }
     }
   }
 
-  log.inf("Initialization complete", redlog::field("enabled_callbacks", enabled_callbacks_.size()));
+  log.inf("initialization complete", redlog::field("enabled_callbacks", enabled_callbacks_.size()));
   return true;
 #else
   auto log = redlog::get_logger("w1script.tracer");
-  log.wrn("Lua support not compiled in. Set WITNESS_SCRIPT=ON to enable.");
+  log.wrn("lua support not compiled in. set WITNESS_SCRIPT=ON to enable.");
   return false;
 #endif
 }
@@ -56,7 +56,7 @@ void script_tracer::shutdown() {
 #ifdef WITNESS_SCRIPT_ENABLED
   auto log = redlog::get_logger("w1script.tracer");
   if (cfg_.verbose) {
-    log.inf("Shutting down");
+    log.inf("shutting down");
   }
 
   // Call script shutdown function if it exists
@@ -66,7 +66,7 @@ void script_tracer::shutdown() {
       try {
         shutdown_fn.value()();
       } catch (const sol::error& e) {
-        log.err("Error in script shutdown", redlog::field("error", e.what()));
+        log.err("error in script shutdown", redlog::field("error", e.what()));
       }
     }
   }
@@ -94,7 +94,7 @@ bool script_tracer::load_script() {
     if (!script.valid()) {
       sol::error err = script;
       auto log = redlog::get_logger("w1script.tracer");
-      log.err("Failed to load script", redlog::field("error", err.what()));
+      log.err("failed to load script", redlog::field("error", err.what()));
       return false;
     }
 
@@ -103,14 +103,14 @@ bool script_tracer::load_script() {
     if (!result.valid()) {
       sol::error err = result;
       auto log = redlog::get_logger("w1script.tracer");
-      log.err("Failed to execute script", redlog::field("error", err.what()));
+      log.err("failed to execute script", redlog::field("error", err.what()));
       return false;
     }
 
     // Get the returned table
     if (!result.return_count() || result.get_type() != sol::type::table) {
       auto log = redlog::get_logger("w1script.tracer");
-      log.err("Script must return a table");
+      log.err("script must return a table");
       return false;
     }
 
@@ -119,7 +119,7 @@ bool script_tracer::load_script() {
     return true;
   } catch (const std::exception& e) {
     auto log = redlog::get_logger("w1script.tracer");
-    log.err("Exception loading script", redlog::field("error", e.what()));
+    log.err("exception loading script", redlog::field("error", e.what()));
     return false;
   }
 }
@@ -137,7 +137,7 @@ void script_tracer::setup_callbacks() {
         std::string callback_name = pair.second.as<std::string>();
         enabled_callbacks_.insert(callback_name);
         auto log = redlog::get_logger("w1script.tracer");
-        log.dbg("Found callback", redlog::field("name", callback_name));
+        log.dbg("found callback", redlog::field("name", callback_name));
       }
     }
   }
@@ -170,7 +170,7 @@ QBDI::VMAction script_tracer::on_instruction_preinst(QBDI::VMInstanceRef vm, QBD
       }
     } catch (const sol::error& e) {
       auto log = redlog::get_logger("w1script.tracer");
-      log.err("Error in on_instruction_preinst", redlog::field("error", e.what()));
+      log.err("error in on_instruction_preinst", redlog::field("error", e.what()));
     }
   }
   return QBDI::VMAction::CONTINUE;
@@ -192,7 +192,7 @@ QBDI::VMAction script_tracer::on_instruction_postinst(
       }
     } catch (const sol::error& e) {
       auto log = redlog::get_logger("w1script.tracer");
-      log.err("Error in on_instruction_postinst", redlog::field("error", e.what()));
+      log.err("error in on_instruction_postinst", redlog::field("error", e.what()));
     }
   }
   return QBDI::VMAction::CONTINUE;
@@ -215,7 +215,7 @@ QBDI::VMAction script_tracer::on_basic_block_entry(
       }
     } catch (const sol::error& e) {
       auto log = redlog::get_logger("w1script.tracer");
-      log.err("Error in on_basic_block_entry", redlog::field("error", e.what()));
+      log.err("error in on_basic_block_entry", redlog::field("error", e.what()));
     }
   }
   return QBDI::VMAction::CONTINUE;
@@ -238,7 +238,7 @@ QBDI::VMAction script_tracer::on_basic_block_exit(
       }
     } catch (const sol::error& e) {
       auto log = redlog::get_logger("w1script.tracer");
-      log.err("Error in on_basic_block_exit", redlog::field("error", e.what()));
+      log.err("error in on_basic_block_exit", redlog::field("error", e.what()));
     }
   }
   return QBDI::VMAction::CONTINUE;
@@ -257,7 +257,7 @@ QBDI::VMAction script_tracer::on_memory_read(QBDI::VMInstanceRef vm, QBDI::GPRSt
       }
     } catch (const sol::error& e) {
       auto log = redlog::get_logger("w1script.tracer");
-      log.err("Error in on_memory_read", redlog::field("error", e.what()));
+      log.err("error in on_memory_read", redlog::field("error", e.what()));
     }
   }
   return QBDI::VMAction::CONTINUE;
@@ -276,7 +276,7 @@ QBDI::VMAction script_tracer::on_memory_write(QBDI::VMInstanceRef vm, QBDI::GPRS
       }
     } catch (const sol::error& e) {
       auto log = redlog::get_logger("w1script.tracer");
-      log.err("Error in on_memory_write", redlog::field("error", e.what()));
+      log.err("error in on_memory_write", redlog::field("error", e.what()));
     }
   }
   return QBDI::VMAction::CONTINUE;

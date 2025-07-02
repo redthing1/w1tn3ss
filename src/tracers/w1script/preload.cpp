@@ -51,7 +51,7 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
   g_config = w1::tracers::script::config::from_environment();
 
   if (!g_config.is_valid()) {
-    log.err("Invalid configuration - W1SCRIPT_SCRIPT must be specified");
+    log.err("invalid configuration - W1SCRIPT_SCRIPT must be specified");
     return QBDIPRELOAD_ERR_STARTUP_FAILED;
   }
 

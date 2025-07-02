@@ -19,7 +19,7 @@ if(WITNESS_SCRIPT)
     
     # Create w1script tracer with Lua support
     create_tracer_targets(w1script
-        "preload.cpp;script_tracer.cpp;script_bindings.cpp"
+        "preload.cpp;script_tracer.cpp;script_bindings.cpp;bindings/core_types.cpp;bindings/register_access.cpp;bindings/vm_control.cpp;bindings/memory_analysis.cpp;bindings/utilities.cpp;bindings/callback_system.cpp"
     )
     
     # Add Lua-specific configuration
