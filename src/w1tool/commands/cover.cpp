@@ -95,7 +95,7 @@ int cover(
   // translate cover flags to w1cov config
   params.config_map["exclude_system"] = exclude_system_flag ? "true" : "false";
   params.config_map["track_hitcounts"] = track_hitcounts_flag ? "true" : "false";
-  params.config_map["output_file"] = output_file;
+  params.config_map["output"] = output_file;
 
   if (module_filter_flag) {
     params.config_map["module_filter"] = args::get(module_filter_flag);

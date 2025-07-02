@@ -53,9 +53,9 @@ std::pair<std::string, std::string> parse_config_string(const std::string& confi
 int tracer(
     args::ValueFlag<std::string>& library_flag, args::ValueFlag<std::string>& name_flag, args::Flag& spawn_flag,
     args::ValueFlag<int>& pid_flag, args::ValueFlag<std::string>& process_name_flag,
-    args::ValueFlagList<std::string>& config_flags, args::ValueFlag<int>& debug_level_flag,
-    args::Flag& list_tracers_flag, args::Flag& suspended_flag, args::PositionalList<std::string>& args_list,
-    const std::string& executable_path
+    args::ValueFlag<std::string>& output_flag, args::ValueFlagList<std::string>& config_flags,
+    args::ValueFlag<int>& debug_level_flag, args::Flag& list_tracers_flag, args::Flag& suspended_flag,
+    args::PositionalList<std::string>& args_list, const std::string& executable_path
 ) {
   auto log = redlog::get_logger("w1tool.tracer");
 
@@ -135,6 +135,11 @@ int tracer(
 
       params.config_map[key] = value;
     }
+  }
+
+  // process output flag
+  if (output_flag) {
+    params.config_map["output"] = args::get(output_flag);
   }
 
   // set target

@@ -105,6 +105,7 @@ void cmd_tracer(args::Subparser& parser) {
   args::Flag spawn(parser, "spawn", "spawn new process for tracing", {'s', "spawn"});
   args::ValueFlag<int> pid(parser, "pid", "process ID to attach to", {'p', "pid"});
   args::ValueFlag<std::string> process_name(parser, "process", "process name to attach to", {"process-name"});
+  args::ValueFlag<std::string> output(parser, "path", "output file path", {'o', "output"});
   args::ValueFlagList<std::string> config(parser, "config", "configuration key=value pairs", {'c', "config"});
   args::ValueFlag<int> debug_level(parser, "level", "debug level override", {"debug"});
   args::Flag list_tracers(parser, "list", "list available tracers", {"list-tracers"});
@@ -113,7 +114,8 @@ void cmd_tracer(args::Subparser& parser) {
   parser.Parse();
 
   w1tool::commands::tracer(
-      library, name, spawn, pid, process_name, config, debug_level, list_tracers, suspended, args, g_executable_path
+      library, name, spawn, pid, process_name, output, config, debug_level, list_tracers, suspended, args,
+      g_executable_path
   );
 }
 
