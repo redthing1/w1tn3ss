@@ -1,5 +1,7 @@
 #include <cstdlib>
+#include <cstring>
 #include <memory>
+#include <unistd.h>
 
 #include "QBDIPreload.h"
 #include <redlog/redlog.hpp>
@@ -7,6 +9,7 @@
 #include <w1tn3ss/engine/tracer_engine.hpp>
 #include <w1tn3ss/util/env_config.hpp>
 #include <w1tn3ss/util/module_discovery.hpp>
+#include <w1tn3ss/util/signal_handler.hpp>
 
 class mintrace_tracer {
 public:
@@ -69,6 +72,26 @@ private:
 static std::unique_ptr<mintrace_tracer> g_tracer;
 static std::unique_ptr<w1::tracer_engine<mintrace_tracer>> g_engine;
 
+namespace {
+
+/**
+ * @brief shutdown tracer with signal-safe error handling
+ */
+void shutdown_tracer() {
+  if (!g_tracer) {
+    return;
+  }
+
+  try {
+    g_tracer->shutdown();
+  } catch (...) {
+    const char* error_msg = "mintrace: tracer shutdown failed\n";
+    write(STDERR_FILENO, error_msg, strlen(error_msg));
+  }
+}
+
+} // anonymous namespace
+
 extern "C" {
 
 QBDIPRELOAD_INIT;
@@ -84,6 +107,22 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
 
   if (verbose) {
     redlog::set_level(redlog::level::debug);
+  }
+
+  // initialize signal handling for emergency shutdown
+  w1::tn3ss::signal_handler::config sig_config;
+  sig_config.context_name = "mintrace";
+  sig_config.log_signals = verbose;
+
+  if (w1::tn3ss::signal_handler::initialize(sig_config)) {
+    w1::tn3ss::signal_handler::register_cleanup(
+        shutdown_tracer,
+        200, // high priority
+        "mintrace_shutdown"
+    );
+    log.inf("signal handling initialized for tracer shutdown");
+  } else {
+    log.wrn("failed to initialize signal handling - shutdown on signal unavailable");
   }
 
   // create tracer

@@ -1,11 +1,14 @@
 #include <cstdlib>
+#include <cstring>
 #include <memory>
+#include <unistd.h>
 
 #include "QBDIPreload.h"
 #include <redlog/redlog.hpp>
 
 #include <w1tn3ss/engine/tracer_engine.hpp>
 #include <w1tn3ss/util/env_config.hpp>
+#include <w1tn3ss/util/signal_handler.hpp>
 #include <w1tn3ss/formats/drcov.hpp>
 
 #include "coverage_config.hpp"
@@ -15,6 +18,30 @@
 static std::unique_ptr<w1cov::coverage_tracer> g_tracer;
 static std::unique_ptr<w1::tracer_engine<w1cov::coverage_tracer>> g_engine;
 static w1cov::coverage_config g_config;
+
+namespace {
+
+/**
+ * @brief export coverage data with signal-safe error handling
+ */
+void export_coverage() {
+  if (!g_tracer) {
+    return;
+  }
+
+  try {
+    auto data = g_tracer->get_collector().build_drcov_data();
+    if (!data.basic_blocks.empty()) {
+      drcov::write(g_config.output_file, data);
+    }
+  } catch (...) {
+    // signal-safe error reporting
+    const char* error_msg = "w1cov: coverage export failed\n";
+    write(STDERR_FILENO, error_msg, strlen(error_msg));
+  }
+}
+
+} // anonymous namespace
 
 extern "C" {
 
@@ -42,6 +69,22 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
     redlog::set_level(redlog::level::verbose);
   } else {
     redlog::set_level(redlog::level::info);
+  }
+
+  // initialize signal handling for emergency coverage export
+  w1::tn3ss::signal_handler::config sig_config;
+  sig_config.context_name = "w1cov";
+  sig_config.log_signals = (debug_level >= 1);
+
+  if (w1::tn3ss::signal_handler::initialize(sig_config)) {
+    w1::tn3ss::signal_handler::register_cleanup(
+        export_coverage,
+        200, // high priority
+        "w1cov_export"
+    );
+    log.inf("signal handling initialized for coverage export");
+  } else {
+    log.wrn("failed to initialize signal handling - coverage export on signal unavailable");
   }
 
   // create tracer
@@ -85,17 +128,12 @@ QBDI_EXPORT int qbdipreload_on_exit(int status) {
   if (g_tracer) {
     log.inf("shutting down tracer and exporting coverage");
 
-    // export coverage before shutdown
-    try {
-      auto data = g_tracer->get_collector().build_drcov_data();
-      if (!data.basic_blocks.empty()) {
-        drcov::write(g_config.output_file, data);
-        log.inf("coverage data export completed", redlog::field("output_file", g_config.output_file));
-      } else {
-        log.wrn("no basic blocks collected, skipping export");
-      }
-    } catch (const std::exception& e) {
-      log.err("exception during coverage export", redlog::field("error", e.what()));
+    export_coverage();
+    auto data = g_tracer->get_collector().build_drcov_data();
+    if (!data.basic_blocks.empty()) {
+      log.inf("coverage data export completed", redlog::field("output_file", g_config.output_file));
+    } else {
+      log.wrn("no basic blocks collected, skipping export");
     }
 
     g_tracer->shutdown();
