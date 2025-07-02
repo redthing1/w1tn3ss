@@ -24,7 +24,6 @@ configure_qbdi_options()
 add_subdirectory(src/third_party/qbdi)
 
 # configure redlog
-set(REDLOG_BUILD_EXAMPLES OFF)
 set(REDLOG_BUILD_TESTS OFF)
 add_subdirectory(src/third_party/redlog_cpp)
 
@@ -39,12 +38,6 @@ add_subdirectory(src/w1tool)
 option(BUILD_TESTS "Build test programs and libraries" ON)
 if(BUILD_TESTS)
     add_subdirectory(tests)
-endif()
-
-# add examples (optional)
-option(BUILD_EXAMPLES "Build example programs" ON)
-if(BUILD_EXAMPLES)
-    add_subdirectory(examples)
 endif()
 
 # code formatting with clang-format
@@ -63,7 +56,6 @@ if(CLANG_FORMAT_EXECUTABLE)
         "${CMAKE_SOURCE_DIR}/src/tracers/*.cpp" "${CMAKE_SOURCE_DIR}/src/tracers/*.hpp"
         "${CMAKE_SOURCE_DIR}/src/common/*.cpp" "${CMAKE_SOURCE_DIR}/src/common/*.hpp"
         "${CMAKE_SOURCE_DIR}/tests/*.cpp" "${CMAKE_SOURCE_DIR}/tests/*.hpp"
-        "${CMAKE_SOURCE_DIR}/examples/*.cpp" "${CMAKE_SOURCE_DIR}/examples/*.hpp"
     )
     
     add_custom_target(w1-format

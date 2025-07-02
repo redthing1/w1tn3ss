@@ -1,20 +1,5 @@
 # test programs for injection testing
 
-# simple target program
-add_executable(simple_target simple_target.c)
-apply_common_compile_options(simple_target)
-apply_windows_definitions(simple_target)
-set_target_properties(simple_target PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs
-)
-
-# long running target program
-add_executable(long_running_target long_running_target.c)
-apply_common_compile_options(long_running_target)
-apply_windows_definitions(long_running_target)
-set_target_properties(long_running_target PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs
-)
 
 # multi-threaded target program
 add_executable(multi_threaded_target multi_threaded_target.c)
@@ -71,12 +56,6 @@ endif()
 
 # enable sanitizers for test programs in debug builds
 if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT WIN32)
-    target_compile_options(simple_target PRIVATE ${SANITIZER_FLAGS})
-    target_link_options(simple_target PRIVATE ${SANITIZER_FLAGS})
-    
-    target_compile_options(long_running_target PRIVATE ${SANITIZER_FLAGS})
-    target_link_options(long_running_target PRIVATE ${SANITIZER_FLAGS})
-    
     target_compile_options(multi_threaded_target PRIVATE ${SANITIZER_FLAGS})
     target_link_options(multi_threaded_target PRIVATE ${SANITIZER_FLAGS})
     
@@ -106,7 +85,7 @@ elseif(UNIX)
 endif()
 
 # install targets
-set(PROGRAM_TARGETS simple_target long_running_target multi_threaded_target control_flow_1 runtime_injection_target)
+set(PROGRAM_TARGETS multi_threaded_target control_flow_1 runtime_injection_target)
 
 # add linux-specific targets to install list
 if(UNIX AND NOT APPLE)
