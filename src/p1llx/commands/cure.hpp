@@ -1,0 +1,17 @@
+#pragma once
+
+#include <string>
+
+namespace p1llx::commands {
+
+/**
+ * @brief Apply auto-cure lua script to static file
+ *
+ * @param script_path Path to lua cure script
+ * @param input_file Path to input binary file
+ * @param output_file Path to output binary file
+ * @return 0 for success, 1 for failure
+ */
+int cure(const std::string& script_path, const std::string& input_file, const std::string& output_file);
+
+} // namespace p1llx::commands

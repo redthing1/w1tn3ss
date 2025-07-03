@@ -21,6 +21,9 @@ detect_qbdi_platform()
 detect_architecture()
 configure_qbdi_options()
 
+# setup lua environment once globally
+setup_lua_environment()
+
 # print witness configuration block
 message(STATUS "")
 message(STATUS "== WITNESS Config ==")
@@ -46,6 +49,9 @@ add_subdirectory(src/w1tn3ss)
 add_subdirectory(src/tracers)
 add_subdirectory(src/w1nj3ct)
 add_subdirectory(src/w1tool)
+add_subdirectory(src/p1ll)
+add_subdirectory(src/p1llx)
+add_subdirectory(src/p01s0n)
 
 # add tests (optional)
 option(BUILD_TESTS "Build test programs and libraries" ON)
@@ -68,6 +74,9 @@ if(CLANG_FORMAT_EXECUTABLE)
         "${CMAKE_SOURCE_DIR}/src/w1tool/*.cpp" "${CMAKE_SOURCE_DIR}/src/w1tool/*.hpp"
         "${CMAKE_SOURCE_DIR}/src/tracers/*.cpp" "${CMAKE_SOURCE_DIR}/src/tracers/*.hpp"
         "${CMAKE_SOURCE_DIR}/src/common/*.cpp" "${CMAKE_SOURCE_DIR}/src/common/*.hpp"
+        "${CMAKE_SOURCE_DIR}/src/p1ll/*.cpp" "${CMAKE_SOURCE_DIR}/src/p1ll/*.hpp"
+        "${CMAKE_SOURCE_DIR}/src/p1llx/*.cpp" "${CMAKE_SOURCE_DIR}/src/p1llx/*.hpp"
+        "${CMAKE_SOURCE_DIR}/src/p01s0n/*.cpp" "${CMAKE_SOURCE_DIR}/src/p01s0n/*.hpp"
         "${CMAKE_SOURCE_DIR}/tests/*.cpp" "${CMAKE_SOURCE_DIR}/tests/*.hpp"
     )
     

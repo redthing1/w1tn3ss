@@ -73,6 +73,15 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT WIN32)
     target_compile_options(runtime_injection_target PRIVATE ${SANITIZER_FLAGS})
     target_link_options(runtime_injection_target PRIVATE ${SANITIZER_FLAGS})
     
+    # p1ll test targets (when scripting is enabled)
+    if(WITNESS_SCRIPT)
+        target_compile_options(p1ll_test_target PRIVATE ${SANITIZER_FLAGS})
+        target_link_options(p1ll_test_target PRIVATE ${SANITIZER_FLAGS})
+        
+        target_compile_options(pattern_matcher_test PRIVATE ${SANITIZER_FLAGS})
+        target_link_options(pattern_matcher_test PRIVATE ${SANITIZER_FLAGS})
+    endif()
+    
     # linux-specific targets
     if(UNIX AND NOT APPLE)
         target_compile_options(linux_target PRIVATE ${SANITIZER_FLAGS})
@@ -92,8 +101,32 @@ elseif(UNIX)
     target_link_libraries(runtime_injection_target PRIVATE pthread)
 endif()
 
+# p1ll test programs (only build when lua scripting is enabled)
+if(WITNESS_SCRIPT)
+    # p1ll binary patching test target
+    add_executable(p1ll_test_target p1ll_test_target.c)
+    apply_common_compile_options(p1ll_test_target)
+    apply_windows_definitions(p1ll_test_target)
+    set_target_properties(p1ll_test_target PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs
+    )
+    
+    # p1ll pattern matcher validation test
+    add_executable(pattern_matcher_test pattern_matcher_test.cpp)
+    apply_common_compile_options(pattern_matcher_test)
+    apply_windows_definitions(pattern_matcher_test)
+    set_target_properties(pattern_matcher_test PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs
+    )
+endif()
+
 # install targets
 set(PROGRAM_TARGETS multi_threaded_target control_flow_1 runtime_injection_target simple_demo)
+
+# add p1ll targets to install list when scripting is enabled
+if(WITNESS_SCRIPT)
+    list(APPEND PROGRAM_TARGETS p1ll_test_target pattern_matcher_test)
+endif()
 
 # add linux-specific targets to install list
 if(UNIX AND NOT APPLE)

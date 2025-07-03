@@ -37,12 +37,12 @@ function(build_luajit_from_source)
         set(LJ_DETECTED_ARCH "ARM" CACHE STRING "luajit target architecture")
     endif()
     
-    # add luajit-cmake subdirectory
-    add_subdirectory(${CMAKE_SOURCE_DIR}/src/third_party/luajit_cmake ${CMAKE_BINARY_DIR}/luajit_cmake)
+    # add luajit-cmake subdirectory with unique binary directory
+    add_subdirectory(${CMAKE_SOURCE_DIR}/src/third_party/luajit_cmake ${CMAKE_BINARY_DIR}/witness_luajit)
     
     # ensure generated headers are available (luajit.h, etc.)
     if(TARGET luajit-header)
-        target_include_directories(luajit-header INTERFACE ${CMAKE_BINARY_DIR}/luajit_cmake)
+        target_include_directories(luajit-header INTERFACE ${CMAKE_BINARY_DIR}/witness_luajit)
     endif()
     
     # export targets and variables for parent scope
