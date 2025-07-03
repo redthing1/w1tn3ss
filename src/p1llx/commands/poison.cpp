@@ -104,7 +104,7 @@ int poison(
   // prepare injection configuration
   w1::inject::config cfg;
   cfg.library_path = found_lib_path;
-  cfg.injection_method = w1::inject::method::launch; // preload injection
+  cfg.injection_method = w1::inject::method::preload; // preload injection
   cfg.binary_path = binary_path;
   cfg.args = binary_args;
   cfg.suspended = suspended;

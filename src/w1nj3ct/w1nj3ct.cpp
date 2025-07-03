@@ -78,7 +78,7 @@ error_code validate_config(const config& cfg) {
   const char* method_str = (cfg.injection_method == method::runtime) ? "runtime" : "preload";
   log.debug("validating method compatibility", redlog::field("method", method_str));
 
-  if (cfg.injection_method == method::launch && !cfg.binary_path) {
+  if (cfg.injection_method == method::preload && !cfg.binary_path) {
     log.error("launch injection method requires binary_path", redlog::field("method", method_str));
     return error_code::configuration_invalid;
   }

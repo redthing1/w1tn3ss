@@ -260,7 +260,7 @@ int execute_tracer_impl(const tracer_execution_params& params) {
         redlog::field("suspended", params.suspended ? "true" : "false")
     );
 
-    cfg.injection_method = w1::inject::method::launch;
+    cfg.injection_method = w1::inject::method::preload;
     cfg.binary_path = params.binary_path;
     cfg.args = params.binary_args;
     cfg.suspended = params.suspended;

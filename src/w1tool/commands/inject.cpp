@@ -62,7 +62,7 @@ int inject(
     }
 
     // spawn always uses preload injection
-    w1::inject::method injection_method = w1::inject::method::launch;
+    w1::inject::method injection_method = w1::inject::method::preload;
     std::string method_name = "preload";
 
     log.info(

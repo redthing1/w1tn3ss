@@ -10,7 +10,7 @@ namespace w1::inject {
 // injection methods
 enum class method {
   runtime, // inject into running process
-  launch   // launch new process with library preloaded
+  preload  // launch new process with library preloaded
 };
 
 // platform-specific technique enums
@@ -161,7 +161,7 @@ inline result inject_library_launch(
 ) {
   config cfg;
   cfg.library_path = library_path;
-  cfg.injection_method = method::launch;
+  cfg.injection_method = method::preload;
   cfg.binary_path = binary_path;
   cfg.args = args;
   return inject(cfg);
