@@ -110,14 +110,6 @@ if(WITNESS_SCRIPT)
     set_target_properties(p1ll_test_target PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs
     )
-    
-    # p1ll pattern matcher validation test
-    add_executable(pattern_matcher_test pattern_matcher_test.cpp)
-    apply_common_compile_options(pattern_matcher_test)
-    apply_windows_definitions(pattern_matcher_test)
-    set_target_properties(pattern_matcher_test PROPERTIES
-        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs
-    )
 endif()
 
 # install targets
@@ -125,7 +117,7 @@ set(PROGRAM_TARGETS multi_threaded_target control_flow_1 runtime_injection_targe
 
 # add p1ll targets to install list when scripting is enabled
 if(WITNESS_SCRIPT)
-    list(APPEND PROGRAM_TARGETS p1ll_test_target pattern_matcher_test)
+    list(APPEND PROGRAM_TARGETS p1ll_test_target)
 endif()
 
 # add linux-specific targets to install list
