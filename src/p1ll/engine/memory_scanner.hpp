@@ -7,7 +7,7 @@
 #include <memory>
 #include <optional>
 #include <variant>
-#include <redlog/redlog.hpp>
+#include <redlog.hpp>
 
 namespace p1ll::engine {
 

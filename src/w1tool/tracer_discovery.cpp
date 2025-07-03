@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <filesystem>
 
-#include <redlog/redlog.hpp>
+#include <redlog.hpp>
 
 #include "common/platform_utils.hpp"
 

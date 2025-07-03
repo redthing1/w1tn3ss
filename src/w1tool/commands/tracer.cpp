@@ -5,7 +5,7 @@
 #include <filesystem>
 #include <iostream>
 
-#include <redlog/redlog.hpp>
+#include <redlog.hpp>
 
 #include "common/platform_utils.hpp"
 #include "tracer_discovery.hpp"

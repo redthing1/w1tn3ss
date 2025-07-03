@@ -2,7 +2,7 @@
 include_guard()
 
 # standard settings
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -20,7 +20,7 @@ endif()
 
 # common compiler flags
 function(apply_common_compile_options target)
-    target_compile_features(${target} PRIVATE cxx_std_17)
+    target_compile_features(${target} PRIVATE cxx_std_20)
     target_compile_options(${target} PRIVATE
         $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall -Wextra -O2>
         $<$<CXX_COMPILER_ID:MSVC>:/EHsc>

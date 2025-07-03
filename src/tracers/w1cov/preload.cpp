@@ -4,7 +4,7 @@
 #include <unistd.h>
 
 #include "QBDIPreload.h"
-#include <redlog/redlog.hpp>
+#include <redlog.hpp>
 
 #include <w1tn3ss/engine/tracer_engine.hpp>
 #include <w1tn3ss/util/env_config.hpp>

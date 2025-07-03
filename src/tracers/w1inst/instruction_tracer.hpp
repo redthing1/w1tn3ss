@@ -2,7 +2,7 @@
 
 #include <QBDI.h>
 #include <w1tn3ss/engine/tracer_engine.hpp>
-#include <redlog/redlog.hpp>
+#include <redlog.hpp>
 
 #include "instruction_collector.hpp"
 #include "instruction_config.hpp"

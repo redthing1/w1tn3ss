@@ -2,7 +2,7 @@
 
 #include "lua_bindings.hpp"
 #include "../p1ll.hpp"
-#include <redlog/redlog.hpp>
+#include <redlog.hpp>
 
 namespace p1ll::scripting {
 

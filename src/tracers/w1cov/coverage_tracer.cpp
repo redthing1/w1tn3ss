@@ -1,6 +1,6 @@
 #include "coverage_tracer.hpp"
 #include <w1tn3ss/formats/drcov.hpp>
-#include <redlog/redlog.hpp>
+#include <redlog.hpp>
 #include <fstream>
 
 namespace w1cov {

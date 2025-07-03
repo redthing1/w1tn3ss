@@ -1,5 +1,5 @@
 #include "inspect.hpp"
-#include <redlog/redlog.hpp>
+#include <redlog.hpp>
 
 namespace w1tool::commands {
 

@@ -2,7 +2,7 @@
 #include <iostream>
 #include <string>
 
-#include <redlog/redlog.hpp>
+#include <redlog.hpp>
 #include "ext/args.hpp"
 
 #include "commands/cover.hpp"

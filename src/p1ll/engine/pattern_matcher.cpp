@@ -1,5 +1,5 @@
 #include "pattern_matcher.hpp"
-#include <redlog/redlog.hpp>
+#include <redlog.hpp>
 #include <algorithm>
 
 namespace p1ll::engine {

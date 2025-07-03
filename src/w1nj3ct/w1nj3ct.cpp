@@ -1,6 +1,6 @@
 #include "w1nj3ct.hpp"
 #include "error.hpp"
-#include <redlog/redlog.hpp>
+#include <redlog.hpp>
 
 // platform-specific includes
 #ifdef __APPLE__

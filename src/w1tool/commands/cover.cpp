@@ -4,7 +4,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
-#include <redlog/redlog.hpp>
+#include <redlog.hpp>
 
 // forward declare CLI symbols from main.cpp
 namespace cli {

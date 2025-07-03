@@ -5,7 +5,7 @@
 #include <unordered_set>
 #include <functional>
 #include <QBDI.h>
-#include <redlog/redlog.hpp>
+#include <redlog.hpp>
 
 namespace w1 {
 namespace util {

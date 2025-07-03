@@ -1,7 +1,7 @@
 #include "darwin_injector.hpp"
 #include "../../error.hpp"
 #include <chrono>
-#include <redlog/redlog.hpp>
+#include <redlog.hpp>
 
 // include the darwin injection backend
 extern "C" {

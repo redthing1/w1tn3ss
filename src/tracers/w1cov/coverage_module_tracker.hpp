@@ -11,7 +11,7 @@
 #include <optional>
 #include <type_traits>
 #include <QBDI.h>
-#include <redlog/redlog.hpp>
+#include <redlog.hpp>
 
 namespace w1cov {
 

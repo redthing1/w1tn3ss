@@ -1,7 +1,7 @@
 #ifdef WITNESS_SCRIPT_ENABLED
 
 #include "utilities.hpp"
-#include <redlog/redlog.hpp>
+#include <redlog.hpp>
 #include <fstream>
 #include <chrono>
 #include <iomanip>

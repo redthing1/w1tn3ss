@@ -3,7 +3,7 @@
 #include "lua_api.hpp"
 #include "lua_bindings.hpp"
 #include "../p1ll.hpp"
-#include <redlog/redlog.hpp>
+#include <redlog.hpp>
 #include <fstream>
 #include <sstream>
 

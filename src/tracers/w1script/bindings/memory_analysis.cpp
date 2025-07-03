@@ -1,7 +1,7 @@
 #ifdef WITNESS_SCRIPT_ENABLED
 
 #include "memory_analysis.hpp"
-#include <redlog/redlog.hpp>
+#include <redlog.hpp>
 #include <vector>
 #include <cstdio>
 #include <cstring>

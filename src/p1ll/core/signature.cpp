@@ -1,6 +1,6 @@
 #include "signature.hpp"
 #include "../utils/hex_utils.hpp"
-#include <redlog/redlog.hpp>
+#include <redlog.hpp>
 #include <sstream>
 #include <algorithm>
 

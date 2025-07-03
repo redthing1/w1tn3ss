@@ -4,7 +4,7 @@
 #ifdef WITNESS_SCRIPT_ENABLED
 #include "scripting/lua_api.hpp"
 #endif
-#include <redlog/redlog.hpp>
+#include <redlog.hpp>
 #include <memory>
 #include <cstdlib>
 #include <filesystem>

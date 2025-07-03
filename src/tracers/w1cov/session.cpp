@@ -1,7 +1,7 @@
 #include "session.hpp"
 #include <w1tn3ss/util/module_scanner.hpp>
 #include <w1tn3ss/formats/drcov.hpp>
-#include <redlog/redlog.hpp>
+#include <redlog.hpp>
 #include <iostream>
 #include <iomanip>
 

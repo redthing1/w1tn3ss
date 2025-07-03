@@ -1,5 +1,5 @@
 #include "platform.hpp"
-#include <redlog/redlog.hpp>
+#include <redlog.hpp>
 #include <algorithm>
 
 namespace p1ll::core {

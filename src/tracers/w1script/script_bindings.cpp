@@ -1,7 +1,7 @@
 #ifdef WITNESS_SCRIPT_ENABLED
 
 #include "script_bindings.hpp"
-#include <redlog/redlog.hpp>
+#include <redlog.hpp>
 
 namespace w1::tracers::script {
 

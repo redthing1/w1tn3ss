@@ -15,7 +15,7 @@
 #include <unistd.h>
 #endif
 
-#include <redlog/redlog.hpp>
+#include <redlog.hpp>
 
 namespace w1::tn3ss::signal_handler {
 

@@ -1,6 +1,6 @@
 #include "cure.hpp"
 #include <p1ll/p1ll.hpp>
-#include <redlog/redlog.hpp>
+#include <redlog.hpp>
 #include <iostream>
 #include <fstream>
 #include <sstream>

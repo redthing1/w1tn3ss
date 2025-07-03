@@ -5,7 +5,7 @@
 #include <vector>
 #include <fstream>
 #include <memory>
-#include <redlog/redlog.hpp>
+#include <redlog.hpp>
 
 namespace w1trace {
 

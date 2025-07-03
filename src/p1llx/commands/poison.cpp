@@ -4,7 +4,7 @@
 #include <filesystem>
 #include <cstdlib>
 
-#include <redlog/redlog.hpp>
+#include <redlog.hpp>
 #include "w1nj3ct.hpp"
 #include "common/platform_utils.hpp"
 

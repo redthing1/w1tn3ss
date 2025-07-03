@@ -1,6 +1,6 @@
 #include "coverage_collector.hpp"
 #include <w1tn3ss/formats/drcov.hpp>
-#include <redlog/redlog.hpp>
+#include <redlog.hpp>
 #include <algorithm>
 
 namespace w1cov {

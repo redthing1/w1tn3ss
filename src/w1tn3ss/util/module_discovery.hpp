@@ -7,7 +7,7 @@
 #include <functional>
 #include <shared_mutex>
 #include <QBDI.h>
-#include <redlog/redlog.hpp>
+#include <redlog.hpp>
 
 namespace w1 {
 namespace util {

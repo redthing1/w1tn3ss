@@ -1,6 +1,6 @@
 #include "hex_utils.hpp"
 #include "../core/types.hpp"
-#include <redlog/redlog.hpp>
+#include <redlog.hpp>
 #include <sstream>
 #include <iomanip>
 #include <algorithm>

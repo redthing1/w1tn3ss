@@ -4,7 +4,7 @@
 #include <iostream>
 #include <filesystem>
 
-#include <redlog/redlog.hpp>
+#include <redlog.hpp>
 #include "p1ll/p1ll.hpp"
 #include "p1ll/core/context.hpp"
 

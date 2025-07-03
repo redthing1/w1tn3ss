@@ -3,7 +3,7 @@
 #include <iomanip>
 #include <iostream>
 #include <locale>
-#include <redlog/redlog.hpp>
+#include <redlog.hpp>
 #include <sstream>
 
 namespace w1tool::commands {
