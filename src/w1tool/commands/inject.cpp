@@ -5,15 +5,16 @@
 namespace w1tool::commands {
 
 int inject(
-    args::ValueFlag<std::string>& library_flag, args::Flag& spawn_flag, args::ValueFlag<std::string>& name_flag,
-    args::ValueFlag<int>& pid_flag, args::Flag& suspended_flag, args::PositionalList<std::string>& args_list
+    args::ValueFlag<std::string>& library_flag, args::Flag& spawn_flag, args::ValueFlag<int>& pid_flag,
+    args::ValueFlag<std::string>& process_name_flag, args::Flag& suspended_flag,
+    args::PositionalList<std::string>& args_list
 ) {
 
   auto log = redlog::get_logger("w1tool.inject");
 
   // validate required arguments
   if (!library_flag) {
-    log.error("library path required");
+    log.err("library path required");
     return 1;
   }
 
@@ -25,18 +26,18 @@ int inject(
   if (pid_flag) {
     target_count++;
   }
-  if (name_flag) {
+  if (process_name_flag) {
     target_count++;
   }
 
   if (target_count != 1) {
-    log.error("exactly one target required: specify -s/--spawn, --pid, or --name");
+    log.err("exactly one target required: specify -s/--spawn, --pid, or --process-name");
     return 1;
   }
 
   // validate suspended flag usage
   if (suspended_flag && !spawn_flag) {
-    log.error("--suspended can only be used with -s/--spawn (launch injection)");
+    log.err("--suspended can only be used with -s/--spawn (launch injection)");
     return 1;
   }
 
@@ -47,7 +48,7 @@ int inject(
   if (spawn_flag) {
     // launch injection with positional arguments
     if (args_list.Get().empty()) {
-      log.error("binary path required when using -s/--spawn flag");
+      log.err("binary path required when using -s/--spawn flag");
       return 1;
     }
 
@@ -60,15 +61,20 @@ int inject(
       binary_args.assign(all_args.begin() + 1, all_args.end());
     }
 
+    // spawn always uses preload injection
+    w1::inject::method injection_method = w1::inject::method::launch;
+    std::string method_name = "preload";
+
     log.info(
-        "launch injection starting", redlog::field("binary", binary_path), redlog::field("library", lib_path),
-        redlog::field("args_count", binary_args.size()), redlog::field("suspended", suspended_flag ? "true" : "false")
+        "spawn injection starting", redlog::field("method", method_name), redlog::field("binary", binary_path),
+        redlog::field("library", lib_path), redlog::field("args_count", binary_args.size()),
+        redlog::field("suspended", suspended_flag ? "true" : "false")
     );
 
-    // use full config for launch injection to support arguments and suspended flag
+    // use full config for spawn injection to support arguments and suspended flag
     w1::inject::config cfg;
     cfg.library_path = lib_path;
-    cfg.injection_method = w1::inject::method::launch;
+    cfg.injection_method = injection_method;
     cfg.binary_path = binary_path;
     cfg.args = binary_args;
     cfg.suspended = suspended_flag;
@@ -91,9 +97,9 @@ int inject(
 
     result = w1::inject::inject(cfg);
 
-  } else if (name_flag) {
+  } else if (process_name_flag) {
     // runtime injection by process name
-    std::string process_name = args::get(name_flag);
+    std::string process_name = args::get(process_name_flag);
     log.info(
         "runtime injection starting", redlog::field("method", "name"), redlog::field("process_name", process_name),
         redlog::field("library", lib_path)
@@ -107,7 +113,7 @@ int inject(
     result = w1::inject::inject(cfg);
 
   } else {
-    log.error("target required: specify -s/--spawn, --pid, or --name");
+    log.err("target required: specify -s/--spawn, --pid, or --process-name");
     return 1;
   }
 
@@ -120,7 +126,7 @@ int inject(
     }
     return 0;
   } else {
-    log.error("injection failed", redlog::field("error", result.error_message));
+    log.err("injection failed", redlog::field("error", result.error_message));
     return 1;
   }
 }
