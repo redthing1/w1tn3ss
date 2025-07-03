@@ -129,8 +129,6 @@ int main(int argc, char* argv[]) {
       "w1tool - cross-platform dynamic binary analysis tool", "inject libraries, trace coverage, and analyze binaries"
   );
   parser.helpParams.showTerminator = false;
-  parser.SetArgumentSeparations(false, false, true, true);
-  parser.LongSeparator(" ");
 
   args::GlobalOptions globals(parser, cli::arguments);
   args::Group commands(parser, "commands");

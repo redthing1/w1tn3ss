@@ -93,7 +93,8 @@ int cmd_patch(
 }
 
 int cmd_poison(
-    args::ValueFlag<std::string>& script_flag, args::ValueFlag<std::string>& binary_flag, args::Flag& suspended_flag,
+    args::ValueFlag<std::string>& script_flag, args::Flag& spawn_flag, args::ValueFlag<int>& pid_flag,
+    args::ValueFlag<std::string>& process_name_flag, args::Flag& suspended_flag,
     args::PositionalList<std::string>& args_list
 ) {
   auto log = redlog::get_logger("p1llx.poison");
@@ -106,22 +107,70 @@ int cmd_poison(
     return 1;
   }
 
-  if (!binary_flag) {
-    log.err("target binary required");
-    std::cerr << "error: target binary (-b/--binary) is required" << std::endl;
+  // validate target specification
+  int target_count = 0;
+  if (spawn_flag) {
+    target_count++;
+  }
+  if (pid_flag) {
+    target_count++;
+  }
+  if (process_name_flag) {
+    target_count++;
+  }
+
+  if (target_count != 1) {
+    log.err("exactly one target required: specify -s/--spawn, --pid, or --process-name");
+    std::cerr << "error: exactly one target required: specify -s/--spawn, --pid, or --process-name" << std::endl;
     return 1;
   }
 
-  // extract binary arguments from positional list
-  std::vector<std::string> binary_args;
-  if (args_list) {
-    binary_args = args::get(args_list);
+  // validate suspended flag usage
+  if (suspended_flag && !spawn_flag) {
+    log.err("--suspended can only be used with -s/--spawn");
+    std::cerr << "error: --suspended can only be used with -s/--spawn" << std::endl;
+    return 1;
   }
 
   int verbosity_level = args::get(cli::verbosity_flag);
-  return p1llx::commands::poison(
-      *script_flag, *binary_flag, binary_args, suspended_flag, g_executable_path, verbosity_level
-  );
+
+  // determine target method and call appropriate poison function
+  if (spawn_flag) {
+    // spawn injection with positional arguments
+    if (args_list.Get().empty()) {
+      log.err("binary path required when using -s/--spawn flag");
+      std::cerr << "error: binary path required when using -s/--spawn flag" << std::endl;
+      return 1;
+    }
+
+    std::vector<std::string> all_args = args::get(args_list);
+    std::string binary_path = all_args[0];
+
+    // extract arguments after the binary (everything after first arg)
+    std::vector<std::string> binary_args;
+    if (all_args.size() > 1) {
+      binary_args.assign(all_args.begin() + 1, all_args.end());
+    }
+
+    return p1llx::commands::poison_spawn(
+        *script_flag, binary_path, binary_args, suspended_flag, g_executable_path, verbosity_level
+    );
+
+  } else if (pid_flag) {
+    // runtime injection by pid
+    return p1llx::commands::poison_pid(*script_flag, args::get(pid_flag), g_executable_path, verbosity_level);
+
+  } else if (process_name_flag) {
+    // runtime injection by process name
+    return p1llx::commands::poison_process_name(
+        *script_flag, args::get(process_name_flag), g_executable_path, verbosity_level
+    );
+
+  } else {
+    log.err("target required: specify -s/--spawn, --pid, or --process-name");
+    std::cerr << "error: target required: specify -s/--spawn, --pid, or --process-name" << std::endl;
+    return 1;
+  }
 }
 
 int main(int argc, char* argv[]) {
@@ -131,8 +180,6 @@ int main(int argc, char* argv[]) {
   // argument parser following w1tool style
   args::ArgumentParser parser("p1llx - static binary patcher");
   parser.helpParams.showTerminator = false;
-  parser.helpParams.helpindent = 2;
-  parser.helpParams.width = 120;
 
   // global flags
   parser.Add(cli::arguments);
@@ -157,9 +204,15 @@ int main(int argc, char* argv[]) {
   // poison command
   args::Command poison_cmd(parser, "poison", "inject p01s0n for dynamic patching");
   args::ValueFlag<std::string> poison_script_flag(poison_cmd, "script", "lua cure script path", {'c', "cure"});
-  args::ValueFlag<std::string> poison_binary_flag(poison_cmd, "binary", "target binary path", {'b', "binary"});
+  args::Flag poison_spawn_flag(poison_cmd, "spawn", "spawn target binary with p01s0n injection", {'s', "spawn"});
+  args::ValueFlag<int> poison_pid_flag(poison_cmd, "pid", "inject into existing process by pid", {"pid"});
+  args::ValueFlag<std::string> poison_process_name_flag(
+      poison_cmd, "process-name", "inject into existing process by name", {"process-name"}
+  );
   args::Flag poison_suspended_flag(poison_cmd, "suspended", "start target in suspended mode", {"suspended"});
-  args::PositionalList<std::string> poison_args_list(poison_cmd, "args", "arguments to pass to target binary");
+  args::PositionalList<std::string> poison_args_list(
+      poison_cmd, "args", "target binary and arguments (use -- to separate)"
+  );
 
   try {
     parser.ParseCLI(argc, argv);
@@ -169,7 +222,10 @@ int main(int argc, char* argv[]) {
     } else if (patch_cmd) {
       return cmd_patch(patch_address_flag, patch_replace_flag, patch_input_flag, patch_output_flag);
     } else if (poison_cmd) {
-      return cmd_poison(poison_script_flag, poison_binary_flag, poison_suspended_flag, poison_args_list);
+      return cmd_poison(
+          poison_script_flag, poison_spawn_flag, poison_pid_flag, poison_process_name_flag, poison_suspended_flag,
+          poison_args_list
+      );
     } else {
       std::cerr << "error: no command specified" << std::endl;
       std::cerr << parser;
