@@ -1,4 +1,5 @@
 #include "platform.hpp"
+#include "context.hpp"
 #include <redlog.hpp>
 #include <algorithm>
 
@@ -155,7 +156,21 @@ std::vector<std::string> get_platform_hierarchy(const platform_key& platform) {
   return hierarchy;
 }
 
-std::vector<std::string> get_current_platform_hierarchy() { return get_platform_hierarchy(get_current_platform()); }
+std::vector<std::string> get_current_platform_hierarchy() {
+  // check for platform override in current context
+  auto context = get_current_context();
+  if (context && context->get_platform_override()) {
+    auto log = redlog::get_logger("p1ll.platform");
+    log.dbg(
+        "using platform override for hierarchy",
+        redlog::field("override", context->get_platform_override()->to_string())
+    );
+    return get_platform_hierarchy(*context->get_platform_override());
+  }
+
+  // fallback to detected platform
+  return get_platform_hierarchy(get_current_platform());
+}
 
 bool platform_key::matches(const platform_key& other) const { return platform_matches(*this, other); }
 
