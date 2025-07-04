@@ -20,6 +20,7 @@ if(WITNESS_SCRIPT)
         # utility implementation
         utils/hex_utils.cpp
         utils/file_utils.cpp
+        utils/pretty_hexdump.cpp
         
         # scripting implementation
         scripting/lua_bindings.cpp

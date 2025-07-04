@@ -1,4 +1,5 @@
 #include "pattern_matcher.hpp"
+#include "../utils/pretty_hexdump.hpp"
 #include <redlog.hpp>
 #include <algorithm>
 
@@ -84,6 +85,17 @@ std::vector<uint64_t> pattern_matcher::search(const uint8_t* data, size_t size) 
   while (i + pattern_len <= size) {
     if (match_at_position(data, i)) {
       results.push_back(i);
+
+      // show beautiful signature match hexdump at debug level
+      if (redlog::get_level() <= redlog::level::debug) {
+        std::string match_hexdump = utils::format_signature_match_hexdump(data, size, i, pattern_len, 0);
+        log.dbg("signature match found", redlog::field("offset", i), redlog::field("pattern_size", pattern_len));
+        // output the hexdump directly to stderr to preserve formatting
+        if (!match_hexdump.empty()) {
+          std::fprintf(stderr, "%s", match_hexdump.c_str());
+        }
+      }
+
       i += 1; // move by 1 to find overlapping matches
     } else {
       // skip based on shift table using last character of current window

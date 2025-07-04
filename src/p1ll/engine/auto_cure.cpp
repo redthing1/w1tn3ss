@@ -4,6 +4,7 @@
 #include "../core/signature.hpp"
 #include "../utils/hex_utils.hpp"
 #include "../utils/file_utils.hpp"
+#include "../utils/pretty_hexdump.hpp"
 #include "pattern_matcher.hpp"
 #include <redlog.hpp>
 #include <algorithm>
@@ -402,9 +403,10 @@ bool auto_cure_engine::apply_patch_static(
     return false;
   }
 
-  // show before/after hex data
-  std::string before_hex =
-      utils::format_hex_bytes(&file_data[patch_offset], compiled_patch.data.size(), compiled_patch.data.size());
+  // backup original bytes for comparison
+  std::vector<uint8_t> original_bytes(
+      file_data.begin() + patch_offset, file_data.begin() + patch_offset + compiled_patch.data.size()
+  );
 
   // apply patch bytes (respecting mask)
   size_t bytes_patched = 0;
@@ -415,15 +417,29 @@ bool auto_cure_engine::apply_patch_static(
     }
   }
 
-  std::string after_hex =
-      utils::format_hex_bytes(&file_data[patch_offset], compiled_patch.data.size(), compiled_patch.data.size());
+  // get modified bytes for comparison
+  std::vector<uint8_t> patched_bytes(
+      file_data.begin() + patch_offset, file_data.begin() + patch_offset + compiled_patch.data.size()
+  );
 
   log.trc(
       "applying static patch", redlog::field("signature", patch.signature),
       redlog::field("offset", utils::format_address(patch_offset))
   );
-  log.dbg("patch before", redlog::field("hex", before_hex));
-  log.dbg("patch after", redlog::field("hex", after_hex));
+
+  // show beautiful patch hexdump at debug level
+  if (redlog::get_level() <= redlog::level::debug) {
+    std::string patch_hexdump = utils::format_patch_hexdump(original_bytes, patched_bytes, patch_offset);
+    log.dbg(
+        "patch hexdump", redlog::field("offset", utils::format_address(patch_offset)),
+        redlog::field("size", compiled_patch.data.size())
+    );
+    // output the hexdump directly to stderr to preserve formatting
+    if (!patch_hexdump.empty()) {
+      std::fprintf(stderr, "%s", patch_hexdump.c_str());
+    }
+  }
+
   log.dbg(
       "applied static patch", redlog::field("signature", patch.signature), redlog::field("offset", patch_offset),
       redlog::field("bytes", bytes_patched)
@@ -580,7 +596,20 @@ bool auto_cure_engine::apply_single_patch_to_address(
       auto written_bytes = *verify_result;
       patch_success = std::equal(patch_bytes.begin(), patch_bytes.end(), written_bytes.begin());
 
-      if (!patch_success) {
+      if (patch_success) {
+        // show beautiful patch hexdump at debug level
+        if (redlog::get_level() <= redlog::level::debug) {
+          std::string patch_hexdump = utils::format_patch_hexdump(original_bytes, written_bytes, patch_address);
+          log.dbg(
+              "dynamic patch hexdump", redlog::field("address", utils::format_address(patch_address)),
+              redlog::field("size", patch_bytes.size())
+          );
+          // output the hexdump directly to stderr to preserve formatting
+          if (!patch_hexdump.empty()) {
+            std::fprintf(stderr, "%s", patch_hexdump.c_str());
+          }
+        }
+      } else {
         log.err("patch verification failed - restoring original bytes", redlog::field("address", patch_address));
         scanner_->write_memory(patch_address, original_bytes);
       }
