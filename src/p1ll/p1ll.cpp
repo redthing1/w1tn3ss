@@ -124,6 +124,36 @@ core::cure_result execute_static_cure(const std::string& script_content, std::ve
 #endif
 }
 
+core::cure_result execute_static_cure_with_platform(
+    const std::string& script_content, std::vector<uint8_t>& buffer_data, const core::platform_key& platform
+) {
+#ifdef WITNESS_SCRIPT_ENABLED
+  initialize();
+
+  auto log = redlog::get_logger("p1ll");
+  log.inf(
+      "executing static cure with buffer and platform override", redlog::field("script_size", script_content.size()),
+      redlog::field("buffer_size", buffer_data.size()), redlog::field("platform", platform.to_string())
+  );
+
+  // create static context with buffer reference and platform override
+  auto context = core::p1ll_context::create_static(buffer_data, platform);
+  core::set_current_context(std::move(context));
+
+  // execute lua script
+  auto result = g_lua_api->execute_script_content(script_content);
+
+  // clear context
+  core::clear_current_context();
+
+  return result;
+#else
+  core::cure_result result;
+  result.add_error("lua scripting not enabled in this build");
+  return result;
+#endif
+}
+
 core::cure_result execute_dynamic_cure(const std::string& script_content) {
 #ifdef WITNESS_SCRIPT_ENABLED
   initialize();

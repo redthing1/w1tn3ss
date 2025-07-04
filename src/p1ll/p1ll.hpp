@@ -31,10 +31,12 @@ core::cure_result patch_file(
 // modern buffer-based script execution
 core::cure_result execute_static_cure(const std::string& script_content, std::vector<uint8_t>& buffer_data);
 
+core::cure_result execute_static_cure_with_platform(
+    const std::string& script_content, std::vector<uint8_t>& buffer_data, const core::platform_key& platform
+);
+
 core::cure_result execute_dynamic_cure(const std::string& script_content);
 
-// legacy file-based script execution (deprecated)
-core::cure_result execute_cure_script(const std::string& script_path);
 core::cure_result execute_static_cure(
     const std::string& script_path, const std::string& input_file, const std::string& output_file
 );

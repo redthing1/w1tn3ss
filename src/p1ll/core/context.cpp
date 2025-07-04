@@ -11,6 +11,10 @@ std::unique_ptr<p1ll_context> p1ll_context::create_static(std::vector<uint8_t>& 
   return std::unique_ptr<p1ll_context>(new p1ll_context(mode::static_buffer, buffer));
 }
 
+std::unique_ptr<p1ll_context> p1ll_context::create_static(std::vector<uint8_t>& buffer, const platform_key& platform) {
+  return std::unique_ptr<p1ll_context>(new p1ll_context(mode::static_buffer, buffer, platform));
+}
+
 std::unique_ptr<p1ll_context> p1ll_context::create_dynamic() {
   return std::unique_ptr<p1ll_context>(new p1ll_context(mode::dynamic_memory));
 }

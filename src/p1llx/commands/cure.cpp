@@ -1,5 +1,6 @@
 #include "cure.hpp"
 #include <p1ll/p1ll.hpp>
+#include <p1ll/core/platform.hpp>
 #include <redlog.hpp>
 #include <iostream>
 #include <fstream>
@@ -7,13 +8,16 @@
 
 namespace p1llx::commands {
 
-int cure(const std::string& script_path, const std::string& input_file, const std::string& output_file) {
+int cure(
+    const std::string& script_path, const std::string& input_file, const std::string& output_file,
+    const std::string& platform_override
+) {
 
   auto log = redlog::get_logger("p1llx.commands.cure");
 
   log.inf(
       "applying cure script to file", redlog::field("script", script_path), redlog::field("input", input_file),
-      redlog::field("output", output_file)
+      redlog::field("output", output_file), redlog::field("platform", platform_override)
   );
 
   try {
@@ -42,7 +46,23 @@ int cure(const std::string& script_path, const std::string& input_file, const st
     log.dbg("loaded input file", redlog::field("size", buffer_data.size()));
 
     // execute static cure with buffer
-    auto result = p1ll::execute_static_cure(script_content, buffer_data);
+    p1ll::core::cure_result result;
+    if (!platform_override.empty()) {
+      // parse platform override
+      try {
+        auto platform_key = p1ll::core::parse_platform_key(platform_override);
+        log.inf("using platform override", redlog::field("platform", platform_key.to_string()));
+        result = p1ll::execute_static_cure_with_platform(script_content, buffer_data, platform_key);
+      } catch (const std::exception& e) {
+        log.err(
+            "invalid platform override", redlog::field("platform", platform_override), redlog::field("error", e.what())
+        );
+        std::cerr << "invalid platform override '" << platform_override << "': " << e.what() << std::endl;
+        return 1;
+      }
+    } else {
+      result = p1ll::execute_static_cure(script_content, buffer_data);
+    }
 
     if (result.success) {
       // write modified buffer to output file

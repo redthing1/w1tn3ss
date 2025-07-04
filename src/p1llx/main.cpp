@@ -47,7 +47,7 @@ void apply_verbosity() {
 // command functions following w1tool pattern
 int cmd_cure(
     args::ValueFlag<std::string>& script_flag, args::ValueFlag<std::string>& input_flag,
-    args::ValueFlag<std::string>& output_flag
+    args::ValueFlag<std::string>& output_flag, args::ValueFlag<std::string>& platform_flag
 ) {
   auto log = redlog::get_logger("p1llx.cure");
   cli::apply_verbosity();
@@ -68,7 +68,10 @@ int cmd_cure(
   // default output to input if not specified
   std::string output_file = output_flag ? *output_flag : *input_flag;
 
-  return p1llx::commands::cure(*script_flag, *input_flag, output_file);
+  // get platform override if specified
+  std::string platform_override = platform_flag ? *platform_flag : "";
+
+  return p1llx::commands::cure(*script_flag, *input_flag, output_file, platform_override);
 }
 
 int cmd_patch(
@@ -191,6 +194,9 @@ int main(int argc, char* argv[]) {
   args::ValueFlag<std::string> cure_output_flag(
       cure_cmd, "output", "output file path (default: overwrite input)", {'o', "output"}
   );
+  args::ValueFlag<std::string> cure_platform_flag(
+      cure_cmd, "platform", "platform override (e.g., linux:x64, darwin:arm64)", {'p', "platform"}
+  );
 
   // patch command
   args::Command patch_cmd(parser, "patch", "manual hex patching");
@@ -218,7 +224,7 @@ int main(int argc, char* argv[]) {
     parser.ParseCLI(argc, argv);
 
     if (cure_cmd) {
-      return cmd_cure(cure_script_flag, cure_input_flag, cure_output_flag);
+      return cmd_cure(cure_script_flag, cure_input_flag, cure_output_flag, cure_platform_flag);
     } else if (patch_cmd) {
       return cmd_patch(patch_address_flag, patch_replace_flag, patch_input_flag, patch_output_flag);
     } else if (poison_cmd) {
