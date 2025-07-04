@@ -13,7 +13,7 @@ namespace p1llx::commands {
 // shared helper function to find p01s0n library
 static std::string find_p01s0n_library(const std::string& executable_path) {
   auto log = redlog::get_logger("p1llx.poison");
-  
+
   // find p01s0n library using same discovery pattern as tracers
   std::string p01s0n_lib_name = "p01s0n";
   std::string lib_ext = w1::common::platform_utils::get_library_extension();
@@ -227,12 +227,14 @@ int poison_pid(
 }
 
 int poison_process_name(
-    const std::string& script_path, const std::string& process_name, const std::string& executable_path, int verbosity_level
+    const std::string& script_path, const std::string& process_name, const std::string& executable_path,
+    int verbosity_level
 ) {
   auto log = redlog::get_logger("p1llx.poison");
 
   log.inf(
-      "starting p01s0n runtime injection by process name", redlog::field("script", script_path), redlog::field("process_name", process_name)
+      "starting p01s0n runtime injection by process name", redlog::field("script", script_path),
+      redlog::field("process_name", process_name)
   );
 
   // validate script file exists
@@ -269,8 +271,8 @@ int poison_process_name(
   }
 
   log.inf(
-      "runtime injection configuration", redlog::field("library", found_lib_path), redlog::field("process_name", process_name),
-      redlog::field("cure_script", abs_script_path)
+      "runtime injection configuration", redlog::field("library", found_lib_path),
+      redlog::field("process_name", process_name), redlog::field("cure_script", abs_script_path)
   );
 
   // check platform support

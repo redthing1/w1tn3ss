@@ -8,9 +8,7 @@
 #include "p1ll/p1ll.hpp"
 #include "p1ll/core/context.hpp"
 
-#ifdef WITNESS_SCRIPT_ENABLED
 #include "p1ll/scripting/lua_api.hpp"
-#endif
 
 namespace p01s0n {
 
@@ -50,7 +48,6 @@ int p01s0n_run() {
     return 1;
   }
 
-#ifdef WITNESS_SCRIPT_ENABLED
   try {
     // create dynamic context for in-memory patching
     auto context = p1ll::core::p1ll_context::create_dynamic();
@@ -96,11 +93,6 @@ int p01s0n_run() {
     std::cerr << "p01s0n exception: " << e.what() << std::endl;
     return 1;
   }
-#else
-  log.err("p01s0n compiled without scripting support (WITNESS_SCRIPT_ENABLED not defined)");
-  std::cerr << "p01s0n: compiled without scripting support" << std::endl;
-  return 1;
-#endif
 }
 
 } // namespace p01s0n

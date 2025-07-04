@@ -1,5 +1,3 @@
-#ifdef WITNESS_SCRIPT_ENABLED
-
 #include "lua_api.hpp"
 #include "lua_bindings.hpp"
 #include "../p1ll.hpp"
@@ -210,5 +208,3 @@ core::cure_result lua_api::call_cure_function() {
 }
 
 } // namespace p1ll::scripting
-
-#endif // WITNESS_SCRIPT_ENABLED

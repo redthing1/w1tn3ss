@@ -1,9 +1,7 @@
 #include "p1ll.hpp"
 #include "core/platform.hpp"
 #include "core/signature.hpp"
-#ifdef WITNESS_SCRIPT_ENABLED
 #include "scripting/lua_api.hpp"
-#endif
 #include <redlog.hpp>
 #include <memory>
 #include <cstdlib>
@@ -14,9 +12,7 @@ namespace p1ll {
 namespace {
 std::unique_ptr<engine::auto_cure_engine> g_cure_engine;
 std::unique_ptr<engine::memory_scanner> g_scanner;
-#ifdef WITNESS_SCRIPT_ENABLED
 std::unique_ptr<scripting::lua_api> g_lua_api;
-#endif
 bool g_initialized = false;
 } // namespace
 
@@ -35,12 +31,8 @@ void initialize() {
   g_cure_engine = std::make_unique<engine::auto_cure_engine>();
   g_scanner = std::make_unique<engine::memory_scanner>();
 
-#ifdef WITNESS_SCRIPT_ENABLED
   g_lua_api = std::make_unique<scripting::lua_api>();
   log.inf("lua scripting support enabled");
-#else
-  log.inf("lua scripting support disabled");
-#endif
 
   g_initialized = true;
   log.inf("p1ll initialized successfully");
@@ -57,9 +49,7 @@ void shutdown() {
   g_cure_engine.reset();
   g_scanner.reset();
 
-#ifdef WITNESS_SCRIPT_ENABLED
   g_lua_api.reset();
-#endif
 
   g_initialized = false;
 }
@@ -85,19 +75,12 @@ core::cure_result patch_file(
 }
 
 core::cure_result execute_cure_script(const std::string& script_path) {
-#ifdef WITNESS_SCRIPT_ENABLED
   initialize();
   return g_lua_api->execute_cure_script(script_path);
-#else
-  core::cure_result result;
-  result.add_error("lua scripting not enabled in this build");
-  return result;
-#endif
 }
 
 // modern buffer-based script execution
 core::cure_result execute_static_cure(const std::string& script_content, std::vector<uint8_t>& buffer_data) {
-#ifdef WITNESS_SCRIPT_ENABLED
   initialize();
 
   auto log = redlog::get_logger("p1ll");
@@ -117,17 +100,11 @@ core::cure_result execute_static_cure(const std::string& script_content, std::ve
   core::clear_current_context();
 
   return result;
-#else
-  core::cure_result result;
-  result.add_error("lua scripting not enabled in this build");
-  return result;
-#endif
 }
 
 core::cure_result execute_static_cure_with_platform(
     const std::string& script_content, std::vector<uint8_t>& buffer_data, const core::platform_key& platform
 ) {
-#ifdef WITNESS_SCRIPT_ENABLED
   initialize();
 
   auto log = redlog::get_logger("p1ll");
@@ -147,15 +124,9 @@ core::cure_result execute_static_cure_with_platform(
   core::clear_current_context();
 
   return result;
-#else
-  core::cure_result result;
-  result.add_error("lua scripting not enabled in this build");
-  return result;
-#endif
 }
 
 core::cure_result execute_dynamic_cure(const std::string& script_content) {
-#ifdef WITNESS_SCRIPT_ENABLED
   initialize();
 
   auto log = redlog::get_logger("p1ll");
@@ -172,25 +143,14 @@ core::cure_result execute_dynamic_cure(const std::string& script_content) {
   core::clear_current_context();
 
   return result;
-#else
-  core::cure_result result;
-  result.add_error("lua scripting not enabled in this build");
-  return result;
-#endif
 }
 
 // legacy file-based script execution (deprecated)
 core::cure_result execute_static_cure(
     const std::string& script_path, const std::string& input_file, const std::string& output_file
 ) {
-#ifdef WITNESS_SCRIPT_ENABLED
   initialize();
   return g_lua_api->execute_static_cure(script_path, input_file, output_file);
-#else
-  core::cure_result result;
-  result.add_error("lua scripting not enabled in this build");
-  return result;
-#endif
 }
 
 std::vector<core::module_info> get_modules(const core::signature_query_filter& filter) {

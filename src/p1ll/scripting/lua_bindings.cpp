@@ -1,5 +1,3 @@
-#ifdef WITNESS_SCRIPT_ENABLED
-
 #include "lua_bindings.hpp"
 #include "../p1ll.hpp"
 #include <redlog.hpp>
@@ -414,5 +412,3 @@ void setup_utilities(sol::state& lua, sol::table& p1_module) {
 } // namespace bindings
 
 } // namespace p1ll::scripting
-
-#endif // WITNESS_SCRIPT_ENABLED

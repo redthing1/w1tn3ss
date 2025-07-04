@@ -1,7 +1,5 @@
 #pragma once
 
-#ifdef WITNESS_SCRIPT_ENABLED
-
 #include "../core/types.hpp"
 #include <sol/sol.hpp>
 #include <string>
@@ -40,5 +38,3 @@ private:
 };
 
 } // namespace p1ll::scripting
-
-#endif // WITNESS_SCRIPT_ENABLED

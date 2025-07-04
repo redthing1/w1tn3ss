@@ -53,7 +53,8 @@ int poison_pid(
  * @return 0 for success, 1 for failure
  */
 int poison_process_name(
-    const std::string& script_path, const std::string& process_name, const std::string& executable_path = "", int verbosity_level = 0
+    const std::string& script_path, const std::string& process_name, const std::string& executable_path = "",
+    int verbosity_level = 0
 );
 
 } // namespace p1llx::commands
