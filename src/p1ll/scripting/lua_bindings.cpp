@@ -80,6 +80,20 @@ void setup_signature_api(sol::state& lua, sol::table& p1_module) {
   // p1.sig(pattern, opts) - create signature object with optional options table
   p1_module.set_function(
       "sig", [](const std::string& pattern, sol::optional<sol::table> opts) -> core::signature_object {
+        // validate pattern
+        if (pattern.empty()) {
+          throw std::invalid_argument("sig: pattern cannot be empty");
+        }
+
+        // basic hex pattern validation - should contain only hex chars, spaces, and wildcards
+        for (char c : pattern) {
+          if (!std::isxdigit(c) && c != ' ' && c != '?' && c != '\t' && c != '\n' && c != '\r') {
+            if (c < 32 || c > 126) { // non-printable
+              throw std::invalid_argument("sig: pattern contains invalid character (non-printable)");
+            }
+          }
+        }
+
         if (opts) {
           sol::table options = *opts;
 
@@ -91,6 +105,8 @@ void setup_signature_api(sol::state& lua, sol::table& p1_module) {
               core::signature_query_filter filter;
               filter.pattern = filter_obj.as<std::string>();
               return core::signature_object(pattern, filter);
+            } else {
+              throw std::invalid_argument("sig: filter option must be a string");
             }
           }
         }
@@ -105,13 +121,49 @@ void setup_patch_api(sol::state& lua, sol::table& p1_module) {
   auto log = redlog::get_logger("p1ll.bindings.patch");
   log.dbg("setting up patch api");
 
-  // p1.patch(sig_obj, offset, replace, opts) - create patch declaration
+  // p1.patch(sig_obj_or_string, offset, replace, opts) - create patch declaration
   p1_module.set_function(
       "patch",
-      [](const core::signature_object& signature, uint64_t offset, const std::string& replace,
+      [](sol::object sig_param, uint64_t offset, const std::string& replace,
          sol::optional<sol::table> opts) -> core::patch_declaration {
         core::patch_declaration patch;
-        patch.signature = signature;
+
+        // validate and convert signature parameter
+        if (sig_param.is<core::signature_object>()) {
+          patch.signature = sig_param.as<core::signature_object>();
+        } else if (sig_param.is<std::string>()) {
+          // auto-convert string to signature_object with warning
+          std::string sig_str = sig_param.as<std::string>();
+          if (sig_str.empty()) {
+            throw std::invalid_argument("patch: signature string cannot be empty");
+          }
+
+          // warn about direct string usage
+          auto log = redlog::get_logger("p1ll.bindings.patch");
+          log.warn(
+              "patch: using raw string signature (recommend using p1.sig() instead)",
+              redlog::field("signature", sig_str.length() > 50 ? sig_str.substr(0, 50) + "..." : sig_str)
+          );
+
+          patch.signature = core::signature_object(sig_str);
+        } else {
+          throw std::invalid_argument("patch: first argument must be a signature object or string");
+        }
+
+        // validate replace pattern
+        if (replace.empty()) {
+          throw std::invalid_argument("patch: replace pattern cannot be empty");
+        }
+
+        // validate hex pattern for replace
+        for (char c : replace) {
+          if (!std::isxdigit(c) && c != ' ' && c != '\t' && c != '\n' && c != '\r') {
+            if (c < 32 || c > 126) { // non-printable
+              throw std::invalid_argument("patch: replace pattern contains invalid character (non-printable)");
+            }
+          }
+        }
+
         patch.offset = offset;
         patch.pattern = replace;
         patch.required = true; // default to required
