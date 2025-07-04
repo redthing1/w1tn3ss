@@ -5,7 +5,7 @@
 
 namespace p1ll::core {
 
-platform_key get_current_platform() {
+platform_key get_detected_platform() {
   auto log = redlog::get_logger("p1ll.platform");
 
   platform_key platform;
@@ -69,6 +69,17 @@ platform_key get_current_platform() {
   log.dbg("detected platform", redlog::field("os", platform.os), redlog::field("arch", platform.arch));
 
   return platform;
+}
+
+platform_key get_effective_platform() {
+  // check for current context first
+  auto context = get_current_context();
+  if (context) {
+    return context->get_effective_platform();
+  }
+
+  // fallback to detected platform when no context exists
+  return get_detected_platform();
 }
 
 platform_key parse_platform_key(const std::string& platform_str) {
@@ -157,19 +168,8 @@ std::vector<std::string> get_platform_hierarchy(const platform_key& platform) {
 }
 
 std::vector<std::string> get_current_platform_hierarchy() {
-  // check for platform override in current context
-  auto context = get_current_context();
-  if (context && context->get_platform_override()) {
-    auto log = redlog::get_logger("p1ll.platform");
-    log.dbg(
-        "using platform override for hierarchy",
-        redlog::field("override", context->get_platform_override()->to_string())
-    );
-    return get_platform_hierarchy(*context->get_platform_override());
-  }
-
-  // fallback to detected platform
-  return get_platform_hierarchy(get_current_platform());
+  // use effective platform which respects overrides
+  return get_platform_hierarchy(get_effective_platform());
 }
 
 bool platform_key::matches(const platform_key& other) const { return platform_matches(*this, other); }

@@ -19,7 +19,7 @@ public:
 private:
   mode operation_mode_;
   std::optional<std::reference_wrapper<std::vector<uint8_t>>> buffer_data_;
-  std::optional<platform_key> platform_override_;
+  platform_key effective_platform_;
 
   // prevent copying to avoid reference issues
   p1ll_context(const p1ll_context&) = delete;
@@ -41,15 +41,14 @@ public:
   // get buffer for static mode (throws if dynamic mode)
   std::vector<uint8_t>& get_buffer() const;
 
-  // get platform override if set
-  const std::optional<platform_key>& get_platform_override() const noexcept { return platform_override_; }
+  // get effective platform for this context
+  const platform_key& get_effective_platform() const noexcept { return effective_platform_; }
 
 private:
-  explicit p1ll_context(mode op_mode) : operation_mode_(op_mode) {}
-  explicit p1ll_context(mode op_mode, std::vector<uint8_t>& buffer)
-      : operation_mode_(op_mode), buffer_data_(std::ref(buffer)) {}
+  explicit p1ll_context(mode op_mode, const platform_key& platform)
+      : operation_mode_(op_mode), effective_platform_(platform) {}
   explicit p1ll_context(mode op_mode, std::vector<uint8_t>& buffer, const platform_key& platform)
-      : operation_mode_(op_mode), buffer_data_(std::ref(buffer)), platform_override_(platform) {}
+      : operation_mode_(op_mode), buffer_data_(std::ref(buffer)), effective_platform_(platform) {}
 };
 
 // global context management for lua bindings

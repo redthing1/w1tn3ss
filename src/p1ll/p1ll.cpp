@@ -23,8 +23,8 @@ void initialize() {
 
   auto log = redlog::get_logger("p1ll");
 
-  // detect platform
-  auto platform = core::get_current_platform();
+  // get effective platform (respects override if set)
+  auto platform = core::get_effective_platform();
   log.inf("p1ll initializing", redlog::field("platform", platform.to_string()));
 
   // initialize engines

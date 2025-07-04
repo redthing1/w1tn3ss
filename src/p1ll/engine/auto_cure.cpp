@@ -227,8 +227,8 @@ std::vector<core::signature_object> auto_cure_engine::get_platform_signatures(
 ) const {
   auto log = redlog::get_logger("p1ll.auto_cure");
 
-  // get current platform
-  auto current_platform = core::get_current_platform();
+  // get effective platform (respects override if set)
+  auto current_platform = core::get_effective_platform();
 
   // get platform hierarchy (exact -> os wildcard -> universal)
   auto platform_hierarchy = core::get_platform_hierarchy(current_platform);

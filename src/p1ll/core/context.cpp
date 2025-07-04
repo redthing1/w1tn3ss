@@ -1,4 +1,5 @@
 #include "context.hpp"
+#include "platform.hpp"
 #include <stdexcept>
 #include <thread>
 
@@ -8,15 +9,20 @@ namespace p1ll::core {
 thread_local std::unique_ptr<p1ll_context> current_context_;
 
 std::unique_ptr<p1ll_context> p1ll_context::create_static(std::vector<uint8_t>& buffer) {
-  return std::unique_ptr<p1ll_context>(new p1ll_context(mode::static_buffer, buffer));
+  // use detected platform when no override specified
+  auto platform = get_detected_platform();
+  return std::unique_ptr<p1ll_context>(new p1ll_context(mode::static_buffer, buffer, platform));
 }
 
 std::unique_ptr<p1ll_context> p1ll_context::create_static(std::vector<uint8_t>& buffer, const platform_key& platform) {
+  // use provided platform override
   return std::unique_ptr<p1ll_context>(new p1ll_context(mode::static_buffer, buffer, platform));
 }
 
 std::unique_ptr<p1ll_context> p1ll_context::create_dynamic() {
-  return std::unique_ptr<p1ll_context>(new p1ll_context(mode::dynamic_memory));
+  // dynamic contexts always use detected platform (no overrides)
+  auto platform = get_detected_platform();
+  return std::unique_ptr<p1ll_context>(new p1ll_context(mode::dynamic_memory, platform));
 }
 
 std::vector<uint8_t>& p1ll_context::get_buffer() const {
