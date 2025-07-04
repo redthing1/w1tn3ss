@@ -8,6 +8,7 @@
 #include "pattern_matcher.hpp"
 #include <redlog.hpp>
 #include <algorithm>
+#include <unordered_set>
 
 namespace p1ll::engine {
 
@@ -139,9 +140,8 @@ core::cure_result auto_cure_engine::execute_static_buffer(
         "validating platform signatures for static buffer cure", redlog::field("count", platform_signatures.size())
     );
 
-    // for static cure, we just validate the patterns are well-formed
-    // actual buffer validation will happen during patch application
-    if (!validate_signatures(platform_signatures)) {
+    // for static cure, validate signatures exist in the buffer
+    if (!validate_signatures(platform_signatures, buffer_data)) {
       result.add_error("signature validation failed - cure cannot apply");
       log.err("signature validation failed");
       return result;
@@ -253,8 +253,26 @@ std::vector<core::signature_object> auto_cure_engine::get_platform_signatures(
     }
   }
 
-  log.dbg("collected platform signatures", redlog::field("total", platform_signatures.size()));
-  return platform_signatures;
+  // deduplicate signatures by pattern to avoid redundant validation
+  std::unordered_set<std::string> seen_patterns;
+  std::vector<core::signature_object> deduplicated_signatures;
+
+  for (const auto& sig : platform_signatures) {
+    if (seen_patterns.find(sig.pattern) == seen_patterns.end()) {
+      seen_patterns.insert(sig.pattern);
+      deduplicated_signatures.push_back(sig);
+    }
+  }
+
+  if (deduplicated_signatures.size() != platform_signatures.size()) {
+    log.dbg(
+        "deduplicated signatures", redlog::field("original", platform_signatures.size()),
+        redlog::field("deduplicated", deduplicated_signatures.size())
+    );
+  }
+
+  log.dbg("collected platform signatures", redlog::field("total", deduplicated_signatures.size()));
+  return deduplicated_signatures;
 }
 
 bool auto_cure_engine::validate_signatures(const std::vector<core::signature_object>& signatures) {
@@ -299,6 +317,62 @@ bool auto_cure_engine::validate_signatures(const std::vector<core::signature_obj
         // note: don't fail validation since signature might be optional
       } else {
         log.dbg("signature validated in memory", redlog::field("pattern", sig_obj.pattern));
+      }
+    }
+  }
+
+  log.dbg("signature validation passed", redlog::field("count", signatures.size()));
+  return true;
+}
+
+bool auto_cure_engine::validate_signatures(
+    const std::vector<core::signature_object>& signatures, const std::vector<uint8_t>& buffer_data
+) {
+  auto log = redlog::get_logger("p1ll.auto_cure");
+
+  // validate all signature patterns are valid
+  for (size_t i = 0; i < signatures.size(); ++i) {
+    const auto& sig_obj = signatures[i];
+
+    // validate signature pattern
+    if (!core::validate_signature_pattern(sig_obj.pattern)) {
+      log.err("invalid signature pattern", redlog::field("index", i), redlog::field("pattern", sig_obj.pattern));
+      return false;
+    }
+  }
+
+  // validate signatures exist in static buffer
+  for (size_t i = 0; i < signatures.size(); ++i) {
+    const auto& sig_obj = signatures[i];
+
+    // compile signature for validation
+    auto compiled_sig = core::compile_signature(sig_obj.pattern);
+    if (compiled_sig.empty()) {
+      log.err(
+          "failed to compile signature for validation", redlog::field("index", i),
+          redlog::field("pattern", sig_obj.pattern)
+      );
+      return false;
+    }
+
+    // search for signature in buffer data
+    pattern_matcher matcher(compiled_sig);
+    auto offsets = matcher.search_file(buffer_data);
+
+    if (offsets.empty()) {
+      log.warn("signature not found in buffer during validation", redlog::field("pattern", sig_obj.pattern));
+      // note: don't fail validation since signature might be optional
+    } else {
+      log.dbg(
+          "signature validated in buffer", redlog::field("pattern", sig_obj.pattern),
+          redlog::field("matches", offsets.size())
+      );
+      // log first match for debugging
+      if (!offsets.empty()) {
+        log.dbg(
+            "first signature match", redlog::field("pattern", sig_obj.pattern),
+            redlog::field("offset", utils::format_address(offsets[0]))
+        );
       }
     }
   }

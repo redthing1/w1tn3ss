@@ -89,7 +89,10 @@ std::vector<uint64_t> pattern_matcher::search(const uint8_t* data, size_t size) 
       // show beautiful signature match hexdump at debug level
       if (redlog::get_level() <= redlog::level::debug) {
         std::string match_hexdump = utils::format_signature_match_hexdump(data, size, i, pattern_len, 0);
-        log.dbg("signature match found", redlog::field("offset", i), redlog::field("pattern_size", pattern_len));
+        log.dbg(
+            "signature match found", redlog::field("match", results.size()), redlog::field("offset", i),
+            redlog::field("pattern_size", pattern_len)
+        );
         // output the hexdump directly to stderr to preserve formatting
         if (!match_hexdump.empty()) {
           std::fprintf(stderr, "%s", match_hexdump.c_str());

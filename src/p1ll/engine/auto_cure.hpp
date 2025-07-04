@@ -38,8 +38,13 @@ private:
   // get signatures for current platform using hierarchy
   std::vector<core::signature_object> get_platform_signatures(const core::platform_signature_map& signatures) const;
 
-  // validate all required signatures exist before applying patches
+  // validate all required signatures exist before applying patches (dynamic mode)
   bool validate_signatures(const std::vector<core::signature_object>& signatures);
+
+  // validate signatures exist in static buffer (static mode)
+  bool validate_signatures(
+      const std::vector<core::signature_object>& signatures, const std::vector<uint8_t>& buffer_data
+  );
 
   // apply single patch in memory (dynamic mode)
   bool apply_patch_dynamic(const core::patch_declaration& patch, const core::compiled_signature& signature);
