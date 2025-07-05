@@ -104,13 +104,13 @@ template <typename Visitor> bool coverage_module_tracker::try_rescan_and_visit(Q
       if (base_to_module_id_.find(mod.base_address) == base_to_module_id_.end()) {
         uint16_t module_id = collector_->add_module(mod);
         base_to_module_id_[mod.base_address] = module_id;
-        
+
         log_.dbg(
-            "added new traced module", redlog::field("module_name", mod.name), 
-            redlog::field("module_id", module_id), redlog::field("base_address", "0x%08x", mod.base_address)
+            "added new traced module", redlog::field("module_name", mod.name), redlog::field("module_id", module_id),
+            redlog::field("base_address", "0x%08x", mod.base_address)
         );
       }
-      
+
       // now visit with module id
       if (auto it = base_to_module_id_.find(mod.base_address); it != base_to_module_id_.end()) {
         visitor(mod, it->second);

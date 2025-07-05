@@ -8,6 +8,7 @@
 #include "bindings/register_access.hpp"
 #include "bindings/vm_control.hpp"
 #include "bindings/memory_analysis.hpp"
+#include "bindings/module_analysis.hpp"
 #include "bindings/utilities.hpp"
 #include "bindings/callback_system.hpp"
 

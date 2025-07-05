@@ -23,6 +23,9 @@ void setup_qbdi_bindings(sol::state& lua) {
   log.dbg("setting up memory analysis functions");
   bindings::setup_memory_analysis(lua, w1_module);
 
+  log.dbg("setting up module analysis functions");
+  bindings::setup_module_analysis(lua, w1_module);
+
   log.dbg("setting up utility functions");
   bindings::setup_utilities(lua, w1_module);
 
@@ -33,7 +36,10 @@ void setup_qbdi_bindings(sol::state& lua) {
   lua["w1"] = w1_module;
 
   log.inf("all QBDI bindings registered successfully");
-  log.dbg("available modules: core_types, register_access, vm_control, memory_analysis, utilities, callback_system");
+  log.dbg(
+      "available modules: core_types, register_access, vm_control, memory_analysis, module_analysis, utilities, "
+      "callback_system"
+  );
 }
 
 } // namespace w1::tracers::script

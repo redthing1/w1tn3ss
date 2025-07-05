@@ -18,10 +18,12 @@ public:
   const char* get_name() const { return "w1xfer"; }
 
   // exec transfer callbacks - these match the signatures expected by tracer_engine
-  QBDI::VMAction on_exec_transfer_call(QBDI::VMInstanceRef vm, const QBDI::VMState* state, 
-                                      QBDI::GPRState* gpr, QBDI::FPRState* fpr);
-  QBDI::VMAction on_exec_transfer_return(QBDI::VMInstanceRef vm, const QBDI::VMState* state, 
-                                        QBDI::GPRState* gpr, QBDI::FPRState* fpr);
+  QBDI::VMAction on_exec_transfer_call(
+      QBDI::VMInstanceRef vm, const QBDI::VMState* state, QBDI::GPRState* gpr, QBDI::FPRState* fpr
+  );
+  QBDI::VMAction on_exec_transfer_return(
+      QBDI::VMInstanceRef vm, const QBDI::VMState* state, QBDI::GPRState* gpr, QBDI::FPRState* fpr
+  );
 
   // statistics access
   const transfer_stats& get_stats() const;

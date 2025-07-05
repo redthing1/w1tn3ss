@@ -27,9 +27,16 @@ private:
   void setup_callbacks();
   bool is_callback_enabled(const std::string& callback_name) const;
   void register_callbacks_dynamically(QBDI::VM* vm);
-  QBDI::VMAction dispatch_simple_callback(const std::string& callback_name, QBDI::VMInstanceRef vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr);
-  QBDI::VMAction dispatch_vm_event_callback(const std::string& callback_name, QBDI::VMInstanceRef vm, const QBDI::VMState* state, QBDI::GPRState* gpr, QBDI::FPRState* fpr);
-  std::vector<QBDI::InstrRuleDataCBK> dispatch_instr_rule_callback(const std::string& callback_name, QBDI::VMInstanceRef vm, const QBDI::InstAnalysis* analysis, void* data);
+  QBDI::VMAction dispatch_simple_callback(
+      const std::string& callback_name, QBDI::VMInstanceRef vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr
+  );
+  QBDI::VMAction dispatch_vm_event_callback(
+      const std::string& callback_name, QBDI::VMInstanceRef vm, const QBDI::VMState* state, QBDI::GPRState* gpr,
+      QBDI::FPRState* fpr
+  );
+  std::vector<QBDI::InstrRuleDataCBK> dispatch_instr_rule_callback(
+      const std::string& callback_name, QBDI::VMInstanceRef vm, const QBDI::InstAnalysis* analysis, void* data
+  );
 
 public:
   script_tracer() = default;

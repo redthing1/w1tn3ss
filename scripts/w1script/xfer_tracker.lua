@@ -1,5 +1,5 @@
 -- execution transfer tracker
--- tracks function calls and returns with detailed logging
+-- tracks function calls and returns with detailed logging and module info
 
 local call_stack = {}
 local total_calls = 0
@@ -8,6 +8,8 @@ local unique_call_targets = {}
 local unique_return_sources = {}
 local max_call_depth = 0
 local current_call_depth = 0
+local module_call_stats = {}
+local module_return_stats = {}
 
 local tracer = {}
 tracer.callbacks = { "exec_transfer_call", "exec_transfer_return" }
@@ -17,6 +19,10 @@ function tracer.on_exec_transfer_call(vm, state, gpr, fpr)
     local source_addr = w1.format_address(state.sequenceStart)
     local target_addr = w1.format_address(pc)
     
+    -- get module names for source and target
+    local source_module = w1.module_get_name(state.sequenceStart)
+    local target_module = w1.module_get_name(pc)
+    
     total_calls = total_calls + 1
     current_call_depth = current_call_depth + 1
     
@@ -24,6 +30,9 @@ function tracer.on_exec_transfer_call(vm, state, gpr, fpr)
     if not unique_call_targets[target_addr] then
         unique_call_targets[target_addr] = true
     end
+    
+    -- track module statistics
+    module_call_stats[target_module] = (module_call_stats[target_module] or 0) + 1
     
     -- update max call depth
     if current_call_depth > max_call_depth then
@@ -34,11 +43,13 @@ function tracer.on_exec_transfer_call(vm, state, gpr, fpr)
     table.insert(call_stack, {
         source = source_addr,
         target = target_addr,
+        source_module = source_module,
+        target_module = target_module,
         depth = current_call_depth
     })
     
-    -- log the call transfer
-    w1.log_info("call: " .. source_addr .. " -> " .. target_addr .. " (depth: " .. current_call_depth .. ")")
+    -- log the call transfer with module info
+    w1.log_info("call: " .. source_addr .. " (" .. source_module .. ") -> " .. target_addr .. " (" .. target_module .. ") (depth: " .. current_call_depth .. ")")
     
     return w1.VMAction.CONTINUE
 end
@@ -48,6 +59,10 @@ function tracer.on_exec_transfer_return(vm, state, gpr, fpr)
     local source_addr = w1.format_address(state.sequenceStart)
     local target_addr = w1.format_address(pc)
     
+    -- get module names for source and target
+    local source_module = w1.module_get_name(state.sequenceStart)
+    local target_module = w1.module_get_name(pc)
+    
     total_returns = total_returns + 1
     current_call_depth = math.max(0, current_call_depth - 1)
     
@@ -56,17 +71,20 @@ function tracer.on_exec_transfer_return(vm, state, gpr, fpr)
         unique_return_sources[source_addr] = true
     end
     
+    -- track module statistics
+    module_return_stats[source_module] = (module_return_stats[source_module] or 0) + 1
+    
     -- pop from call stack if available
     local call_info = nil
     if #call_stack > 0 then
         call_info = table.remove(call_stack)
     end
     
-    -- log the return transfer
+    -- log the return transfer with module info
     if call_info then
-        w1.log_info("return: " .. source_addr .. " -> " .. target_addr .. " (from call at depth " .. call_info.depth .. ")")
+        w1.log_info("return: " .. source_addr .. " (" .. source_module .. ") -> " .. target_addr .. " (" .. target_module .. ") (from call " .. call_info.source_module .. " -> " .. call_info.target_module .. " at depth " .. call_info.depth .. ")")
     else
-        w1.log_info("return: " .. source_addr .. " -> " .. target_addr .. " (unmatched return)")
+        w1.log_info("return: " .. source_addr .. " (" .. source_module .. ") -> " .. target_addr .. " (" .. target_module .. ") (unmatched return)")
     end
     
     return w1.VMAction.CONTINUE
@@ -91,6 +109,19 @@ function tracer.shutdown()
     w1.log_info("  max call depth: " .. max_call_depth)
     w1.log_info("  final call depth: " .. current_call_depth)
     w1.log_info("  unmatched calls: " .. #call_stack)
+    w1.log_info("  total modules discovered: " .. w1.module_count())
+    
+    -- log module call statistics
+    w1.log_info("module call statistics:")
+    for module, count in pairs(module_call_stats) do
+        w1.log_info("  " .. module .. ": " .. count .. " calls")
+    end
+    
+    -- log module return statistics  
+    w1.log_info("module return statistics:")
+    for module, count in pairs(module_return_stats) do
+        w1.log_info("  " .. module .. ": " .. count .. " returns")
+    end
 end
 
 return tracer

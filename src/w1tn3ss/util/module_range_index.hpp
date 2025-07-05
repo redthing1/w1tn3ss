@@ -177,9 +177,7 @@ bool module_range_index::try_rescan_and_visit(QBDI::rword address, module_scanne
 template <typename Visitor> void module_range_index::visit_all(Visitor&& visitor) const {
   static_assert(std::is_invocable_v<Visitor, const module_info&>, "visitor must be callable with const module_info&");
   std::shared_lock<std::shared_mutex> lock(index_mutex_);
-  tree_.visit_all([&](const module_interval& interval) {
-    visitor(interval.value);
-  });
+  tree_.visit_all([&](const module_interval& interval) { visitor(interval.value); });
 }
 
 } // namespace util

@@ -5,13 +5,15 @@
 namespace w1xfer {
 
 transfer_tracer::transfer_tracer(const transfer_config& config)
-    : config_(config), collector_(config.max_entries, config.log_registers, config.log_stack_info, config.log_call_targets) {
+    : config_(config),
+      collector_(config.max_entries, config.log_registers, config.log_stack_info, config.log_call_targets) {
 
   if (config_.verbose) {
     log_.inf(
         "transfer tracer created", redlog::field("output", config_.output_file),
         redlog::field("max_entries", config_.max_entries), redlog::field("log_registers", config_.log_registers),
-        redlog::field("log_stack_info", config_.log_stack_info), redlog::field("log_call_targets", config_.log_call_targets)
+        redlog::field("log_stack_info", config_.log_stack_info),
+        redlog::field("log_call_targets", config_.log_call_targets)
     );
   }
 }
@@ -49,7 +51,7 @@ QBDI::VMAction transfer_tracer::on_exec_transfer_call(
 ) {
   // extract call information from vm state
   uint64_t source_addr = state->sequenceStart;
-  
+
   // get target address from instruction pointer (architecture-specific)
   uint64_t target_addr = 0;
 #if defined(QBDI_ARCH_X86_64)
@@ -63,17 +65,15 @@ QBDI::VMAction transfer_tracer::on_exec_transfer_call(
   if (config_.verbose) {
     std::string source_module = "unknown";
     std::string target_module = "unknown";
-    
+
     if (config_.log_call_targets) {
       source_module = collector_.get_module_name(source_addr);
       target_module = collector_.get_module_name(target_addr);
     }
-    
+
     log_.trc(
-        "call transfer detected", 
-        redlog::field("source", "0x%016llx", source_addr),
-        redlog::field("target", "0x%016llx", target_addr),
-        redlog::field("source_module", source_module),
+        "call transfer detected", redlog::field("source", "0x%016llx", source_addr),
+        redlog::field("target", "0x%016llx", target_addr), redlog::field("source_module", source_module),
         redlog::field("target_module", target_module)
     );
   }
@@ -89,7 +89,7 @@ QBDI::VMAction transfer_tracer::on_exec_transfer_return(
 ) {
   // extract return information from vm state
   uint64_t source_addr = state->sequenceStart;
-  
+
   // get target address from instruction pointer (architecture-specific)
   uint64_t target_addr = 0;
 #if defined(QBDI_ARCH_X86_64)
@@ -103,17 +103,15 @@ QBDI::VMAction transfer_tracer::on_exec_transfer_return(
   if (config_.verbose) {
     std::string source_module = "unknown";
     std::string target_module = "unknown";
-    
+
     if (config_.log_call_targets) {
       source_module = collector_.get_module_name(source_addr);
       target_module = collector_.get_module_name(target_addr);
     }
-    
+
     log_.trc(
-        "return transfer detected", 
-        redlog::field("source", "0x%016llx", source_addr),
-        redlog::field("target", "0x%016llx", target_addr),
-        redlog::field("source_module", source_module),
+        "return transfer detected", redlog::field("source", "0x%016llx", source_addr),
+        redlog::field("target", "0x%016llx", target_addr), redlog::field("source_module", source_module),
         redlog::field("target_module", target_module)
     );
   }
@@ -124,13 +122,9 @@ QBDI::VMAction transfer_tracer::on_exec_transfer_return(
   return QBDI::VMAction::CONTINUE;
 }
 
-const transfer_stats& transfer_tracer::get_stats() const { 
-  return collector_.get_stats(); 
-}
+const transfer_stats& transfer_tracer::get_stats() const { return collector_.get_stats(); }
 
-size_t transfer_tracer::get_trace_size() const { 
-  return collector_.get_trace_size(); 
-}
+size_t transfer_tracer::get_trace_size() const { return collector_.get_trace_size(); }
 
 void transfer_tracer::export_report() const {
   log_.inf("exporting transfer trace report", redlog::field("path", config_.output_file));
@@ -149,8 +143,7 @@ void transfer_tracer::export_report() const {
     file.close();
 
     log_.inf(
-        "transfer trace report exported successfully",
-        redlog::field("total_calls", report.stats.total_calls),
+        "transfer trace report exported successfully", redlog::field("total_calls", report.stats.total_calls),
         redlog::field("total_returns", report.stats.total_returns),
         redlog::field("unique_call_targets", report.stats.unique_call_targets),
         redlog::field("max_call_depth", report.stats.max_call_depth),
