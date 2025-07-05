@@ -1,5 +1,3 @@
-#ifdef WITNESS_SCRIPT_ENABLED
-
 #include "script_bindings.hpp"
 #include <redlog.hpp>
 
@@ -39,5 +37,3 @@ void setup_qbdi_bindings(sol::state& lua) {
 }
 
 } // namespace w1::tracers::script
-
-#endif // WITNESS_SCRIPT_ENABLED

@@ -1,5 +1,3 @@
-#ifdef WITNESS_SCRIPT_ENABLED
-
 #include "utilities.hpp"
 #include <redlog.hpp>
 #include <fstream>
@@ -220,7 +218,7 @@ static std::string serialize_lua_value(const sol::object& value, int depth) {
     if (std::isfinite(d)) {
       return std::to_string(d);
     } else {
-      return "null"; // JSON doesn't support NaN/Infinity
+      return "null"; // json doesn't support NaN/Infinity
     }
   } else if (value.is<float>()) {
     float f = value.as<float>();
@@ -315,5 +313,3 @@ static std::string lua_table_to_json_internal(const sol::table& lua_table, int d
 std::string lua_table_to_json(const sol::table& lua_table) { return lua_table_to_json_internal(lua_table, 0); }
 
 } // namespace w1::tracers::script::bindings
-
-#endif // WITNESS_SCRIPT_ENABLED

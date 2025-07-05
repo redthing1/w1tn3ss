@@ -15,6 +15,4 @@ if(WITNESS_SCRIPT)
     
 else()
     message(STATUS "w1script tracer disabled (WITNESS_SCRIPT=OFF)")
-    
-    create_tracer_targets(w1script "preload.cpp;script_tracer.cpp")
 endif()

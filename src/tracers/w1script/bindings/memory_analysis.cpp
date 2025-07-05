@@ -1,5 +1,3 @@
-#ifdef WITNESS_SCRIPT_ENABLED
-
 #include "memory_analysis.hpp"
 #include <redlog.hpp>
 #include <vector>
@@ -72,7 +70,7 @@ void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
     return std::string(buffer);
   });
 
-  // MEMORY ACCESS RECORDING
+  // memory access recording
   // Enable automatic memory logging for specified access types
   w1_module.set_function("recordMemoryAccess", [](void* vm_ptr, QBDI::MemoryAccessType type) -> bool {
     QBDI::VMInstanceRef vm = static_cast<QBDI::VMInstanceRef>(vm_ptr);
@@ -131,7 +129,7 @@ void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
     return result;
   });
 
-  // MEMORY MANAGEMENT
+  // memory management
   // Allocate managed virtual stack
   w1_module.set_function("allocateVirtualStack", [](void* vm_ptr, uint32_t stackSize) -> sol::optional<QBDI::rword> {
     auto log = redlog::get_logger("w1script.bindings.memory_analysis");
@@ -166,7 +164,7 @@ void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
       QBDI::GPRState* state = vm->getGPRState();
       std::vector<QBDI::rword> argVector;
 
-      // Convert Lua table to vector
+      // convert Lua table to vector
       for (size_t i = 1; i <= args.size(); i++) {
         sol::optional<QBDI::rword> arg = args[i];
         if (arg) {
@@ -225,14 +223,14 @@ void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
     }
   });
 
-  // MEMORY INSPECTION
+  // memory inspection
   // Safe memory reading with error handling
   w1_module.set_function(
       "readMemory", [](void* vm_ptr, QBDI::rword address, size_t size) -> sol::optional<std::string> {
         auto log = redlog::get_logger("w1script.bindings.memory_analysis");
 
         try {
-          // Validate parameters
+          // validate parameters
           if (size == 0) {
             log.warn("Attempted to read 0 bytes from address 0x" + std::to_string(address));
             return sol::nullopt;
@@ -246,15 +244,15 @@ void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
             return sol::nullopt;
           }
 
-          // Try to read memory with basic safety checks
-          // Note: This is still potentially dangerous and should be used carefully
+          // try to read memory with basic safety checks
+          // note: this is still potentially dangerous and should be used carefully
           std::vector<uint8_t> buffer(size);
 
-          // Use memcpy for reading - this can still crash if address is invalid
+          // use memcpy for reading - this can still crash if address is invalid
           // but it's the most direct approach available in QBDI context
           std::memcpy(buffer.data(), reinterpret_cast<const void*>(address), size);
 
-          // Convert to hex string
+          // convert to hex string
           std::ostringstream hex_stream;
           hex_stream << std::hex << std::uppercase;
           for (size_t i = 0; i < size; i++) {
@@ -279,7 +277,7 @@ void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
     auto log = redlog::get_logger("w1script.bindings.memory_analysis");
 
     try {
-      // Validate hex string length
+      // validate hex string length
       if (hexData.length() % 2 != 0) {
         log.warn("Invalid hex data length: " + std::to_string(hexData.length()) + " (must be even)");
         return false;
@@ -299,14 +297,14 @@ void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
         return false;
       }
 
-      // Convert hex string to bytes
+      // convert hex string to bytes
       std::vector<uint8_t> buffer(size);
       for (size_t i = 0; i < size; i++) {
         std::string byteStr = hexData.substr(i * 2, 2);
         buffer[i] = static_cast<uint8_t>(std::stoul(byteStr, nullptr, 16));
       }
 
-      // Write memory using memcpy - this can still crash if address is invalid
+      // write memory using memcpy - this can still crash if address is invalid
       std::memcpy(reinterpret_cast<void*>(address), buffer.data(), size);
 
       log.dbg("successfully wrote " + std::to_string(size) + " bytes to address 0x" + std::to_string(address));
@@ -326,12 +324,12 @@ void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
     auto log = redlog::get_logger("w1script.bindings.memory_analysis");
 
     try {
-      // Basic heuristic checks for obviously invalid addresses
+      // basic heuristic checks for obviously invalid addresses
       if (address == 0) {
         return false; // Null pointer
       }
 
-      // Check for obviously invalid addresses (platform-specific)
+      // check for obviously invalid addresses (platform-specific)
 #if defined(__x86_64__) || defined(_M_X64)
       // On x86-64, user space addresses are typically below 0x00007FFFFFFFFFFF
       if (address > 0x00007FFFFFFFFFFUL) {
@@ -344,8 +342,8 @@ void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
       }
 #endif
 
-      // Try to read a single byte as a basic validity test
-      // This is still not foolproof but provides some safety
+      // try to read a single byte as a basic validity test
+      // this is still not foolproof but provides some safety
       try {
         volatile uint8_t test_byte;
         std::memcpy(const_cast<uint8_t*>(&test_byte), reinterpret_cast<const void*>(address), 1);
@@ -360,7 +358,7 @@ void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
     }
   });
 
-  // MEMORY MAPPING
+  // memory mapping
   // Get process memory layout
   w1_module.set_function("getMemoryMaps", [&lua](void* vm_ptr) -> sol::table {
     auto log = redlog::get_logger("w1script.bindings.memory_analysis");
@@ -469,7 +467,7 @@ void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
         auto log = redlog::get_logger("w1script.bindings.memory_analysis");
 
         try {
-          // Validate parameters
+          // validate parameters
           if (size == 0) {
             log.warn("Attempted to read 0 bytes from address 0x" + std::to_string(address));
             return sol::nullopt;
@@ -483,11 +481,11 @@ void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
             return sol::nullopt;
           }
 
-          // Try to read memory with basic safety checks
+          // try to read memory with basic safety checks
           std::vector<uint8_t> buffer(size);
           std::memcpy(buffer.data(), reinterpret_cast<const void*>(address), size);
 
-          // Convert to string (assume printable characters)
+          // convert to string (assume printable characters)
           std::string result;
           result.reserve(size);
           for (uint8_t byte : buffer) {
@@ -556,5 +554,3 @@ void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
 }
 
 } // namespace w1::tracers::script::bindings
-
-#endif // WITNESS_SCRIPT_ENABLED

@@ -1,5 +1,3 @@
-#ifdef WITNESS_SCRIPT_ENABLED
-
 #include "core_types.hpp"
 #include <redlog.hpp>
 
@@ -9,7 +7,7 @@ void setup_core_types(sol::state& lua, sol::table& w1_module) {
   auto log = redlog::get_logger("w1script.bindings.core_types");
   log.dbg("setting up core QBDI types and enums");
 
-  // VMAction enum - controls VM execution flow
+  // vmAction enum - controls VM execution flow
   // Used in callbacks to determine how the VM should proceed after instruction execution
   w1_module.new_enum(
       "VMAction", "CONTINUE", QBDI::VMAction::CONTINUE, // Continue normal execution
@@ -46,7 +44,7 @@ void setup_core_types(sol::state& lua, sol::table& w1_module) {
       "condition", &QBDI::InstAnalysis::condition // Execution condition (if any)
   );
 
-  // VMEvent enum - VM state change events
+  // vmEvent enum - VM state change events
   // Used to trigger callbacks at specific execution points
   w1_module.new_enum(
       "VMEvent", "NO_EVENT", QBDI::VMEvent::NO_EVENT,              // No event
@@ -93,7 +91,7 @@ void setup_core_types(sol::state& lua, sol::table& w1_module) {
       "ANALYSIS_DISASSEMBLY", QBDI::AnalysisType::ANALYSIS_DISASSEMBLY,                 // Disassembly text
       "ANALYSIS_OPERANDS", QBDI::AnalysisType::ANALYSIS_OPERANDS,                       // Operand analysis
       "ANALYSIS_SYMBOL", QBDI::AnalysisType::ANALYSIS_SYMBOL,                           // Symbol information
-      "ANALYSIS_JIT", QBDI::AnalysisType::ANALYSIS_JIT                                  // JIT patch information
+      "ANALYSIS_JIT", QBDI::AnalysisType::ANALYSIS_JIT                                  // jit patch information
   );
 
   // ConditionType enum - instruction condition types
@@ -136,7 +134,7 @@ void setup_core_types(sol::state& lua, sol::table& w1_module) {
   w1_module.new_enum(
       "OperandFlag", "OPERANDFLAG_NONE", QBDI::OperandFlag::OPERANDFLAG_NONE,          // No flags
       "OPERANDFLAG_ADDR", QBDI::OperandFlag::OPERANDFLAG_ADDR,                         // Used for address computation
-      "OPERANDFLAG_PCREL", QBDI::OperandFlag::OPERANDFLAG_PCREL,                       // PC-relative value
+      "OPERANDFLAG_PCREL", QBDI::OperandFlag::OPERANDFLAG_PCREL,                       // pc-relative value
       "OPERANDFLAG_UNDEFINED_EFFECT", QBDI::OperandFlag::OPERANDFLAG_UNDEFINED_EFFECT, // Undefined role
       "OPERANDFLAG_IMPLICIT", QBDI::OperandFlag::OPERANDFLAG_IMPLICIT                  // Implicit operand
   );
@@ -182,12 +180,12 @@ void setup_core_types(sol::state& lua, sol::table& w1_module) {
       "flags", &QBDI::MemoryAccess::flags                  // Memory access flags
   );
 
-  // VMState usertype - describes current VM execution state
+  // vmState usertype - describes current VM execution state
   // Provides context about VM events and execution boundaries
   lua.new_usertype<QBDI::VMState>(
       "VMState",
 
-      // VM event information
+      // vm event information
       "event", &QBDI::VMState::event,                     // Event type that triggered callback
       "basicBlockStart", &QBDI::VMState::basicBlockStart, // Current basic block start address
       "basicBlockEnd", &QBDI::VMState::basicBlockEnd,     // Current basic block end address
@@ -200,5 +198,3 @@ void setup_core_types(sol::state& lua, sol::table& w1_module) {
 }
 
 } // namespace w1::tracers::script::bindings
-
-#endif // WITNESS_SCRIPT_ENABLED

@@ -1,5 +1,3 @@
-#ifdef WITNESS_SCRIPT_ENABLED
-
 #include "register_access.hpp"
 #include <redlog.hpp>
 
@@ -9,14 +7,14 @@ void setup_register_access(sol::state& lua, sol::table& w1_module) {
   auto log = redlog::get_logger("w1script.bindings.register_access");
   log.dbg("setting up platform-specific register access functions");
 
-  // Platform-specific register access functions
-  // These functions take a void* pointer to GPRState and return the register value
+  // platform-specific register access functions
+  // these functions take a void* pointer to GPRState and return the register value
 
 #if defined(__x86_64__) || defined(_M_X64) || defined(__amd64__)
 
   log.dbg("registering x86_64 register access functions");
 
-  // General purpose registers
+  // general purpose registers
   w1_module.set_function("get_reg_rax", [](void* gpr_ptr) -> QBDI::rword {
     QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
     return gpr->rax;
@@ -37,7 +35,7 @@ void setup_register_access(sol::state& lua, sol::table& w1_module) {
     return gpr->rdx;
   });
 
-  // Stack and frame pointers
+  // stack and frame pointers
   w1_module.set_function("get_reg_rsp", [](void* gpr_ptr) -> QBDI::rword {
     QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
     return gpr->rsp;
@@ -48,7 +46,7 @@ void setup_register_access(sol::state& lua, sol::table& w1_module) {
     return gpr->rbp;
   });
 
-  // Index registers
+  // index registers
   w1_module.set_function("get_reg_rsi", [](void* gpr_ptr) -> QBDI::rword {
     QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
     return gpr->rsi;
@@ -59,13 +57,13 @@ void setup_register_access(sol::state& lua, sol::table& w1_module) {
     return gpr->rdi;
   });
 
-  // Instruction pointer
+  // instruction pointer
   w1_module.set_function("get_reg_rip", [](void* gpr_ptr) -> QBDI::rword {
     QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
     return gpr->rip;
   });
 
-  // Additional x86_64 registers (R8-R15)
+  // additional x86_64 registers (R8-R15)
   w1_module.set_function("get_reg_r8", [](void* gpr_ptr) -> QBDI::rword {
     QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
     return gpr->r8;
@@ -106,7 +104,7 @@ void setup_register_access(sol::state& lua, sol::table& w1_module) {
     return gpr->r15;
   });
 
-  // Flags and segment registers
+  // flags and segment registers
   w1_module.set_function("get_reg_eflags", [](void* gpr_ptr) -> QBDI::rword {
     QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
     return gpr->eflags;
@@ -122,7 +120,7 @@ void setup_register_access(sol::state& lua, sol::table& w1_module) {
     return gpr->gs;
   });
 
-  // Set register functions for x86_64
+  // set register functions for x86_64
   w1_module.set_function("set_reg_rax", [](void* gpr_ptr, QBDI::rword value) {
     QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
     gpr->rax = value;
@@ -229,7 +227,7 @@ void setup_register_access(sol::state& lua, sol::table& w1_module) {
 
   log.dbg("registering ARM64 register access functions");
 
-  // Parameter and result registers
+  // parameter and result registers
   w1_module.set_function("get_reg_x0", [](void* gpr_ptr) -> QBDI::rword {
     QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
     return gpr->x0;
@@ -270,19 +268,19 @@ void setup_register_access(sol::state& lua, sol::table& w1_module) {
     return gpr->x7;
   });
 
-  // Stack pointer
+  // stack pointer
   w1_module.set_function("get_reg_sp", [](void* gpr_ptr) -> QBDI::rword {
     QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
     return gpr->sp;
   });
 
-  // Link register (return address)
+  // link register (return address)
   w1_module.set_function("get_reg_lr", [](void* gpr_ptr) -> QBDI::rword {
     QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
     return gpr->lr;
   });
 
-  // Missing x8-x29 registers
+  // missing x8-x29 registers
   w1_module.set_function("get_reg_x8", [](void* gpr_ptr) -> QBDI::rword {
     QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
     return gpr->x8;
@@ -393,19 +391,19 @@ void setup_register_access(sol::state& lua, sol::table& w1_module) {
     return gpr->x29;
   });
 
-  // Status flags
+  // status flags
   w1_module.set_function("get_reg_nzcv", [](void* gpr_ptr) -> QBDI::rword {
     QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
     return gpr->nzcv;
   });
 
-  // Program counter
+  // program counter
   w1_module.set_function("get_reg_pc", [](void* gpr_ptr) -> QBDI::rword {
     QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
     return gpr->pc;
   });
 
-  // Set register functions for AARCH64
+  // set register functions for AARCH64
   w1_module.set_function("set_reg_x0", [](void* gpr_ptr, QBDI::rword value) {
     QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
     gpr->x0 = value;
@@ -582,7 +580,7 @@ void setup_register_access(sol::state& lua, sol::table& w1_module) {
 
   log.dbg("registering ARM32 register access functions");
 
-  // General purpose registers
+  // general purpose registers
   w1_module.set_function("get_reg_r0", [](void* gpr_ptr) -> QBDI::rword {
     QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
     return gpr->r0;
@@ -623,19 +621,19 @@ void setup_register_access(sol::state& lua, sol::table& w1_module) {
     return gpr->r7;
   });
 
-  // Stack pointer
+  // stack pointer
   w1_module.set_function("get_reg_sp", [](void* gpr_ptr) -> QBDI::rword {
     QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
     return gpr->sp;
   });
 
-  // Link register
+  // link register
   w1_module.set_function("get_reg_lr", [](void* gpr_ptr) -> QBDI::rword {
     QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
     return gpr->lr;
   });
 
-  // Missing r8-r12 registers
+  // missing r8-r12 registers
   w1_module.set_function("get_reg_r8", [](void* gpr_ptr) -> QBDI::rword {
     QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
     return gpr->r8;
@@ -661,19 +659,19 @@ void setup_register_access(sol::state& lua, sol::table& w1_module) {
     return gpr->r12;
   });
 
-  // Status register
+  // status register
   w1_module.set_function("get_reg_cpsr", [](void* gpr_ptr) -> QBDI::rword {
     QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
     return gpr->cpsr;
   });
 
-  // Program counter
+  // program counter
   w1_module.set_function("get_reg_pc", [](void* gpr_ptr) -> QBDI::rword {
     QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
     return gpr->pc;
   });
 
-  // Set register functions for ARM32
+  // set register functions for ARM32
   w1_module.set_function("set_reg_r0", [](void* gpr_ptr, QBDI::rword value) {
     QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
     gpr->r0 = value;
@@ -765,7 +763,7 @@ void setup_register_access(sol::state& lua, sol::table& w1_module) {
 
   log.dbg("registering x86 32-bit register access functions");
 
-  // General purpose registers
+  // general purpose registers
   w1_module.set_function("get_reg_eax", [](void* gpr_ptr) -> QBDI::rword {
     QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
     return gpr->eax;
@@ -816,7 +814,7 @@ void setup_register_access(sol::state& lua, sol::table& w1_module) {
     return gpr->eflags;
   });
 
-  // Set register functions for x86 32-bit
+  // set register functions for x86 32-bit
   w1_module.set_function("set_reg_eax", [](void* gpr_ptr, QBDI::rword value) {
     QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
     gpr->eax = value;
@@ -877,5 +875,3 @@ void setup_register_access(sol::state& lua, sol::table& w1_module) {
 }
 
 } // namespace w1::tracers::script::bindings
-
-#endif // WITNESS_SCRIPT_ENABLED

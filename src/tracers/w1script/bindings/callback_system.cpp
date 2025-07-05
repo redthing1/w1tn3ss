@@ -1,5 +1,3 @@
-#ifdef WITNESS_SCRIPT_ENABLED
-
 #include "callback_system.hpp"
 #include <redlog.hpp>
 #include <stdexcept>
@@ -65,7 +63,7 @@ bool LuaCallbackManager::removeCallback(uint32_t callback_id) {
     callback_id_to_qbdi_id_.erase(id_it);
   }
 
-  // Clean up persistent pointer
+  // clean up persistent pointer
   auto ptr_it = callback_id_to_persistent_ptr_.find(callback_id);
   if (ptr_it != callback_id_to_persistent_ptr_.end()) {
     delete ptr_it->second;
@@ -76,7 +74,7 @@ bool LuaCallbackManager::removeCallback(uint32_t callback_id) {
 }
 
 void LuaCallbackManager::removeAllCallbacks() {
-  // Clean up all persistent pointers
+  // clean up all persistent pointers
   for (auto& pair : callback_id_to_persistent_ptr_) {
     delete pair.second;
   }
@@ -210,7 +208,7 @@ std::vector<QBDI::InstrRuleDataCBK> luaInstrRuleCallbackWrapper(
   try {
     auto result = callback->func(vm, analysis);
     if (result.valid()) {
-      // For now, return empty vector - instrumentation rules are complex
+      // for now, return empty vector - instrumentation rules are complex
       // and would need proper handling of the returned data
       return {};
     } else {
@@ -236,7 +234,7 @@ void setup_callback_system(sol::state& lua, sol::table& w1_module) {
     log.inf("initialized Lua callback manager");
   }
 
-  //------------- INSTRUCTION CALLBACKS -------------
+  //------------- instruction callbacks -------------
 
   // addCodeCB - Universal instruction tracing
   w1_module.set_function(
@@ -260,7 +258,7 @@ void setup_callback_system(sol::state& lua, sol::table& w1_module) {
         try {
           uint32_t callback_id = getNextCallbackId(g_callback_manager.get());
 
-          // Create a persistent copy of the callback ID for the C callback data
+          // create a persistent copy of the callback ID for the C callback data
           uint32_t* persistent_callback_id = new uint32_t(callback_id);
 
           uint32_t qbdi_id = vm->addCodeCB(position, luaInstCallbackWrapper, persistent_callback_id, priority);
@@ -418,7 +416,7 @@ void setup_callback_system(sol::state& lua, sol::table& w1_module) {
       }
   );
 
-  //------------- MEMORY ACCESS CALLBACKS -------------
+  //------------- memory access callbacks -------------
 
   // addMemAccessCB - All memory access monitoring
   w1_module.set_function(
@@ -548,7 +546,7 @@ void setup_callback_system(sol::state& lua, sol::table& w1_module) {
       }
   );
 
-  //------------- VM EVENT CALLBACKS -------------
+  //------------- vm event callbacks -------------
 
   // addVMEventCB - Control flow events
   w1_module.set_function(
@@ -589,7 +587,7 @@ void setup_callback_system(sol::state& lua, sol::table& w1_module) {
       }
   );
 
-  //------------- INSTRUMENTATION RULE CALLBACKS -------------
+  //------------- instrumentation rule callbacks -------------
 
   // addInstrRule - Custom instrumentation rules
   w1_module.set_function(
@@ -633,7 +631,7 @@ void setup_callback_system(sol::state& lua, sol::table& w1_module) {
       }
   );
 
-  //------------- CALLBACK MANAGEMENT -------------
+  //------------- callback management -------------
 
   // deleteInstrumentation - Remove specific callback
   w1_module.set_function("deleteInstrumentation", [](void* vm_ptr, uint32_t callback_id) -> bool {
@@ -649,7 +647,7 @@ void setup_callback_system(sol::state& lua, sol::table& w1_module) {
     }
 
     try {
-      // Find the QBDI ID for this callback
+      // find the QBDI ID for this callback
       auto it = g_callback_manager->callback_id_to_qbdi_id_.find(callback_id);
       if (it == g_callback_manager->callback_id_to_qbdi_id_.end()) {
         log.wrn("callback ID not found", redlog::field("callback_id", callback_id));
@@ -660,7 +658,7 @@ void setup_callback_system(sol::state& lua, sol::table& w1_module) {
       bool success = vm->deleteInstrumentation(qbdi_id);
 
       if (success) {
-        // Memory cleanup is handled by removeCallback() which deletes the persistent pointer
+        // memory cleanup is handled by removeCallback() which deletes the persistent pointer
         g_callback_manager->removeCallback(callback_id);
         log.dbg(
             "deleted instrumentation", redlog::field("callback_id", callback_id), redlog::field("qbdi_id", qbdi_id)
@@ -700,7 +698,7 @@ void setup_callback_system(sol::state& lua, sol::table& w1_module) {
     }
   });
 
-  //------------- CALLBACK INTROSPECTION -------------
+  //------------- callback introspection -------------
 
   // getActiveCallbackCount - Get count of active callbacks
   w1_module.set_function("getActiveCallbackCount", []() -> int {
@@ -732,7 +730,7 @@ void setup_callback_system(sol::state& lua, sol::table& w1_module) {
     return info;
   });
 
-  //------------- MEMORY ACCESS UTILITIES -------------
+  //------------- memory access utilities -------------
 
   // recordMemoryAccess - Enable automatic memory logging
   w1_module.set_function("recordMemoryAccess", [](void* vm_ptr, int type) -> bool {
@@ -762,5 +760,3 @@ void setup_callback_system(sol::state& lua, sol::table& w1_module) {
 }
 
 } // namespace w1::tracers::script::bindings
-
-#endif // WITNESS_SCRIPT_ENABLED
