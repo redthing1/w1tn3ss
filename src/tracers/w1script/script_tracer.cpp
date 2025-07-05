@@ -267,7 +267,7 @@ QBDI::VMAction script_tracer::dispatch_vm_event_callback(const std::string& call
   }
   
   try {
-    auto result = it->second(static_cast<void*>(vm), static_cast<const void*>(state), static_cast<void*>(gpr), static_cast<void*>(fpr));
+    auto result = it->second(static_cast<void*>(vm), *state, static_cast<void*>(gpr), static_cast<void*>(fpr));
     if (result.valid() && result.get_type() == sol::type::number) {
       return static_cast<QBDI::VMAction>(result.get<int>());
     }
