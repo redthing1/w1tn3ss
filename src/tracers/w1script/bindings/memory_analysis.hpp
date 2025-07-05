@@ -12,8 +12,6 @@
 
 #pragma once
 
-#ifdef WITNESS_SCRIPT_ENABLED
-
 #include <sol/sol.hpp>
 #include <QBDI.h>
 
@@ -38,5 +36,3 @@ namespace w1::tracers::script::bindings {
 void setup_memory_analysis(sol::state& lua, sol::table& w1_module);
 
 } // namespace w1::tracers::script::bindings
-
-#endif // WITNESS_SCRIPT_ENABLED

@@ -12,8 +12,6 @@
 
 #pragma once
 
-#ifdef WITNESS_SCRIPT_ENABLED
-
 #include <sol/sol.hpp>
 #include <QBDI.h>
 #include <memory>
@@ -132,5 +130,3 @@ extern std::shared_ptr<LuaCallbackManager> g_callback_manager;
 void setup_callback_system(sol::state& lua, sol::table& w1_module);
 
 } // namespace w1::tracers::script::bindings
-
-#endif // WITNESS_SCRIPT_ENABLED

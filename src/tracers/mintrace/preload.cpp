@@ -8,7 +8,8 @@
 
 #include <w1tn3ss/engine/tracer_engine.hpp>
 #include <w1tn3ss/util/env_config.hpp>
-#include <w1tn3ss/util/module_discovery.hpp>
+#include <w1tn3ss/util/module_range_index.hpp>
+#include <w1tn3ss/util/module_scanner.hpp>
 #include <w1tn3ss/util/signal_handler.hpp>
 
 class mintrace_tracer {
@@ -18,17 +19,12 @@ public:
   bool initialize(w1::tracer_engine<mintrace_tracer>& engine) {
     log_.inf("initialize called");
 
-    // snapshot modules
-    log_.inf("taking module snapshot");
-    discoverer_.take_snapshot();
+    // scan and index modules
+    log_.inf("scanning modules");
+    auto modules = scanner_.scan_executable_modules();
+    index_.rebuild_from_modules(std::move(modules));
 
-    log_.inf("module snapshot complete");
-
-    // // log discovered modules
-    // for (const auto& mod : discoverer_.get_modules()) {
-    //   std::cerr << "[mintrace] discovered module: " << mod.name << " (base: 0x" << std::hex << mod.base_address
-    //             << std::dec << ")" << std::endl;
-    // }
+    log_.inf("module indexing complete", redlog::field("modules", index_.size()));
 
     return true;
   }
@@ -65,7 +61,8 @@ public:
 
 private:
   redlog::logger log_ = redlog::get_logger("mintrace.tracer");
-  w1::util::module_discovery discoverer_;
+  w1::util::module_scanner scanner_;
+  w1::util::module_range_index index_;
 };
 
 // globals

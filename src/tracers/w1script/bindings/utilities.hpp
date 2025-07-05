@@ -1,7 +1,5 @@
 #pragma once
 
-#ifdef WITNESS_SCRIPT_ENABLED
-
 #include <sol/sol.hpp>
 #include <string>
 
@@ -24,8 +22,8 @@ namespace w1::tracers::script::bindings {
  */
 void setup_utilities(sol::state& lua, sol::table& w1_module);
 
-// Helper functions for JSON serialization
-// These are exposed in the header for potential reuse by other modules
+// helper functions for JSON serialization
+// these are exposed in the header for potential reuse by other modules
 
 /**
  * @brief Convert a Lua table to JSON string
@@ -49,5 +47,3 @@ std::string escape_json_string(const std::string& str);
 bool is_lua_array(const sol::table& table);
 
 } // namespace w1::tracers::script::bindings
-
-#endif // WITNESS_SCRIPT_ENABLED
