@@ -78,8 +78,8 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT WIN32)
         target_compile_options(p1ll_test_target PRIVATE ${SANITIZER_FLAGS})
         target_link_options(p1ll_test_target PRIVATE ${SANITIZER_FLAGS})
         
-        target_compile_options(pattern_matcher_test PRIVATE ${SANITIZER_FLAGS})
-        target_link_options(pattern_matcher_test PRIVATE ${SANITIZER_FLAGS})
+        target_compile_options(test_p1ll_pattern_matching PRIVATE ${SANITIZER_FLAGS})
+        target_link_options(test_p1ll_pattern_matching PRIVATE ${SANITIZER_FLAGS})
     endif()
     
     # linux-specific targets
@@ -110,6 +110,16 @@ if(WITNESS_SCRIPT)
     set_target_properties(p1ll_test_target PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs
     )
+    
+    # p1ll pattern matching unit tests
+    add_executable(test_p1ll_pattern_matching test_p1ll_pattern_matching.cpp)
+    apply_common_compile_options(test_p1ll_pattern_matching)
+    apply_windows_definitions(test_p1ll_pattern_matching)
+    target_include_directories(test_p1ll_pattern_matching PRIVATE ${CMAKE_SOURCE_DIR}/src)
+    target_link_libraries(test_p1ll_pattern_matching PRIVATE p1ll redlog::redlog)
+    set_target_properties(test_p1ll_pattern_matching PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs
+    )
 endif()
 
 # install targets
@@ -117,7 +127,7 @@ set(PROGRAM_TARGETS multi_threaded_target control_flow_1 runtime_injection_targe
 
 # add p1ll targets to install list when scripting is enabled
 if(WITNESS_SCRIPT)
-    list(APPEND PROGRAM_TARGETS p1ll_test_target)
+    list(APPEND PROGRAM_TARGETS p1ll_test_target test_p1ll_pattern_matching)
 endif()
 
 # add linux-specific targets to install list

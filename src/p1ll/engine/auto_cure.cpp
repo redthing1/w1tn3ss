@@ -316,7 +316,31 @@ bool auto_cure_engine::validate_signatures(const std::vector<core::signature_obj
         log.warn("signature not found in memory during validation", redlog::field("pattern", sig_obj.pattern));
         // note: don't fail validation since signature might be optional
       } else {
-        log.dbg("signature validated in memory", redlog::field("pattern", sig_obj.pattern));
+        // check single match constraint during validation
+        if (sig_obj.single && search_results->size() > 1) {
+          log.err(
+              "signature validation failed: multiple matches found for single signature",
+              redlog::field("pattern", sig_obj.pattern), redlog::field("matches", search_results->size())
+          );
+
+          // log all match locations for debugging
+          for (size_t j = 0; j < search_results->size(); ++j) {
+            log.dbg(
+                "match location", redlog::field("index", j + 1), redlog::field("address", (*search_results)[j].address)
+            );
+          }
+
+          log.err(
+              "validation failed: signature marked as 'single' but found multiple matches - this indicates the "
+              "signature pattern is not unique enough"
+          );
+          return false;
+        }
+
+        log.dbg(
+            "signature validated in memory", redlog::field("pattern", sig_obj.pattern),
+            redlog::field("matches", search_results->size())
+        );
       }
     }
   }
@@ -363,6 +387,28 @@ bool auto_cure_engine::validate_signatures(
       log.warn("signature not found in buffer during validation", redlog::field("pattern", sig_obj.pattern));
       // note: don't fail validation since signature might be optional
     } else {
+      // check single match constraint during validation
+      if (sig_obj.single && offsets.size() > 1) {
+        log.err(
+            "signature validation failed: multiple matches found for single signature",
+            redlog::field("pattern", sig_obj.pattern), redlog::field("matches", offsets.size())
+        );
+
+        // log all match locations for debugging
+        for (size_t j = 0; j < offsets.size(); ++j) {
+          log.dbg(
+              "match location", redlog::field("index", j + 1),
+              redlog::field("offset", utils::format_address(offsets[j]))
+          );
+        }
+
+        log.err(
+            "validation failed: signature marked as 'single' but found multiple matches - this indicates the signature "
+            "pattern is not unique enough"
+        );
+        return false;
+      }
+
       log.dbg(
           "signature validated in buffer", redlog::field("pattern", sig_obj.pattern),
           redlog::field("matches", offsets.size())
@@ -402,20 +448,36 @@ bool auto_cure_engine::apply_patch_dynamic(
     return false;
   }
 
-  // apply patch to all results or first result based on configuration
-  bool patch_all = patch.apply_to_all_matches.value_or(false);
+  // check single match enforcement
+  if (patch.signature.single && search_results.size() > 1) {
+    log.err(
+        "multiple matches found for single signature", redlog::field("signature", patch.signature),
+        redlog::field("matches", search_results.size())
+    );
+
+    // log all match locations for debugging
+    for (size_t i = 0; i < search_results.size(); ++i) {
+      log.dbg("match location", redlog::field("index", i + 1), redlog::field("address", search_results[i].address));
+    }
+
+    return false;
+  }
+
+  // apply patch based on signature behavior
+  // single=true: we have exactly one match, patch it
+  // single=false: patch all matches found (default behavior)
   std::vector<size_t> target_indices;
 
-  if (patch_all) {
-    // apply to all matches
+  if (patch.signature.single) {
+    // single match mode - we already validated exactly one match exists
+    target_indices.push_back(0);
+    log.dbg("applying patch to single match");
+  } else {
+    // default behavior: patch all matches
     for (size_t i = 0; i < search_results.size(); ++i) {
       target_indices.push_back(i);
     }
     log.dbg("applying patch to all matches", redlog::field("count", search_results.size()));
-  } else {
-    // apply to first match only
-    target_indices.push_back(0);
-    log.dbg("applying patch to first match only");
   }
 
   // compile patch data once for all applications
@@ -451,15 +513,33 @@ bool auto_cure_engine::apply_patch_static(
 
   // search for signature in file data
   pattern_matcher matcher(signature);
-  auto offsets = matcher.search_file(file_data);
+  size_t patch_offset;
 
-  if (offsets.empty()) {
-    log.warn("signature not found in file", redlog::field("signature", patch.signature));
-    return false;
+  if (patch.signature.single) {
+    // use single match enforcement
+    try {
+      auto single_offset = matcher.search_single(file_data.data(), file_data.size());
+      patch_offset = single_offset + patch.offset;
+      log.dbg(
+          "single match found for signature", redlog::field("signature", patch.signature),
+          redlog::field("offset", single_offset)
+      );
+    } catch (const std::runtime_error& e) {
+      log.err(
+          "single match enforcement failed", redlog::field("signature", patch.signature),
+          redlog::field("error", e.what())
+      );
+      return false;
+    }
+  } else {
+    // use normal search (first match)
+    auto offsets = matcher.search_file(file_data);
+    if (offsets.empty()) {
+      log.warn("signature not found in file", redlog::field("signature", patch.signature));
+      return false;
+    }
+    patch_offset = offsets[0] + patch.offset;
   }
-
-  // apply patch to first occurrence
-  size_t patch_offset = offsets[0] + patch.offset;
 
   // compile patch data
   auto compiled_patch = core::compile_patch(patch.pattern);

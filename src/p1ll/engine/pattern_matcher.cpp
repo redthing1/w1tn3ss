@@ -36,14 +36,26 @@ void pattern_matcher::build_shift_table() {
   size_t exact_bytes = std::count(signature_.mask.begin(), signature_.mask.end(), true);
 
   // boyer-moore-horspool: process all characters except the last one
-  // only process exact bytes - wildcards are ignored to preserve performance
+  // process exact bytes first
   for (size_t i = 0; i < pattern_len - 1; ++i) {
     if (signature_.mask[i]) { // exact byte only
       uint8_t byte = signature_.pattern[i];
       shift_table_[byte] = pattern_len - 1 - i;
     }
-    // wildcards: do nothing, leave default pattern_len skip
-    // this preserves the performance benefits of Boyer-Moore-Horspool
+  }
+
+  // handle wildcards: for each wildcard position, any byte can match there
+  // we must use the minimum skip distance to ensure correctness
+  for (size_t i = 0; i < pattern_len - 1; ++i) {
+    if (!signature_.mask[i]) { // wildcard position
+      size_t wildcard_skip = pattern_len - 1 - i;
+
+      // for each possible byte value, take the minimum skip distance
+      // this ensures we don't skip over potential matches
+      for (size_t byte = 0; byte < 256; ++byte) {
+        shift_table_[byte] = std::min(shift_table_[byte], wildcard_skip);
+      }
+    }
   }
 
   // log performance warning for wildcard-heavy patterns
@@ -125,6 +137,34 @@ std::vector<uint64_t> pattern_matcher::search(const uint8_t* data, size_t size) 
 uint64_t pattern_matcher::search_one(const uint8_t* data, size_t size) const {
   auto results = search(data, size);
   return results.empty() ? static_cast<uint64_t>(-1) : results[0];
+}
+
+uint64_t pattern_matcher::search_single(const uint8_t* data, size_t size) const {
+  auto log = redlog::get_logger("p1ll.pattern_matcher");
+  auto results = search(data, size);
+
+  if (results.empty()) {
+    throw std::runtime_error("signature not found - expected exactly one match");
+  }
+
+  if (results.size() > 1) {
+    log.err(
+        "multiple matches found for single signature", redlog::field("matches", results.size()),
+        redlog::field("pattern_size", pattern_size())
+    );
+
+    // log all match locations for debugging
+    for (size_t i = 0; i < results.size(); ++i) {
+      log.dbg("match location", redlog::field("index", i + 1), redlog::field("offset", results[i]));
+    }
+
+    throw std::runtime_error(
+        "multiple matches found for single signature - expected exactly one match, found " +
+        std::to_string(results.size())
+    );
+  }
+
+  return results[0];
 }
 
 std::vector<size_t> pattern_matcher::search_file(const std::vector<uint8_t>& file_data) const {
