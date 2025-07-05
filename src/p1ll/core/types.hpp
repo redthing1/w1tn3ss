@@ -56,21 +56,23 @@ struct signature_query {
 struct signature_object {
   signature_pattern pattern;
   std::optional<signature_query_filter> filter;
+  bool single = false; // enforce exactly one match
 
   signature_object() = default;
   signature_object(const signature_pattern& p) : pattern(p) {}
   signature_object(const signature_pattern& p, const signature_query_filter& f) : pattern(p), filter(f) {}
+  signature_object(const signature_pattern& p, const signature_query_filter& f, bool s)
+      : pattern(p), filter(f), single(s) {}
 
   std::string to_string() const { return pattern; }
 };
 
 // patch declaration - references signature object
 struct patch_declaration {
-  signature_object signature;               // signature object reference
-  uint64_t offset;                          // offset from signature match
-  patch_pattern pattern;                    // hex bytes to write
-  bool required = true;                     // fail if patch cannot be applied
-  std::optional<bool> apply_to_all_matches; // apply to all matches or first only
+  signature_object signature; // signature object reference
+  uint64_t offset;            // offset from signature match
+  patch_pattern pattern;      // hex bytes to write
+  bool required = true;       // fail if patch cannot be applied
 
   std::string to_string() const;
 };

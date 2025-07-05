@@ -97,15 +97,33 @@ void setup_signature_api(sol::state& lua, sol::table& p1_module) {
 
           // check for filter option
           auto filter_opt = options["filter"];
+          // check for single option
+          auto single_opt = options["single"];
+
+          core::signature_query_filter filter;
+          bool single = false;
+
           if (filter_opt.valid()) {
             sol::object filter_obj = filter_opt;
             if (filter_obj.is<std::string>()) {
-              core::signature_query_filter filter;
               filter.pattern = filter_obj.as<std::string>();
-              return core::signature_object(pattern, filter);
             } else {
               throw std::invalid_argument("sig: filter option must be a string");
             }
+          }
+
+          if (single_opt.valid()) {
+            sol::object single_obj = single_opt;
+            if (single_obj.is<bool>()) {
+              single = single_obj.as<bool>();
+            } else {
+              throw std::invalid_argument("sig: single option must be a boolean");
+            }
+          }
+
+          // if we have either filter or single, create with those options
+          if (filter_opt.valid() || single_opt.valid()) {
+            return core::signature_object(pattern, filter, single);
           }
         }
         return core::signature_object(pattern);

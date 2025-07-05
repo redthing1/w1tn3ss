@@ -18,6 +18,9 @@ public:
   // search expecting exactly one result
   uint64_t search_one(const uint8_t* data, size_t size) const;
 
+  // search with single match enforcement - throws exception if multiple matches
+  uint64_t search_single(const uint8_t* data, size_t size) const;
+
   // search in file data
   std::vector<size_t> search_file(const std::vector<uint8_t>& file_data) const;
 

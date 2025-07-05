@@ -139,6 +139,34 @@ uint64_t pattern_matcher::search_one(const uint8_t* data, size_t size) const {
   return results.empty() ? static_cast<uint64_t>(-1) : results[0];
 }
 
+uint64_t pattern_matcher::search_single(const uint8_t* data, size_t size) const {
+  auto log = redlog::get_logger("p1ll.pattern_matcher");
+  auto results = search(data, size);
+
+  if (results.empty()) {
+    throw std::runtime_error("signature not found - expected exactly one match");
+  }
+
+  if (results.size() > 1) {
+    log.err(
+        "multiple matches found for single signature", redlog::field("matches", results.size()),
+        redlog::field("pattern_size", pattern_size())
+    );
+
+    // log all match locations for debugging
+    for (size_t i = 0; i < results.size(); ++i) {
+      log.dbg("match location", redlog::field("index", i + 1), redlog::field("offset", results[i]));
+    }
+
+    throw std::runtime_error(
+        "multiple matches found for single signature - expected exactly one match, found " +
+        std::to_string(results.size())
+    );
+  }
+
+  return results[0];
+}
+
 std::vector<size_t> pattern_matcher::search_file(const std::vector<uint8_t>& file_data) const {
   auto byte_results = search(file_data.data(), file_data.size());
 
