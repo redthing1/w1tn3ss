@@ -4,11 +4,11 @@
 
 #include "QBDIPreload.h"
 #include <redlog.hpp>
-
 #include <w1tn3ss/engine/tracer_engine.hpp>
 #include <w1tn3ss/util/signal_handler.hpp>
-#include "transfer_tracer.hpp"
+
 #include "transfer_config.hpp"
+#include "transfer_tracer.hpp"
 
 // globals
 static std::unique_ptr<w1xfer::transfer_tracer> g_tracer;
@@ -91,7 +91,7 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
     log.inf("engine instrumentation successful");
 
     // run engine
-    log.inf("running engine", redlog::field("start", "0x%08x", start), redlog::field("stop", "0x%08x", stop));
+    log.inf("running engine", redlog::field("start", "0x%016llx", start), redlog::field("stop", "0x%016llx", stop));
     if (!g_engine->run(start, stop)) {
       log.error("engine run failed");
       return QBDIPRELOAD_ERR_STARTUP_FAILED;

@@ -1,10 +1,13 @@
 #pragma once
 
-#include <vector>
-#include <string>
 #include <cstdint>
-#include <common/ext/jsonstruct.hpp>
+#include <string>
+#include <vector>
+
 #include <QBDI.h>
+#include <common/ext/jsonstruct.hpp>
+#include <w1tn3ss/util/module_range_index.hpp>
+#include <w1tn3ss/util/module_scanner.hpp>
 
 namespace w1xfer {
 
@@ -128,6 +131,8 @@ class transfer_collector {
 public:
   explicit transfer_collector(uint64_t max_entries, bool log_registers, bool log_stack_info, bool log_call_targets);
 
+  void initialize_module_tracking();
+
   void record_call(uint64_t source_addr, uint64_t target_addr, QBDI::VMInstanceRef vm, 
                    const QBDI::VMState* state, QBDI::GPRState* gpr, QBDI::FPRState* fpr);
   void record_return(uint64_t source_addr, uint64_t target_addr, QBDI::VMInstanceRef vm, 
@@ -138,6 +143,8 @@ public:
   const transfer_stats& get_stats() const { return stats_; }
   size_t get_trace_size() const { return trace_.size(); }
   uint64_t get_instruction_count() const { return instruction_count_; }
+  
+  std::string get_module_name(uint64_t address) const;
 
 private:
   transfer_stats stats_;
@@ -148,10 +155,12 @@ private:
   bool log_stack_info_;
   bool log_call_targets_;
   bool trace_overflow_;
+  w1::util::module_scanner scanner_;
+  w1::util::module_range_index index_;
+  bool modules_initialized_;
 
   register_state capture_registers(QBDI::GPRState* gpr) const;
   stack_info capture_stack_info(QBDI::VMInstanceRef vm, QBDI::GPRState* gpr) const;
-  std::string get_module_name(uint64_t address) const;
   uint64_t get_timestamp() const;
   void update_call_depth(transfer_type type);
 };

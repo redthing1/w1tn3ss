@@ -1,14 +1,15 @@
 #include "transfer_collector.hpp"
-#include <chrono>
-#include <unordered_set>
+
 #include <algorithm>
+#include <chrono>
 #include <cstring>
+#include <unordered_set>
 
 namespace w1xfer {
 
 transfer_collector::transfer_collector(uint64_t max_entries, bool log_registers, bool log_stack_info, bool log_call_targets)
     : max_entries_(max_entries), instruction_count_(0), log_registers_(log_registers), 
-      log_stack_info_(log_stack_info), log_call_targets_(log_call_targets), trace_overflow_(false) {
+      log_stack_info_(log_stack_info), log_call_targets_(log_call_targets), trace_overflow_(false), modules_initialized_(false) {
   
   trace_.reserve(std::min(max_entries_, static_cast<uint64_t>(10000)));
   
@@ -222,15 +223,39 @@ stack_info transfer_collector::capture_stack_info(QBDI::VMInstanceRef vm, QBDI::
   return stack;
 }
 
+void transfer_collector::initialize_module_tracking() {
+  if (modules_initialized_) {
+    return;
+  }
+  
+  // scan all executable modules
+  auto modules = scanner_.scan_executable_modules();
+  
+  // rebuild index with all modules for fast lookup
+  index_.rebuild_from_modules(std::move(modules));
+  
+  modules_initialized_ = true;
+}
+
 std::string transfer_collector::get_module_name(uint64_t address) const {
-  // simplified module name resolution
-  // in a real implementation, this would query the VM for module information
   if (address == 0) {
     return "unknown";
   }
   
-  // placeholder - would use QBDI module information
-  return "module_" + std::to_string(address >> 20);
+  // ensure modules are initialized before lookup
+  if (!modules_initialized_) {
+    // lazy initialization - cast away const for initialization
+    const_cast<transfer_collector*>(this)->initialize_module_tracking();
+  }
+  
+  // fast lookup using module range index
+  auto module_info = index_.find_containing(address);
+  if (module_info) {
+    return module_info->name;
+  }
+  
+  // fallback for addresses not in any known module
+  return "unknown";
 }
 
 uint64_t transfer_collector::get_timestamp() const {

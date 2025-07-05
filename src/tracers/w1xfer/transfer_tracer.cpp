@@ -1,4 +1,5 @@
 #include "transfer_tracer.hpp"
+
 #include <fstream>
 
 namespace w1xfer {
@@ -22,6 +23,13 @@ bool transfer_tracer::initialize(w1::tracer_engine<transfer_tracer>& engine) {
   if (!vm) {
     log_.error("vm instance is null");
     return false;
+  }
+
+  // initialize module tracking for fast module name lookup
+  if (config_.log_call_targets) {
+    log_.inf("initializing module tracking");
+    collector_.initialize_module_tracking();
+    log_.inf("module tracking initialized");
   }
 
   if (config_.verbose) {
@@ -53,9 +61,20 @@ QBDI::VMAction transfer_tracer::on_exec_transfer_call(
 #endif
 
   if (config_.verbose) {
+    std::string source_module = "unknown";
+    std::string target_module = "unknown";
+    
+    if (config_.log_call_targets) {
+      source_module = collector_.get_module_name(source_addr);
+      target_module = collector_.get_module_name(target_addr);
+    }
+    
     log_.trc(
-        "call transfer detected", redlog::field("source", "0x%08x", source_addr),
-        redlog::field("target", "0x%08x", target_addr)
+        "call transfer detected", 
+        redlog::field("source", "0x%016llx", source_addr),
+        redlog::field("target", "0x%016llx", target_addr),
+        redlog::field("source_module", source_module),
+        redlog::field("target_module", target_module)
     );
   }
 
@@ -82,9 +101,20 @@ QBDI::VMAction transfer_tracer::on_exec_transfer_return(
 #endif
 
   if (config_.verbose) {
+    std::string source_module = "unknown";
+    std::string target_module = "unknown";
+    
+    if (config_.log_call_targets) {
+      source_module = collector_.get_module_name(source_addr);
+      target_module = collector_.get_module_name(target_addr);
+    }
+    
     log_.trc(
-        "return transfer detected", redlog::field("source", "0x%08x", source_addr),
-        redlog::field("target", "0x%08x", target_addr)
+        "return transfer detected", 
+        redlog::field("source", "0x%016llx", source_addr),
+        redlog::field("target", "0x%016llx", target_addr),
+        redlog::field("source_module", source_module),
+        redlog::field("target_module", target_module)
     );
   }
 
