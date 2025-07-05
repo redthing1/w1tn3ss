@@ -4,7 +4,7 @@
 namespace w1cov {
 
 coverage_module_tracker::coverage_module_tracker(const coverage_config& config)
-    : config_(config), index_(std::vector<w1::util::module_info>{}), collector_(nullptr) {}
+    : config_(config), collector_(nullptr) {}
 
 void coverage_module_tracker::initialize(coverage_collector& collector) {
   log_.vrb("initializing coverage module tracker");
@@ -38,8 +38,8 @@ void coverage_module_tracker::initialize(coverage_collector& collector) {
     );
   }
 
-  // build fast lookup index
-  index_ = w1::util::module_range_index(std::move(traced_modules));
+  // build fast lookup index with traced modules
+  index_.rebuild_from_modules(std::move(traced_modules));
 
   log_.inf(
       "module tracker initialization complete", redlog::field("total_modules", all_modules.size()),
@@ -47,10 +47,7 @@ void coverage_module_tracker::initialize(coverage_collector& collector) {
   );
 }
 
-size_t coverage_module_tracker::traced_module_count() const {
-  std::shared_lock<std::shared_mutex> lock(index_mutex_);
-  return index_.size();
-}
+size_t coverage_module_tracker::traced_module_count() const { return index_.size(); }
 
 bool coverage_module_tracker::should_trace_module(const w1::util::module_info& mod) const {
   // unknown modules are never traced
@@ -77,31 +74,21 @@ bool coverage_module_tracker::should_trace_module(const w1::util::module_info& m
   return true;
 }
 
-void coverage_module_tracker::rebuild_index_from_modules(std::vector<w1::util::module_info> modules) {
+void coverage_module_tracker::rebuild_traced_modules() {
+  // scan all current modules
+  auto all_modules = scanner_.scan_executable_modules();
+
   // filter modules for tracing
   std::vector<w1::util::module_info> traced_modules;
-  traced_modules.reserve(modules.size() / 2);
+  traced_modules.reserve(all_modules.size() / 2);
 
   std::copy_if(
-      modules.begin(), modules.end(), std::back_inserter(traced_modules),
+      all_modules.begin(), all_modules.end(), std::back_inserter(traced_modules),
       [this](const w1::util::module_info& mod) { return should_trace_module(mod); }
   );
 
-  // rebuild index
-  index_ = w1::util::module_range_index(std::move(traced_modules));
-}
-
-std::unordered_set<QBDI::rword> coverage_module_tracker::get_known_module_bases() const {
-  std::shared_lock<std::shared_mutex> lock(index_mutex_);
-
-  std::unordered_set<QBDI::rword> known_bases;
-  known_bases.reserve(base_to_module_id_.size());
-
-  for (const auto& pair : base_to_module_id_) {
-    known_bases.insert(pair.first);
-  }
-
-  return known_bases;
+  // rebuild index with filtered modules
+  index_.rebuild_from_modules(std::move(traced_modules));
 }
 
 } // namespace w1cov
