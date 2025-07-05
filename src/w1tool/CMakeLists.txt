@@ -28,5 +28,6 @@ target_link_libraries(w1tool PRIVATE
 
 apply_common_compile_options(w1tool)
 apply_windows_definitions(w1tool)
+configure_target_with_lief(w1tool)
 
 install(TARGETS w1tool RUNTIME DESTINATION bin)

@@ -20,3 +20,4 @@ target_link_libraries(w1tn3ss PUBLIC
 apply_common_compile_options(w1tn3ss)
 set_standard_output_dirs(w1tn3ss)
 apply_platform_linking(w1tn3ss)
+configure_target_with_lief(w1tn3ss)
