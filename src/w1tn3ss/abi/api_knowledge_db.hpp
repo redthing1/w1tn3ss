@@ -30,7 +30,7 @@ struct param_info {
     WSTRING, // wide string (windows)
     BUFFER,
     STRUCT,
-    CALLBACK_FUNC, // renamed to avoid Windows CALLBACK macro conflict
+    CALLBACK,
     VOID, // for return values
     // semantic types
     PATH,
