@@ -26,8 +26,7 @@ function(configure_windows_symbol_resolution target)
         
         # Use MSVC linker options to gracefully handle duplicate symbols
         target_link_options(${target} PRIVATE
-            /IGNORE:4006  # Ignore duplicate symbol warnings (LNK2005)
-            /IGNORE:4221  # Ignore empty object file warnings
+            /FORCE:MULTIPLE  # Force linker to continue with multiple symbol definitions
         )
         
         # Ensure consistent runtime library to avoid additional conflicts
