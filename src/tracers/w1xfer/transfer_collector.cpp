@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstring>
+#include <cstdio>
 #include <unordered_set>
 
 namespace w1xfer {
@@ -22,6 +23,11 @@ transfer_collector::transfer_collector(
   stats_.unique_return_sources = 0;
   stats_.max_call_depth = 0;
   stats_.current_call_depth = 0;
+  
+  // Create symbol enricher if call targets are being logged
+  if (log_call_targets_) {
+    symbol_enricher_ = std::make_unique<symbol_enricher>();
+  }
 }
 
 void transfer_collector::record_call(
@@ -54,6 +60,12 @@ void transfer_collector::record_call(
   if (log_call_targets_) {
     entry.source_module = get_module_name(source_addr);
     entry.target_module = get_module_name(target_addr);
+    
+    // Enrich with symbol information
+    if (symbol_enricher_) {
+      entry.source_symbol = enrich_symbol(source_addr);
+      entry.target_symbol = enrich_symbol(target_addr);
+    }
   }
 
   trace_.push_back(entry);
@@ -89,6 +101,12 @@ void transfer_collector::record_return(
   if (log_call_targets_) {
     entry.source_module = get_module_name(source_addr);
     entry.target_module = get_module_name(target_addr);
+    
+    // Enrich with symbol information
+    if (symbol_enricher_) {
+      entry.source_symbol = enrich_symbol(source_addr);
+      entry.target_symbol = enrich_symbol(target_addr);
+    }
   }
 
   trace_.push_back(entry);
@@ -270,6 +288,11 @@ void transfer_collector::initialize_module_tracking() {
 
   // rebuild index with all modules for fast lookup
   index_.rebuild_from_modules(std::move(modules));
+  
+  // Initialize symbol enricher with the module index
+  if (symbol_enricher_) {
+    symbol_enricher_->initialize(index_);
+  }
 
   modules_initialized_ = true;
 }
@@ -307,6 +330,26 @@ void transfer_collector::update_call_depth(transfer_type type) {
   } else if (type == transfer_type::RETURN && stats_.current_call_depth > 0) {
     stats_.current_call_depth--;
   }
+}
+
+symbol_info transfer_collector::enrich_symbol(uint64_t address) const {
+  symbol_info info{};
+  
+  if (!symbol_enricher_) {
+    return info;
+  }
+  
+  auto enriched = symbol_enricher_->enrich_address(address);
+  if (enriched) {
+    info.symbol_name = enriched->symbol_name;
+    info.demangled_name = enriched->demangled_name;
+    info.symbol_offset = enriched->symbol_offset;
+    info.module_offset = enriched->module_offset;
+    info.is_exported = enriched->is_exported;
+    info.is_imported = enriched->is_imported;
+  }
+  
+  return info;
 }
 
 } // namespace w1xfer

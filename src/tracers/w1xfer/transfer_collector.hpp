@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -8,6 +9,7 @@
 #include <common/ext/jsonstruct.hpp>
 #include <w1tn3ss/util/module_range_index.hpp>
 #include <w1tn3ss/util/module_scanner.hpp>
+#include "symbol_enricher.hpp"
 
 namespace w1xfer {
 
@@ -76,6 +78,22 @@ struct stack_info {
   JS_OBJECT(JS_MEMBER(stack_pointer), JS_MEMBER(return_address), JS_MEMBER(stack_values));
 };
 
+// Rich symbol information for transfer endpoints
+struct symbol_info {
+  std::string symbol_name;
+  std::string demangled_name;
+  uint64_t symbol_offset;   // Offset within the symbol
+  uint64_t module_offset;   // Offset within the module
+  bool is_exported;
+  bool is_imported;
+  
+  JS_OBJECT(
+      JS_MEMBER(symbol_name), JS_MEMBER(demangled_name), 
+      JS_MEMBER(symbol_offset), JS_MEMBER(module_offset),
+      JS_MEMBER(is_exported), JS_MEMBER(is_imported)
+  );
+};
+
 struct transfer_entry {
   transfer_type type;
   uint64_t source_address;
@@ -86,11 +104,14 @@ struct transfer_entry {
   stack_info stack;
   std::string source_module;
   std::string target_module;
+  // Rich symbol information
+  symbol_info source_symbol;
+  symbol_info target_symbol;
 
   JS_OBJECT(
       JS_MEMBER(type), JS_MEMBER(source_address), JS_MEMBER(target_address), JS_MEMBER(timestamp),
       JS_MEMBER(instruction_count), JS_MEMBER(registers), JS_MEMBER(stack), JS_MEMBER(source_module),
-      JS_MEMBER(target_module)
+      JS_MEMBER(target_module), JS_MEMBER(source_symbol), JS_MEMBER(target_symbol)
   );
 };
 
@@ -150,11 +171,13 @@ private:
   w1::util::module_scanner scanner_;
   w1::util::module_range_index index_;
   bool modules_initialized_;
+  std::unique_ptr<symbol_enricher> symbol_enricher_;
 
   register_state capture_registers(QBDI::GPRState* gpr) const;
   stack_info capture_stack_info(QBDI::VMInstanceRef vm, QBDI::GPRState* gpr) const;
   uint64_t get_timestamp() const;
   void update_call_depth(transfer_type type);
+  symbol_info enrich_symbol(uint64_t address) const;
 };
 
 } // namespace w1xfer
