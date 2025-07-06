@@ -1,12 +1,12 @@
 #include <cstring>
 #include <memory>
-#include <unistd.h>
 
 #include "QBDIPreload.h"
 #include <redlog.hpp>
 
 #include <w1tn3ss/engine/tracer_engine.hpp>
 #include <w1tn3ss/util/signal_handler.hpp>
+#include <w1tn3ss/util/stderr_write.hpp>
 #include "memory_tracer.hpp"
 #include "memory_config.hpp"
 
@@ -28,7 +28,7 @@ void shutdown_tracer() {
     g_tracer->shutdown();
   } catch (...) {
     const char* error_msg = "w1mem: tracer shutdown failed\n";
-    write(STDERR_FILENO, error_msg, strlen(error_msg));
+    w1::util::stderr_write(error_msg);
   }
 }
 

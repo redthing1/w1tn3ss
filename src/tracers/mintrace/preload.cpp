@@ -1,7 +1,6 @@
 #include <cstdlib>
 #include <cstring>
 #include <memory>
-#include <unistd.h>
 
 #include "QBDIPreload.h"
 #include <redlog.hpp>
@@ -11,6 +10,7 @@
 #include <w1tn3ss/util/module_range_index.hpp>
 #include <w1tn3ss/util/module_scanner.hpp>
 #include <w1tn3ss/util/signal_handler.hpp>
+#include <w1tn3ss/util/stderr_write.hpp>
 
 class mintrace_tracer {
 public:
@@ -83,7 +83,7 @@ void shutdown_tracer() {
     g_tracer->shutdown();
   } catch (...) {
     const char* error_msg = "mintrace: tracer shutdown failed\n";
-    write(STDERR_FILENO, error_msg, strlen(error_msg));
+    w1::util::stderr_write(error_msg);
   }
 }
 

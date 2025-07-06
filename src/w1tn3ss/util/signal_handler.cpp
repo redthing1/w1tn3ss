@@ -1,4 +1,5 @@
 #include "signal_handler.hpp"
+#include "stderr_write.hpp"
 
 #include <algorithm>
 #include <atomic>
@@ -71,11 +72,7 @@ BOOL WINAPI console_handler(DWORD ctrl_type) {
 
   if (g_config.log_signals) {
     const char* msg = "received ctrl+c signal\n";
-    HANDLE hStderr = GetStdHandle(STD_ERROR_HANDLE);
-    if (hStderr != INVALID_HANDLE_VALUE) {
-      DWORD written;
-      WriteFile(hStderr, msg, static_cast<DWORD>(strlen(msg)), &written, NULL);
-    }
+    w1::util::stderr_write(msg);
   }
 
   // forward to child processes
@@ -121,7 +118,7 @@ void unix_handler(int signum, siginfo_t* info, void* context) {
 
   if (g_config.log_signals) {
     const char* msg = "received sigint signal\n";
-    write(STDERR_FILENO, msg, strlen(msg));
+    stderr_write(msg);
   }
 
   // forward to child processes
