@@ -307,7 +307,7 @@ static const std::vector<api_info> macos_system_apis = {
      .flags = static_cast<uint32_t>(api_info::behavior_flags::FREES_MEMORY),
      .parameters =
          {{.name = "ptr", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN}},
-     .return_value = {.name = "void", .param_type = param_info::type::UNKNOWN},
+     .return_value = {.name = "void", .param_type = param_info::type::VOID},
      .description = "free allocated memory",
      .headers = {"stdlib.h"}},
     {.name = "_calloc",
@@ -779,7 +779,49 @@ static const std::vector<api_info> macos_system_apis = {
            .is_optional = true}},
      .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
      .description = "get time of day",
-     .headers = {"sys/time.h"}}
+     .headers = {"sys/time.h"}},
+
+    // ===== TIME/SLEEP APIs =====
+    {.name = "_sleep",
+     .module = "libsystem_c.dylib",
+     .api_category = api_info::category::TIME,
+     .flags = static_cast<uint32_t>(api_info::behavior_flags::BLOCKING),
+     .parameters =
+         {{.name = "seconds", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}},
+     .return_value = {.name = "remaining", .param_type = param_info::type::INTEGER},
+     .description = "sleep for specified seconds",
+     .headers = {"unistd.h"}},
+
+    {.name = "_usleep",
+     .module = "libsystem_c.dylib",
+     .api_category = api_info::category::TIME,
+     .flags = static_cast<uint32_t>(api_info::behavior_flags::BLOCKING),
+     .parameters =
+         {{.name = "usec", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}},
+     .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
+     .description = "sleep for specified microseconds",
+     .headers = {"unistd.h"}},
+
+    {.name = "_nanosleep",
+     .module = "libsystem_c.dylib",
+     .api_category = api_info::category::TIME,
+     .flags = static_cast<uint32_t>(api_info::behavior_flags::BLOCKING),
+     .parameters =
+         {{.name = "req", .param_type = param_info::type::STRUCT, .param_direction = param_info::direction::IN},
+          {.name = "rem", .param_type = param_info::type::STRUCT, .param_direction = param_info::direction::OUT, .is_optional = true}},
+     .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
+     .description = "sleep for specified nanoseconds",
+     .headers = {"time.h"}},
+
+    {.name = "_time",
+     .module = "libsystem_c.dylib",
+     .api_category = api_info::category::TIME,
+     .flags = 0,
+     .parameters =
+         {{.name = "tloc", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT, .is_optional = true}},
+     .return_value = {.name = "seconds", .param_type = param_info::type::INTEGER},
+     .description = "get current time in seconds since epoch",
+     .headers = {"time.h"}}
 };
 
 } // namespace w1::abi::apis::macos

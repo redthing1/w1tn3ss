@@ -51,11 +51,10 @@ void transfer_collector::record_call(
   stats_.total_calls++;
   update_call_depth(transfer_type::CALL);
 
-  if (!collect_trace_ || trace_overflow_ || trace_.size() >= max_entries_) {
-    if (collect_trace_) {
-      trace_overflow_ = true;
-    }
-    return;
+  // Check if we should skip trace collection (but still do analysis)
+  bool should_collect_trace = collect_trace_ && !trace_overflow_ && trace_.size() < max_entries_;
+  if (collect_trace_ && !should_collect_trace) {
+    trace_overflow_ = true;
   }
 
   transfer_entry entry;
@@ -131,9 +130,28 @@ void transfer_collector::record_call(
 
       entry.api_info.arguments.push_back(api_arg);
     }
+
+    // Track this call for later return value analysis if we found API info
+    if (analysis.analysis_complete && analysis.category != w1::abi::api_info::category::UNKNOWN) {
+      // Look up the full API info from the database for return value analysis
+      if (auto api_info = api_analyzer_->get_api_db().lookup(analysis.symbol_name)) {
+        if (api_info->return_value.param_type != w1::abi::param_info::type::VOID) {
+          pending_call pending;
+          pending.call_target_address = target_addr;
+          pending.target_symbol_name = entry.target_symbol.symbol_name;
+          pending.target_module = entry.target_module;
+          pending.api_info = *api_info;
+          pending.timestamp = entry.timestamp;
+          call_stack_.push_back(pending);
+        }
+      }
+    }
   }
 
-  trace_.push_back(entry);
+  // Only add to trace if collection is enabled and we haven't overflowed
+  if (should_collect_trace) {
+    trace_.push_back(entry);
+  }
 }
 
 void transfer_collector::record_return(
@@ -143,11 +161,10 @@ void transfer_collector::record_return(
   stats_.total_returns++;
   update_call_depth(transfer_type::RETURN);
 
-  if (!collect_trace_ || trace_overflow_ || trace_.size() >= max_entries_) {
-    if (collect_trace_) {
-      trace_overflow_ = true;
-    }
-    return;
+  // Check if we should skip trace collection (but still do analysis)
+  bool should_collect_trace = collect_trace_ && !trace_overflow_ && trace_.size() < max_entries_;
+  if (collect_trace_ && !should_collect_trace) {
+    trace_overflow_ = true;
   }
 
   transfer_entry entry;
@@ -176,7 +193,80 @@ void transfer_collector::record_return(
     }
   }
 
-  trace_.push_back(entry);
+  // Perform return value analysis if enabled and we have a matching call
+  if (analyze_apis_ && api_analyzer_ && !call_stack_.empty()) {
+    // Find matching call based on source address (the function we're returning from)
+    auto call_it = std::find_if(call_stack_.rbegin(), call_stack_.rend(), 
+      [source_addr](const pending_call& call) {
+        return call.call_target_address == source_addr;
+      });
+
+    if (call_it != call_stack_.rend()) {
+      // Build context for return value analysis
+      w1::abi::api_context ctx;
+      ctx.call_address = target_addr; // where we're returning to
+      ctx.target_address = source_addr; // the function we're returning from
+      ctx.module_name = call_it->target_module;
+      ctx.symbol_name = call_it->target_symbol_name;
+      ctx.vm = vm;
+      ctx.vm_state = state;
+      ctx.gpr_state = gpr;
+      ctx.fpr_state = fpr;
+      ctx.module_index = &index_;
+      ctx.timestamp = entry.timestamp;
+
+      // Create analysis result with call info and analyze return
+      w1::abi::api_analysis_result return_analysis;
+      return_analysis.symbol_name = call_it->target_symbol_name;
+      return_analysis.module_name = call_it->target_module;
+      return_analysis.category = call_it->api_info.api_category;
+      return_analysis.description = call_it->api_info.description;
+      return_analysis.analysis_complete = true;
+      
+      api_analyzer_->analyze_return(return_analysis, ctx);
+      
+      // Copy API information from the call
+      entry.api_info.api_category = std::to_string(static_cast<int>(call_it->api_info.api_category));
+      entry.api_info.description = call_it->api_info.description;
+      entry.api_info.analysis_complete = true;
+      entry.api_info.has_return_value = true;
+
+      // Extract and format return value
+      const auto& ret_val = return_analysis.return_value;
+      entry.api_info.return_value.raw_value = ret_val.raw_value;
+      entry.api_info.return_value.param_type = std::to_string(static_cast<int>(ret_val.param_type));
+      entry.api_info.return_value.is_pointer = ret_val.is_valid_pointer;
+      entry.api_info.return_value.is_null = ret_val.is_null_pointer;
+
+      // Format interpreted value
+      if (!ret_val.string_preview.empty()) {
+        entry.api_info.return_value.interpreted_value = "\"" + ret_val.string_preview + "\"";
+      } else if (ret_val.is_null_pointer) {
+        entry.api_info.return_value.interpreted_value = "NULL";
+      } else if (ret_val.param_type == w1::abi::param_info::type::BOOLEAN) {
+        entry.api_info.return_value.interpreted_value = ret_val.raw_value ? "true" : "false";
+      } else if (ret_val.param_type == w1::abi::param_info::type::ERROR_CODE) {
+        std::stringstream ss;
+        ss << "0x" << std::hex << ret_val.raw_value << " (" << static_cast<int64_t>(ret_val.raw_value) << ")";
+        entry.api_info.return_value.interpreted_value = ss.str();
+      } else {
+        std::stringstream ss;
+        ss << "0x" << std::hex << ret_val.raw_value;
+        entry.api_info.return_value.interpreted_value = ss.str();
+      }
+
+      // Build formatted call string with return value
+      entry.api_info.formatted_call = call_it->target_symbol_name + "() = " + entry.api_info.return_value.interpreted_value;
+
+      // Remove the call from stack (convert reverse iterator to forward iterator for erase)
+      call_stack_.erase(std::next(call_it).base());
+    }
+  }
+
+  // Only add to trace if collection is enabled and we haven't overflowed
+  if (should_collect_trace) {
+    trace_.push_back(entry);
+  }
 }
 
 w1xfer_report transfer_collector::build_report() const {

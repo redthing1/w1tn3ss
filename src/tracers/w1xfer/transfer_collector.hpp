@@ -108,17 +108,33 @@ struct api_argument {
   );
 };
 
+// Return value information
+struct api_return_value {
+  uint64_t raw_value;
+  std::string param_type;
+  std::string interpreted_value;
+  bool is_pointer;
+  bool is_null;
+
+  JS_OBJECT(
+      JS_MEMBER(raw_value), JS_MEMBER(param_type), JS_MEMBER(interpreted_value),
+      JS_MEMBER(is_pointer), JS_MEMBER(is_null)
+  );
+};
+
 // API analysis information
 struct api_analysis {
   std::string api_category;
   std::string description;
   std::vector<api_argument> arguments;
+  api_return_value return_value;
   std::string formatted_call;
   bool analysis_complete;
+  bool has_return_value;
 
   JS_OBJECT(
-      JS_MEMBER(api_category), JS_MEMBER(description), JS_MEMBER(arguments), JS_MEMBER(formatted_call),
-      JS_MEMBER(analysis_complete)
+      JS_MEMBER(api_category), JS_MEMBER(description), JS_MEMBER(arguments), JS_MEMBER(return_value),
+      JS_MEMBER(formatted_call), JS_MEMBER(analysis_complete), JS_MEMBER(has_return_value)
   );
 };
 
@@ -208,6 +224,16 @@ private:
   bool modules_initialized_;
   std::unique_ptr<symbol_enricher> symbol_enricher_;
   std::unique_ptr<w1::abi::api_analyzer> api_analyzer_;
+
+  // Call stack tracking for return value analysis  
+  struct pending_call {
+    uint64_t call_target_address;
+    std::string target_symbol_name;
+    std::string target_module;
+    w1::abi::api_info api_info;
+    uint64_t timestamp;
+  };
+  std::vector<pending_call> call_stack_;
 
   register_state capture_registers(QBDI::GPRState* gpr) const;
   stack_info capture_stack_info(QBDI::VMInstanceRef vm, QBDI::GPRState* gpr) const;
