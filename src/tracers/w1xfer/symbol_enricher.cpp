@@ -4,33 +4,29 @@
 namespace w1xfer {
 
 symbol_enricher::symbol_enricher() {
-  auto log = redlog::get_logger("w1xfer::symbol_enricher");
-
 #ifdef WITNESS_LIEF_ENABLED
-  log.info("creating LIEF symbol resolver with enhanced config");
+  log_.inf("creating lief symbol resolver with enhanced config");
 
   w1::lief::lief_symbol_resolver::config cfg;
-  cfg.max_cache_size = 100; // Cache more binaries for transfer analysis
+  cfg.max_cache_size = 100; // cache more binaries for transfer analysis
   cfg.prepopulate_exports = true;
   cfg.resolve_imports = true;
 
   resolver_ = std::make_unique<w1::lief::lief_symbol_resolver>(cfg);
 #else
-  log.warn("LIEF support not enabled, symbol resolution will be limited");
+  log_.wrn("lief support not enabled, symbol resolution will be limited");
 #endif
 }
 
 symbol_enricher::~symbol_enricher() = default;
 
 void symbol_enricher::initialize(const w1::util::module_range_index& module_index) {
-  auto log = redlog::get_logger("w1xfer::symbol_enricher");
-  log.dbg("initializing symbol enricher with module index", redlog::field("module_count", module_index.size()));
+  log_.dbg("initializing symbol enricher with module index", redlog::field("module_count", module_index.size()));
   module_index_ = &module_index;
 }
 
 std::optional<symbol_enricher::symbol_context> symbol_enricher::enrich_address(uint64_t address) const {
 #ifdef WITNESS_LIEF_ENABLED
-  auto log = redlog::get_logger("w1xfer::symbol_enricher");
 
   // check symbol cache first
   {
@@ -42,20 +38,20 @@ std::optional<symbol_enricher::symbol_context> symbol_enricher::enrich_address(u
   }
 
   if (!resolver_ || !module_index_) {
-    log.err("no resolver or module index available");
+    log_.err("no resolver or module index available");
     return std::nullopt;
   }
 
   // find which module contains this address
   auto module = module_index_->find_containing(address);
   if (!module) {
-    log.dbg("no module found for address", redlog::field("address", address));
+    log_.dbg("no module found for address", redlog::field("address", address));
     return std::nullopt;
   }
 
   // calculate offset within module
   uint64_t module_offset = address - module->base_address;
-  log.trc(
+  log_.trc(
       "resolving symbol", redlog::field("address", address), redlog::field("module_name", module->name),
       redlog::field("module_path", module->path), redlog::field("module_offset", module_offset)
   );
@@ -64,12 +60,12 @@ std::optional<symbol_enricher::symbol_context> symbol_enricher::enrich_address(u
   // try with the path first (which might just be the name)
   std::string search_path = module->path;
 
-  log.dbg("calling LIEF resolver", redlog::field("search_path", search_path), redlog::field("offset", module_offset));
+  log_.dbg("calling lief resolver", redlog::field("search_path", search_path), redlog::field("offset", module_offset));
 
   auto symbol = resolver_->resolve_in_module(search_path, module_offset);
 
   if (!symbol) {
-    log.dbg("no symbol found", redlog::field("path", search_path), redlog::field("offset", module_offset));
+    log_.dbg("no symbol found", redlog::field("path", search_path), redlog::field("offset", module_offset));
 
     // return basic context with module info
     symbol_context ctx;
@@ -88,7 +84,7 @@ std::optional<symbol_enricher::symbol_context> symbol_enricher::enrich_address(u
     return ctx;
   }
 
-  log.trc(
+  log_.trc(
       "symbol resolved", redlog::field("address", address), redlog::field("symbol_name", symbol->name),
       redlog::field("demangled_name", symbol->demangled_name), redlog::field("symbol_offset", symbol->offset),
       redlog::field("is_exported", symbol->is_exported)
@@ -110,8 +106,7 @@ std::optional<symbol_enricher::symbol_context> symbol_enricher::enrich_address(u
 
   return result;
 #else
-  auto log = redlog::get_logger("w1xfer::symbol_enricher");
-  log.trc("LIEF not enabled, no symbol resolution available");
+  log_.trc("lief not enabled, no symbol resolution available");
   return std::nullopt;
 #endif
 }

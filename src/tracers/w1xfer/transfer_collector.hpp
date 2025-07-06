@@ -6,6 +6,7 @@
 #include <vector>
 
 #include <QBDI.h>
+#include <redlog.hpp>
 #include <common/ext/jsonstruct.hpp>
 #include <w1tn3ss/util/module_range_index.hpp>
 #include <w1tn3ss/util/module_scanner.hpp>
@@ -39,8 +40,8 @@ struct stack_info {
 struct symbol_info {
   std::string symbol_name;
   std::string demangled_name;
-  uint64_t symbol_offset; // Offset within the symbol
-  uint64_t module_offset; // Offset within the module
+  uint64_t symbol_offset; // offset within the symbol
+  uint64_t module_offset; // offset within the module
   bool is_exported;
   bool is_imported;
 
@@ -180,6 +181,7 @@ private:
   bool modules_initialized_;
   std::unique_ptr<symbol_enricher> symbol_enricher_;
   std::unique_ptr<w1::abi::api_listener> api_listener_;
+  redlog::logger log_ = redlog::get_logger("w1.transfer_collector");
 
   uint64_t get_timestamp() const;
   void update_call_depth(transfer_type type);

@@ -361,7 +361,7 @@ private:
   QBDI::VM* vm_;
   TTracer& tracer_;
   bool owns_vm_;
-  redlog::logger log_ = redlog::get_logger("w1tn3ss.tracer_engine");
+  redlog::logger log_{"w1.tracer_engine"};
 
   // - SFINAE detection for callback methods (C++17)
 

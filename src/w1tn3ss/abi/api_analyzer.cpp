@@ -8,7 +8,7 @@ namespace w1::abi {
 class api_analyzer::impl {
 public:
   impl(const analyzer_config& config)
-      : config_(config), log_("w1.abi.api_analyzer"), api_db_(std::make_shared<api_knowledge_db>()),
+      : config_(config), log_("w1.api_analyzer"), api_db_(std::make_shared<api_knowledge_db>()),
         detector_(std::make_shared<calling_convention_detector>()), argument_extractor_(api_db_, detector_) {
 
 #ifdef WITNESS_LIEF_ENABLED

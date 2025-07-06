@@ -15,6 +15,8 @@
 #include <LIEF/LIEF.hpp>
 #endif
 
+#include <redlog.hpp>
+
 #ifdef __APPLE__
 #include "macos_dyld_resolver.hpp"
 #endif
@@ -88,6 +90,7 @@ public:
 private:
   config config_;
   std::unique_ptr<lief_binary_cache> binary_cache_;
+  redlog::logger log_;
 
   // Platform-specific resolution
   std::optional<symbol_info> resolve_elf_symbol(LIEF::ELF::Binary* elf, uint64_t offset) const;
@@ -129,6 +132,7 @@ private:
   mutable std::atomic<size_t> hits_;
   mutable std::atomic<size_t> misses_;
   mutable std::atomic<size_t> negative_hits_; // Hits on failed path cache
+  redlog::logger log_;
 
 #ifdef __APPLE__
   std::shared_ptr<macos_dyld_resolver> dyld_resolver_;

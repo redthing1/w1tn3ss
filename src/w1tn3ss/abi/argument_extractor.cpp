@@ -13,20 +13,20 @@ public:
       std::shared_ptr<api_knowledge_db> api_db, std::shared_ptr<calling_convention_detector> detector,
       const extractor_config& config
   )
-      : api_db_(api_db), detector_(detector), config_(config), log_("w1::abi::argument_extractor") {
+      : api_db_(api_db), detector_(detector), config_(config), log_("w1.argument_extractor") {
 
     if (!detector_) {
       detector_ = std::make_shared<calling_convention_detector>();
     }
-    log_.debug("initialized argument extractor with detector");
+    log_.dbg("initialized argument extractor with detector");
   }
 
   impl(
       std::shared_ptr<calling_convention_base> convention, std::shared_ptr<api_knowledge_db> api_db,
       const extractor_config& config
   )
-      : default_convention_(convention), api_db_(api_db), config_(config), log_("w1::abi::argument_extractor") {
-    log_.debug("initialized argument extractor with fixed convention");
+      : default_convention_(convention), api_db_(api_db), config_(config), log_("w1.argument_extractor") {
+    log_.dbg("initialized argument extractor with fixed convention");
   }
 
   extracted_call_info extract_call(
@@ -58,7 +58,7 @@ public:
       const std::string& api_name, const std::string& module_name, calling_convention_ptr convention,
       const util::safe_memory_reader& memory, const call_context& ctx
   ) const {
-    log_.debug(
+    log_.dbg(
         "extracting call arguments", redlog::field("api", api_name), redlog::field("module", module_name),
         redlog::field("convention", convention->get_name())
     );
@@ -84,7 +84,7 @@ public:
     }
 
     if (api_info) {
-      log_.debug(
+      log_.dbg(
           "found api info", redlog::field("api", api_name), redlog::field("params", api_info->parameters.size()),
           redlog::field("category", static_cast<int>(api_info->api_category))
       );
@@ -101,7 +101,7 @@ public:
         const auto& param = api_info->parameters[i];
         uint64_t raw_value = i < raw_args.size() ? raw_args[i] : 0;
 
-        log_.debug(
+        log_.dbg(
             "extracting parameter", redlog::field("index", i), redlog::field("name", param.name),
             redlog::field("type", static_cast<int>(param.param_type)), redlog::field("raw_value", raw_value)
         );
@@ -110,7 +110,7 @@ public:
         info.arguments.push_back(std::move(arg));
       }
     } else {
-      log_.debug("no api info found, extracting raw arguments", redlog::field("api", api_name));
+      log_.dbg("no api info found, extracting raw arguments", redlog::field("api", api_name));
 
       // extract raw arguments without semantic info
       size_t max_args = 6; // reasonable default
@@ -136,7 +136,7 @@ public:
   void extract_return_value(
       extracted_call_info& call_info, const util::safe_memory_reader& memory, const call_context& ctx
   ) const {
-    log_.debug("extracting return value", redlog::field("api", call_info.api_name));
+    log_.dbg("extracting return value", redlog::field("api", call_info.api_name));
 
     // determine convention
     calling_convention_ptr convention;

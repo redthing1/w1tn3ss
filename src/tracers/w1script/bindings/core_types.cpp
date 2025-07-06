@@ -4,8 +4,8 @@
 namespace w1::tracers::script::bindings {
 
 void setup_core_types(sol::state& lua, sol::table& w1_module) {
-  auto log = redlog::get_logger("w1script.bindings.core_types");
-  log.dbg("setting up core QBDI types and enums");
+  auto logger = redlog::get_logger("w1.script_bindings");
+  logger.dbg("setting up core qbdi types and enums");
 
   // vmAction enum - controls VM execution flow
   // used in callbacks to determine how the VM should proceed after instruction execution
@@ -194,7 +194,7 @@ void setup_core_types(sol::state& lua, sol::table& w1_module) {
       "lastSignal", &QBDI::VMState::lastSignal            // Last signal (not implemented)
   );
 
-  log.dbg("core types registered successfully");
+  logger.dbg("core types registered successfully");
 }
 
 } // namespace w1::tracers::script::bindings

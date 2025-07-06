@@ -27,7 +27,7 @@ static void ensure_modules_initialized() {
 
   g_modules_initialized = true;
 
-  auto log = redlog::get_logger("w1script.lua");
+  auto log = redlog::get_logger("w1.script_lua");
   log.dbg("module analysis system initialized with " + std::to_string(g_index->size()) + " modules");
 }
 
@@ -46,8 +46,8 @@ static std::string module_type_to_string(w1::util::module_type type) {
 }
 
 void setup_module_analysis(sol::state& lua, sol::table& w1_module) {
-  auto log = redlog::get_logger("w1script.bindings.module_analysis");
-  log.dbg("setting up module analysis functions");
+  auto logger = redlog::get_logger("w1.script_bindings");
+  logger.dbg("setting up module analysis functions");
 
   // === simple module name lookup ===
   w1_module.set_function("module_get_name", [](uint64_t address) -> std::string {
@@ -124,12 +124,12 @@ void setup_module_analysis(sol::state& lua, sol::table& w1_module) {
       g_index->rebuild_from_modules(std::move(modules));
       g_modules_initialized = true;
 
-      auto log = redlog::get_logger("w1script.lua");
+      auto log = redlog::get_logger("w1.script_lua");
       log.inf("module rescan completed, found " + std::to_string(module_count) + " modules");
 
       return true;
     } catch (const std::exception& e) {
-      auto log = redlog::get_logger("w1script.lua");
+      auto log = redlog::get_logger("w1.script_lua");
       log.err("module scan failed: " + std::string(e.what()));
       return false;
     }
@@ -141,7 +141,7 @@ void setup_module_analysis(sol::state& lua, sol::table& w1_module) {
     return g_index->size();
   });
 
-  log.dbg("module analysis functions setup complete");
+  logger.dbg("module analysis functions setup complete");
 }
 
 } // namespace w1::tracers::script::bindings

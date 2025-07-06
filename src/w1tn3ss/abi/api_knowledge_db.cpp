@@ -19,14 +19,14 @@ namespace w1::abi {
 // implementation class
 class api_knowledge_db::impl {
 public:
-  impl() : log_("w1::abi::api_knowledge_db") {
-    log_.debug("initializing api knowledge database");
+  impl() : log_("w1.api_knowledge_db") {
+    log_.dbg("initializing api knowledge database");
     load_builtin_apis();
     log_.info("loaded builtin apis", redlog::field("count", apis_.size()));
   }
 
   std::optional<api_info> lookup(const std::string& api_name) const {
-    log_.debug("looking up api", redlog::field("name", api_name));
+    log_.dbg("looking up api", redlog::field("name", api_name));
 
     // try exact match first
     auto it = apis_.find(api_name);
@@ -44,7 +44,7 @@ public:
       std::string without_underscore = api_name.substr(1);
       it = apis_.find(without_underscore);
       if (it != apis_.end()) {
-        log_.debug(
+        log_.dbg(
             "found api info without underscore", redlog::field("original", api_name),
             redlog::field("matched", without_underscore), redlog::field("module", it->second.module),
             redlog::field("param_count", it->second.parameters.size())
@@ -57,7 +57,7 @@ public:
     std::string with_underscore = "_" + api_name;
     it = apis_.find(with_underscore);
     if (it != apis_.end()) {
-      log_.debug(
+      log_.dbg(
           "found api info with underscore", redlog::field("original", api_name),
           redlog::field("matched", with_underscore), redlog::field("module", it->second.module),
           redlog::field("param_count", it->second.parameters.size())
@@ -65,24 +65,24 @@ public:
       return it->second;
     }
 
-    log_.debug("api not found", redlog::field("name", api_name));
+    log_.dbg("api not found", redlog::field("name", api_name));
     return std::nullopt;
   }
 
   std::optional<api_info> lookup(const std::string& module, const std::string& api_name) const {
-    log_.debug("looking up api with module", redlog::field("module", module), redlog::field("name", api_name));
+    log_.dbg("looking up api with module", redlog::field("module", module), redlog::field("name", api_name));
 
     // try exact match first
     auto it = apis_.find(api_name);
     if (it != apis_.end() && it->second.module == module) {
-      log_.debug("found exact match", redlog::field("name", api_name));
+      log_.dbg("found exact match", redlog::field("name", api_name));
       return it->second;
     }
 
     // try module prefix match (e.g., "libc.so.6" matches "libc.so")
     if (it != apis_.end()) {
       if (it->second.module.find(module) != std::string::npos || module.find(it->second.module) != std::string::npos) {
-        log_.debug(
+        log_.dbg(
             "found partial module match", redlog::field("name", api_name),
             redlog::field("actual_module", it->second.module)
         );
@@ -90,12 +90,12 @@ public:
       }
     }
 
-    log_.debug("api not found for module", redlog::field("module", module), redlog::field("name", api_name));
+    log_.dbg("api not found for module", redlog::field("module", module), redlog::field("name", api_name));
     return std::nullopt;
   }
 
   std::vector<std::string> get_apis_by_category(api_info::category category) const {
-    log_.debug("getting apis by category", redlog::field("category", static_cast<int>(category)));
+    log_.dbg("getting apis by category", redlog::field("category", static_cast<int>(category)));
 
     std::vector<std::string> result;
     for (const auto& [name, info] : apis_) {
@@ -104,7 +104,7 @@ public:
       }
     }
 
-    log_.debug(
+    log_.dbg(
         "found apis in category", redlog::field("category", static_cast<int>(category)),
         redlog::field("count", result.size())
     );
@@ -112,7 +112,7 @@ public:
   }
 
   std::vector<std::string> get_apis_with_flags(uint32_t flags) const {
-    log_.debug("getting apis with flags", redlog::field("flags", flags));
+    log_.dbg("getting apis with flags", redlog::field("flags", flags));
 
     std::vector<std::string> result;
     for (const auto& [name, info] : apis_) {
@@ -121,18 +121,18 @@ public:
       }
     }
 
-    log_.debug("found apis with flags", redlog::field("flags", flags), redlog::field("count", result.size()));
+    log_.dbg("found apis with flags", redlog::field("flags", flags), redlog::field("count", result.size()));
     return result;
   }
 
   bool is_known_api(const std::string& api_name) const {
     bool known = apis_.find(api_name) != apis_.end();
-    log_.debug("checking if api is known", redlog::field("name", api_name), redlog::field("known", known));
+    log_.dbg("checking if api is known", redlog::field("name", api_name), redlog::field("known", known));
     return known;
   }
 
   std::vector<std::string> get_module_apis(const std::string& module) const {
-    log_.debug("getting apis for module", redlog::field("module", module));
+    log_.dbg("getting apis for module", redlog::field("module", module));
 
     std::vector<std::string> result;
     for (const auto& [name, info] : apis_) {
@@ -141,7 +141,7 @@ public:
       }
     }
 
-    log_.debug("found module apis", redlog::field("module", module), redlog::field("count", result.size()));
+    log_.dbg("found module apis", redlog::field("module", module), redlog::field("count", result.size()));
     return result;
   }
 
@@ -188,7 +188,7 @@ private:
   std::unordered_set<std::string> modules_;
 
   void load_builtin_apis() {
-    log_.debug("loading builtin apis for platform");
+    log_.dbg("loading builtin apis for platform");
 
     // load platform-specific apis
 #ifdef __APPLE__
@@ -202,13 +202,13 @@ private:
   }
 
   void load_api_set(const std::vector<api_info>& api_set, const std::string& set_name) {
-    log_.debug("loading api set", redlog::field("name", set_name));
+    log_.dbg("loading api set", redlog::field("name", set_name));
 
     for (const auto& api : api_set) {
       add_api(api);
     }
 
-    log_.debug("loaded api set", redlog::field("name", set_name), redlog::field("count", api_set.size()));
+    log_.dbg("loaded api set", redlog::field("name", set_name), redlog::field("count", api_set.size()));
   }
 
   // string conversion helpers

@@ -10,6 +10,7 @@
 #include <string>
 #include <memory>
 #include <w1tn3ss/util/module_range_index.hpp>
+#include <redlog.hpp>
 
 namespace w1 {
 namespace lief {
@@ -27,6 +28,7 @@ class api_analysis_manager;
 class script_tracer {
 private:
   config cfg_;
+  redlog::logger logger_;
 
   sol::state lua_;
   sol::table script_table_;

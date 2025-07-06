@@ -15,29 +15,29 @@ static std::string serialize_lua_value(const sol::object& value, int depth = 0);
 static std::string lua_table_to_json_internal(const sol::table& lua_table, int depth);
 
 void setup_utilities(sol::state& lua, sol::table& w1_module) {
-  auto log = redlog::get_logger("w1script.bindings.utilities");
-  log.dbg("setting up utility functions");
+  auto logger = redlog::get_logger("w1.script_bindings");
+  logger.dbg("setting up utility functions");
 
   // === Logging Functions ===
   // these provide integration with the redlog logging system
 
   w1_module.set_function("log_info", [](const std::string& msg) {
-    auto log = redlog::get_logger("w1script.lua");
+    auto log = redlog::get_logger("w1.script_lua");
     log.inf(msg);
   });
 
   w1_module.set_function("log_debug", [](const std::string& msg) {
-    auto log = redlog::get_logger("w1script.lua");
+    auto log = redlog::get_logger("w1.script_lua");
     log.dbg(msg);
   });
 
   w1_module.set_function("log_error", [](const std::string& msg) {
-    auto log = redlog::get_logger("w1script.lua");
+    auto log = redlog::get_logger("w1.script_lua");
     log.err(msg);
   });
 
   w1_module.set_function("log_warning", [](const std::string& msg) {
-    auto log = redlog::get_logger("w1script.lua");
+    auto log = redlog::get_logger("w1.script_lua");
     log.wrn(msg);
   });
 
@@ -54,7 +54,7 @@ void setup_utilities(sol::state& lua, sol::table& w1_module) {
       }
     } catch (...) {
       // log error but don't throw - return false instead
-      auto log = redlog::get_logger("w1script.lua");
+      auto log = redlog::get_logger("w1.script_lua");
       log.err("failed to write file: " + filename);
     }
     return false;
@@ -70,7 +70,7 @@ void setup_utilities(sol::state& lua, sol::table& w1_module) {
       }
     } catch (...) {
       // log error but don't throw - return false instead
-      auto log = redlog::get_logger("w1script.lua");
+      auto log = redlog::get_logger("w1.script_lua");
       log.err("failed to append to file: " + filename);
     }
     return false;
@@ -123,7 +123,7 @@ void setup_utilities(sol::state& lua, sol::table& w1_module) {
     return str.substr(start, end - start + 1);
   });
 
-  log.dbg("utility functions setup complete");
+  logger.dbg("utility functions setup complete");
 }
 
 // === JSON Serialization Implementation ===

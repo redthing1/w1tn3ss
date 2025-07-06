@@ -34,16 +34,14 @@ void calling_convention_factory::register_convention(
 
   std::lock_guard<std::mutex> lock(mutex_);
 
-  auto log = redlog::get_logger("w1.abi.factory");
-
   if (creators_.find(id) != creators_.end()) {
-    log.wrn("overwriting existing convention registration", redlog::field("id", to_string(id)));
+    log_.wrn("overwriting existing convention registration", redlog::field("id", to_string(id)));
   }
 
   creators_[id] = creator;
   name_to_id_[to_string(id)] = id;
 
-  log.dbg(
+  log_.dbg(
       "registered calling convention", redlog::field("id", to_string(id)), redlog::field("total", creators_.size())
   );
 }
@@ -126,7 +124,6 @@ bool calling_convention_factory::is_registered(calling_convention_id id) const {
 }
 
 void calling_convention_factory::register_platform_conventions() {
-  auto log = redlog::get_logger("w1.abi.factory");
 
 // Register conventions based on current platform
 #if defined(__x86_64__) || defined(_M_X64)
@@ -156,7 +153,7 @@ void calling_convention_factory::register_platform_conventions() {
 #endif
       ;
 
-  log.inf(
+  log_.inf(
       "registered platform conventions", redlog::field("platform", platform_str),
       redlog::field("count", creators_.size())
   );

@@ -92,13 +92,12 @@ bool memory_range_index::empty() const {
 }
 
 void memory_range_index::refresh_internal() const {
-  auto log = redlog::get_logger("w1.util.memory_range_index");
 
   size_t map_count = 0;
   QBDI::qbdi_MemoryMap* maps = QBDI::qbdi_getCurrentProcessMaps(true, &map_count);
 
   if (!maps) {
-    log.err("failed to get process memory maps");
+    log_.err("failed to get process memory maps");
     return;
   }
 
@@ -123,7 +122,7 @@ void memory_range_index::refresh_internal() const {
   initialized_ = true;
   last_refresh_ = std::chrono::steady_clock::now();
 
-  log.dbg("refreshed memory maps", redlog::field("regions", map_count));
+  log_.dbg("refreshed memory maps", redlog::field("regions", map_count));
 }
 
 } // namespace w1::util

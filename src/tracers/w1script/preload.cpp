@@ -43,15 +43,15 @@ extern "C" {
 QBDIPRELOAD_INIT;
 
 QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QBDI::rword stop) {
-  auto log = redlog::get_logger("w1script.preload");
+  auto logger = redlog::get_logger("w1.script_preload");
 
-  log.inf("qbdipreload_on_run called");
+  logger.inf("qbdipreload_on_run called");
 
   // get config
   g_config = w1::tracers::script::config::from_environment();
 
   if (!g_config.is_valid()) {
-    log.err("invalid configuration - W1SCRIPT_SCRIPT must be specified");
+    logger.err("invalid configuration - W1SCRIPT_SCRIPT must be specified");
     return QBDIPRELOAD_ERR_STARTUP_FAILED;
   }
 
@@ -82,58 +82,58 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
         200, // high priority
         "w1script_shutdown"
     );
-    log.inf("signal handling initialized for script shutdown");
+    logger.inf("signal handling initialized for script shutdown");
   } else {
-    log.wrn("failed to initialize signal handling - script shutdown on signal unavailable");
+    logger.wrn("failed to initialize signal handling - script shutdown on signal unavailable");
   }
 
   // create tracer
-  log.inf("creating script tracer");
+  logger.inf("creating script tracer");
   g_tracer = std::make_unique<w1::tracers::script::script_tracer>();
 
   // create engine
-  log.inf("creating tracer engine");
+  logger.inf("creating tracer engine");
   g_engine = std::make_unique<w1::tracer_engine<w1::tracers::script::script_tracer>>(vm, *g_tracer);
 
   // initialize tracer
   if (!g_tracer->initialize(*g_engine)) {
-    log.err("script tracer initialization failed");
+    logger.err("script tracer initialization failed");
     return QBDIPRELOAD_ERR_STARTUP_FAILED;
   }
 
   // instrument
-  log.inf("instrumenting engine");
+  logger.inf("instrumenting engine");
   if (!g_engine->instrument()) {
-    log.err("engine instrumentation failed");
+    logger.err("engine instrumentation failed");
     return QBDIPRELOAD_ERR_STARTUP_FAILED;
   }
 
-  log.inf("engine instrumentation successful");
+  logger.inf("engine instrumentation successful");
 
   // run engine
-  log.inf("running engine", redlog::field("start", "0x%08x", start), redlog::field("stop", "0x%08x", stop));
+  logger.inf("running engine", redlog::field("start", "0x%08x", start), redlog::field("stop", "0x%08x", stop));
   if (!g_engine->run(start, stop)) {
-    log.err("engine run failed");
+    logger.err("engine run failed");
     return QBDIPRELOAD_ERR_STARTUP_FAILED;
   }
 
   // execution doesn't reach here if it works (vm run jumps)
-  log.inf("qbdipreload_on_run completed");
+  logger.inf("qbdipreload_on_run completed");
 
   return QBDIPRELOAD_NO_ERROR;
 }
 
 QBDI_EXPORT int qbdipreload_on_exit(int status) {
-  auto log = redlog::get_logger("w1script.preload");
+  auto logger = redlog::get_logger("w1.script_preload");
 
-  log.inf("qbdipreload_on_exit called", redlog::field("status", status));
+  logger.inf("qbdipreload_on_exit called", redlog::field("status", status));
 
   if (g_tracer) {
-    log.inf("shutting down script tracer");
+    logger.inf("shutting down script tracer");
 
     shutdown_script();
 
-    log.inf("script tracer shutdown completed");
+    logger.inf("script tracer shutdown completed");
 
     g_tracer.reset();
   }
@@ -142,7 +142,7 @@ QBDI_EXPORT int qbdipreload_on_exit(int status) {
     g_engine.reset();
   }
 
-  log.inf("qbdipreload_on_exit completed");
+  logger.inf("qbdipreload_on_exit completed");
   return QBDIPRELOAD_NO_ERROR;
 }
 

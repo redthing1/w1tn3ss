@@ -7,6 +7,7 @@
 #include <mutex>
 #include <shared_mutex>
 #include <vector>
+#include <redlog.hpp>
 
 namespace w1::util {
 
@@ -25,7 +26,7 @@ public:
 
   enum access_type { READ = QBDI::QBDI_PF_READ, WRITE = QBDI::QBDI_PF_WRITE, EXEC = QBDI::QBDI_PF_EXEC };
 
-  memory_range_index() = default;
+  memory_range_index() : log_("w1.memory_range_index") {}
 
   // Main API: Check if access would succeed
   // If check fails, automatically refreshes mappings and tries again
@@ -46,6 +47,7 @@ private:
   mutable bool initialized_ = false;
   mutable std::chrono::steady_clock::time_point last_refresh_;
   static constexpr auto min_refresh_interval = std::chrono::milliseconds(100);
+  redlog::logger log_;
 
   // Check access without refresh
   bool check_access_internal(QBDI::rword address, size_t size, uint32_t perms) const;

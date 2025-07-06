@@ -39,7 +39,7 @@ std::vector<cleanup_entry> g_cleanups;
 std::vector<int> g_forwarding_pids;
 config g_config;
 std::atomic<bool> g_initialized{false};
-redlog::logger g_log = redlog::get_logger("w1.signal_handler");
+redlog::logger g_log("w1.signal_handler");
 
 void perform_cleanup() {
   // copy cleanup handlers and sort by priority (highest first)
@@ -164,7 +164,7 @@ bool initialize(const config& cfg) {
   {
     std::lock_guard<std::mutex> lock(g_mutex);
     g_config = cfg;
-    g_log = redlog::get_logger("w1.signal_handler." + cfg.context_name);
+    g_log = redlog::logger("w1.signal_handler." + cfg.context_name);
   }
 
   g_log.info("initializing signal handler system", redlog::field("context", cfg.context_name));
@@ -199,7 +199,7 @@ bool register_handler(signal_callback callback, const std::string& context) {
   std::lock_guard<std::mutex> lock(g_mutex);
   g_handlers.push_back({callback, context});
 
-  g_log.debug("registered signal handler", redlog::field("context", context));
+  g_log.dbg("registered signal handler", redlog::field("context", context));
   return true;
 }
 
@@ -211,7 +211,7 @@ bool register_cleanup(cleanup_callback callback, int priority, const std::string
   std::lock_guard<std::mutex> lock(g_mutex);
   g_cleanups.push_back({callback, priority, context});
 
-  g_log.debug("registered cleanup handler", redlog::field("context", context), redlog::field("priority", priority));
+  g_log.dbg("registered cleanup handler", redlog::field("context", context), redlog::field("priority", priority));
   return true;
 }
 
@@ -225,7 +225,7 @@ bool setup_forwarding(int child_pid) {
   auto it = std::find(g_forwarding_pids.begin(), g_forwarding_pids.end(), child_pid);
   if (it == g_forwarding_pids.end()) {
     g_forwarding_pids.push_back(child_pid);
-    g_log.debug("setup signal forwarding", redlog::field("child_pid", child_pid));
+    g_log.dbg("setup signal forwarding", redlog::field("child_pid", child_pid));
   }
 
   return true;
@@ -237,7 +237,7 @@ void remove_forwarding(int child_pid) {
   auto it = std::find(g_forwarding_pids.begin(), g_forwarding_pids.end(), child_pid);
   if (it != g_forwarding_pids.end()) {
     g_forwarding_pids.erase(it);
-    g_log.debug("removed signal forwarding", redlog::field("child_pid", child_pid));
+    g_log.dbg("removed signal forwarding", redlog::field("child_pid", child_pid));
   }
 }
 

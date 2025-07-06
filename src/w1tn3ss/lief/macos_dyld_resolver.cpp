@@ -9,7 +9,7 @@ namespace w1::lief {
 
 namespace fs = std::filesystem;
 
-macos_dyld_resolver::macos_dyld_resolver() : log_("w1::lief::macos_dyld") {
+macos_dyld_resolver::macos_dyld_resolver() : log_("w1.macos_dyld_resolver") {
 
   // check for dyld shared cache dump directory
   const char* dump_dir_env = std::getenv("DYLD_SHARED_CACHE_DUMP_DIR");

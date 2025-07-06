@@ -112,7 +112,7 @@ private:
   mutable std::shared_mutex index_mutex_;
   mutable std::mutex rescan_mutex_;
 
-  redlog::logger log_ = redlog::get_logger("w1.module_range_index");
+  redlog::logger log_{"w1.module_range_index"};
 
   void build_name_index();
   void rebuild_internal(std::vector<module_info> modules);

@@ -53,7 +53,7 @@ public:
 api_listener::impl::impl(const analyzer_config& config)
     : analyzer_(std::make_unique<api_analyzer>(config)),
       stats_{},
-      log_("w1.abi.listener") {
+      log_("w1.api_listener") {
 }
 
 bool api_listener::impl::has_callbacks_for(const std::string& module, const std::string& symbol, 

@@ -25,7 +25,7 @@ bool transfer_tracer::initialize(w1::tracer_engine<transfer_tracer>& engine) {
 
   QBDI::VM* vm = engine.get_vm();
   if (!vm) {
-    log_.error("vm instance is null");
+    log_.err("vm instance is null");
     return false;
   }
 
@@ -141,7 +141,7 @@ void transfer_tracer::export_report() const {
 
     std::ofstream file(config_.output_file);
     if (!file.is_open()) {
-      log_.error("failed to open output file", redlog::field("path", config_.output_file));
+      log_.err("failed to open output file", redlog::field("path", config_.output_file));
       return;
     }
 
@@ -158,7 +158,7 @@ void transfer_tracer::export_report() const {
     );
 
   } catch (const std::exception& e) {
-    log_.error("failed to export report", redlog::field("error", e.what()));
+    log_.err("failed to export report", redlog::field("error", e.what()));
   }
 }
 

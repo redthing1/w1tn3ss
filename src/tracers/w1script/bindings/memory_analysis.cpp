@@ -10,8 +10,8 @@
 namespace w1::tracers::script::bindings {
 
 void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
-  auto log = redlog::get_logger("w1script.bindings.memory_analysis");
-  log.dbg("setting up memory access and analysis functions");
+  auto logger = redlog::get_logger("w1.script_bindings");
+  logger.dbg("setting up memory access and analysis functions");
 
   // get memory accesses for the current instruction
   // returns a Lua table containing detailed information about all memory accesses
@@ -132,7 +132,7 @@ void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
   // memory management
   // allocate managed virtual stack
   w1_module.set_function("allocateVirtualStack", [](void* vm_ptr, uint32_t stackSize) -> sol::optional<QBDI::rword> {
-    auto log = redlog::get_logger("w1script.bindings.memory_analysis");
+    auto log = redlog::get_logger("w1.script_bindings");
     QBDI::VMInstanceRef vm = static_cast<QBDI::VMInstanceRef>(vm_ptr);
 
     try {
@@ -157,7 +157,7 @@ void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
 
   // simulate function call with arguments
   w1_module.set_function("simulateCall", [](void* vm_ptr, QBDI::rword returnAddress, sol::table args) -> bool {
-    auto log = redlog::get_logger("w1script.bindings.memory_analysis");
+    auto log = redlog::get_logger("w1.script_bindings");
     QBDI::VMInstanceRef vm = static_cast<QBDI::VMInstanceRef>(vm_ptr);
 
     try {
@@ -186,7 +186,7 @@ void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
 
   // aligned memory allocation
   w1_module.set_function("alignedAlloc", [](size_t size, size_t alignment) -> sol::optional<QBDI::rword> {
-    auto log = redlog::get_logger("w1script.bindings.memory_analysis");
+    auto log = redlog::get_logger("w1.script_bindings");
     try {
       void* ptr = QBDI::alignedAlloc(size, alignment);
       if (ptr) {
@@ -207,7 +207,7 @@ void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
 
   // aligned memory free
   w1_module.set_function("alignedFree", [](QBDI::rword ptr) -> bool {
-    auto log = redlog::get_logger("w1script.bindings.memory_analysis");
+    auto log = redlog::get_logger("w1.script_bindings");
     try {
       if (ptr != 0) {
         QBDI::alignedFree(reinterpret_cast<void*>(ptr));
@@ -227,7 +227,7 @@ void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
   // safe memory reading with error handling
   w1_module.set_function(
       "readMemory", [](void* vm_ptr, QBDI::rword address, size_t size) -> sol::optional<std::string> {
-        auto log = redlog::get_logger("w1script.bindings.memory_analysis");
+        auto log = redlog::get_logger("w1.script_bindings");
 
         try {
           // validate parameters
@@ -274,7 +274,7 @@ void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
 
   // safe memory writing with error handling
   w1_module.set_function("writeMemory", [](void* vm_ptr, QBDI::rword address, const std::string& hexData) -> bool {
-    auto log = redlog::get_logger("w1script.bindings.memory_analysis");
+    auto log = redlog::get_logger("w1.script_bindings");
 
     try {
       // validate hex string length
@@ -321,7 +321,7 @@ void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
 
   // basic address validity check (heuristic-based)
   w1_module.set_function("isAddressValid", [](void* vm_ptr, QBDI::rword address) -> bool {
-    auto log = redlog::get_logger("w1script.bindings.memory_analysis");
+    auto log = redlog::get_logger("w1.script_bindings");
 
     try {
       // basic heuristic checks for obviously invalid addresses
@@ -361,7 +361,7 @@ void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
   // memory mapping
   // get process memory layout
   w1_module.set_function("getMemoryMaps", [&lua](void* vm_ptr) -> sol::table {
-    auto log = redlog::get_logger("w1script.bindings.memory_analysis");
+    auto log = redlog::get_logger("w1.script_bindings");
     sol::state_view lua_view = lua.lua_state();
     sol::table result = lua_view.create_table();
 
@@ -395,7 +395,7 @@ void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
 
   // find memory map containing specific address
   w1_module.set_function("findMemoryMap", [&lua](void* vm_ptr, QBDI::rword address) -> sol::optional<sol::table> {
-    auto log = redlog::get_logger("w1script.bindings.memory_analysis");
+    auto log = redlog::get_logger("w1.script_bindings");
 
     try {
       std::vector<QBDI::MemoryMap> maps = QBDI::getCurrentProcessMaps(true);
@@ -433,7 +433,7 @@ void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
 
   // check if address is in executable memory region
   w1_module.set_function("isExecutableAddress", [](void* vm_ptr, QBDI::rword address) -> bool {
-    auto log = redlog::get_logger("w1script.bindings.memory_analysis");
+    auto log = redlog::get_logger("w1.script_bindings");
 
     try {
       std::vector<QBDI::MemoryMap> maps = QBDI::getCurrentProcessMaps(false);
@@ -464,7 +464,7 @@ void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
   // legacy read_memory function (improved implementation)
   w1_module.set_function(
       "read_memory", [](void* vm_ptr, QBDI::rword address, size_t size) -> sol::optional<std::string> {
-        auto log = redlog::get_logger("w1script.bindings.memory_analysis");
+        auto log = redlog::get_logger("w1.script_bindings");
 
         try {
           // validate parameters
@@ -550,7 +550,7 @@ void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
     return total_size;
   });
 
-  log.dbg("enhanced memory analysis functions setup complete with 16 functions");
+  logger.dbg("enhanced memory analysis functions setup complete with 16 functions");
 }
 
 } // namespace w1::tracers::script::bindings

@@ -4,6 +4,7 @@
 #include <unordered_map>
 #include <mutex>
 #include <functional>
+#include <redlog.hpp>
 
 namespace w1::abi {
 
@@ -39,11 +40,12 @@ public:
   bool is_registered(calling_convention_id id) const;
 
 private:
-  calling_convention_factory() = default;
+  calling_convention_factory() : log_("w1.calling_convention_factory") {}
 
   mutable std::mutex mutex_;
   std::unordered_map<calling_convention_id, std::function<calling_convention_ptr()>> creators_;
   std::unordered_map<std::string, calling_convention_id> name_to_id_;
+  redlog::logger log_;
 
   // platform-specific default selection
   calling_convention_id get_platform_default() const;

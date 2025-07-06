@@ -40,7 +40,7 @@ public:
   std::vector<module_info> scan_new_modules(const std::unordered_set<QBDI::rword>& known_bases);
 
 private:
-  redlog::logger log_ = redlog::get_logger("w1.module_scanner");
+  redlog::logger log_{"w1.module_scanner"};
 
   // platform-specific helpers
   std::vector<QBDI::MemoryMap> get_executable_maps();

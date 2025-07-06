@@ -33,7 +33,7 @@ public:
 private:
   transfer_config config_;
   transfer_collector collector_;
-  redlog::logger log_ = redlog::get_logger("w1xfer.tracer");
+  redlog::logger log_ = redlog::get_logger("w1.transfer_tracer");
 };
 
 } // namespace w1xfer

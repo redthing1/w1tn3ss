@@ -73,8 +73,8 @@ void api_analysis_manager::initialize(const util::module_range_index& index) {
 
 void api_analysis_manager::ensure_listener() {
     if (!listener_) {
-        auto log = redlog::get_logger("w1script.api_analysis");
-        log.inf("creating api_listener on first use");
+        auto logger = redlog::get_logger("w1.script_api_analysis");
+        logger.inf("creating api_listener on first use");
         
         // create with default config
         abi::analyzer_config cfg;
@@ -86,7 +86,7 @@ void api_analysis_manager::ensure_listener() {
         
         // initialize if we already have module index
         if (initialized_ && module_index_) {
-            log.inf("initializing api_listener with module index");
+            logger.inf("initializing api_listener with module index");
             listener_->initialize(*module_index_);
         }
     }
@@ -106,8 +106,8 @@ void api_analysis_manager::process_return(const abi::api_context& ctx) {
 
 void api_analysis_manager::shutdown() {
     if (listener_) {
-        auto log = redlog::get_logger("w1script.api_analysis");
-        log.dbg("shutting down api_listener");
+        auto logger = redlog::get_logger("w1.script_api_analysis");
+        logger.dbg("shutting down api_listener");
         listener_->clear_all_callbacks();
         listener_.reset();
     }
@@ -121,8 +121,8 @@ void setup_api_analysis(
     sol::table& tracer_table,
     std::shared_ptr<api_analysis_manager>& manager
 ) {
-    auto log = redlog::get_logger("w1script.bindings");
-    log.dbg("setting up api analysis bindings");
+    auto logger = redlog::get_logger("w1.script_bindings");
+    logger.dbg("setting up api analysis bindings");
     
     // ensure manager exists
     if (!manager) {
@@ -215,7 +215,7 @@ void setup_api_analysis(
                 auto result = callback(lua_event);
                 if (!result.valid()) {
                     sol::error err = result;
-                    auto log = redlog::get_logger("w1script.api_analysis");
+                    auto log = redlog::get_logger("w1.script_api_analysis");
                     log.err("error in api symbol callback", redlog::field("error", err.what()));
                 }
             });
@@ -235,7 +235,7 @@ void setup_api_analysis(
                 auto result = callback(lua_event);
                 if (!result.valid()) {
                     sol::error err = result;
-                    auto log = redlog::get_logger("w1script.api_analysis");
+                    auto log = redlog::get_logger("w1.script_api_analysis");
                     log.err("error in api module callback", redlog::field("error", err.what()));
                 }
             });
@@ -255,13 +255,13 @@ void setup_api_analysis(
                 auto result = callback(lua_event);
                 if (!result.valid()) {
                     sol::error err = result;
-                    auto log = redlog::get_logger("w1script.api_analysis");
+                    auto log = redlog::get_logger("w1.script_api_analysis");
                     log.err("error in api category callback", redlog::field("error", err.what()));
                 }
             });
     };
     
-    log.dbg("api analysis bindings registered successfully");
+    logger.dbg("api analysis bindings registered successfully");
 }
 
 } // namespace w1::tracers::script::bindings

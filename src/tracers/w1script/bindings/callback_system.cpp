@@ -104,7 +104,7 @@ LuaInstrRuleCallback* LuaCallbackManager::getInstrRuleCallback(uint32_t callback
 // C++ callback wrappers that call into Lua
 
 QBDI::VMAction luaInstCallbackWrapper(QBDI::VMInstanceRef vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr, void* data) {
-  auto log = redlog::get_logger("w1script.callbacks");
+  auto log = redlog::get_logger("w1.script_callbacks");
 
   if (!data) {
     log.err("null callback data in luaInstCallbackWrapper");
@@ -132,11 +132,11 @@ QBDI::VMAction luaInstCallbackWrapper(QBDI::VMInstanceRef vm, QBDI::GPRState* gp
       return action.value_or(QBDI::VMAction::CONTINUE);
     } else {
       sol::error err = result;
-      log.err("Lua callback error", redlog::field("error", err.what()));
+      log.err("lua callback error", redlog::field("error", err.what()));
       return QBDI::VMAction::CONTINUE;
     }
   } catch (const std::exception& e) {
-    log.err("exception in Lua instruction callback", redlog::field("error", e.what()));
+    log.err("exception in lua instruction callback", redlog::field("error", e.what()));
     return QBDI::VMAction::CONTINUE;
   }
 }
@@ -144,7 +144,7 @@ QBDI::VMAction luaInstCallbackWrapper(QBDI::VMInstanceRef vm, QBDI::GPRState* gp
 QBDI::VMAction luaVMCallbackWrapper(
     QBDI::VMInstanceRef vm, const QBDI::VMState* vmState, QBDI::GPRState* gpr, QBDI::FPRState* fpr, void* data
 ) {
-  auto log = redlog::get_logger("w1script.callbacks");
+  auto log = redlog::get_logger("w1.script_callbacks");
 
   if (!data) {
     log.err("null callback data in luaVMCallbackWrapper");
@@ -184,7 +184,7 @@ QBDI::VMAction luaVMCallbackWrapper(
 std::vector<QBDI::InstrRuleDataCBK> luaInstrRuleCallbackWrapper(
     QBDI::VMInstanceRef vm, const QBDI::InstAnalysis* analysis, void* data
 ) {
-  auto log = redlog::get_logger("w1script.callbacks");
+  auto log = redlog::get_logger("w1.script_callbacks");
 
   if (!data) {
     log.err("null callback data in luaInstrRuleCallbackWrapper");
@@ -225,13 +225,13 @@ std::vector<QBDI::InstrRuleDataCBK> luaInstrRuleCallbackWrapper(
 // main setup function for callback system
 
 void setup_callback_system(sol::state& lua, sol::table& w1_module) {
-  auto log = redlog::get_logger("w1script.bindings.callback_system");
-  log.dbg("setting up comprehensive callback registration system");
+  auto logger = redlog::get_logger("w1.script_bindings");
+  logger.dbg("setting up comprehensive callback registration system");
 
   // Initialize the callback manager
   if (!g_callback_manager) {
     g_callback_manager = std::make_shared<LuaCallbackManager>();
-    log.inf("initialized Lua callback manager");
+    logger.inf("initialized Lua callback manager");
   }
 
   //------------- instruction callbacks -------------
@@ -241,7 +241,7 @@ void setup_callback_system(sol::state& lua, sol::table& w1_module) {
       "addCodeCB",
       [](void* vm_ptr, int pos, sol::protected_function callback,
          sol::optional<int> priority_opt) -> sol::optional<uint32_t> {
-        auto log = redlog::get_logger("w1script.callbacks");
+        auto log = redlog::get_logger("w1.script_callbacks");
         QBDI::VM* vm = get_vm_instance(vm_ptr);
         if (!vm) {
           return sol::nullopt;
@@ -285,7 +285,7 @@ void setup_callback_system(sol::state& lua, sol::table& w1_module) {
       "addCodeAddrCB",
       [](void* vm_ptr, QBDI::rword address, int pos, sol::protected_function callback,
          sol::optional<int> priority_opt) -> sol::optional<uint32_t> {
-        auto log = redlog::get_logger("w1script.callbacks");
+        auto log = redlog::get_logger("w1.script_callbacks");
         QBDI::VM* vm = get_vm_instance(vm_ptr);
         if (!vm) {
           return sol::nullopt;
@@ -330,7 +330,7 @@ void setup_callback_system(sol::state& lua, sol::table& w1_module) {
       "addCodeRangeCB",
       [](void* vm_ptr, QBDI::rword start, QBDI::rword end, int pos, sol::protected_function callback,
          sol::optional<int> priority_opt) -> sol::optional<uint32_t> {
-        auto log = redlog::get_logger("w1script.callbacks");
+        auto log = redlog::get_logger("w1.script_callbacks");
         QBDI::VM* vm = get_vm_instance(vm_ptr);
         if (!vm) {
           return sol::nullopt;
@@ -376,7 +376,7 @@ void setup_callback_system(sol::state& lua, sol::table& w1_module) {
       "addMnemonicCB",
       [](void* vm_ptr, const std::string& mnemonic, int pos, sol::protected_function callback,
          sol::optional<int> priority_opt) -> sol::optional<uint32_t> {
-        auto log = redlog::get_logger("w1script.callbacks");
+        auto log = redlog::get_logger("w1.script_callbacks");
         QBDI::VM* vm = get_vm_instance(vm_ptr);
         if (!vm) {
           return sol::nullopt;
@@ -423,7 +423,7 @@ void setup_callback_system(sol::state& lua, sol::table& w1_module) {
       "addMemAccessCB",
       [](void* vm_ptr, int type, sol::protected_function callback,
          sol::optional<int> priority_opt) -> sol::optional<uint32_t> {
-        auto log = redlog::get_logger("w1script.callbacks");
+        auto log = redlog::get_logger("w1.script_callbacks");
         QBDI::VM* vm = get_vm_instance(vm_ptr);
         if (!vm) {
           return sol::nullopt;
@@ -464,7 +464,7 @@ void setup_callback_system(sol::state& lua, sol::table& w1_module) {
   w1_module.set_function(
       "addMemAddrCB",
       [](void* vm_ptr, QBDI::rword address, int type, sol::protected_function callback) -> sol::optional<uint32_t> {
-        auto log = redlog::get_logger("w1script.callbacks");
+        auto log = redlog::get_logger("w1.script_callbacks");
         QBDI::VM* vm = get_vm_instance(vm_ptr);
         if (!vm) {
           return sol::nullopt;
@@ -507,7 +507,7 @@ void setup_callback_system(sol::state& lua, sol::table& w1_module) {
       "addMemRangeCB",
       [](void* vm_ptr, QBDI::rword start, QBDI::rword end, int type,
          sol::protected_function callback) -> sol::optional<uint32_t> {
-        auto log = redlog::get_logger("w1script.callbacks");
+        auto log = redlog::get_logger("w1.script_callbacks");
         QBDI::VM* vm = get_vm_instance(vm_ptr);
         if (!vm) {
           return sol::nullopt;
@@ -551,7 +551,7 @@ void setup_callback_system(sol::state& lua, sol::table& w1_module) {
   // addVMEventCB - Control flow events
   w1_module.set_function(
       "addVMEventCB", [](void* vm_ptr, int mask, sol::protected_function callback) -> sol::optional<uint32_t> {
-        auto log = redlog::get_logger("w1script.callbacks");
+        auto log = redlog::get_logger("w1.script_callbacks");
         QBDI::VM* vm = get_vm_instance(vm_ptr);
         if (!vm) {
           return sol::nullopt;
@@ -592,7 +592,7 @@ void setup_callback_system(sol::state& lua, sol::table& w1_module) {
   // addInstrRule - Custom instrumentation rules
   w1_module.set_function(
       "addInstrRule", [](void* vm_ptr, sol::protected_function callback, int analysis_type) -> sol::optional<uint32_t> {
-        auto log = redlog::get_logger("w1script.callbacks");
+        auto log = redlog::get_logger("w1.script_callbacks");
         QBDI::VM* vm = get_vm_instance(vm_ptr);
         if (!vm) {
           return sol::nullopt;
@@ -635,7 +635,7 @@ void setup_callback_system(sol::state& lua, sol::table& w1_module) {
 
   // deleteInstrumentation - Remove specific callback
   w1_module.set_function("deleteInstrumentation", [](void* vm_ptr, uint32_t callback_id) -> bool {
-    auto log = redlog::get_logger("w1script.callbacks");
+    auto log = redlog::get_logger("w1.script_callbacks");
     QBDI::VM* vm = get_vm_instance(vm_ptr);
     if (!vm) {
       return false;
@@ -676,7 +676,7 @@ void setup_callback_system(sol::state& lua, sol::table& w1_module) {
 
   // deleteAllInstrumentations - Remove all callbacks
   w1_module.set_function("deleteAllInstrumentations", [](void* vm_ptr) -> bool {
-    auto log = redlog::get_logger("w1script.callbacks");
+    auto log = redlog::get_logger("w1.script_callbacks");
     QBDI::VM* vm = get_vm_instance(vm_ptr);
     if (!vm) {
       return false;
@@ -734,7 +734,7 @@ void setup_callback_system(sol::state& lua, sol::table& w1_module) {
 
   // recordMemoryAccess - Enable automatic memory logging
   w1_module.set_function("recordMemoryAccess", [](void* vm_ptr, int type) -> bool {
-    auto log = redlog::get_logger("w1script.callbacks");
+    auto log = redlog::get_logger("w1.script_callbacks");
     QBDI::VM* vm = get_vm_instance(vm_ptr);
     if (!vm) {
       return false;
@@ -756,7 +756,7 @@ void setup_callback_system(sol::state& lua, sol::table& w1_module) {
     }
   });
 
-  log.dbg("callback system setup complete");
+  logger.dbg("callback system setup complete");
 }
 
 } // namespace w1::tracers::script::bindings

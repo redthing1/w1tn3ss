@@ -5,8 +5,8 @@
 namespace w1::tracers::script::bindings {
 
 void setup_vm_control(sol::state& lua, sol::table& w1_module) {
-  auto log = redlog::get_logger("w1script.bindings.vm_control");
-  log.dbg("setting up VM control and instruction analysis functions");
+  auto logger = redlog::get_logger("w1.script_bindings");
+  logger.dbg("setting up vm control and instruction analysis functions");
 
   // address formatting utility
   // formats a QBDI::rword address as a hex string with consistent width
@@ -125,7 +125,7 @@ void setup_vm_control(sol::state& lua, sol::table& w1_module) {
     try {
       return vm->run(start, stop);
     } catch (const std::exception& e) {
-      auto log = redlog::get_logger("w1script.bindings.vm_control");
+      auto log = redlog::get_logger("w1.script_bindings");
       log.err("error in run(): " + std::string(e.what()));
       return false;
     }
@@ -151,7 +151,7 @@ void setup_vm_control(sol::state& lua, sol::table& w1_module) {
           QBDI::rword* retval = retval_ptr ? *retval_ptr : nullptr;
           return vm->call(retval, function, args);
         } catch (const std::exception& e) {
-          auto log = redlog::get_logger("w1script.bindings.vm_control");
+          auto log = redlog::get_logger("w1.script_bindings");
           log.err("error in call(): " + std::string(e.what()));
           return false;
         }
@@ -170,7 +170,7 @@ void setup_vm_control(sol::state& lua, sol::table& w1_module) {
     try {
       vm->setOptions(options);
     } catch (const std::exception& e) {
-      auto log = redlog::get_logger("w1script.bindings.vm_control");
+      auto log = redlog::get_logger("w1.script_bindings");
       log.err("error in setOptions(): " + std::string(e.what()));
     }
   });
@@ -183,7 +183,7 @@ void setup_vm_control(sol::state& lua, sol::table& w1_module) {
     try {
       vm->addInstrumentedRange(start, end);
     } catch (const std::exception& e) {
-      auto log = redlog::get_logger("w1script.bindings.vm_control");
+      auto log = redlog::get_logger("w1.script_bindings");
       log.err("error in addInstrumentedRange(): " + std::string(e.what()));
     }
   });
@@ -195,7 +195,7 @@ void setup_vm_control(sol::state& lua, sol::table& w1_module) {
     try {
       return vm->addInstrumentedModule(name);
     } catch (const std::exception& e) {
-      auto log = redlog::get_logger("w1script.bindings.vm_control");
+      auto log = redlog::get_logger("w1.script_bindings");
       log.err("error in addInstrumentedModule(): " + std::string(e.what()));
       return false;
     }
@@ -208,7 +208,7 @@ void setup_vm_control(sol::state& lua, sol::table& w1_module) {
     try {
       return vm->addInstrumentedModuleFromAddr(addr);
     } catch (const std::exception& e) {
-      auto log = redlog::get_logger("w1script.bindings.vm_control");
+      auto log = redlog::get_logger("w1.script_bindings");
       log.err("error in addInstrumentedModuleFromAddr(): " + std::string(e.what()));
       return false;
     }
@@ -220,7 +220,7 @@ void setup_vm_control(sol::state& lua, sol::table& w1_module) {
     try {
       vm->removeInstrumentedRange(start, end);
     } catch (const std::exception& e) {
-      auto log = redlog::get_logger("w1script.bindings.vm_control");
+      auto log = redlog::get_logger("w1.script_bindings");
       log.err("error in removeInstrumentedRange(): " + std::string(e.what()));
     }
   });
@@ -231,7 +231,7 @@ void setup_vm_control(sol::state& lua, sol::table& w1_module) {
     try {
       vm->removeAllInstrumentedRanges();
     } catch (const std::exception& e) {
-      auto log = redlog::get_logger("w1script.bindings.vm_control");
+      auto log = redlog::get_logger("w1.script_bindings");
       log.err("error in removeAllInstrumentedRanges(): " + std::string(e.what()));
     }
   });
@@ -251,7 +251,7 @@ void setup_vm_control(sol::state& lua, sol::table& w1_module) {
     try {
       vm->setGPRState(state);
     } catch (const std::exception& e) {
-      auto log = redlog::get_logger("w1script.bindings.vm_control");
+      auto log = redlog::get_logger("w1.script_bindings");
       log.err("error in setGPRState(): " + std::string(e.what()));
     }
   });
@@ -269,7 +269,7 @@ void setup_vm_control(sol::state& lua, sol::table& w1_module) {
     try {
       vm->setFPRState(state);
     } catch (const std::exception& e) {
-      auto log = redlog::get_logger("w1script.bindings.vm_control");
+      auto log = redlog::get_logger("w1.script_bindings");
       log.err("error in setFPRState(): " + std::string(e.what()));
     }
   });
@@ -282,7 +282,7 @@ void setup_vm_control(sol::state& lua, sol::table& w1_module) {
     try {
       vm->clearCache(start, end);
     } catch (const std::exception& e) {
-      auto log = redlog::get_logger("w1script.bindings.vm_control");
+      auto log = redlog::get_logger("w1.script_bindings");
       log.err("error in clearCache(): " + std::string(e.what()));
     }
   });
@@ -293,7 +293,7 @@ void setup_vm_control(sol::state& lua, sol::table& w1_module) {
     try {
       vm->clearAllCache();
     } catch (const std::exception& e) {
-      auto log = redlog::get_logger("w1script.bindings.vm_control");
+      auto log = redlog::get_logger("w1.script_bindings");
       log.err("error in clearAllCache(): " + std::string(e.what()));
     }
   });
@@ -305,7 +305,7 @@ void setup_vm_control(sol::state& lua, sol::table& w1_module) {
     try {
       return vm->precacheBasicBlock(pc);
     } catch (const std::exception& e) {
-      auto log = redlog::get_logger("w1script.bindings.vm_control");
+      auto log = redlog::get_logger("w1.script_bindings");
       log.err("error in precacheBasicBlock(): " + std::string(e.what()));
       return false;
     }
@@ -325,10 +325,10 @@ void setup_vm_control(sol::state& lua, sol::table& w1_module) {
       sol::table result = lua_view.create_table();
 
       // simplified memory map - would need platform-specific implementation for full functionality
-      auto log = redlog::get_logger("w1script.bindings.vm_control");
+      auto log = redlog::get_logger("w1.script_bindings");
       log.wrn("getCurrentProcessMaps not fully implemented - returning empty table");
     } catch (const std::exception& e) {
-      auto log = redlog::get_logger("w1script.bindings.vm_control");
+      auto log = redlog::get_logger("w1.script_bindings");
       log.err("error in getCurrentProcessMaps(): " + std::string(e.what()));
     }
 
@@ -347,17 +347,17 @@ void setup_vm_control(sol::state& lua, sol::table& w1_module) {
       sol::table result = lua_view.create_table();
 
       // simplified module names - would need platform-specific implementation for full functionality
-      auto log = redlog::get_logger("w1script.bindings.vm_control");
+      auto log = redlog::get_logger("w1.script_bindings");
       log.wrn("getModuleNames not fully implemented - returning empty table");
     } catch (const std::exception& e) {
-      auto log = redlog::get_logger("w1script.bindings.vm_control");
+      auto log = redlog::get_logger("w1.script_bindings");
       log.err("error in getModuleNames(): " + std::string(e.what()));
     }
 
     return result;
   });
 
-  log.dbg("vm control functions setup complete");
+  logger.dbg("vm control functions setup complete");
 }
 
 } // namespace w1::tracers::script::bindings

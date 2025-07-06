@@ -4,15 +4,15 @@
 namespace w1::tracers::script::bindings {
 
 void setup_register_access(sol::state& lua, sol::table& w1_module) {
-  auto log = redlog::get_logger("w1script.bindings.register_access");
-  log.dbg("setting up platform-specific register access functions");
+  auto logger = redlog::get_logger("w1.script_bindings");
+  logger.dbg("setting up platform-specific register access functions");
 
   // platform-specific register access functions
   // these functions take a void* pointer to GPRState and return the register value
 
 #if defined(__x86_64__) || defined(_M_X64) || defined(__amd64__)
 
-  log.dbg("registering x86_64 register access functions");
+  logger.dbg("registering x86_64 register access functions");
 
   // general purpose registers
   w1_module.set_function("get_reg_rax", [](void* gpr_ptr) -> QBDI::rword {
@@ -221,11 +221,11 @@ void setup_register_access(sol::state& lua, sol::table& w1_module) {
     gpr->gs = value;
   });
 
-  log.inf("x86_64 register functions registered");
+  logger.inf("x86_64 register functions registered");
 
 #elif defined(__aarch64__) || defined(_M_ARM64)
 
-  log.dbg("registering ARM64 register access functions");
+  logger.dbg("registering ARM64 register access functions");
 
   // parameter and result registers
   w1_module.set_function("get_reg_x0", [](void* gpr_ptr) -> QBDI::rword {
@@ -574,11 +574,11 @@ void setup_register_access(sol::state& lua, sol::table& w1_module) {
     gpr->nzcv = value;
   });
 
-  log.inf("ARM64 register functions registered");
+  logger.inf("ARM64 register functions registered");
 
 #elif defined(__arm__) || defined(_M_ARM)
 
-  log.dbg("registering ARM32 register access functions");
+  logger.dbg("registering ARM32 register access functions");
 
   // general purpose registers
   w1_module.set_function("get_reg_r0", [](void* gpr_ptr) -> QBDI::rword {
@@ -757,11 +757,11 @@ void setup_register_access(sol::state& lua, sol::table& w1_module) {
     gpr->cpsr = value;
   });
 
-  log.inf("ARM32 register functions registered");
+  logger.inf("ARM32 register functions registered");
 
 #elif defined(__i386__) || defined(_M_IX86)
 
-  log.dbg("registering x86 32-bit register access functions");
+  logger.dbg("registering x86 32-bit register access functions");
 
   // general purpose registers
   w1_module.set_function("get_reg_eax", [](void* gpr_ptr) -> QBDI::rword {
@@ -865,13 +865,13 @@ void setup_register_access(sol::state& lua, sol::table& w1_module) {
     gpr->eflags = value;
   });
 
-  log.inf("x86 32-bit register functions registered");
+  logger.inf("x86 32-bit register functions registered");
 
 #else
-  log.wrn("no register functions available for this architecture");
+  logger.wrn("no register functions available for this architecture");
 #endif
 
-  log.dbg("register access functions setup complete");
+  logger.dbg("register access functions setup complete");
 }
 
 } // namespace w1::tracers::script::bindings

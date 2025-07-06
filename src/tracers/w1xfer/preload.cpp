@@ -38,10 +38,11 @@ extern "C" {
 
 QBDIPRELOAD_INIT;
 
-QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QBDI::rword stop) {
-  auto log = redlog::get_logger("w1xfer.preload");
+static auto logger = redlog::get_logger("w1.preload");
 
-  log.inf("w1xfer preload starting");
+QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QBDI::rword stop) {
+
+  logger.inf("w1xfer preload starting");
 
   // get config from environment
   try {
@@ -71,46 +72,46 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
           200, // high priority
           "w1xfer_shutdown"
       );
-      log.inf("signal handling initialized for tracer shutdown");
+      logger.inf("signal handling initialized for tracer shutdown");
     } else {
-      log.wrn("failed to initialize signal handling - shutdown on signal unavailable");
+      logger.wrn("failed to initialize signal handling - shutdown on signal unavailable");
     }
 
     // create tracer
-    log.inf("creating transfer tracer");
+    logger.inf("creating transfer tracer");
     g_tracer = std::make_unique<w1xfer::transfer_tracer>(config);
 
     // create engine
-    log.inf("creating tracer engine");
+    logger.inf("creating tracer engine");
     g_engine = std::make_unique<w1::tracer_engine<w1xfer::transfer_tracer>>(vm, *g_tracer);
 
     // initialize tracer
     if (!g_tracer->initialize(*g_engine)) {
-      log.error("tracer initialization failed");
+      logger.err("tracer initialization failed");
       return QBDIPRELOAD_ERR_STARTUP_FAILED;
     }
 
     // instrument
-    log.inf("instrumenting engine");
+    logger.inf("instrumenting engine");
     if (!g_engine->instrument()) {
-      log.error("engine instrumentation failed");
+      logger.err("engine instrumentation failed");
       return QBDIPRELOAD_ERR_STARTUP_FAILED;
     }
 
-    log.inf("engine instrumentation successful");
+    logger.inf("engine instrumentation successful");
 
     // run engine
-    log.inf("running engine", redlog::field("start", "0x%016llx", start), redlog::field("stop", "0x%016llx", stop));
+    logger.inf("running engine", redlog::field("start", "0x%016llx", start), redlog::field("stop", "0x%016llx", stop));
     if (!g_engine->run(start, stop)) {
-      log.error("engine run failed");
+      logger.err("engine run failed");
       return QBDIPRELOAD_ERR_STARTUP_FAILED;
     }
 
     // execution doesn't reach here if it works (vm run jumps)
-    log.inf("w1xfer preload completed");
+    logger.inf("w1xfer preload completed");
 
   } catch (const std::exception& e) {
-    log.error("failed to initialize w1xfer tracer", redlog::field("error", e.what()));
+    logger.err("failed to initialize w1xfer tracer", redlog::field("error", e.what()));
     return QBDIPRELOAD_ERR_STARTUP_FAILED;
   }
 
@@ -118,8 +119,7 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
 }
 
 QBDI_EXPORT int qbdipreload_on_exit(int status) {
-  auto log = redlog::get_logger("w1xfer.preload");
-  log.inf("w1xfer preload exit", redlog::field("status", status));
+  logger.inf("w1xfer preload exit", redlog::field("status", status));
 
   if (g_tracer) {
     g_tracer->shutdown();

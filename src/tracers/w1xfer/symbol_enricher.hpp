@@ -6,6 +6,7 @@
 #include <vector>
 #include <unordered_map>
 #include <mutex>
+#include <redlog.hpp>
 #include <w1tn3ss/lief/lief_symbol_resolver.hpp>
 #include <w1tn3ss/util/module_range_index.hpp>
 
@@ -18,8 +19,8 @@ public:
     std::string module_name;
     std::string symbol_name;
     std::string demangled_name;
-    uint64_t symbol_offset; // Offset within the symbol
-    uint64_t module_offset; // Offset within the module
+    uint64_t symbol_offset; // offset within the symbol
+    uint64_t module_offset; // offset within the module
     bool is_exported = false;
     bool is_imported = false;
   };
@@ -52,6 +53,7 @@ public:
 private:
   std::unique_ptr<w1::lief::lief_symbol_resolver> resolver_;
   const w1::util::module_range_index* module_index_ = nullptr;
+  redlog::logger log_ = redlog::get_logger("w1.symbol_enricher");
 
   // address-to-symbol cache to avoid repeated lookups
   mutable std::unordered_map<uint64_t, std::optional<symbol_context>> symbol_cache_;

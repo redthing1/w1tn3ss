@@ -12,24 +12,21 @@
 
 namespace w1::tracers::script {
 
-script_tracer::script_tracer() = default;
+script_tracer::script_tracer() : logger_(redlog::get_logger("w1.script_tracer")) {}
 script_tracer::~script_tracer() = default;
 
 bool script_tracer::initialize(w1::tracer_engine<script_tracer>& engine) {
   cfg_ = config::from_environment();
 
   if (!cfg_.is_valid()) {
-    auto log = redlog::get_logger("w1script.tracer");
-    log.err("invalid configuration. W1SCRIPT_SCRIPT must be specified.");
+    logger_.err("invalid configuration. W1SCRIPT_SCRIPT must be specified.");
     return false;
   }
-
-  auto log = redlog::get_logger("w1script.tracer");
-  log.inf("initializing with Lua support");
-  log.inf("script path", redlog::field("path", cfg_.script_path));
+  logger_.inf("initializing with lua support");
+  logger_.inf("script path", redlog::field("path", cfg_.script_path));
 
   if (!load_script()) {
-    log.err("failed to load script");
+    logger_.err("failed to load script");
     return false;
   }
 
@@ -45,13 +42,13 @@ bool script_tracer::initialize(w1::tracer_engine<script_tracer>& engine) {
         is_callback_enabled("memory_read_write")) {
       bool memory_recording_enabled = vm->recordMemoryAccess(QBDI::MEMORY_READ_WRITE);
       if (memory_recording_enabled) {
-        log.inf("memory recording enabled for script");
+        logger_.inf("memory recording enabled for script");
       } else {
-        log.wrn("memory recording not supported on this platform");
+        logger_.wrn("memory recording not supported on this platform");
       }
     }
   } else {
-    log.err("VM instance is null, cannot register callbacks");
+    logger_.err("vm instance is null, cannot register callbacks");
     return false;
   }
 
@@ -60,28 +57,27 @@ bool script_tracer::initialize(w1::tracer_engine<script_tracer>& engine) {
   auto modules = scanner.scan_executable_modules();
   module_index_ = std::make_unique<w1::util::module_range_index>();
   module_index_->rebuild_from_modules(std::move(modules));
-  log.inf("module index built", redlog::field("module_count", module_index_->size()));
+  logger_.inf("module index built", redlog::field("module_count", module_index_->size()));
   
   // create symbol resolver if lief is enabled
 #ifdef WITNESS_LIEF_ENABLED
   symbol_resolver_ = std::make_unique<w1::lief::lief_symbol_resolver>();
-  log.inf("symbol resolver created");
+  logger_.inf("symbol resolver created");
 #endif
   
   // initialize api manager if created
   if (api_manager_) {
-    log.inf("initializing API manager");
+    logger_.inf("initializing api manager");
     api_manager_->initialize(*module_index_);
   }
   
-  log.inf("initialization complete", redlog::field("enabled_callbacks", enabled_callbacks_.size()));
+  logger_.inf("initialization complete", redlog::field("enabled_callbacks", enabled_callbacks_.size()));
   return true;
 }
 
 void script_tracer::shutdown() {
-  auto log = redlog::get_logger("w1script.tracer");
   if (cfg_.verbose) {
-    log.inf("shutting down");
+    logger_.inf("shutting down");
   }
 
   // call script shutdown function if it exists
@@ -91,7 +87,7 @@ void script_tracer::shutdown() {
       try {
         shutdown_fn.value()();
       } catch (const sol::error& e) {
-        log.err("error in script shutdown", redlog::field("error", e.what()));
+        logger_.err("error in script shutdown", redlog::field("error", e.what()));
       }
     }
   }
@@ -124,8 +120,7 @@ bool script_tracer::load_script() {
     sol::load_result script = lua_.load_file(cfg_.script_path);
     if (!script.valid()) {
       sol::error err = script;
-      auto log = redlog::get_logger("w1script.tracer");
-      log.err("failed to load script", redlog::field("error", err.what()));
+      logger_.err("failed to load script", redlog::field("error", err.what()));
       return false;
     }
 
@@ -133,15 +128,13 @@ bool script_tracer::load_script() {
     sol::protected_function_result result = script();
     if (!result.valid()) {
       sol::error err = result;
-      auto log = redlog::get_logger("w1script.tracer");
-      log.err("failed to execute script", redlog::field("error", err.what()));
+      logger_.err("failed to execute script", redlog::field("error", err.what()));
       return false;
     }
 
     // get the returned table
     if (!result.return_count() || result.get_type() != sol::type::table) {
-      auto log = redlog::get_logger("w1script.tracer");
-      log.err("script must return a table");
+      logger_.err("script must return a table");
       return false;
     }
 
@@ -154,20 +147,17 @@ bool script_tracer::load_script() {
     sol::optional<sol::function> init_fn = script_table_["init"];
     if (init_fn) {
       try {
-        auto log = redlog::get_logger("w1script.tracer");
-        log.dbg("calling script init function");
+        logger_.dbg("calling script init function");
         init_fn.value()();
       } catch (const sol::error& e) {
-        auto log = redlog::get_logger("w1script.tracer");
-        log.err("error in script init function", redlog::field("error", e.what()));
+        logger_.err("error in script init function", redlog::field("error", e.what()));
         return false;
       }
     }
 
     return true;
   } catch (const std::exception& e) {
-    auto log = redlog::get_logger("w1script.tracer");
-    log.err("exception loading script", redlog::field("error", e.what()));
+    logger_.err("exception loading script", redlog::field("error", e.what()));
     return false;
   }
 }
@@ -184,8 +174,7 @@ void script_tracer::setup_callbacks() {
       if (pair.second.get_type() == sol::type::string) {
         std::string callback_name = pair.second.as<std::string>();
         enabled_callbacks_.insert(callback_name);
-        auto log = redlog::get_logger("w1script.tracer");
-        log.dbg("found callback", redlog::field("name", callback_name));
+        logger_.dbg("found callback", redlog::field("name", callback_name));
       }
     }
   }
@@ -227,8 +216,7 @@ bool script_tracer::is_callback_enabled(const std::string& callback_name) const 
 }
 
 void script_tracer::register_callbacks_dynamically(QBDI::VM* vm) {
-  auto log = redlog::get_logger("w1script.tracer");
-  log.inf("registering callbacks dynamically based on script requirements");
+  logger_.inf("registering callbacks dynamically based on script requirements");
 
   // instruction callbacks (addCodeCB)
   if (is_callback_enabled("instruction_preinst")) {
@@ -239,7 +227,7 @@ void script_tracer::register_callbacks_dynamically(QBDI::VM* vm) {
     );
     if (id != QBDI::INVALID_EVENTID) {
       registered_callback_ids_.push_back(id);
-      log.inf("registered instruction_preinst callback", redlog::field("id", id));
+      logger_.inf("registered instruction_preinst callback", redlog::field("id", id));
     }
   }
 
@@ -251,7 +239,7 @@ void script_tracer::register_callbacks_dynamically(QBDI::VM* vm) {
     );
     if (id != QBDI::INVALID_EVENTID) {
       registered_callback_ids_.push_back(id);
-      log.inf("registered instruction_postinst callback", redlog::field("id", id));
+      logger_.inf("registered instruction_postinst callback", redlog::field("id", id));
     }
   }
 
@@ -277,7 +265,7 @@ void script_tracer::register_callbacks_dynamically(QBDI::VM* vm) {
       );
       if (id != QBDI::INVALID_EVENTID) {
         registered_callback_ids_.push_back(id);
-        log.inf("registered vm event callback", redlog::field("name", callback_name), redlog::field("id", id));
+        logger_.inf("registered vm event callback", redlog::field("name", callback_name), redlog::field("id", id));
       }
     }
   }
@@ -299,12 +287,12 @@ void script_tracer::register_callbacks_dynamically(QBDI::VM* vm) {
       );
       if (id != QBDI::INVALID_EVENTID) {
         registered_callback_ids_.push_back(id);
-        log.inf("registered memory access callback", redlog::field("name", callback_name), redlog::field("id", id));
+        logger_.inf("registered memory access callback", redlog::field("name", callback_name), redlog::field("id", id));
       }
     }
   }
 
-  log.inf("dynamic callback registration complete", redlog::field("total_callbacks", registered_callback_ids_.size()));
+  logger_.inf("dynamic callback registration complete", redlog::field("total_callbacks", registered_callback_ids_.size()));
 }
 
 QBDI::VMAction script_tracer::dispatch_simple_callback(
@@ -321,8 +309,7 @@ QBDI::VMAction script_tracer::dispatch_simple_callback(
       return static_cast<QBDI::VMAction>(result.get<int>());
     }
   } catch (const sol::error& e) {
-    auto log = redlog::get_logger("w1script.tracer");
-    log.err("error in callback", redlog::field("callback", callback_name), redlog::field("error", e.what()));
+    logger_.err("error in callback", redlog::field("callback", callback_name), redlog::field("error", e.what()));
   }
   return QBDI::VMAction::CONTINUE;
 }
@@ -361,8 +348,7 @@ QBDI::VMAction script_tracer::dispatch_vm_event_callback(
 #endif
       }
       
-      auto log = redlog::get_logger("w1script.tracer");
-      log.dbg("processing API call", redlog::field("target", ctx.target_address), 
+      logger_.dbg("processing api call", redlog::field("target", ctx.target_address), 
               redlog::field("module", ctx.module_name), redlog::field("symbol", ctx.symbol_name));
       api_manager_->process_call(ctx);
     } else {
@@ -399,8 +385,7 @@ QBDI::VMAction script_tracer::dispatch_vm_event_callback(
       return static_cast<QBDI::VMAction>(result.get<int>());
     }
   } catch (const sol::error& e) {
-    auto log = redlog::get_logger("w1script.tracer");
-    log.err("error in vm event callback", redlog::field("callback", callback_name), redlog::field("error", e.what()));
+    logger_.err("error in vm event callback", redlog::field("callback", callback_name), redlog::field("error", e.what()));
   }
   return QBDI::VMAction::CONTINUE;
 }
@@ -418,8 +403,7 @@ std::vector<QBDI::InstrRuleDataCBK> script_tracer::dispatch_instr_rule_callback(
     // for now, return empty vector - instruction rules require more complex handling
     return {};
   } catch (const sol::error& e) {
-    auto log = redlog::get_logger("w1script.tracer");
-    log.err("error in instr rule callback", redlog::field("callback", callback_name), redlog::field("error", e.what()));
+    logger_.err("error in instr rule callback", redlog::field("callback", callback_name), redlog::field("error", e.what()));
   }
   return {};
 }
