@@ -5,6 +5,14 @@
 #include <sstream>
 #include <string>
 
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+
+#include <windows.h>
 #include "winapis.h"
 #include "inject.hpp"
 #include "util.hpp"
@@ -31,7 +39,8 @@ std::wstring build_command_line(const std::wstring& binary_path, const std::vect
   return cmd_line;
 }
 
-BOOL inject_dll_launch_suspended(
+// internal windows implementation  
+static BOOL inject_dll_launch_suspended_impl(
     const std::wstring& binary_path, const std::wstring& dll_path, const std::vector<std::string>& args,
     const std::map<std::string, std::string>& env_vars, DWORD* out_pid, bool interactive_resume,
     bool wait_for_completion
@@ -382,4 +391,22 @@ BOOL inject_dll_launch_suspended(
   }
 
   return TRUE;
+}
+
+// clean wrapper for the public api
+bool w1::inject::windows::inject_dll_launch_suspended(
+    const std::wstring& binary_path, 
+    const std::wstring& dll_path, 
+    const std::vector<std::string>& args,
+    const std::map<std::string, std::string>& env_vars, 
+    process_id* out_pid, 
+    bool interactive_resume,
+    bool wait_for_completion
+) {
+  DWORD win_pid;
+  BOOL result = inject_dll_launch_suspended_impl(binary_path, dll_path, args, env_vars, &win_pid, interactive_resume, wait_for_completion);
+  if (out_pid) {
+    *out_pid = static_cast<process_id>(win_pid);
+  }
+  return result != FALSE;
 }

@@ -1,10 +1,19 @@
 #include <sstream>
 
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+
+#include <windows.h>
 #include "winapis.h"
 #include "inject.hpp"
 #include "util.hpp"
 
-BOOL inject_dll_create_remote_thread(HANDLE h_process, const std::wstring& dll_path) {
+// internal windows implementation
+static BOOL inject_dll_create_remote_thread_impl(HANDLE h_process, const std::wstring& dll_path) {
   // this function injects a dll into a target process using the createremotethread method
   log_msg("starting CreateRemoteThread injection method");
 
@@ -114,4 +123,11 @@ BOOL inject_dll_create_remote_thread(HANDLE h_process, const std::wstring& dll_p
 
   log_msg("CreateRemoteThread injection completed");
   return TRUE;
+}
+
+// clean wrapper for the public api
+bool w1::inject::windows::inject_dll_create_remote_thread(process_handle h_process, const std::wstring& dll_path) {
+  HANDLE win_handle = static_cast<HANDLE>(h_process);
+  BOOL result = inject_dll_create_remote_thread_impl(win_handle, dll_path);
+  return result != FALSE;
 }

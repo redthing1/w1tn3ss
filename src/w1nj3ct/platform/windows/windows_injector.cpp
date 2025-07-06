@@ -75,19 +75,19 @@ result inject_runtime(const config& cfg) {
   std::wstring dll_path = string_to_wstring(cfg.library_path);
 
   // choose injection technique and inject
-  BOOL success = FALSE;
+  bool success = false;
   switch (cfg.windows_technique) {
   case windows_technique::create_remote_thread:
-    success = inject_dll_create_remote_thread(h_process, dll_path);
+    success = w1::inject::windows::inject_dll_create_remote_thread(h_process, dll_path);
     break;
   case windows_technique::set_windows_hook:
-    success = inject_dll_set_windows_hook_ex(h_process, target_pid, dll_path);
+    success = w1::inject::windows::inject_dll_set_windows_hook_ex(h_process, target_pid, dll_path);
     break;
   case windows_technique::rtl_create_user_thread:
-    success = inject_dll_rtl_create_user_thread(h_process, dll_path);
+    success = w1::inject::windows::inject_dll_rtl_create_user_thread(h_process, dll_path);
     break;
   case windows_technique::reflective_loader:
-    success = inject_dll_reflective_loader(h_process, dll_path);
+    success = w1::inject::windows::inject_dll_reflective_loader(h_process, dll_path);
     break;
   default:
     CloseHandle(h_process);
@@ -117,8 +117,8 @@ result inject_preload(const config& cfg) {
   std::wstring dll_path = string_to_wstring(cfg.library_path);
 
   // perform launch injection
-  DWORD target_pid = 0;
-  BOOL success = inject_dll_launch_suspended(
+  w1::inject::windows::process_id target_pid = 0;
+  bool success = w1::inject::windows::inject_dll_launch_suspended(
       binary_path, dll_path, cfg.args, cfg.env_vars, &target_pid, cfg.suspended, cfg.wait_for_completion
   );
 
