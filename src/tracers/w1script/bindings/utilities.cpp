@@ -10,7 +10,7 @@
 
 namespace w1::tracers::script::bindings {
 
-// Forward declarations for internal functions
+// forward declarations for internal functions
 static std::string serialize_lua_value(const sol::object& value, int depth = 0);
 static std::string lua_table_to_json_internal(const sol::table& lua_table, int depth);
 
@@ -19,7 +19,7 @@ void setup_utilities(sol::state& lua, sol::table& w1_module) {
   log.dbg("setting up utility functions");
 
   // === Logging Functions ===
-  // These provide integration with the redlog logging system
+  // these provide integration with the redlog logging system
 
   w1_module.set_function("log_info", [](const std::string& msg) {
     auto log = redlog::get_logger("w1script.lua");
@@ -42,7 +42,7 @@ void setup_utilities(sol::state& lua, sol::table& w1_module) {
   });
 
   // === File I/O Functions ===
-  // These provide safe file operations for data output
+  // these provide safe file operations for data output
 
   w1_module.set_function("write_file", [](const std::string& filename, const std::string& content) -> bool {
     try {
@@ -53,7 +53,7 @@ void setup_utilities(sol::state& lua, sol::table& w1_module) {
         return true;
       }
     } catch (...) {
-      // Log error but don't throw - return false instead
+      // log error but don't throw - return false instead
       auto log = redlog::get_logger("w1script.lua");
       log.err("failed to write file: " + filename);
     }
@@ -69,7 +69,7 @@ void setup_utilities(sol::state& lua, sol::table& w1_module) {
         return true;
       }
     } catch (...) {
-      // Log error but don't throw - return false instead
+      // log error but don't throw - return false instead
       auto log = redlog::get_logger("w1script.lua");
       log.err("failed to append to file: " + filename);
     }
@@ -77,14 +77,14 @@ void setup_utilities(sol::state& lua, sol::table& w1_module) {
   });
 
   // === JSON Serialization ===
-  // Convert Lua tables to JSON strings for structured output
+  // convert Lua tables to JSON strings for structured output
 
   w1_module.set_function("to_json", [](const sol::table& lua_table) -> std::string {
     return lua_table_to_json(lua_table);
   });
 
   // === Timestamp Functions ===
-  // Generate timestamps for logging and data collection
+  // generate timestamps for logging and data collection
 
   w1_module.set_function("get_timestamp", []() -> std::string {
     auto now = std::chrono::system_clock::now();
@@ -108,7 +108,7 @@ void setup_utilities(sol::state& lua, sol::table& w1_module) {
   });
 
   // === String Utilities ===
-  // Additional string manipulation functions
+  // additional string manipulation functions
 
   w1_module.set_function("escape_string", [](const std::string& str) -> std::string {
     return escape_json_string(str);
@@ -188,7 +188,7 @@ bool is_lua_array(const sol::table& table) {
     return false;
   }
 
-  // Sort indices and check if they're consecutive starting from 1
+  // sort indices and check if they're consecutive starting from 1
   std::sort(indices.begin(), indices.end());
   for (size_t i = 0; i < indices.size(); i++) {
     if (indices[i] != static_cast<int>(i + 1)) {
@@ -200,7 +200,7 @@ bool is_lua_array(const sol::table& table) {
 }
 
 static std::string serialize_lua_value(const sol::object& value, int depth) {
-  // Prevent infinite recursion
+  // prevent infinite recursion
   if (depth > 32) {
     return "\"[max_depth_exceeded]\"";
   }
@@ -234,7 +234,7 @@ static std::string serialize_lua_value(const sol::object& value, int depth) {
   } else if (value.is<sol::table>()) {
     return lua_table_to_json_internal(value.as<sol::table>(), depth + 1);
   } else {
-    // Fallback: try to convert to string
+    // fallback: try to convert to string
     try {
       std::string str_repr = value.as<std::string>();
       return escape_json_string(str_repr);
@@ -246,7 +246,7 @@ static std::string serialize_lua_value(const sol::object& value, int depth) {
 
 static std::string lua_table_to_json_internal(const sol::table& lua_table, int depth) {
   try {
-    // Prevent infinite recursion
+    // prevent infinite recursion
     if (depth > 32) {
       return "{\"error\":\"max_recursion_depth_exceeded\"}";
     }
@@ -254,7 +254,7 @@ static std::string lua_table_to_json_internal(const sol::table& lua_table, int d
     std::stringstream json_stream;
 
     if (is_lua_array(lua_table)) {
-      // Serialize as JSON array
+      // serialize as JSON array
       json_stream << "[";
       bool first = true;
 
@@ -268,7 +268,7 @@ static std::string lua_table_to_json_internal(const sol::table& lua_table, int d
 
       json_stream << "]";
     } else {
-      // Serialize as JSON object
+      // serialize as JSON object
       json_stream << "{";
       bool first = true;
 
@@ -277,7 +277,7 @@ static std::string lua_table_to_json_internal(const sol::table& lua_table, int d
           json_stream << ",";
         }
 
-        // Convert key to string
+        // convert key to string
         std::string key;
         if (pair.first.is<std::string>()) {
           key = pair.first.as<std::string>();
@@ -286,7 +286,7 @@ static std::string lua_table_to_json_internal(const sol::table& lua_table, int d
         } else if (pair.first.is<double>()) {
           key = std::to_string(pair.first.as<double>());
         } else {
-          // Try to convert to string as fallback
+          // try to convert to string as fallback
           try {
             key = pair.first.as<std::string>();
           } catch (...) {

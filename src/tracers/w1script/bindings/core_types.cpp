@@ -8,7 +8,7 @@ void setup_core_types(sol::state& lua, sol::table& w1_module) {
   log.dbg("setting up core QBDI types and enums");
 
   // vmAction enum - controls VM execution flow
-  // Used in callbacks to determine how the VM should proceed after instruction execution
+  // used in callbacks to determine how the VM should proceed after instruction execution
   w1_module.new_enum(
       "VMAction", "CONTINUE", QBDI::VMAction::CONTINUE, // Continue normal execution
       "SKIP_INST", QBDI::VMAction::SKIP_INST,           // Skip current instruction
@@ -18,15 +18,15 @@ void setup_core_types(sol::state& lua, sol::table& w1_module) {
   );
 
   // InstAnalysis usertype - provides detailed instruction analysis information
-  // This contains all the metadata about the currently executing instruction
+  // this contains all the metadata about the currently executing instruction
   lua.new_usertype<QBDI::InstAnalysis>(
       "InstAnalysis",
 
-      // Basic instruction properties
+      // basic instruction properties
       "address", &QBDI::InstAnalysis::address,   // Instruction address
       "instSize", &QBDI::InstAnalysis::instSize, // Instruction size in bytes
 
-      // Control flow analysis
+      // control flow analysis
       "affectControlFlow", &QBDI::InstAnalysis::affectControlFlow, // Does instruction affect control flow?
       "isBranch", &QBDI::InstAnalysis::isBranch,                   // Is it a branch instruction?
       "isCall", &QBDI::InstAnalysis::isCall,                       // Is it a function call?
@@ -34,18 +34,18 @@ void setup_core_types(sol::state& lua, sol::table& w1_module) {
       "isCompare", &QBDI::InstAnalysis::isCompare,                 // Is it a comparison instruction?
       "isPredicable", &QBDI::InstAnalysis::isPredicable,           // Can it be predicated?
 
-      // Memory access properties
+      // memory access properties
       "mayLoad", &QBDI::InstAnalysis::mayLoad,     // Might load from memory?
       "mayStore", &QBDI::InstAnalysis::mayStore,   // Might store to memory?
       "loadSize", &QBDI::InstAnalysis::loadSize,   // Size of memory load (if any)
       "storeSize", &QBDI::InstAnalysis::storeSize, // Size of memory store (if any)
 
-      // Conditional execution
+      // conditional execution
       "condition", &QBDI::InstAnalysis::condition // Execution condition (if any)
   );
 
   // vmEvent enum - VM state change events
-  // Used to trigger callbacks at specific execution points
+  // used to trigger callbacks at specific execution points
   w1_module.new_enum(
       "VMEvent", "NO_EVENT", QBDI::VMEvent::NO_EVENT,              // No event
       "BASIC_BLOCK_ENTRY", QBDI::VMEvent::BASIC_BLOCK_ENTRY,       // Basic block entry
@@ -61,7 +61,7 @@ void setup_core_types(sol::state& lua, sol::table& w1_module) {
   );
 
   // MemoryAccessType enum - types of memory access operations
-  // Used to filter memory access callbacks by operation type
+  // used to filter memory access callbacks by operation type
   w1_module.new_enum(
       "MemoryAccessType", "MEMORY_READ", QBDI::MemoryAccessType::MEMORY_READ, // Memory read operation
       "MEMORY_WRITE", QBDI::MemoryAccessType::MEMORY_WRITE,                   // Memory write operation
@@ -69,7 +69,7 @@ void setup_core_types(sol::state& lua, sol::table& w1_module) {
   );
 
   // MemoryAccessFlags enum - flags describing memory access properties
-  // Provides additional information about memory access operations
+  // provides additional information about memory access operations
   w1_module.new_enum(
       "MemoryAccessFlags", "MEMORY_NO_FLAGS", QBDI::MemoryAccessFlags::MEMORY_NO_FLAGS, // No special flags
       "MEMORY_UNKNOWN_SIZE", QBDI::MemoryAccessFlags::MEMORY_UNKNOWN_SIZE,              // Size is unknown
@@ -78,14 +78,14 @@ void setup_core_types(sol::state& lua, sol::table& w1_module) {
   );
 
   // InstPosition enum - position relative to instruction execution
-  // Used to specify when callbacks are triggered relative to instruction
+  // used to specify when callbacks are triggered relative to instruction
   w1_module.new_enum(
       "InstPosition", "PREINST", QBDI::InstPosition::PREINST, // Before instruction execution
       "POSTINST", QBDI::InstPosition::POSTINST                // After instruction execution
   );
 
   // AnalysisType enum - types of instruction analysis available
-  // Used to specify what analysis information should be computed
+  // used to specify what analysis information should be computed
   w1_module.new_enum(
       "AnalysisType", "ANALYSIS_INSTRUCTION", QBDI::AnalysisType::ANALYSIS_INSTRUCTION, // Basic instruction info
       "ANALYSIS_DISASSEMBLY", QBDI::AnalysisType::ANALYSIS_DISASSEMBLY,                 // Disassembly text
@@ -95,7 +95,7 @@ void setup_core_types(sol::state& lua, sol::table& w1_module) {
   );
 
   // ConditionType enum - instruction condition types
-  // Used to describe conditional execution properties of instructions
+  // used to describe conditional execution properties of instructions
   w1_module.new_enum(
       "ConditionType", "CONDITION_NONE", QBDI::ConditionType::CONDITION_NONE, // Unconditional
       "CONDITION_ALWAYS", QBDI::ConditionType::CONDITION_ALWAYS,              // Always true
@@ -119,7 +119,7 @@ void setup_core_types(sol::state& lua, sol::table& w1_module) {
   );
 
   // OperandType enum - types of instruction operands
-  // Used to categorize operands in instruction analysis
+  // used to categorize operands in instruction analysis
   w1_module.new_enum(
       "OperandType", "OPERAND_INVALID", QBDI::OperandType::OPERAND_INVALID, // Invalid operand
       "OPERAND_IMM", QBDI::OperandType::OPERAND_IMM,                        // Immediate operand
@@ -130,7 +130,7 @@ void setup_core_types(sol::state& lua, sol::table& w1_module) {
   );
 
   // OperandFlag enum - flags describing operand properties
-  // Provides additional metadata about operand usage
+  // provides additional metadata about operand usage
   w1_module.new_enum(
       "OperandFlag", "OPERANDFLAG_NONE", QBDI::OperandFlag::OPERANDFLAG_NONE,          // No flags
       "OPERANDFLAG_ADDR", QBDI::OperandFlag::OPERANDFLAG_ADDR,                         // Used for address computation
@@ -140,7 +140,7 @@ void setup_core_types(sol::state& lua, sol::table& w1_module) {
   );
 
   // RegisterAccessType enum - register access patterns
-  // Used to describe how registers are accessed in operands
+  // used to describe how registers are accessed in operands
   w1_module.new_enum(
       "RegisterAccessType", "REGISTER_UNUSED", QBDI::RegisterAccessType::REGISTER_UNUSED, // Register not used
       "REGISTER_READ", QBDI::RegisterAccessType::REGISTER_READ,                           // Register read access
@@ -149,17 +149,17 @@ void setup_core_types(sol::state& lua, sol::table& w1_module) {
   );
 
   // OperandAnalysis usertype - detailed analysis of instruction operands
-  // Provides comprehensive information about individual operands
+  // provides comprehensive information about individual operands
   lua.new_usertype<QBDI::OperandAnalysis>(
       "OperandAnalysis",
 
-      // Core operand properties
+      // core operand properties
       "type", &QBDI::OperandAnalysis::type,   // Operand type (immediate, register, etc.)
       "flag", &QBDI::OperandAnalysis::flag,   // Operand flags (address, PC-relative, etc.)
       "value", &QBDI::OperandAnalysis::value, // Operand value (immediate) or register ID
       "size", &QBDI::OperandAnalysis::size,   // Operand size in bytes
 
-      // Register-specific properties
+      // register-specific properties
       "regOff", &QBDI::OperandAnalysis::regOff,       // Sub-register offset in bits
       "regCtxIdx", &QBDI::OperandAnalysis::regCtxIdx, // Register index in VM state
       "regName", &QBDI::OperandAnalysis::regName,     // Register name string
@@ -167,11 +167,11 @@ void setup_core_types(sol::state& lua, sol::table& w1_module) {
   );
 
   // MemoryAccess usertype - describes a memory access operation
-  // Contains complete information about memory reads and writes
+  // contains complete information about memory reads and writes
   lua.new_usertype<QBDI::MemoryAccess>(
       "MemoryAccess",
 
-      // Memory access details
+      // memory access details
       "instAddress", &QBDI::MemoryAccess::instAddress,     // Address of instruction making access
       "accessAddress", &QBDI::MemoryAccess::accessAddress, // Address of accessed memory
       "value", &QBDI::MemoryAccess::value,                 // Value read from or written to memory
@@ -181,7 +181,7 @@ void setup_core_types(sol::state& lua, sol::table& w1_module) {
   );
 
   // vmState usertype - describes current VM execution state
-  // Provides context about VM events and execution boundaries
+  // provides context about VM events and execution boundaries
   lua.new_usertype<QBDI::VMState>(
       "VMState",
 

@@ -19,19 +19,19 @@ function tracer.on_exec_transfer_call(vm, state, gpr, fpr)
     local source_addr = w1.format_address(state.sequenceStart)
     local target_addr = w1.format_address(pc)
     
-    -- get module names for source and target
+    -- get module names for source and target addresses
     local source_module = w1.module_get_name(state.sequenceStart)
     local target_module = w1.module_get_name(pc)
     
     total_calls = total_calls + 1
     current_call_depth = current_call_depth + 1
     
-    -- track unique call targets
+    -- track unique call targets for statistics
     if not unique_call_targets[target_addr] then
         unique_call_targets[target_addr] = true
     end
     
-    -- track module statistics
+    -- track module statistics for call analysis
     module_call_stats[target_module] = (module_call_stats[target_module] or 0) + 1
     
     -- update max call depth
@@ -39,7 +39,7 @@ function tracer.on_exec_transfer_call(vm, state, gpr, fpr)
         max_call_depth = current_call_depth
     end
     
-    -- push call info onto stack
+    -- push call info onto stack for return matching
     table.insert(call_stack, {
         source = source_addr,
         target = target_addr,
@@ -59,22 +59,22 @@ function tracer.on_exec_transfer_return(vm, state, gpr, fpr)
     local source_addr = w1.format_address(state.sequenceStart)
     local target_addr = w1.format_address(pc)
     
-    -- get module names for source and target
+    -- get module names for source and target addresses
     local source_module = w1.module_get_name(state.sequenceStart)
     local target_module = w1.module_get_name(pc)
     
     total_returns = total_returns + 1
     current_call_depth = math.max(0, current_call_depth - 1)
     
-    -- track unique return sources
+    -- track unique return sources for statistics
     if not unique_return_sources[source_addr] then
         unique_return_sources[source_addr] = true
     end
     
-    -- track module statistics
+    -- track module statistics for return analysis
     module_return_stats[source_module] = (module_return_stats[source_module] or 0) + 1
     
-    -- pop from call stack if available
+    -- pop from call stack if available for return matching
     local call_info = nil
     if #call_stack > 0 then
         call_info = table.remove(call_stack)

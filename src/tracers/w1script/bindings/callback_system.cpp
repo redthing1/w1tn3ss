@@ -4,10 +4,10 @@
 
 namespace w1::tracers::script::bindings {
 
-// Global callback manager instance
+// global callback manager instance
 std::shared_ptr<LuaCallbackManager> g_callback_manager;
 
-// Helper function implementations
+// helper function implementations
 
 uint32_t getNextCallbackId(LuaCallbackManager* mgr) { return mgr->next_callback_id_++; }
 
@@ -222,7 +222,7 @@ std::vector<QBDI::InstrRuleDataCBK> luaInstrRuleCallbackWrapper(
   }
 }
 
-// Main setup function for callback system
+// main setup function for callback system
 
 void setup_callback_system(sol::state& lua, sol::table& w1_module) {
   auto log = redlog::get_logger("w1script.bindings.callback_system");

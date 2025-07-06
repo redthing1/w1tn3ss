@@ -92,7 +92,7 @@ bool memory_range_index::empty() const {
 }
 
 void memory_range_index::refresh_internal() const {
-  auto log = redlog::get_logger("w1::util::memory_range_index");
+  auto log = redlog::get_logger("w1.util.memory_range_index");
 
   size_t map_count = 0;
   QBDI::qbdi_MemoryMap* maps = QBDI::qbdi_getCurrentProcessMaps(true, &map_count);

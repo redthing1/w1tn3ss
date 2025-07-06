@@ -8,7 +8,7 @@ namespace w1::abi {
 class api_analyzer::impl {
 public:
   impl(const analyzer_config& config)
-      : config_(config), log_("w1::abi::api_analyzer"), api_db_(std::make_shared<api_knowledge_db>()),
+      : config_(config), log_("w1.abi.api_analyzer"), api_db_(std::make_shared<api_knowledge_db>()),
         detector_(std::make_shared<calling_convention_detector>()), argument_extractor_(api_db_, detector_) {
 
 #ifdef WITNESS_LIEF_ENABLED
@@ -31,7 +31,7 @@ public:
     stats_.calls_analyzed++;
 
     try {
-      // Step 1: Module identification
+      // step 1: identify module containing the target address
       auto module = module_index_->find_containing(ctx.target_address);
       if (!module) {
         result.error_message = "No module found for target address";
@@ -41,16 +41,16 @@ public:
       result.module_name = module->name;
       result.module_offset = ctx.target_address - module->base_address;
 
-      // Step 2: Use symbol from context if available, otherwise resolve
+      // step 2: use symbol from context if available, otherwise resolve
       if (!ctx.symbol_name.empty()) {
         result.symbol_name = ctx.symbol_name;
-        // Note: demangled_name would need to be passed in context if needed
+        // note: demangled_name would need to be passed in context if needed
         log_.dbg("using symbol from context", redlog::field("symbol", result.symbol_name));
       } else if (config_.resolve_symbols) {
         resolve_symbol(result, ctx.target_address, *module);
       }
 
-      // Step 3: API identification and knowledge lookup
+      // step 3: api identification and knowledge lookup
       if (!result.symbol_name.empty()) {
         log_.dbg("looking up api in knowledge db", redlog::field("symbol", result.symbol_name));
 
@@ -67,7 +67,7 @@ public:
               redlog::field("extract_args", config_.extract_arguments)
           );
 
-          // Step 4: Argument extraction
+          // step 4: argument extraction
           if (config_.extract_arguments && !api_info->parameters.empty()) {
             log_.ped(
                 "extracting arguments", redlog::field("symbol", result.symbol_name),
@@ -82,16 +82,16 @@ public:
         }
       }
 
-      // Step 5: Format the call
+      // step 5: format the call
       if (config_.format_calls) {
         format_call(result);
       }
 
       result.analysis_complete = true;
 
-      // Log completed API analysis
+      // log completed api analysis with formatted call details
       if (!result.symbol_name.empty() && config_.format_calls) {
-        // Build a concise argument summary with truncation
+        // build a concise argument summary with truncation for display
         std::stringstream arg_summary;
         for (size_t i = 0; i < result.arguments.size(); ++i) {
           if (i > 0) {
@@ -99,14 +99,14 @@ public:
           }
           const auto& arg = result.arguments[i];
 
-          // Add parameter name if known
+          // add parameter name if known
           if (!arg.param_name.empty()) {
             arg_summary << arg.param_name << "=";
           }
 
-          // Format value based on type with truncation
+          // format value based on type with truncation
           if (arg.param_type == param_info::type::STRING && !arg.string_preview.empty()) {
-            // Truncate long strings
+            // truncate long strings for display
             std::string preview = arg.string_preview;
             if (preview.length() > 50) {
               preview = preview.substr(0, 47) + "...";
@@ -122,14 +122,14 @@ public:
             arg_summary << arg.raw_value;
           }
 
-          // Limit total length
+          // limit total length to prevent excessive output
           if (arg_summary.str().length() > 200) {
             arg_summary << ", ...";
             break;
           }
         }
 
-        // Format category name
+        // format category name for display
         std::string category_name;
         if (result.category != api_info::category::UNKNOWN) {
           switch (result.category) {
@@ -225,23 +225,23 @@ public:
     }
 
     try {
-      // Extract return value based on API info
+      // extract return value based on api info
       if (auto api_info = api_db_->lookup(result.symbol_name)) {
-        // Detect calling convention
+        // detect calling convention for return value extraction
         auto convention = detector_->detect(result.module_name, result.symbol_name);
         uint64_t ret_val = convention->get_integer_return(ctx.gpr_state);
 
-        // Create safe memory reader
+        // create safe memory reader for return value extraction
         util::safe_memory::memory_validator().refresh();
 
         result.return_value =
             argument_extractor_.extract_argument(api_info->return_value, ret_val, util::safe_memory_reader{ctx.vm});
 
-        // Log return value analysis
+        // log return value analysis with formatted output
         if (api_info->return_value.param_type != param_info::type::VOID) {
           std::string return_str;
 
-          // Format return value based on type
+          // format return value based on type for display
           if (!result.return_value.string_preview.empty()) {
             return_str = "\"" + result.return_value.string_preview + "\"";
           } else if (result.return_value.is_null_pointer) {
@@ -261,7 +261,7 @@ public:
             return_str = std::to_string(static_cast<int64_t>(result.return_value.raw_value));
           }
 
-          // Build formatted return string and log it
+          // build formatted return string and log it
           std::string formatted_return = result.symbol_name + "() = " + return_str;
 
           log_.vrb(
@@ -305,7 +305,7 @@ private:
       );
     }
 #else
-    // Fallback: use module name + offset
+    // fallback: use module name + offset when lief is not available
     std::stringstream ss;
     ss << module.name << "+0x" << std::hex << result.module_offset;
     result.symbol_name = ss.str();
@@ -313,11 +313,11 @@ private:
   }
 
   void extract_arguments(api_analysis_result& result, const api_context& ctx, const api_info& api) {
-    // Extract raw argument values
+    // extract raw argument values from registers/stack
     size_t arg_count = std::min(api.parameters.size(), config_.max_arguments);
     log_.ped("extracting raw argument values", redlog::field("count", arg_count));
 
-    // Detect calling convention and extract args
+    // detect calling convention and extract args
     auto convention = detector_->detect(result.module_name, result.symbol_name);
     calling_convention_base::extraction_context extract_ctx{
         ctx.gpr_state, ctx.fpr_state, [&ctx](uint64_t addr) -> uint64_t {
@@ -330,11 +330,11 @@ private:
 
     log_.ped("extracted raw args", redlog::field("count", raw_args.size()));
 
-    // Create safe memory reader
+    // create safe memory reader for argument extraction
     util::safe_memory::memory_validator().refresh();
     util::safe_memory_reader memory{ctx.vm};
 
-    // Extract and interpret each argument
+    // extract and interpret each argument with semantic meaning
     for (size_t i = 0; i < raw_args.size() && i < api.parameters.size(); ++i) {
       log_.ped(
           "extracting argument", redlog::field("index", i), redlog::field("param_name", api.parameters[i].name),
@@ -359,7 +359,7 @@ private:
   void format_call(api_analysis_result& result) {
     std::stringstream ss;
 
-    // Use demangled name if available, otherwise symbol name
+    // use demangled name if available, otherwise symbol name
     std::string name = !result.demangled_name.empty() ? result.demangled_name : result.symbol_name;
     if (name.empty()) {
       ss << result.module_name << "+0x" << std::hex << result.module_offset;
@@ -369,7 +369,7 @@ private:
 
     ss << "(";
 
-    // Format arguments
+    // format arguments with semantic information
     for (size_t i = 0; i < result.arguments.size(); ++i) {
       if (i > 0) {
         ss << ", ";
@@ -377,12 +377,12 @@ private:
 
       const auto& arg = result.arguments[i];
 
-      // Add parameter name if known
+      // add parameter name if known
       if (!arg.param_name.empty()) {
         ss << arg.param_name << "=";
       }
 
-      // Format value based on type
+      // format value based on type
       switch (arg.param_type) {
       case param_info::type::STRING:
         if (!arg.string_preview.empty()) {
@@ -456,7 +456,7 @@ private:
   mutable stats stats_;
 };
 
-// Public interface implementation
+// public interface implementation
 
 api_analyzer::api_analyzer(const analyzer_config& config) : pimpl(std::make_unique<impl>(config)) {}
 
@@ -476,7 +476,7 @@ api_analyzer::stats api_analyzer::get_stats() const { return pimpl->get_stats();
 
 void api_analyzer::clear_caches() { pimpl->clear_caches(); }
 
-// Helper functions implementation
+// helper functions implementation
 
 namespace analysis_utils {
 
@@ -486,7 +486,7 @@ bool is_api_call(uint64_t address, const util::module_range_index& modules) {
     return false;
   }
 
-  // Check if it's a system library
+  // check if it's a system library
   return module->is_system_library;
 }
 

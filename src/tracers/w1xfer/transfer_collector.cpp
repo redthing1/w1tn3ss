@@ -26,12 +26,12 @@ transfer_collector::transfer_collector(
   stats_.max_call_depth = 0;
   stats_.current_call_depth = 0;
 
-  // Create symbol enricher if call targets are being logged
+  // create symbol enricher if call targets are being logged
   if (log_call_targets_) {
     symbol_enricher_ = std::make_unique<symbol_enricher>();
   }
 
-  // Create API analyzer if API analysis is enabled
+  // create API analyzer if API analysis is enabled
   if (analyze_apis_) {
     w1::abi::analyzer_config cfg;
     cfg.extract_arguments = true;
@@ -48,7 +48,7 @@ void transfer_collector::record_call(
   stats_.total_calls++;
   update_call_depth(transfer_type::CALL);
 
-  // Check if we should skip trace collection (but still do analysis)
+  // check if we should skip trace collection (but still do analysis)
   bool should_collect = should_collect_trace();
   if (collect_trace_ && !should_collect) {
     trace_overflow_ = true;
@@ -59,9 +59,9 @@ void transfer_collector::record_call(
 
   populate_entry_details(entry, source_addr, target_addr, vm, gpr);
 
-  // Perform API analysis if enabled
+  // perform API analysis if enabled
   if (analyze_apis_ && api_analyzer_) {
-    // Use value formatter for consistent formatting
+    // use value formatter for consistent formatting
     w1::util::value_formatter::format_options fmt_opts;
     fmt_opts.max_string_length = 256;
     w1::abi::api_context ctx;
@@ -78,7 +78,7 @@ void transfer_collector::record_call(
 
     auto analysis = api_analyzer_->analyze_call(ctx);
 
-    // Convert analysis result to our format
+    // convert analysis result to our format
     entry.api_info.api_category = analysis.category == w1::abi::api_info::category::UNKNOWN
                                       ? ""
                                       : std::to_string(static_cast<int>(analysis.category));
@@ -86,7 +86,7 @@ void transfer_collector::record_call(
     entry.api_info.formatted_call = analysis.formatted_call;
     entry.api_info.analysis_complete = analysis.analysis_complete;
 
-    // Convert arguments
+    // convert arguments
     for (const auto& arg : analysis.arguments) {
       api_argument api_arg;
       api_arg.raw_value = arg.raw_value;
@@ -94,7 +94,9 @@ void transfer_collector::record_call(
       api_arg.param_type = std::to_string(static_cast<int>(arg.param_type));
       api_arg.is_pointer = arg.is_valid_pointer;
 
-      // Format interpreted value using our formatter utility
+      // format interpreted value using our formatter utility
+      // this complex chain handles different value types from the ABI analyzer
+      // priority: string_preview > null_pointer > variant types > fallback formatting
       if (!arg.string_preview.empty()) {
         api_arg.interpreted_value = w1::util::value_formatter::format_string(arg.string_preview, fmt_opts);
       } else if (arg.is_null_pointer) {
@@ -108,7 +110,7 @@ void transfer_collector::record_call(
         api_arg.interpreted_value =
             w1::util::value_formatter::format_buffer(std::get<std::vector<uint8_t>>(arg.interpreted_value), fmt_opts);
       } else {
-        // fallback to type-based formatting
+        // fallback to type-based formatting when no specific type variant matches
         auto value_type = w1::util::value_formatter::value_type::UNKNOWN;
         if (arg.param_type == w1::abi::param_info::type::BOOLEAN) {
           value_type = w1::util::value_formatter::value_type::BOOLEAN;
@@ -123,9 +125,9 @@ void transfer_collector::record_call(
       entry.api_info.arguments.push_back(api_arg);
     }
 
-    // Track this call for later return value analysis if we found API info
+    // track this call for later return value analysis if we found API info
     if (analysis.analysis_complete && analysis.category != w1::abi::api_info::category::UNKNOWN) {
-      // Look up the full API info from the database for return value analysis
+      // look up the full API info from the database for return value analysis
       if (auto api_info = api_analyzer_->get_api_db().lookup(analysis.symbol_name)) {
         if (api_info->return_value.param_type != w1::abi::param_info::type::VOID) {
           pending_call pending;
@@ -140,7 +142,7 @@ void transfer_collector::record_call(
     }
   }
 
-  // Only add to trace if collection is enabled and we haven't overflowed
+  // only add to trace if collection is enabled and we haven't overflowed
   if (should_collect) {
     trace_.push_back(entry);
   }
@@ -153,7 +155,7 @@ void transfer_collector::record_return(
   stats_.total_returns++;
   update_call_depth(transfer_type::RETURN);
 
-  // Check if we should skip trace collection (but still do analysis)
+  // check if we should skip trace collection (but still do analysis)
   bool should_collect = should_collect_trace();
   if (collect_trace_ && !should_collect) {
     trace_overflow_ = true;
@@ -164,15 +166,17 @@ void transfer_collector::record_return(
 
   populate_entry_details(entry, source_addr, target_addr, vm, gpr);
 
-  // Perform return value analysis if enabled and we have a matching call
+  // perform return value analysis if enabled and we have a matching call
   if (analyze_apis_ && api_analyzer_ && !call_stack_.empty()) {
-    // Find matching call based on source address (the function we're returning from)
+    // find matching call based on source address (the function we're returning from)
+    // we search in reverse order to match the most recent call to this function
+    // this handles recursive calls correctly by matching the latest call first
     auto call_it = std::find_if(call_stack_.rbegin(), call_stack_.rend(), [source_addr](const pending_call& call) {
       return call.call_target_address == source_addr;
     });
 
     if (call_it != call_stack_.rend()) {
-      // Build context for return value analysis
+      // build context for return value analysis
       w1::abi::api_context ctx;
       ctx.call_address = target_addr;   // where we're returning to
       ctx.target_address = source_addr; // the function we're returning from
@@ -185,7 +189,7 @@ void transfer_collector::record_return(
       ctx.module_index = &index_;
       ctx.timestamp = entry.timestamp;
 
-      // Create analysis result with call info and analyze return
+      // create analysis result with call info and analyze return
       w1::abi::api_analysis_result return_analysis;
       return_analysis.symbol_name = call_it->target_symbol_name;
       return_analysis.module_name = call_it->target_module;
@@ -195,20 +199,20 @@ void transfer_collector::record_return(
 
       api_analyzer_->analyze_return(return_analysis, ctx);
 
-      // Copy API information from the call
+      // copy API information from the call
       entry.api_info.api_category = std::to_string(static_cast<int>(call_it->api_info.api_category));
       entry.api_info.description = call_it->api_info.description;
       entry.api_info.analysis_complete = true;
       entry.api_info.has_return_value = true;
 
-      // Extract and format return value
+      // extract and format return value
       const auto& ret_val = return_analysis.return_value;
       entry.api_info.return_value.raw_value = ret_val.raw_value;
       entry.api_info.return_value.param_type = std::to_string(static_cast<int>(ret_val.param_type));
       entry.api_info.return_value.is_pointer = ret_val.is_valid_pointer;
       entry.api_info.return_value.is_null = ret_val.is_null_pointer;
 
-      // Format interpreted value using our formatter utility
+      // format interpreted value using our formatter utility
       w1::util::value_formatter::format_options fmt_opts;
       fmt_opts.max_string_length = 256;
 
@@ -237,16 +241,18 @@ void transfer_collector::record_return(
             w1::util::value_formatter::format_typed_value(ret_val.raw_value, value_type, fmt_opts);
       }
 
-      // Build formatted call string with return value
+      // build formatted call string with return value
       entry.api_info.formatted_call =
           call_it->target_symbol_name + "() = " + entry.api_info.return_value.interpreted_value;
 
-      // Remove the call from stack (convert reverse iterator to forward iterator for erase)
+      // remove the call from stack (convert reverse iterator to forward iterator for erase)
+      // std::next(call_it).base() converts reverse_iterator to forward_iterator
+      // this is the standard idiom for erasing elements found with reverse iterators
       call_stack_.erase(std::next(call_it).base());
     }
   }
 
-  // Only add to trace if collection is enabled and we haven't overflowed
+  // only add to trace if collection is enabled and we haven't overflowed
   if (should_collect) {
     trace_.push_back(entry);
   }
@@ -313,12 +319,12 @@ void transfer_collector::initialize_module_tracking() {
   // rebuild index with all modules for fast lookup
   index_.rebuild_from_modules(std::move(modules));
 
-  // Initialize symbol enricher with the module index
+  // initialize symbol enricher with the module index
   if (symbol_enricher_) {
     symbol_enricher_->initialize(index_);
   }
 
-  // Initialize API analyzer with the module index
+  // initialize API analyzer with the module index
   if (api_analyzer_) {
     api_analyzer_->initialize(index_);
   }

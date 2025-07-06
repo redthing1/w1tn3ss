@@ -66,9 +66,9 @@ public:
     extracted_call_info info;
     info.api_name = api_name;
     info.module_name = module_name;
-    info.timestamp = 0; // TODO: Add timestamp to context
+    info.timestamp = 0; // todo: add timestamp to context
     info.call_address = ctx.call_address;
-    info.return_address = 0; // TODO: Calculate return address
+    info.return_address = 0; // todo: calculate return address
 
     // create extraction context
     calling_convention_base::extraction_context extract_ctx{ctx.gpr, ctx.fpr, [&memory](uint64_t addr) -> uint64_t {
@@ -469,7 +469,7 @@ std::string format_pointer(uint64_t addr) {
 std::vector<std::string> decode_flags(uint32_t flags, const std::string& flag_type) {
   std::vector<std::string> result;
 
-  // TODO: implement common flag decoding based on flag_type
+  // todo: implement common flag decoding based on flag_type
   // for now just return hex representation
   if (flags != 0) {
     std::ostringstream oss;

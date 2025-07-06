@@ -71,7 +71,7 @@ struct api_info {
     // file operations
     FILE_IO,
     FILE_MANAGEMENT,
-    STDIO, // standard I/O (printf, puts, etc)
+    STDIO, // standard i/o (printf, puts, etc)
     // process/thread
     PROCESS_CONTROL,
     THREAD_CONTROL,
@@ -137,7 +137,7 @@ struct api_info {
 
   // calling convention
   calling_convention_id convention = calling_convention_id::UNKNOWN;
-  // platform-specific overrides (e.g., "win32" -> X86_STDCALL)
+  // platform-specific overrides (e.g., "win32" -> x86_stdcall)
   std::unordered_map<std::string, calling_convention_id> platform_conventions;
 
   // parameters

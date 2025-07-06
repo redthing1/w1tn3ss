@@ -41,7 +41,7 @@ struct extracted_argument {
 
   // for buffers
   size_t buffer_size = 0;
-  std::vector<uint8_t> buffer_preview; // first N bytes
+  std::vector<uint8_t> buffer_preview; // first n bytes
 
   // for flags
   std::vector<std::string> flag_names; // decoded flag names

@@ -13,10 +13,11 @@ function tracer.on_basic_block_entry(vm, state, gpr, fpr)
     local module_name = w1.module_get_name(pc)
     
     -- check for cache miss (unknown module) and try one rescan
+    -- this handles dynamic loading where modules appear after initial scan
     if module_name == "unknown" then
         cache_misses = cache_misses + 1
         
-        -- try rescanning once
+        -- try rescanning once to detect newly loaded modules
         w1.log_info("cache miss for " .. w1.format_address(pc) .. ", rescanning modules...")
         if w1.module_scan() then
             -- try lookup again after rescan
@@ -37,7 +38,7 @@ function tracer.on_basic_block_entry(vm, state, gpr, fpr)
     if not logged_modules[module_name] then
         logged_modules[module_name] = true
         
-        -- get full module info
+        -- get full module info for detailed logging
         local module_info = w1.module_get_info(pc)
         if module_info then
             w1.log_info("discovered module: " .. module_name)
@@ -67,7 +68,7 @@ function tracer.shutdown()
     w1.log_info("  cache hits: " .. cache_hits)
     w1.log_info("  cache misses: " .. cache_misses)
     
-    -- demonstrate module listing api
+    -- demonstrate module listing API
     w1.log_info("listing all discovered modules:")
     local all_modules = w1.module_list_all()
     for i, module in ipairs(all_modules) do

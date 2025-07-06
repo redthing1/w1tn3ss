@@ -8,14 +8,14 @@
 #include "conventions/x86_64/microsoft.hpp"
 #elif defined(__i386__) || defined(_M_IX86)
 #include "conventions/x86/cdecl.hpp"
-// TODO: add when implemented
+// todo: add when implemented
 // #include "conventions/x86/stdcall.hpp"
 // #include "conventions/x86/fastcall.hpp"
 // #include "conventions/x86/thiscall.hpp"
 #elif defined(__aarch64__) || defined(_M_ARM64)
 #include "conventions/arm/aarch64_aapcs.hpp"
 #elif defined(__arm__) || defined(_M_ARM)
-// TODO: add when implemented
+// todo: add when implemented
 // #include "conventions/arm/arm32_aapcs.hpp"
 #endif
 

@@ -5,7 +5,7 @@
 #include <fstream>
 #include <common/ext/jsonstruct.hpp>
 
-// Platform-specific API definitions
+// platform-specific api definitions
 #ifdef __APPLE__
 #include "apis/macos/system_apis.hpp"
 #elif defined(__linux__)
@@ -28,7 +28,7 @@ public:
   std::optional<api_info> lookup(const std::string& api_name) const {
     log_.debug("looking up api", redlog::field("name", api_name));
 
-    // Try exact match first
+    // try exact match first
     auto it = apis_.find(api_name);
     if (it != apis_.end()) {
       log_.trace(
@@ -39,7 +39,7 @@ public:
       return it->second;
     }
 
-    // Try without underscore prefix (for macOS symbols)
+    // try without underscore prefix (for macos symbols)
     if (!api_name.empty() && api_name[0] == '_') {
       std::string without_underscore = api_name.substr(1);
       it = apis_.find(without_underscore);
@@ -53,7 +53,7 @@ public:
       }
     }
 
-    // Try with underscore prefix (for macOS symbols)
+    // try with underscore prefix (for macos symbols)
     std::string with_underscore = "_" + api_name;
     it = apis_.find(with_underscore);
     if (it != apis_.end()) {
@@ -165,11 +165,11 @@ public:
         return false;
       }
 
-      // Read entire file into string
+      // read entire file into string
       std::string json_content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
 
-      // TODO: Parse using jsonstruct - need to define proper structs with JS_OBJECT macros
-      // For now, just log that we need to implement this
+      // todo: parse using jsonstruct - need to define proper structs with js_object macros
+      // for now, just log that we need to implement this
       log_.warn("JSON parsing using jsonstruct not yet implemented - need to define JS_OBJECT structs");
       return false;
 
@@ -190,7 +190,7 @@ private:
   void load_builtin_apis() {
     log_.debug("loading builtin apis for platform");
 
-    // Load platform-specific APIs
+    // load platform-specific apis
 #ifdef __APPLE__
     load_api_set(apis::macos::macos_system_apis, "macos system apis");
 #elif defined(__linux__)

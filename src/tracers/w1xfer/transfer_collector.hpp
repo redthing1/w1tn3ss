@@ -35,7 +35,7 @@ struct stack_info {
   JS_OBJECT(JS_MEMBER(stack_pointer), JS_MEMBER(frame_pointer), JS_MEMBER(return_address), JS_MEMBER(stack_values));
 };
 
-// Rich symbol information for transfer endpoints
+// rich symbol information for transfer endpoints
 struct symbol_info {
   std::string symbol_name;
   std::string demangled_name;
@@ -50,7 +50,7 @@ struct symbol_info {
   );
 };
 
-// API argument information
+// api argument information
 struct api_argument {
   uint64_t raw_value;
   std::string param_name;
@@ -64,7 +64,7 @@ struct api_argument {
   );
 };
 
-// Return value information
+// return value information
 struct api_return_value {
   uint64_t raw_value;
   std::string param_type;
@@ -78,7 +78,7 @@ struct api_return_value {
   );
 };
 
-// API analysis information
+// api analysis information
 struct api_analysis {
   std::string api_category;
   std::string description;
@@ -104,10 +104,10 @@ struct transfer_entry {
   stack_info stack;
   std::string source_module;
   std::string target_module;
-  // Rich symbol information
+  // rich symbol information
   symbol_info source_symbol;
   symbol_info target_symbol;
-  // API analysis information
+  // api analysis information
   api_analysis api_info;
 
   JS_OBJECT(
@@ -181,7 +181,7 @@ private:
   std::unique_ptr<symbol_enricher> symbol_enricher_;
   std::unique_ptr<w1::abi::api_analyzer> api_analyzer_;
 
-  // Call stack tracking for return value analysis
+  // call stack tracking for return value analysis
   struct pending_call {
     uint64_t call_target_address;
     std::string target_symbol_name;

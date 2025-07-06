@@ -11,7 +11,7 @@
 
 namespace w1xfer {
 
-// Enriches transfer entries with symbol information
+// enriches transfer entries with symbol information
 class symbol_enricher {
 public:
   struct symbol_context {
@@ -27,19 +27,19 @@ public:
   symbol_enricher();
   ~symbol_enricher();
 
-  // Initialize with module index
+  // initialize with module index
   void initialize(const w1::util::module_range_index& module_index);
 
-  // Get enriched symbol information for an address
+  // get enriched symbol information for an address
   std::optional<symbol_context> enrich_address(uint64_t address) const;
 
-  // Batch enrichment for performance
+  // batch enrichment for performance
   std::vector<std::optional<symbol_context>> enrich_addresses(const std::vector<uint64_t>& addresses) const;
 
-  // Clear symbol cache
+  // clear symbol cache
   void clear_cache();
 
-  // Get cache statistics
+  // get cache statistics
   struct cache_stats {
     size_t binary_cache_size;
     size_t binary_cache_hits;
@@ -53,12 +53,12 @@ private:
   std::unique_ptr<w1::lief::lief_symbol_resolver> resolver_;
   const w1::util::module_range_index* module_index_ = nullptr;
 
-  // Address-to-symbol cache to avoid repeated lookups
+  // address-to-symbol cache to avoid repeated lookups
   mutable std::unordered_map<uint64_t, std::optional<symbol_context>> symbol_cache_;
   mutable std::mutex symbol_cache_mutex_;
   static constexpr size_t MAX_SYMBOL_CACHE_SIZE = 10000;
 
-  // Convert internal symbol info to enriched context
+  // convert internal symbol info to enriched context
   symbol_context to_context(
       uint64_t address, const w1::util::module_info& module, const w1::lief::symbol_info& symbol
   ) const;

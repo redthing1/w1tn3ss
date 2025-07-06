@@ -19,28 +19,28 @@ lief_binary_cache::~lief_binary_cache() = default;
 LIEF::Binary* lief_binary_cache::get_or_load(const std::string& path) const {
   std::shared_lock read_lock(mutex_);
 
-  // Check negative cache first (failed paths)
+  // check negative cache first (failed paths)
   if (failed_paths_.find(path) != failed_paths_.end()) {
     negative_hits_.fetch_add(1, std::memory_order_relaxed);
     return nullptr;
   }
 
-  // Check cache
+  // check cache
   auto it = cache_.find(path);
   if (it != cache_.end()) {
-    // Found in cache - need write lock to update LRU
+    // found in cache - need write lock to update lru
     read_lock.unlock();
     std::unique_lock write_lock(mutex_);
 
-    // Double-check after acquiring write lock
+    // double-check after acquiring write lock
     it = cache_.find(path);
     if (it != cache_.end()) {
-      // Move to front (most recently used)
+      // move to front (most recently used)
       lru_list_.splice(lru_list_.begin(), lru_list_, it->second.first);
       hits_.fetch_add(1, std::memory_order_relaxed);
       return it->second.second.get();
     }
-    // If not found after write lock, continue to load
+    // if not found after write lock, continue to load
     write_lock.unlock();
     read_lock.lock();
   }
@@ -48,7 +48,7 @@ LIEF::Binary* lief_binary_cache::get_or_load(const std::string& path) const {
   read_lock.unlock();
   std::unique_lock write_lock(mutex_);
 
-  // Double-check
+  // double-check
   it = cache_.find(path);
   if (it != cache_.end()) {
     lru_list_.splice(lru_list_.begin(), lru_list_, it->second.first);
@@ -58,8 +58,8 @@ LIEF::Binary* lief_binary_cache::get_or_load(const std::string& path) const {
 
   misses_.fetch_add(1, std::memory_order_relaxed);
 
-  // Load binary
-  auto log = redlog::get_logger("w1::lief::binary_cache");
+  // load binary
+  auto log = redlog::get_logger("w1.lief.binary_cache");
 
   try {
     log.trc("attempting to load binary", redlog::field("path", path));
@@ -69,7 +69,7 @@ LIEF::Binary* lief_binary_cache::get_or_load(const std::string& path) const {
       log.trc("failed to parse binary at original path", redlog::field("path", path));
 
 #ifdef __APPLE__
-      // Try dyld shared cache dump resolution
+      // try dyld shared cache dump resolution
       if (dyld_resolver_ && dyld_resolver_->is_available()) {
         log.trc("trying dyld shared cache dump resolution");
 
@@ -80,7 +80,7 @@ LIEF::Binary* lief_binary_cache::get_or_load(const std::string& path) const {
 
           binary = LIEF::Parser::parse(*resolved_path);
           if (binary) {
-            // Get symbol count for logging
+            // get symbol count for logging
             size_t symbol_count = 0;
             if (auto macho = dynamic_cast<LIEF::MachO::Binary*>(binary.get())) {
               symbol_count = macho->symbols().size();
@@ -97,7 +97,7 @@ LIEF::Binary* lief_binary_cache::get_or_load(const std::string& path) const {
 
       if (!binary) {
         log.trc("binary load failed completely", redlog::field("path", path));
-        // Add to negative cache
+        // add to negative cache
         failed_paths_.insert(path);
         return nullptr;
       }
@@ -198,7 +198,7 @@ std::optional<symbol_info> lief_symbol_resolver::resolve_in_module(
     const std::string& module_path, uint64_t offset
 ) const {
 
-  auto log = redlog::get_logger("w1::lief::symbol_resolver");
+  auto log = redlog::get_logger("w1.lief.symbol_resolver");
   log.trc("resolve_in_module", redlog::field("module", module_path), redlog::field("offset", offset));
 
   auto* binary = binary_cache_->get_or_load(module_path);
@@ -322,7 +322,7 @@ std::optional<symbol_info> lief_symbol_resolver::resolve_macho_symbol(
     LIEF::MachO::Binary* macho, uint64_t offset
 ) const {
 
-  auto log = redlog::get_logger("w1::lief::symbol_resolver");
+  auto log = redlog::get_logger("w1.lief.symbol_resolver");
   std::stringstream offset_hex;
   offset_hex << "0x" << std::hex << offset;
 
@@ -515,7 +515,7 @@ symbol_info lief_symbol_resolver::pe_export_to_info(const LIEF::PE::ExportEntry&
 }
 
 symbol_info lief_symbol_resolver::macho_symbol_to_info(const LIEF::MachO::Symbol& sym) const {
-  auto log = redlog::get_logger("w1::lief::symbol_resolver");
+  auto log = redlog::get_logger("w1.lief.symbol_resolver");
 
   symbol_info info;
   info.name = sym.name();

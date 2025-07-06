@@ -32,7 +32,7 @@ std::optional<symbol_enricher::symbol_context> symbol_enricher::enrich_address(u
 #ifdef WITNESS_LIEF_ENABLED
   auto log = redlog::get_logger("w1xfer::symbol_enricher");
 
-  // Check symbol cache first
+  // check symbol cache first
   {
     std::lock_guard<std::mutex> lock(symbol_cache_mutex_);
     auto it = symbol_cache_.find(address);
@@ -46,22 +46,22 @@ std::optional<symbol_enricher::symbol_context> symbol_enricher::enrich_address(u
     return std::nullopt;
   }
 
-  // Find which module contains this address
+  // find which module contains this address
   auto module = module_index_->find_containing(address);
   if (!module) {
     log.dbg("no module found for address", redlog::field("address", address));
     return std::nullopt;
   }
 
-  // Calculate offset within module
+  // calculate offset within module
   uint64_t module_offset = address - module->base_address;
   log.trc(
       "resolving symbol", redlog::field("address", address), redlog::field("module_name", module->name),
       redlog::field("module_path", module->path), redlog::field("module_offset", module_offset)
   );
 
-  // For system libraries on macOS, module->path is often just the library name
-  // Try with the path first (which might just be the name)
+  // for system libraries on macOS, module->path is often just the library name
+  // try with the path first (which might just be the name)
   std::string search_path = module->path;
 
   log.dbg("calling LIEF resolver", redlog::field("search_path", search_path), redlog::field("offset", module_offset));
@@ -71,12 +71,12 @@ std::optional<symbol_enricher::symbol_context> symbol_enricher::enrich_address(u
   if (!symbol) {
     log.dbg("no symbol found", redlog::field("path", search_path), redlog::field("offset", module_offset));
 
-    // Return basic context with module info
+    // return basic context with module info
     symbol_context ctx;
     ctx.module_name = module->name;
     ctx.module_offset = module_offset;
 
-    // Cache the result
+    // cache the result
     {
       std::lock_guard<std::mutex> lock(symbol_cache_mutex_);
       if (symbol_cache_.size() >= MAX_SYMBOL_CACHE_SIZE) {
@@ -96,10 +96,12 @@ std::optional<symbol_enricher::symbol_context> symbol_enricher::enrich_address(u
 
   auto result = to_context(address, *module, *symbol);
 
-  // Cache the result
+  // cache the result
   {
     std::lock_guard<std::mutex> lock(symbol_cache_mutex_);
-    // Implement simple LRU by clearing cache when it gets too large
+    // implement simple LRU by clearing cache when it gets too large
+    // this is a simple but effective cache management strategy
+    // when cache is full, we clear it entirely rather than tracking individual item ages
     if (symbol_cache_.size() >= MAX_SYMBOL_CACHE_SIZE) {
       symbol_cache_.clear();
     }
@@ -122,7 +124,7 @@ std::vector<std::optional<symbol_enricher::symbol_context>> symbol_enricher::enr
     return std::vector<std::optional<symbol_context>>(addresses.size());
   }
 
-  // Use batch resolution for efficiency
+  // use batch resolution for efficiency
   auto symbols = resolver_->resolve_batch(addresses, *module_index_);
 
   std::vector<std::optional<symbol_context>> results;
@@ -130,7 +132,7 @@ std::vector<std::optional<symbol_enricher::symbol_context>> symbol_enricher::enr
 
   for (size_t i = 0; i < addresses.size(); ++i) {
     if (!symbols[i]) {
-      // Try to at least get module info
+      // try to at least get module info
       if (auto module = module_index_->find_containing(addresses[i])) {
         symbol_context ctx;
         ctx.module_name = module->name;
@@ -140,7 +142,7 @@ std::vector<std::optional<symbol_enricher::symbol_context>> symbol_enricher::enr
         results.push_back(std::nullopt);
       }
     } else {
-      // We have symbol info
+      // we have symbol info
       auto module = module_index_->find_containing(addresses[i]);
       if (module) {
         results.push_back(to_context(addresses[i], *module, *symbols[i]));
@@ -191,14 +193,16 @@ symbol_enricher::symbol_context symbol_enricher::to_context(
   ctx.symbol_name = symbol.name;
   ctx.demangled_name = symbol.demangled_name;
   ctx.module_offset = address - module.base_address;
-  // Calculate offset within the symbol
-  // If the symbol has size info, we can calculate the offset
-  // For MachO, symbol.offset is already module-relative
+  // calculate offset within the symbol
+  // if the symbol has size info, we can calculate the offset
+  // for MachO, symbol.offset is already module-relative
+  // we need to ensure the address is actually within the symbol bounds
   if (symbol.size > 0 && ctx.module_offset >= symbol.offset) {
     ctx.symbol_offset = ctx.module_offset - symbol.offset;
   } else {
-    // For symbols without size or when module_offset < symbol.offset,
+    // for symbols without size or when module_offset < symbol.offset,
     // just use 0 to indicate we're at the symbol start
+    // this can happen with symbols that have no size information
     ctx.symbol_offset = 0;
   }
   ctx.is_exported = symbol.is_exported;

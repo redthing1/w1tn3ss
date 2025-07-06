@@ -19,10 +19,10 @@
 
 namespace w1::tracers::script::bindings {
 
-// Forward declarations
+// forward declarations
 class LuaCallbackManager;
 
-// Lua callback wrapper types
+// lua callback wrapper types
 struct LuaInstCallback {
   sol::protected_function func;
   std::shared_ptr<LuaCallbackManager> manager;
@@ -50,36 +50,36 @@ struct LuaInstrRuleCallback {
       : func(std::move(f)), manager(mgr), callback_id(id) {}
 };
 
-// Callback manager class to handle Lua callback lifecycle
+// callback manager class to handle Lua callback lifecycle
 class LuaCallbackManager : public std::enable_shared_from_this<LuaCallbackManager> {
 public:
   LuaCallbackManager() = default;
   ~LuaCallbackManager() {
-    // Ensure all persistent pointers are cleaned up
+    // ensure all persistent pointers are cleaned up
     removeAllCallbacks();
   }
 
-  // Store and manage callback references
+  // store and manage callback references
   void registerInstCallback(uint32_t qbdi_id, uint32_t callback_id, sol::protected_function func);
   void registerVMCallback(uint32_t qbdi_id, uint32_t callback_id, sol::protected_function func);
   void registerInstrRuleCallback(uint32_t qbdi_id, uint32_t callback_id, sol::protected_function func);
 
-  // Track persistent pointer for memory management
+  // track persistent pointer for memory management
   void registerPersistentPtr(uint32_t callback_id, uint32_t* ptr);
 
-  // Remove callbacks
+  // remove callbacks
   bool removeCallback(uint32_t callback_id);
   void removeAllCallbacks();
 
-  // Get callback data
+  // get callback data
   LuaInstCallback* getInstCallback(uint32_t callback_id);
   LuaVMCallback* getVMCallback(uint32_t callback_id);
   LuaInstrRuleCallback* getInstrRuleCallback(uint32_t callback_id);
 
-  // Public access to callback ID mapping for deletion operations
+  // public access to callback ID mapping for deletion operations
   std::unordered_map<uint32_t, uint32_t> callback_id_to_qbdi_id_; // our callback ID -> QBDI ID
 
-  // Public access for introspection (debugging)
+  // public access for introspection (debugging)
   std::unordered_map<uint32_t, std::unique_ptr<LuaInstCallback>> inst_callbacks_;
   std::unordered_map<uint32_t, std::unique_ptr<LuaVMCallback>> vm_callbacks_;
   std::unordered_map<uint32_t, std::unique_ptr<LuaInstrRuleCallback>> instr_rule_callbacks_;
@@ -87,13 +87,13 @@ public:
 private:
   uint32_t next_callback_id_ = 1;
 
-  // Track persistent callback ID pointers for memory management
+  // track persistent callback ID pointers for memory management
   std::unordered_map<uint32_t, uint32_t*> callback_id_to_persistent_ptr_;
 
   friend uint32_t getNextCallbackId(LuaCallbackManager* mgr);
 };
 
-// Helper functions
+// helper functions
 uint32_t getNextCallbackId(LuaCallbackManager* mgr);
 QBDI::VM* get_vm_instance(void* vm_ptr);
 
@@ -106,7 +106,7 @@ std::vector<QBDI::InstrRuleDataCBK> luaInstrRuleCallbackWrapper(
     QBDI::VMInstanceRef vm, const QBDI::InstAnalysis* analysis, void* data
 );
 
-// Global callback manager instance
+// global callback manager instance
 extern std::shared_ptr<LuaCallbackManager> g_callback_manager;
 
 /**
