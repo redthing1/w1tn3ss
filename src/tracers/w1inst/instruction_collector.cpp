@@ -4,8 +4,8 @@
 
 namespace w1inst {
 
-mnemonic_collector::mnemonic_collector(uint64_t max_entries, const std::vector<std::string>& target_mnemonics)
-    : max_entries_(max_entries), instruction_count_(0), matched_count_(0), trace_overflow_(false) {
+mnemonic_collector::mnemonic_collector(uint64_t max_entries, const std::vector<std::string>& target_mnemonics, bool collect_trace)
+    : max_entries_(max_entries), instruction_count_(0), matched_count_(0), trace_overflow_(false), collect_trace_(collect_trace) {
 
   stats_ = {};
   stats_.target_mnemonics = target_mnemonics;
@@ -15,7 +15,9 @@ mnemonic_collector::mnemonic_collector(uint64_t max_entries, const std::vector<s
     target_mnemonic_set_.insert(mnemonic);
   }
 
-  trace_.reserve(max_entries_);
+  if (collect_trace_) {
+    trace_.reserve(max_entries_);
+  }
 }
 
 void mnemonic_collector::record_instruction() {
@@ -44,8 +46,8 @@ void mnemonic_collector::record_mnemonic(
   matched_count_++;
   stats_.matched_instructions++;
 
-  // record trace entry if not overflowed
-  if (!trace_overflow_) {
+  // record trace entry if enabled and not overflowed
+  if (collect_trace_ && !trace_overflow_) {
     if (trace_.size() < max_entries_) {
       mnemonic_entry entry;
       entry.address = address;
@@ -64,7 +66,9 @@ void mnemonic_collector::record_mnemonic(
 w1inst_report mnemonic_collector::build_report() const {
   w1inst_report report;
   report.stats = stats_;
-  report.trace = trace_;
+  if (collect_trace_) {
+    report.trace = trace_;
+  }
   return report;
 }
 

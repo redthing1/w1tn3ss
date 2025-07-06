@@ -38,7 +38,7 @@ struct w1inst_report {
 
 class mnemonic_collector {
 public:
-  explicit mnemonic_collector(uint64_t max_entries, const std::vector<std::string>& target_mnemonics);
+  explicit mnemonic_collector(uint64_t max_entries, const std::vector<std::string>& target_mnemonics, bool collect_trace = true);
 
   void record_instruction();
   void record_mnemonic(uint64_t address, const std::string& mnemonic, const std::string& disassembly);
@@ -58,6 +58,7 @@ private:
   uint32_t instruction_count_;
   uint64_t matched_count_;
   bool trace_overflow_;
+  bool collect_trace_;
 
   uint64_t get_timestamp() const;
 };

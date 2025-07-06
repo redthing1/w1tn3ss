@@ -4,7 +4,7 @@
 namespace w1inst {
 
 instruction_tracer::instruction_tracer(const instruction_config& config)
-    : config_(config), collector_(config.max_entries, config.mnemonic_list) {
+    : config_(config), collector_(config.max_entries, config.mnemonic_list, !config.output_file.empty()) {
 
   if (config_.verbose) {
     log_.inf(

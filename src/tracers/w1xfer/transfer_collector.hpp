@@ -169,7 +169,7 @@ struct w1xfer_report {
 class transfer_collector {
 public:
   explicit transfer_collector(
-      uint64_t max_entries, bool log_registers, bool log_stack_info, bool log_call_targets, bool analyze_apis = false
+      uint64_t max_entries, bool log_registers, bool log_stack_info, bool log_call_targets, bool analyze_apis = false, bool collect_trace = true
   );
 
   void initialize_module_tracking();
@@ -200,6 +200,7 @@ private:
   bool log_stack_info_;
   bool log_call_targets_;
   bool analyze_apis_;
+  bool collect_trace_;
   bool trace_overflow_;
   w1::util::module_scanner scanner_;
   w1::util::module_range_index index_;

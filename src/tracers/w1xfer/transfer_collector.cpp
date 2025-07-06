@@ -10,13 +10,15 @@
 namespace w1xfer {
 
 transfer_collector::transfer_collector(
-    uint64_t max_entries, bool log_registers, bool log_stack_info, bool log_call_targets, bool analyze_apis
+    uint64_t max_entries, bool log_registers, bool log_stack_info, bool log_call_targets, bool analyze_apis, bool collect_trace
 )
     : max_entries_(max_entries), instruction_count_(0), log_registers_(log_registers), log_stack_info_(log_stack_info),
-      log_call_targets_(log_call_targets), analyze_apis_(analyze_apis), trace_overflow_(false),
+      log_call_targets_(log_call_targets), analyze_apis_(analyze_apis), collect_trace_(collect_trace), trace_overflow_(false),
       modules_initialized_(false) {
 
-  trace_.reserve(std::min(max_entries_, static_cast<uint64_t>(10000)));
+  if (collect_trace_) {
+    trace_.reserve(std::min(max_entries_, static_cast<uint64_t>(10000)));
+  }
 
   // initialize stats
   stats_.total_calls = 0;
@@ -48,8 +50,10 @@ void transfer_collector::record_call(
   stats_.total_calls++;
   update_call_depth(transfer_type::CALL);
 
-  if (trace_overflow_ || trace_.size() >= max_entries_) {
-    trace_overflow_ = true;
+  if (!collect_trace_ || trace_overflow_ || trace_.size() >= max_entries_) {
+    if (collect_trace_) {
+      trace_overflow_ = true;
+    }
     return;
   }
 
@@ -138,8 +142,10 @@ void transfer_collector::record_return(
   stats_.total_returns++;
   update_call_depth(transfer_type::RETURN);
 
-  if (trace_overflow_ || trace_.size() >= max_entries_) {
-    trace_overflow_ = true;
+  if (!collect_trace_ || trace_overflow_ || trace_.size() >= max_entries_) {
+    if (collect_trace_) {
+      trace_overflow_ = true;
+    }
     return;
   }
 
@@ -175,7 +181,9 @@ void transfer_collector::record_return(
 w1xfer_report transfer_collector::build_report() const {
   w1xfer_report report;
   report.stats = stats_;
-  report.trace = trace_;
+  if (collect_trace_) {
+    report.trace = trace_;
+  }
 
   // calculate unique targets and sources
   std::unordered_set<uint64_t> unique_call_targets;

@@ -4,7 +4,7 @@
 namespace w1mem {
 
 memory_tracer::memory_tracer(const memory_config& config)
-    : config_(config), collector_(config.max_trace_entries, config.collect_trace), memory_recording_enabled_(false) {
+    : config_(config), collector_(config.max_trace_entries, config.collect_trace && !config.output_path.empty()), memory_recording_enabled_(false) {
 
   if (config_.verbose) {
     log_.inf(
