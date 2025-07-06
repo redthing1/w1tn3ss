@@ -23,6 +23,11 @@ function(configure_target_with_lief target_name)
     if(TARGET ${target_name})
         target_link_libraries(${target_name} PRIVATE LIEF::LIEF)
         target_compile_definitions(${target_name} PRIVATE WITNESS_LIEF_ENABLED=1)
+        
+        # apply windows symbol resolution for potential conflicts
+        if(WIN32 AND MSVC)
+            configure_windows_symbol_resolution(${target_name})
+        endif()
     endif()
 endfunction()
 
@@ -42,7 +47,6 @@ function(setup_lief_environment)
     set(LIEF_RUST_API OFF CACHE BOOL "disable lief rust api")
     set(LIEF_LOGGING OFF CACHE BOOL "disable lief logging")
     set(LIEF_ENABLE_JSON OFF CACHE BOOL "disable lief json support")
-    set(LIEF_EXTERNAL_SPDLOG ON CACHE BOOL "use external spdlog to avoid fmt conflicts with qbdi")
     
     # export variables for parent scope
     set(LIEF_DIR ${LIEF_DIR} PARENT_SCOPE)
