@@ -47,8 +47,17 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
   try {
     w1xfer::transfer_config config = w1xfer::transfer_config::from_environment();
 
-    if (config.verbose) {
+    // set log level based on debug level
+    if (config.verbose >= 4) {
+      redlog::set_level(redlog::level::pedantic);
+    } else if (config.verbose >= 3) {
       redlog::set_level(redlog::level::debug);
+    } else if (config.verbose >= 2) {
+      redlog::set_level(redlog::level::trace);
+    } else if (config.verbose >= 1) {
+      redlog::set_level(redlog::level::verbose);
+    } else {
+      redlog::set_level(redlog::level::info);
     }
 
     // initialize signal handling for emergency shutdown
