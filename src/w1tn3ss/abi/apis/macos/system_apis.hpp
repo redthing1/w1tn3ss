@@ -245,8 +245,14 @@ static const std::vector<api_info> macos_system_apis = {
      .api_category = api_info::category::STRING_MANIPULATION,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
      .parameters =
-         {{.name = "dest", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT, .size_param_index = 2},
-          {.name = "src", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::IN, .size_param_index = 2},
+         {{.name = "dest",
+           .param_type = param_info::type::BUFFER,
+           .param_direction = param_info::direction::OUT,
+           .size_param_index = 2},
+          {.name = "src",
+           .param_type = param_info::type::BUFFER,
+           .param_direction = param_info::direction::IN,
+           .size_param_index = 2},
           {.name = "n", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN}},
      .return_value = {.name = "dest", .param_type = param_info::type::POINTER},
      .description = "copy memory block",
@@ -257,7 +263,10 @@ static const std::vector<api_info> macos_system_apis = {
      .api_category = api_info::category::STRING_MANIPULATION,
      .flags = 0,
      .parameters =
-         {{.name = "s", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT, .size_param_index = 2},
+         {{.name = "s",
+           .param_type = param_info::type::BUFFER,
+           .param_direction = param_info::direction::OUT,
+           .size_param_index = 2},
           {.name = "c", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
           {.name = "n", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN}},
      .return_value = {.name = "s", .param_type = param_info::type::POINTER},
@@ -268,8 +277,14 @@ static const std::vector<api_info> macos_system_apis = {
      .api_category = api_info::category::STRING_MANIPULATION,
      .flags = 0,
      .parameters =
-         {{.name = "s1", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::IN, .size_param_index = 2},
-          {.name = "s2", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::IN, .size_param_index = 2},
+         {{.name = "s1",
+           .param_type = param_info::type::BUFFER,
+           .param_direction = param_info::direction::IN,
+           .size_param_index = 2},
+          {.name = "s2",
+           .param_type = param_info::type::BUFFER,
+           .param_direction = param_info::direction::IN,
+           .size_param_index = 2},
           {.name = "n", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN}},
      .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
      .description = "compare memory blocks",
@@ -423,7 +438,7 @@ static const std::vector<api_info> macos_system_apis = {
      .return_value = {.name = "pid", .param_type = param_info::type::PROCESS_ID},
      .description = "create child process",
      .headers = {"unistd.h"}},
-    
+
     {.name = "_execve",
      .module = "libsystem_kernel.dylib",
      .api_category = api_info::category::PROCESS_CONTROL,
@@ -435,7 +450,7 @@ static const std::vector<api_info> macos_system_apis = {
      .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
      .description = "execute program",
      .headers = {"unistd.h"}},
-    
+
     {.name = "_waitpid",
      .module = "libsystem_kernel.dylib",
      .api_category = api_info::category::PROCESS_CONTROL,
@@ -447,7 +462,7 @@ static const std::vector<api_info> macos_system_apis = {
      .return_value = {.name = "pid", .param_type = param_info::type::PROCESS_ID},
      .description = "wait for process state changes",
      .headers = {"sys/wait.h"}},
-    
+
     {.name = "_kill",
      .module = "libsystem_kernel.dylib",
      .api_category = api_info::category::PROCESS_CONTROL,
@@ -458,7 +473,7 @@ static const std::vector<api_info> macos_system_apis = {
      .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
      .description = "send signal to process",
      .headers = {"signal.h"}},
-    
+
     {.name = "_getpid",
      .module = "libsystem_kernel.dylib",
      .api_category = api_info::category::PROCESS_CONTROL,
@@ -467,7 +482,7 @@ static const std::vector<api_info> macos_system_apis = {
      .return_value = {.name = "pid", .param_type = param_info::type::PROCESS_ID},
      .description = "get process ID",
      .headers = {"unistd.h"}},
-    
+
     {.name = "_getppid",
      .module = "libsystem_kernel.dylib",
      .api_category = api_info::category::PROCESS_CONTROL,
@@ -476,7 +491,7 @@ static const std::vector<api_info> macos_system_apis = {
      .return_value = {.name = "ppid", .param_type = param_info::type::PROCESS_ID},
      .description = "get parent process ID",
      .headers = {"unistd.h"}},
-    
+
     {.name = "_exit",
      .module = "libsystem_kernel.dylib",
      .api_category = api_info::category::PROCESS_CONTROL,
@@ -498,7 +513,7 @@ static const std::vector<api_info> macos_system_apis = {
      .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
      .description = "get file status",
      .headers = {"sys/stat.h"}},
-    
+
     {.name = "_unlink",
      .module = "libsystem_kernel.dylib",
      .api_category = api_info::category::FILE_MANAGEMENT,
@@ -509,7 +524,7 @@ static const std::vector<api_info> macos_system_apis = {
      .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
      .description = "delete file",
      .headers = {"unistd.h"}},
-    
+
     {.name = "_chmod",
      .module = "libsystem_kernel.dylib",
      .api_category = api_info::category::FILE_MANAGEMENT,
@@ -521,7 +536,7 @@ static const std::vector<api_info> macos_system_apis = {
      .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
      .description = "change file permissions",
      .headers = {"sys/stat.h"}},
-    
+
     {.name = "_access",
      .module = "libsystem_kernel.dylib",
      .api_category = api_info::category::FILE_MANAGEMENT,
@@ -532,7 +547,7 @@ static const std::vector<api_info> macos_system_apis = {
      .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
      .description = "check file accessibility",
      .headers = {"unistd.h"}},
-    
+
     {.name = "_rename",
      .module = "libsystem_kernel.dylib",
      .api_category = api_info::category::FILE_MANAGEMENT,
@@ -544,7 +559,7 @@ static const std::vector<api_info> macos_system_apis = {
      .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
      .description = "rename file",
      .headers = {"stdio.h"}},
-    
+
     {.name = "_mkdir",
      .module = "libsystem_kernel.dylib",
      .api_category = api_info::category::FILE_MANAGEMENT,
@@ -570,54 +585,68 @@ static const std::vector<api_info> macos_system_apis = {
      .description = "create socket",
      .cleanup_api = "_close",
      .headers = {"sys/socket.h"}},
-    
+
     {.name = "_connect",
      .module = "libsystem_kernel.dylib",
      .api_category = api_info::category::NETWORK_SOCKET,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::NETWORK_IO) |
               static_cast<uint32_t>(api_info::behavior_flags::BLOCKING),
      .parameters =
-         {{.name = "sockfd", .param_type = param_info::type::FILE_DESCRIPTOR, .param_direction = param_info::direction::IN},
+         {{.name = "sockfd",
+           .param_type = param_info::type::FILE_DESCRIPTOR,
+           .param_direction = param_info::direction::IN},
           {.name = "addr", .param_type = param_info::type::STRUCT, .param_direction = param_info::direction::IN},
           {.name = "addrlen", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN}},
      .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
      .description = "connect socket",
      .headers = {"sys/socket.h"}},
-    
+
     {.name = "_bind",
      .module = "libsystem_kernel.dylib",
      .api_category = api_info::category::NETWORK_SOCKET,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::NETWORK_IO),
      .parameters =
-         {{.name = "sockfd", .param_type = param_info::type::FILE_DESCRIPTOR, .param_direction = param_info::direction::IN},
+         {{.name = "sockfd",
+           .param_type = param_info::type::FILE_DESCRIPTOR,
+           .param_direction = param_info::direction::IN},
           {.name = "addr", .param_type = param_info::type::STRUCT, .param_direction = param_info::direction::IN},
           {.name = "addrlen", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN}},
      .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
      .description = "bind socket to address",
      .headers = {"sys/socket.h"}},
-    
+
     {.name = "_send",
      .module = "libsystem_kernel.dylib",
      .api_category = api_info::category::NETWORK_SOCKET,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::NETWORK_IO) |
               static_cast<uint32_t>(api_info::behavior_flags::BLOCKING),
      .parameters =
-         {{.name = "sockfd", .param_type = param_info::type::FILE_DESCRIPTOR, .param_direction = param_info::direction::IN},
-          {.name = "buf", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::IN, .size_param_index = 2},
+         {{.name = "sockfd",
+           .param_type = param_info::type::FILE_DESCRIPTOR,
+           .param_direction = param_info::direction::IN},
+          {.name = "buf",
+           .param_type = param_info::type::BUFFER,
+           .param_direction = param_info::direction::IN,
+           .size_param_index = 2},
           {.name = "len", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN},
           {.name = "flags", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN}},
      .return_value = {.name = "bytes_sent", .param_type = param_info::type::SIZE},
      .description = "send data on socket",
      .headers = {"sys/socket.h"}},
-    
+
     {.name = "_recv",
      .module = "libsystem_kernel.dylib",
      .api_category = api_info::category::NETWORK_SOCKET,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::NETWORK_IO) |
               static_cast<uint32_t>(api_info::behavior_flags::BLOCKING),
      .parameters =
-         {{.name = "sockfd", .param_type = param_info::type::FILE_DESCRIPTOR, .param_direction = param_info::direction::IN},
-          {.name = "buf", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT, .size_param_index = 2},
+         {{.name = "sockfd",
+           .param_type = param_info::type::FILE_DESCRIPTOR,
+           .param_direction = param_info::direction::IN},
+          {.name = "buf",
+           .param_type = param_info::type::BUFFER,
+           .param_direction = param_info::direction::OUT,
+           .size_param_index = 2},
           {.name = "len", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN},
           {.name = "flags", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN}},
      .return_value = {.name = "bytes_received", .param_type = param_info::type::SIZE},
@@ -637,7 +666,7 @@ static const std::vector<api_info> macos_system_apis = {
      .description = "open dynamic library",
      .cleanup_api = "_dlclose",
      .headers = {"dlfcn.h"}},
-    
+
     {.name = "_dlsym",
      .module = "libdyld.dylib",
      .api_category = api_info::category::LIBRARY_LOADING,
@@ -648,7 +677,7 @@ static const std::vector<api_info> macos_system_apis = {
      .return_value = {.name = "address", .param_type = param_info::type::POINTER},
      .description = "get symbol from library",
      .headers = {"dlfcn.h"}},
-    
+
     {.name = "_dlclose",
      .module = "libdyld.dylib",
      .api_category = api_info::category::LIBRARY_LOADING,
@@ -677,7 +706,7 @@ static const std::vector<api_info> macos_system_apis = {
      .description = "map memory",
      .cleanup_api = "_munmap",
      .headers = {"sys/mman.h"}},
-    
+
     {.name = "_munmap",
      .module = "libsystem_kernel.dylib",
      .api_category = api_info::category::MEMORY_MANAGEMENT,
@@ -689,7 +718,7 @@ static const std::vector<api_info> macos_system_apis = {
      .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
      .description = "unmap memory",
      .headers = {"sys/mman.h"}},
-    
+
     {.name = "_mprotect",
      .module = "libsystem_kernel.dylib",
      .api_category = api_info::category::MEMORY_MANAGEMENT,
@@ -711,7 +740,7 @@ static const std::vector<api_info> macos_system_apis = {
      .return_value = {.name = "uid", .param_type = param_info::type::INTEGER},
      .description = "get user ID",
      .headers = {"unistd.h"}},
-    
+
     {.name = "_geteuid",
      .module = "libsystem_kernel.dylib",
      .api_category = api_info::category::SYSTEM_INFO,
@@ -720,7 +749,7 @@ static const std::vector<api_info> macos_system_apis = {
      .return_value = {.name = "euid", .param_type = param_info::type::INTEGER},
      .description = "get effective user ID",
      .headers = {"unistd.h"}},
-    
+
     {.name = "_sysctl",
      .module = "libsystem_kernel.dylib",
      .api_category = api_info::category::SYSTEM_INFO,
@@ -729,20 +758,25 @@ static const std::vector<api_info> macos_system_apis = {
          {{.name = "name", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
           {.name = "namelen", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
           {.name = "oldp", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
-          {.name = "oldlenp", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN_OUT},
+          {.name = "oldlenp",
+           .param_type = param_info::type::POINTER,
+           .param_direction = param_info::direction::IN_OUT},
           {.name = "newp", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
           {.name = "newlen", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN}},
      .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
      .description = "get/set system information",
      .headers = {"sys/sysctl.h"}},
-    
+
     {.name = "_gettimeofday",
      .module = "libsystem_kernel.dylib",
      .api_category = api_info::category::TIME,
      .flags = 0,
      .parameters =
          {{.name = "tv", .param_type = param_info::type::STRUCT, .param_direction = param_info::direction::OUT},
-          {.name = "tz", .param_type = param_info::type::STRUCT, .param_direction = param_info::direction::OUT, .is_optional = true}},
+          {.name = "tz",
+           .param_type = param_info::type::STRUCT,
+           .param_direction = param_info::direction::OUT,
+           .is_optional = true}},
      .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
      .description = "get time of day",
      .headers = {"sys/time.h"}}

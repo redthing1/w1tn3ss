@@ -5,10 +5,10 @@
 namespace w1xfer {
 
 transfer_tracer::transfer_tracer(const transfer_config& config)
-    : config_(config),
-      collector_(
-          config.max_entries, config.log_registers, config.log_stack_info, config.log_call_targets, config.analyze_apis, !config.output_file.empty()
-      ) {
+    : config_(config), collector_(
+                           config.max_entries, config.log_registers, config.log_stack_info, config.log_call_targets,
+                           config.analyze_apis, !config.output_file.empty()
+                       ) {
 
   if (config_.verbose) {
     log_.inf(

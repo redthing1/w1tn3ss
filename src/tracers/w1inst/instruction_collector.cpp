@@ -4,8 +4,11 @@
 
 namespace w1inst {
 
-mnemonic_collector::mnemonic_collector(uint64_t max_entries, const std::vector<std::string>& target_mnemonics, bool collect_trace)
-    : max_entries_(max_entries), instruction_count_(0), matched_count_(0), trace_overflow_(false), collect_trace_(collect_trace) {
+mnemonic_collector::mnemonic_collector(
+    uint64_t max_entries, const std::vector<std::string>& target_mnemonics, bool collect_trace
+)
+    : max_entries_(max_entries), instruction_count_(0), matched_count_(0), trace_overflow_(false),
+      collect_trace_(collect_trace) {
 
   stats_ = {};
   stats_.target_mnemonics = target_mnemonics;

@@ -10,11 +10,12 @@
 namespace w1xfer {
 
 transfer_collector::transfer_collector(
-    uint64_t max_entries, bool log_registers, bool log_stack_info, bool log_call_targets, bool analyze_apis, bool collect_trace
+    uint64_t max_entries, bool log_registers, bool log_stack_info, bool log_call_targets, bool analyze_apis,
+    bool collect_trace
 )
     : max_entries_(max_entries), instruction_count_(0), log_registers_(log_registers), log_stack_info_(log_stack_info),
-      log_call_targets_(log_call_targets), analyze_apis_(analyze_apis), collect_trace_(collect_trace), trace_overflow_(false),
-      modules_initialized_(false) {
+      log_call_targets_(log_call_targets), analyze_apis_(analyze_apis), collect_trace_(collect_trace),
+      trace_overflow_(false), modules_initialized_(false) {
 
   if (collect_trace_) {
     trace_.reserve(std::min(max_entries_, static_cast<uint64_t>(10000)));
