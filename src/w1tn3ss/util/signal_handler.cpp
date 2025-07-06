@@ -118,7 +118,7 @@ void unix_handler(int signum, siginfo_t* info, void* context) {
 
   if (g_config.log_signals) {
     const char* msg = "received sigint signal\n";
-    stderr_write(msg);
+    w1::util::stderr_write(msg);
   }
 
   // forward to child processes
