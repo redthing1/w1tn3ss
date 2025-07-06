@@ -42,7 +42,6 @@ function(setup_lief_environment)
     set(LIEF_RUST_API OFF CACHE BOOL "disable lief rust api")
     set(LIEF_LOGGING OFF CACHE BOOL "disable lief logging")
     set(LIEF_ENABLE_JSON OFF CACHE BOOL "disable lief json support")
-    set(LIEF_EXTERNAL_SPDLOG ON CACHE BOOL "use external spdlog to avoid fmt conflicts with qbdi")
     
     # export variables for parent scope
     set(LIEF_DIR ${LIEF_DIR} PARENT_SCOPE)
