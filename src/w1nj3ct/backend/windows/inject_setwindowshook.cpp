@@ -6,6 +6,8 @@
 #endif
 
 #include <windows.h>
+#include <tlhelp32.h>
+#include <sstream>
 #include "util.hpp"
 #include "inject.hpp"
 
