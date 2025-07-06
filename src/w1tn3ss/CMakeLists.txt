@@ -19,6 +19,7 @@ add_library(w1tn3ss STATIC
     abi/api_knowledge_db.cpp
     abi/argument_extractor.cpp
     abi/api_analyzer.cpp
+    abi/api_listener.cpp
 )
 
 # Add platform-specific calling convention implementations

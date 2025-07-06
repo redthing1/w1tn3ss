@@ -12,7 +12,7 @@
 #include <w1tn3ss/util/register_capture.hpp>
 #include <w1tn3ss/util/stack_capture.hpp>
 #include <w1tn3ss/util/value_formatter.hpp>
-#include <w1tn3ss/abi/api_analyzer.hpp>
+#include <w1tn3ss/abi/api_listener.hpp>
 #include "symbol_enricher.hpp"
 
 namespace w1xfer {
@@ -179,17 +179,7 @@ private:
   w1::util::module_range_index index_;
   bool modules_initialized_;
   std::unique_ptr<symbol_enricher> symbol_enricher_;
-  std::unique_ptr<w1::abi::api_analyzer> api_analyzer_;
-
-  // call stack tracking for return value analysis
-  struct pending_call {
-    uint64_t call_target_address;
-    std::string target_symbol_name;
-    std::string target_module;
-    w1::abi::api_info api_info;
-    uint64_t timestamp;
-  };
-  std::vector<pending_call> call_stack_;
+  std::unique_ptr<w1::abi::api_listener> api_listener_;
 
   uint64_t get_timestamp() const;
   void update_call_depth(transfer_type type);
@@ -201,6 +191,9 @@ private:
   void populate_entry_details(
       transfer_entry& entry, uint64_t source_addr, uint64_t target_addr, QBDI::VMInstanceRef vm, QBDI::GPRState* gpr
   ) const;
+  
+  // api event handlers
+  void on_api_event(const w1::abi::api_event& event, transfer_entry& entry);
 };
 
 } // namespace w1xfer

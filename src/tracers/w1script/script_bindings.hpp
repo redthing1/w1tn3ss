@@ -11,29 +11,37 @@
 #include "bindings/module_analysis.hpp"
 #include "bindings/utilities.hpp"
 #include "bindings/callback_system.hpp"
+#include "bindings/api_analysis.hpp"
 
 namespace w1::tracers::script {
 
 /**
- * @brief setup comprehensive QBDI bindings for Lua scripting
+ * @brief setup comprehensive qbdi bindings for lua scripting
  *
- * this function orchestrates the setup of all QBDI-related bindings
- * for the Lua scripting environment. it creates the main 'w1' module
+ * this function orchestrates the setup of all qbdi-related bindings
+ * for the lua scripting environment. it creates the main 'w1' module
  * and delegates to specialized binding modules for different categories
  * of functionality:
  *
- * - core types and enums (VMAction, InstAnalysis)
+ * - core types and enums (vmaction, instanalysis)
  * - platform-specific register access functions
  * - VM control and instruction analysis
  * - memory access and analysis
- * - utility functions (logging, file I/O, JSON, timestamps)
- * - callback system for comprehensive QBDI instrumentation
+ * - utility functions (logging, file i/o, json, timestamps)
+ * - callback system for comprehensive qbdi instrumentation
+ * - api analysis for semantic API monitoring
  *
  * the bindings are organized into logical modules to improve maintainability
- * and make it easier to extend with additional QBDI functionality.
+ * and make it easier to extend with additional qbdi functionality.
  *
- * @param lua the Sol2 Lua state to register all bindings with
+ * @param lua the sol2 lua state to register all bindings with
+ * @param tracer_table the tracer instance table (for api callbacks)
+ * @param api_manager the api analysis manager (optional)
  */
-void setup_qbdi_bindings(sol::state& lua);
+void setup_qbdi_bindings(
+    sol::state& lua, 
+    sol::table& tracer_table,
+    std::shared_ptr<bindings::api_analysis_manager>& api_manager
+);
 
 } // namespace w1::tracers::script

@@ -146,7 +146,7 @@ void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
         );
         return reinterpret_cast<QBDI::rword>(stack);
       } else {
-        log.warn("Failed to allocate virtual stack of size " + std::to_string(stackSize));
+        log.warn("failed to allocate virtual stack of size " + std::to_string(stackSize));
         return sol::nullopt;
       }
     } catch (const std::exception& e) {
@@ -196,7 +196,7 @@ void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
         );
         return reinterpret_cast<QBDI::rword>(ptr);
       } else {
-        log.warn("Failed to allocate " + std::to_string(size) + " bytes with alignment " + std::to_string(alignment));
+        log.warn("failed to allocate " + std::to_string(size) + " bytes with alignment " + std::to_string(alignment));
         return sol::nullopt;
       }
     } catch (const std::exception& e) {
@@ -214,7 +214,7 @@ void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
         log.dbg("freed aligned memory at address 0x" + std::to_string(ptr));
         return true;
       } else {
-        log.warn("Attempted to free null pointer");
+        log.warn("attempted to free null pointer");
         return false;
       }
     } catch (const std::exception& e) {
@@ -232,13 +232,13 @@ void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
         try {
           // validate parameters
           if (size == 0) {
-            log.warn("Attempted to read 0 bytes from address 0x" + std::to_string(address));
+            log.warn("attempted to read 0 bytes from address 0x" + std::to_string(address));
             return sol::nullopt;
           }
 
           if (size > 0x10000) { // Limit reads to 64KB for safety
             log.warn(
-                "Attempted to read " + std::to_string(size) + " bytes from address 0x" + std::to_string(address) +
+                "attempted to read " + std::to_string(size) + " bytes from address 0x" + std::to_string(address) +
                 " - size too large"
             );
             return sol::nullopt;
@@ -279,19 +279,19 @@ void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
     try {
       // validate hex string length
       if (hexData.length() % 2 != 0) {
-        log.warn("Invalid hex data length: " + std::to_string(hexData.length()) + " (must be even)");
+        log.warn("invalid hex data length: " + std::to_string(hexData.length()) + " (must be even)");
         return false;
       }
 
       size_t size = hexData.length() / 2;
       if (size == 0) {
-        log.warn("Attempted to write 0 bytes to address 0x" + std::to_string(address));
+        log.warn("attempted to write 0 bytes to address 0x" + std::to_string(address));
         return false;
       }
 
       if (size > 0x10000) { // Limit writes to 64KB for safety
         log.warn(
-            "Attempted to write " + std::to_string(size) + " bytes to address 0x" + std::to_string(address) +
+            "attempted to write " + std::to_string(size) + " bytes to address 0x" + std::to_string(address) +
             " - size too large"
         );
         return false;
@@ -326,7 +326,7 @@ void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
     try {
       // basic heuristic checks for obviously invalid addresses
       if (address == 0) {
-        return false; // Null pointer
+        return false; // null pointer
       }
 
       // check for obviously invalid addresses (platform-specific)
@@ -469,13 +469,13 @@ void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
         try {
           // validate parameters
           if (size == 0) {
-            log.warn("Attempted to read 0 bytes from address 0x" + std::to_string(address));
+            log.warn("attempted to read 0 bytes from address 0x" + std::to_string(address));
             return sol::nullopt;
           }
 
           if (size > 0x1000) { // Limit to 4KB for legacy function
             log.warn(
-                "Attempted to read " + std::to_string(size) + " bytes from address 0x" + std::to_string(address) +
+                "attempted to read " + std::to_string(size) + " bytes from address 0x" + std::to_string(address) +
                 " - size too large for legacy function"
             );
             return sol::nullopt;
@@ -489,7 +489,7 @@ void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
           std::string result;
           result.reserve(size);
           for (uint8_t byte : buffer) {
-            if (byte >= 32 && byte <= 126) { // Printable ASCII
+            if (byte >= 32 && byte <= 126) { // printable ASCII
               result += static_cast<char>(byte);
             } else {
               result += '.';

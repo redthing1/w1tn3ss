@@ -3,7 +3,11 @@
 
 namespace w1::tracers::script {
 
-void setup_qbdi_bindings(sol::state& lua) {
+void setup_qbdi_bindings(
+    sol::state& lua, 
+    sol::table& tracer_table,
+    std::shared_ptr<bindings::api_analysis_manager>& api_manager
+) {
   auto log = redlog::get_logger("w1script.bindings");
   log.inf("setting up modular QBDI bindings");
 
@@ -32,13 +36,16 @@ void setup_qbdi_bindings(sol::state& lua) {
   log.dbg("setting up callback system");
   bindings::setup_callback_system(lua, w1_module);
 
-  // register the w1 module with the Lua state
+  log.dbg("setting up api analysis");
+  bindings::setup_api_analysis(lua, w1_module, tracer_table, api_manager);
+
+  // register the w1 module with the lua state
   lua["w1"] = w1_module;
 
   log.inf("all QBDI bindings registered successfully");
   log.dbg(
       "available modules: core_types, register_access, vm_control, memory_analysis, module_analysis, utilities, "
-      "callback_system"
+      "callback_system, api_analysis"
   );
 }
 

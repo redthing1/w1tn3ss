@@ -31,13 +31,13 @@ transfer_collector::transfer_collector(
     symbol_enricher_ = std::make_unique<symbol_enricher>();
   }
 
-  // create API analyzer if API analysis is enabled
+  // create API listener if API analysis is enabled
   if (analyze_apis_) {
     w1::abi::analyzer_config cfg;
     cfg.extract_arguments = true;
     cfg.format_calls = true;
     cfg.max_string_length = 256;
-    api_analyzer_ = std::make_unique<w1::abi::api_analyzer>(cfg);
+    api_listener_ = std::make_unique<w1::abi::api_listener>(cfg);
   }
 }
 
@@ -60,10 +60,7 @@ void transfer_collector::record_call(
   populate_entry_details(entry, source_addr, target_addr, vm, gpr);
 
   // perform API analysis if enabled
-  if (analyze_apis_ && api_analyzer_) {
-    // use value formatter for consistent formatting
-    w1::util::value_formatter::format_options fmt_opts;
-    fmt_opts.max_string_length = 256;
+  if (analyze_apis_ && api_listener_) {
     w1::abi::api_context ctx;
     ctx.call_address = source_addr;
     ctx.target_address = target_addr;
@@ -75,70 +72,10 @@ void transfer_collector::record_call(
     ctx.fpr_state = fpr;
     ctx.module_index = &index_;
     ctx.timestamp = entry.timestamp;
-
-    auto analysis = api_analyzer_->analyze_call(ctx);
-
-    // convert analysis result to our format
-    entry.api_info.api_category = analysis.category == w1::abi::api_info::category::UNKNOWN
-                                      ? ""
-                                      : std::to_string(static_cast<int>(analysis.category));
-    entry.api_info.description = analysis.description;
-    entry.api_info.formatted_call = analysis.formatted_call;
-    entry.api_info.analysis_complete = analysis.analysis_complete;
-
-    // convert arguments
-    for (const auto& arg : analysis.arguments) {
-      api_argument api_arg;
-      api_arg.raw_value = arg.raw_value;
-      api_arg.param_name = arg.param_name;
-      api_arg.param_type = std::to_string(static_cast<int>(arg.param_type));
-      api_arg.is_pointer = arg.is_valid_pointer;
-
-      // format interpreted value using our formatter utility
-      // this complex chain handles different value types from the ABI analyzer
-      // priority: string_preview > null_pointer > variant types > fallback formatting
-      if (!arg.string_preview.empty()) {
-        api_arg.interpreted_value = w1::util::value_formatter::format_string(arg.string_preview, fmt_opts);
-      } else if (arg.is_null_pointer) {
-        api_arg.interpreted_value = "NULL";
-      } else if (std::holds_alternative<std::string>(arg.interpreted_value)) {
-        api_arg.interpreted_value =
-            w1::util::value_formatter::format_string(std::get<std::string>(arg.interpreted_value), fmt_opts);
-      } else if (std::holds_alternative<bool>(arg.interpreted_value)) {
-        api_arg.interpreted_value = w1::util::value_formatter::format_bool(std::get<bool>(arg.interpreted_value));
-      } else if (std::holds_alternative<std::vector<uint8_t>>(arg.interpreted_value)) {
-        api_arg.interpreted_value =
-            w1::util::value_formatter::format_buffer(std::get<std::vector<uint8_t>>(arg.interpreted_value), fmt_opts);
-      } else {
-        // fallback to type-based formatting when no specific type variant matches
-        auto value_type = w1::util::value_formatter::value_type::UNKNOWN;
-        if (arg.param_type == w1::abi::param_info::type::BOOLEAN) {
-          value_type = w1::util::value_formatter::value_type::BOOLEAN;
-        } else if (arg.param_type == w1::abi::param_info::type::ERROR_CODE) {
-          value_type = w1::util::value_formatter::value_type::ERROR_CODE;
-        } else if (arg.is_valid_pointer) {
-          value_type = w1::util::value_formatter::value_type::POINTER;
-        }
-        api_arg.interpreted_value = w1::util::value_formatter::format_typed_value(arg.raw_value, value_type, fmt_opts);
-      }
-
-      entry.api_info.arguments.push_back(api_arg);
-    }
-
-    // track this call for later return value analysis if we found API info
-    if (analysis.analysis_complete && analysis.category != w1::abi::api_info::category::UNKNOWN) {
-      // look up the full API info from the database for return value analysis
-      if (auto api_info = api_analyzer_->get_api_db().lookup(analysis.symbol_name)) {
-        if (api_info->return_value.param_type != w1::abi::param_info::type::VOID) {
-          pending_call pending;
-          pending.call_target_address = target_addr;
-          pending.target_symbol_name = entry.target_symbol.symbol_name;
-          pending.target_module = entry.target_module;
-          pending.api_info = *api_info;
-          pending.timestamp = entry.timestamp;
-          call_stack_.push_back(pending);
-        }
-      }
+    
+    // directly analyze the call
+    if (auto api_event = api_listener_->analyze_call(ctx)) {
+      on_api_event(*api_event, entry);
     }
   }
 
@@ -166,89 +103,23 @@ void transfer_collector::record_return(
 
   populate_entry_details(entry, source_addr, target_addr, vm, gpr);
 
-  // perform return value analysis if enabled and we have a matching call
-  if (analyze_apis_ && api_analyzer_ && !call_stack_.empty()) {
-    // find matching call based on source address (the function we're returning from)
-    // we search in reverse order to match the most recent call to this function
-    // this handles recursive calls correctly by matching the latest call first
-    auto call_it = std::find_if(call_stack_.rbegin(), call_stack_.rend(), [source_addr](const pending_call& call) {
-      return call.call_target_address == source_addr;
-    });
-
-    if (call_it != call_stack_.rend()) {
-      // build context for return value analysis
-      w1::abi::api_context ctx;
-      ctx.call_address = target_addr;   // where we're returning to
-      ctx.target_address = source_addr; // the function we're returning from
-      ctx.module_name = call_it->target_module;
-      ctx.symbol_name = call_it->target_symbol_name;
-      ctx.vm = vm;
-      ctx.vm_state = state;
-      ctx.gpr_state = gpr;
-      ctx.fpr_state = fpr;
-      ctx.module_index = &index_;
-      ctx.timestamp = entry.timestamp;
-
-      // create analysis result with call info and analyze return
-      w1::abi::api_analysis_result return_analysis;
-      return_analysis.symbol_name = call_it->target_symbol_name;
-      return_analysis.module_name = call_it->target_module;
-      return_analysis.category = call_it->api_info.api_category;
-      return_analysis.description = call_it->api_info.description;
-      return_analysis.analysis_complete = true;
-
-      api_analyzer_->analyze_return(return_analysis, ctx);
-
-      // copy API information from the call
-      entry.api_info.api_category = std::to_string(static_cast<int>(call_it->api_info.api_category));
-      entry.api_info.description = call_it->api_info.description;
-      entry.api_info.analysis_complete = true;
-      entry.api_info.has_return_value = true;
-
-      // extract and format return value
-      const auto& ret_val = return_analysis.return_value;
-      entry.api_info.return_value.raw_value = ret_val.raw_value;
-      entry.api_info.return_value.param_type = std::to_string(static_cast<int>(ret_val.param_type));
-      entry.api_info.return_value.is_pointer = ret_val.is_valid_pointer;
-      entry.api_info.return_value.is_null = ret_val.is_null_pointer;
-
-      // format interpreted value using our formatter utility
-      w1::util::value_formatter::format_options fmt_opts;
-      fmt_opts.max_string_length = 256;
-
-      if (!ret_val.string_preview.empty()) {
-        entry.api_info.return_value.interpreted_value =
-            w1::util::value_formatter::format_string(ret_val.string_preview, fmt_opts);
-      } else if (ret_val.is_null_pointer) {
-        entry.api_info.return_value.interpreted_value = "NULL";
-      } else if (std::holds_alternative<std::string>(ret_val.interpreted_value)) {
-        entry.api_info.return_value.interpreted_value =
-            w1::util::value_formatter::format_string(std::get<std::string>(ret_val.interpreted_value), fmt_opts);
-      } else if (std::holds_alternative<bool>(ret_val.interpreted_value)) {
-        entry.api_info.return_value.interpreted_value =
-            w1::util::value_formatter::format_bool(std::get<bool>(ret_val.interpreted_value));
-      } else {
-        // fallback to type-based formatting
-        auto value_type = w1::util::value_formatter::value_type::UNKNOWN;
-        if (ret_val.param_type == w1::abi::param_info::type::BOOLEAN) {
-          value_type = w1::util::value_formatter::value_type::BOOLEAN;
-        } else if (ret_val.param_type == w1::abi::param_info::type::ERROR_CODE) {
-          value_type = w1::util::value_formatter::value_type::ERROR_CODE;
-        } else if (ret_val.is_valid_pointer) {
-          value_type = w1::util::value_formatter::value_type::POINTER;
-        }
-        entry.api_info.return_value.interpreted_value =
-            w1::util::value_formatter::format_typed_value(ret_val.raw_value, value_type, fmt_opts);
-      }
-
-      // build formatted call string with return value
-      entry.api_info.formatted_call =
-          call_it->target_symbol_name + "() = " + entry.api_info.return_value.interpreted_value;
-
-      // remove the call from stack (convert reverse iterator to forward iterator for erase)
-      // std::next(call_it).base() converts reverse_iterator to forward_iterator
-      // this is the standard idiom for erasing elements found with reverse iterators
-      call_stack_.erase(std::next(call_it).base());
+  // perform return value analysis if enabled
+  if (analyze_apis_ && api_listener_) {
+    w1::abi::api_context ctx;
+    ctx.call_address = target_addr;   // where we're returning to
+    ctx.target_address = source_addr; // the function we're returning from
+    ctx.module_name = entry.source_module;
+    ctx.symbol_name = entry.source_symbol.symbol_name;
+    ctx.vm = vm;
+    ctx.vm_state = state;
+    ctx.gpr_state = gpr;
+    ctx.fpr_state = fpr;
+    ctx.module_index = &index_;
+    ctx.timestamp = entry.timestamp;
+    
+    // directly analyze the return
+    if (auto api_event = api_listener_->analyze_return(ctx)) {
+      on_api_event(*api_event, entry);
     }
   }
 
@@ -324,9 +195,9 @@ void transfer_collector::initialize_module_tracking() {
     symbol_enricher_->initialize(index_);
   }
 
-  // initialize API analyzer with the module index
-  if (api_analyzer_) {
-    api_analyzer_->initialize(index_);
+  // initialize API listener with the module index
+  if (api_listener_) {
+    api_listener_->initialize(index_);
   }
 
   modules_initialized_ = true;
@@ -431,5 +302,40 @@ void transfer_collector::populate_entry_details(
 }
 
 // format_interpreted_value is now replaced by w1::util::value_formatter
+
+void transfer_collector::on_api_event(const w1::abi::api_event& event, transfer_entry& entry) {
+  // convert api_event data to transfer_entry api_analysis format
+  entry.api_info.api_category = event.category == w1::abi::api_info::category::UNKNOWN
+                                    ? ""
+                                    : std::to_string(static_cast<int>(event.category));
+  entry.api_info.description = event.description;
+  entry.api_info.formatted_call = event.formatted_call;
+  entry.api_info.analysis_complete = event.analysis_complete;
+  
+  // convert arguments
+  entry.api_info.arguments.clear();
+  for (const auto& arg : event.arguments) {
+    api_argument api_arg;
+    api_arg.raw_value = arg.raw_value;
+    api_arg.param_name = arg.param_name;
+    api_arg.param_type = std::to_string(static_cast<int>(arg.param_type));
+    api_arg.is_pointer = arg.is_pointer;
+    api_arg.interpreted_value = arg.interpreted_value;
+    entry.api_info.arguments.push_back(api_arg);
+  }
+  
+  // handle return value if present
+  if (event.type == w1::abi::api_event::event_type::RETURN && event.return_value.has_value()) {
+    const auto& ret_val = event.return_value.value();
+    entry.api_info.has_return_value = true;
+    entry.api_info.return_value.raw_value = ret_val.raw_value;
+    entry.api_info.return_value.param_type = std::to_string(static_cast<int>(ret_val.param_type));
+    entry.api_info.return_value.is_pointer = ret_val.is_pointer;
+    entry.api_info.return_value.interpreted_value = ret_val.interpreted_value;
+    entry.api_info.return_value.is_null = (ret_val.interpreted_value == "NULL");
+  } else {
+    entry.api_info.has_return_value = false;
+  }
+}
 
 } // namespace w1xfer

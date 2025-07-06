@@ -19,7 +19,7 @@ bool instruction_tracer::initialize(w1::tracer_engine<instruction_tracer>& engin
 
   QBDI::VM* vm = engine.get_vm();
   if (!vm) {
-    log_.error("VM instance is null");
+    log_.error("vm instance is null");
     return false;
   }
 

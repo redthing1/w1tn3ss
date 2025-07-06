@@ -18,10 +18,10 @@ memory_tracer::memory_tracer(const memory_config& config)
 bool memory_tracer::initialize(w1::tracer_engine<memory_tracer>& engine) {
   log_.inf("initializing memory tracer");
 
-  // enable QBDI memory recording for efficient collection
+  // enable qbdi memory recording for efficient collection
   QBDI::VM* vm = engine.get_vm();
   if (!vm) {
-    log_.error("VM instance is null");
+    log_.error("vm instance is null");
     return false;
   }
 

@@ -12,7 +12,7 @@ struct instruction_config {
   std::string output_file = "";
   std::string target_mnemonics;           // comma-separated list
   std::vector<std::string> mnemonic_list; // parsed list
-  uint64_t max_entries = 1000000000;      // 1B default
+  uint64_t max_entries = 1000000000;      // 1b default
   bool verbose = false;
 
   static instruction_config from_environment() {
@@ -23,7 +23,7 @@ struct instruction_config {
     config.target_mnemonics = loader.get<std::string>("MNEMONICS", "");
 
     if (config.target_mnemonics.empty()) {
-      throw std::runtime_error("W1INST_MNEMONICS environment variable is required (comma-separated list)");
+      throw std::runtime_error("w1inst_mnemonics environment variable is required (comma-separated list)");
     }
     config.max_entries = loader.get<uint64_t>("MAX_ENTRIES", 1000000000);
     config.verbose = loader.get<bool>("VERBOSE", false);

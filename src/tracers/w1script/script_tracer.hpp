@@ -8,8 +8,21 @@
 #include <unordered_map>
 #include <vector>
 #include <string>
+#include <memory>
+#include <w1tn3ss/util/module_range_index.hpp>
+
+namespace w1 {
+namespace lief {
+class lief_symbol_resolver;
+}
+}
 
 namespace w1::tracers::script {
+
+// forward declarations
+namespace bindings {
+class api_analysis_manager;
+}
 
 class script_tracer {
 private:
@@ -22,6 +35,15 @@ private:
   // lua callback wrapper functions
   std::unordered_map<std::string, sol::function> lua_callbacks_;
   std::vector<uint32_t> registered_callback_ids_;
+  
+  // api analysis manager
+  std::shared_ptr<bindings::api_analysis_manager> api_manager_;
+  
+  // module index for api analysis
+  std::unique_ptr<w1::util::module_range_index> module_index_;
+  
+  // symbol resolver for api analysis
+  std::unique_ptr<w1::lief::lief_symbol_resolver> symbol_resolver_;
 
   bool load_script();
   void setup_callbacks();
@@ -39,15 +61,18 @@ private:
   );
 
 public:
-  script_tracer() = default;
-  ~script_tracer() = default;
+  script_tracer(); // defined in cpp due to unique_ptr of incomplete type
+  ~script_tracer(); // defined in cpp due to unique_ptr of incomplete type
 
   bool initialize(w1::tracer_engine<script_tracer>& engine);
   void shutdown();
   const char* get_name() const { return "w1script"; }
 
-  // no callback method definitions to prevent SFINAE detection
+  // no callback method definitions to prevent sfinae detection
   // callbacks are registered dynamically based on script requirements
+  
+  // api manager access (for exec_transfer callbacks)
+  std::shared_ptr<bindings::api_analysis_manager> get_api_manager() { return api_manager_; }
 };
 
 } // namespace w1::tracers::script
