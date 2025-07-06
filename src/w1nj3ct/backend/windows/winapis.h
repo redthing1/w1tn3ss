@@ -1,6 +1,16 @@
 #pragma once
 
-#include "../../../common/windows_clean.hpp"
+// This file needs raw Windows headers for API definitions
+// It should only be included by inject.hpp which isolates the pollution
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+
+#include <windows.h>
 
 // define NTSTATUS if not already defined
 #ifndef NTSTATUS

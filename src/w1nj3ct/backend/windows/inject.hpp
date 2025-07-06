@@ -1,11 +1,5 @@
 #pragma once
 
-#define NEED_PSAPI
-#define NEED_TLHELP32
-#include "../../../common/windows_clean.hpp"
-
-#include "winapis.h"
-
 #include <chrono>
 #include <iomanip>
 #include <iostream>
@@ -14,10 +8,15 @@
 #include <string>
 #include <vector>
 
-// define the type for the dll_main function
+// clean windows types only
+#define NEED_PSAPI  
+#define NEED_TLHELP32
+#include "../../../common/windows_clean.hpp"
+
+// dll main function type
 typedef BOOL(WINAPI* dll_main_t)(HINSTANCE, DWORD, LPVOID);
 
-// - injection methods
+// injection methods
 
 BOOL inject_dll_create_remote_thread(HANDLE h_process, const std::wstring& dll_path);
 BOOL inject_dll_set_windows_hook_ex(HANDLE h_process, DWORD process_id, const std::wstring& dll_path);

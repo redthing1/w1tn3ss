@@ -5,10 +5,17 @@
 #include "../../backend/windows/auxiliary.hpp"
 #include "../../backend/windows/inject.hpp"
 
-#include <windows.h>
-
-#include <psapi.h>
 #include <string>
+
+#ifndef NOMINMAX
+#define NOMINMAX  
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+
+#include <windows.h>
+#include <psapi.h>
 #include <tlhelp32.h>
 
 namespace w1::inject::windows {
