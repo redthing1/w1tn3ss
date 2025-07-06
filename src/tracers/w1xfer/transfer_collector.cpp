@@ -2,9 +2,6 @@
 
 #include <algorithm>
 #include <chrono>
-#include <cstring>
-#include <cstdio>
-#include <sstream>
 #include <unordered_set>
 
 namespace w1xfer {
@@ -52,39 +49,21 @@ void transfer_collector::record_call(
   update_call_depth(transfer_type::CALL);
 
   // Check if we should skip trace collection (but still do analysis)
-  bool should_collect_trace = collect_trace_ && !trace_overflow_ && trace_.size() < max_entries_;
-  if (collect_trace_ && !should_collect_trace) {
+  bool should_collect = should_collect_trace();
+  if (collect_trace_ && !should_collect) {
     trace_overflow_ = true;
   }
 
-  transfer_entry entry;
-  entry.type = transfer_type::CALL;
-  entry.source_address = source_addr;
-  entry.target_address = target_addr;
-  entry.timestamp = get_timestamp();
+  transfer_entry entry = create_base_entry(transfer_type::CALL, source_addr, target_addr);
   entry.instruction_count = instruction_count_++;
 
-  if (log_registers_) {
-    entry.registers = capture_registers(gpr);
-  }
-
-  if (log_stack_info_) {
-    entry.stack = capture_stack_info(vm, gpr);
-  }
-
-  if (log_call_targets_) {
-    entry.source_module = get_module_name(source_addr);
-    entry.target_module = get_module_name(target_addr);
-
-    // Enrich with symbol information
-    if (symbol_enricher_) {
-      entry.source_symbol = enrich_symbol(source_addr);
-      entry.target_symbol = enrich_symbol(target_addr);
-    }
-  }
+  populate_entry_details(entry, source_addr, target_addr, vm, gpr);
 
   // Perform API analysis if enabled
   if (analyze_apis_ && api_analyzer_) {
+    // Use value formatter for consistent formatting
+    w1::util::value_formatter::format_options fmt_opts;
+    fmt_opts.max_string_length = 256;
     w1::abi::api_context ctx;
     ctx.call_address = source_addr;
     ctx.target_address = target_addr;
@@ -115,17 +94,30 @@ void transfer_collector::record_call(
       api_arg.param_type = std::to_string(static_cast<int>(arg.param_type));
       api_arg.is_pointer = arg.is_valid_pointer;
 
-      // Format interpreted value
+      // Format interpreted value using our formatter utility
       if (!arg.string_preview.empty()) {
-        api_arg.interpreted_value = "\"" + arg.string_preview + "\"";
+        api_arg.interpreted_value = w1::util::value_formatter::format_string(arg.string_preview, fmt_opts);
       } else if (arg.is_null_pointer) {
         api_arg.interpreted_value = "NULL";
-      } else if (arg.param_type == w1::abi::param_info::type::BOOLEAN) {
-        api_arg.interpreted_value = arg.raw_value ? "true" : "false";
+      } else if (std::holds_alternative<std::string>(arg.interpreted_value)) {
+        api_arg.interpreted_value =
+            w1::util::value_formatter::format_string(std::get<std::string>(arg.interpreted_value), fmt_opts);
+      } else if (std::holds_alternative<bool>(arg.interpreted_value)) {
+        api_arg.interpreted_value = w1::util::value_formatter::format_bool(std::get<bool>(arg.interpreted_value));
+      } else if (std::holds_alternative<std::vector<uint8_t>>(arg.interpreted_value)) {
+        api_arg.interpreted_value =
+            w1::util::value_formatter::format_buffer(std::get<std::vector<uint8_t>>(arg.interpreted_value), fmt_opts);
       } else {
-        std::stringstream ss;
-        ss << "0x" << std::hex << arg.raw_value;
-        api_arg.interpreted_value = ss.str();
+        // fallback to type-based formatting
+        auto value_type = w1::util::value_formatter::value_type::UNKNOWN;
+        if (arg.param_type == w1::abi::param_info::type::BOOLEAN) {
+          value_type = w1::util::value_formatter::value_type::BOOLEAN;
+        } else if (arg.param_type == w1::abi::param_info::type::ERROR_CODE) {
+          value_type = w1::util::value_formatter::value_type::ERROR_CODE;
+        } else if (arg.is_valid_pointer) {
+          value_type = w1::util::value_formatter::value_type::POINTER;
+        }
+        api_arg.interpreted_value = w1::util::value_formatter::format_typed_value(arg.raw_value, value_type, fmt_opts);
       }
 
       entry.api_info.arguments.push_back(api_arg);
@@ -149,7 +141,7 @@ void transfer_collector::record_call(
   }
 
   // Only add to trace if collection is enabled and we haven't overflowed
-  if (should_collect_trace) {
+  if (should_collect) {
     trace_.push_back(entry);
   }
 }
@@ -162,49 +154,27 @@ void transfer_collector::record_return(
   update_call_depth(transfer_type::RETURN);
 
   // Check if we should skip trace collection (but still do analysis)
-  bool should_collect_trace = collect_trace_ && !trace_overflow_ && trace_.size() < max_entries_;
-  if (collect_trace_ && !should_collect_trace) {
+  bool should_collect = should_collect_trace();
+  if (collect_trace_ && !should_collect) {
     trace_overflow_ = true;
   }
 
-  transfer_entry entry;
-  entry.type = transfer_type::RETURN;
-  entry.source_address = source_addr;
-  entry.target_address = target_addr;
-  entry.timestamp = get_timestamp();
+  transfer_entry entry = create_base_entry(transfer_type::RETURN, source_addr, target_addr);
   entry.instruction_count = instruction_count_++;
 
-  if (log_registers_) {
-    entry.registers = capture_registers(gpr);
-  }
-
-  if (log_stack_info_) {
-    entry.stack = capture_stack_info(vm, gpr);
-  }
-
-  if (log_call_targets_) {
-    entry.source_module = get_module_name(source_addr);
-    entry.target_module = get_module_name(target_addr);
-
-    // Enrich with symbol information
-    if (symbol_enricher_) {
-      entry.source_symbol = enrich_symbol(source_addr);
-      entry.target_symbol = enrich_symbol(target_addr);
-    }
-  }
+  populate_entry_details(entry, source_addr, target_addr, vm, gpr);
 
   // Perform return value analysis if enabled and we have a matching call
   if (analyze_apis_ && api_analyzer_ && !call_stack_.empty()) {
     // Find matching call based on source address (the function we're returning from)
-    auto call_it = std::find_if(call_stack_.rbegin(), call_stack_.rend(), 
-      [source_addr](const pending_call& call) {
-        return call.call_target_address == source_addr;
-      });
+    auto call_it = std::find_if(call_stack_.rbegin(), call_stack_.rend(), [source_addr](const pending_call& call) {
+      return call.call_target_address == source_addr;
+    });
 
     if (call_it != call_stack_.rend()) {
       // Build context for return value analysis
       w1::abi::api_context ctx;
-      ctx.call_address = target_addr; // where we're returning to
+      ctx.call_address = target_addr;   // where we're returning to
       ctx.target_address = source_addr; // the function we're returning from
       ctx.module_name = call_it->target_module;
       ctx.symbol_name = call_it->target_symbol_name;
@@ -222,9 +192,9 @@ void transfer_collector::record_return(
       return_analysis.category = call_it->api_info.api_category;
       return_analysis.description = call_it->api_info.description;
       return_analysis.analysis_complete = true;
-      
+
       api_analyzer_->analyze_return(return_analysis, ctx);
-      
+
       // Copy API information from the call
       entry.api_info.api_category = std::to_string(static_cast<int>(call_it->api_info.api_category));
       entry.api_info.description = call_it->api_info.description;
@@ -238,25 +208,38 @@ void transfer_collector::record_return(
       entry.api_info.return_value.is_pointer = ret_val.is_valid_pointer;
       entry.api_info.return_value.is_null = ret_val.is_null_pointer;
 
-      // Format interpreted value
+      // Format interpreted value using our formatter utility
+      w1::util::value_formatter::format_options fmt_opts;
+      fmt_opts.max_string_length = 256;
+
       if (!ret_val.string_preview.empty()) {
-        entry.api_info.return_value.interpreted_value = "\"" + ret_val.string_preview + "\"";
+        entry.api_info.return_value.interpreted_value =
+            w1::util::value_formatter::format_string(ret_val.string_preview, fmt_opts);
       } else if (ret_val.is_null_pointer) {
         entry.api_info.return_value.interpreted_value = "NULL";
-      } else if (ret_val.param_type == w1::abi::param_info::type::BOOLEAN) {
-        entry.api_info.return_value.interpreted_value = ret_val.raw_value ? "true" : "false";
-      } else if (ret_val.param_type == w1::abi::param_info::type::ERROR_CODE) {
-        std::stringstream ss;
-        ss << "0x" << std::hex << ret_val.raw_value << " (" << static_cast<int64_t>(ret_val.raw_value) << ")";
-        entry.api_info.return_value.interpreted_value = ss.str();
+      } else if (std::holds_alternative<std::string>(ret_val.interpreted_value)) {
+        entry.api_info.return_value.interpreted_value =
+            w1::util::value_formatter::format_string(std::get<std::string>(ret_val.interpreted_value), fmt_opts);
+      } else if (std::holds_alternative<bool>(ret_val.interpreted_value)) {
+        entry.api_info.return_value.interpreted_value =
+            w1::util::value_formatter::format_bool(std::get<bool>(ret_val.interpreted_value));
       } else {
-        std::stringstream ss;
-        ss << "0x" << std::hex << ret_val.raw_value;
-        entry.api_info.return_value.interpreted_value = ss.str();
+        // fallback to type-based formatting
+        auto value_type = w1::util::value_formatter::value_type::UNKNOWN;
+        if (ret_val.param_type == w1::abi::param_info::type::BOOLEAN) {
+          value_type = w1::util::value_formatter::value_type::BOOLEAN;
+        } else if (ret_val.param_type == w1::abi::param_info::type::ERROR_CODE) {
+          value_type = w1::util::value_formatter::value_type::ERROR_CODE;
+        } else if (ret_val.is_valid_pointer) {
+          value_type = w1::util::value_formatter::value_type::POINTER;
+        }
+        entry.api_info.return_value.interpreted_value =
+            w1::util::value_formatter::format_typed_value(ret_val.raw_value, value_type, fmt_opts);
       }
 
       // Build formatted call string with return value
-      entry.api_info.formatted_call = call_it->target_symbol_name + "() = " + entry.api_info.return_value.interpreted_value;
+      entry.api_info.formatted_call =
+          call_it->target_symbol_name + "() = " + entry.api_info.return_value.interpreted_value;
 
       // Remove the call from stack (convert reverse iterator to forward iterator for erase)
       call_stack_.erase(std::next(call_it).base());
@@ -264,7 +247,7 @@ void transfer_collector::record_return(
   }
 
   // Only add to trace if collection is enabled and we haven't overflowed
-  if (should_collect_trace) {
+  if (should_collect) {
     trace_.push_back(entry);
   }
 }
@@ -294,144 +277,26 @@ w1xfer_report transfer_collector::build_report() const {
   return report;
 }
 
-register_state transfer_collector::capture_registers(QBDI::GPRState* gpr) const {
+// helper function to convert our utility register_state to w1xfer register_state for JSON
+static register_state convert_register_state(const w1::util::register_state& util_regs) {
   register_state regs;
-
-  // capture architecture-specific registers with conditional compilation
-#if defined(QBDI_ARCH_X86_64)
-  // x86_64 register capture
-  regs.rax = gpr->rax;
-  regs.rbx = gpr->rbx;
-  regs.rcx = gpr->rcx;
-  regs.rdx = gpr->rdx;
-  regs.rsi = gpr->rsi;
-  regs.rdi = gpr->rdi;
-  regs.r8 = gpr->r8;
-  regs.r9 = gpr->r9;
-  regs.r10 = gpr->r10;
-  regs.r11 = gpr->r11;
-  regs.r12 = gpr->r12;
-  regs.r13 = gpr->r13;
-  regs.r14 = gpr->r14;
-  regs.r15 = gpr->r15;
-  regs.rbp = gpr->rbp;
-  regs.rsp = gpr->rsp;
-  regs.rip = gpr->rip;
-  regs.eflags = gpr->eflags;
-  regs.fs = gpr->fs;
-  regs.gs = gpr->gs;
-
-#elif defined(QBDI_ARCH_AARCH64)
-  // aarch64 register capture
-  regs.x0 = gpr->x0;
-  regs.x1 = gpr->x1;
-  regs.x2 = gpr->x2;
-  regs.x3 = gpr->x3;
-  regs.x4 = gpr->x4;
-  regs.x5 = gpr->x5;
-  regs.x6 = gpr->x6;
-  regs.x7 = gpr->x7;
-  regs.x8 = gpr->x8;
-  regs.x9 = gpr->x9;
-  regs.x10 = gpr->x10;
-  regs.x11 = gpr->x11;
-  regs.x12 = gpr->x12;
-  regs.x13 = gpr->x13;
-  regs.x14 = gpr->x14;
-  regs.x15 = gpr->x15;
-  regs.x16 = gpr->x16;
-  regs.x17 = gpr->x17;
-  regs.x18 = gpr->x18;
-  regs.x19 = gpr->x19;
-  regs.x20 = gpr->x20;
-  regs.x21 = gpr->x21;
-  regs.x22 = gpr->x22;
-  regs.x23 = gpr->x23;
-  regs.x24 = gpr->x24;
-  regs.x25 = gpr->x25;
-  regs.x26 = gpr->x26;
-  regs.x27 = gpr->x27;
-  regs.x28 = gpr->x28;
-  regs.x29 = gpr->x29;
-  regs.lr = gpr->lr;
-  regs.sp = gpr->sp;
-  regs.nzcv = gpr->nzcv;
-  regs.pc = gpr->pc;
-
-#elif defined(QBDI_ARCH_ARM)
-  // arm32 register capture
-  regs.r0 = gpr->r0;
-  regs.r1 = gpr->r1;
-  regs.r2 = gpr->r2;
-  regs.r3 = gpr->r3;
-  regs.r4 = gpr->r4;
-  regs.r5 = gpr->r5;
-  regs.r6 = gpr->r6;
-  regs.r7 = gpr->r7;
-  regs.r8 = gpr->r8;
-  regs.r9 = gpr->r9;
-  regs.r10 = gpr->r10;
-  regs.r11 = gpr->r11;
-  regs.r12 = gpr->r12;
-  regs.sp = gpr->sp;
-  regs.lr = gpr->lr;
-  regs.pc = gpr->pc;
-  regs.cpsr = gpr->cpsr;
-
-#elif defined(QBDI_ARCH_X86)
-  // x86 32-bit register capture
-  regs.eax = gpr->eax;
-  regs.ebx = gpr->ebx;
-  regs.ecx = gpr->ecx;
-  regs.edx = gpr->edx;
-  regs.esi = gpr->esi;
-  regs.edi = gpr->edi;
-  regs.ebp = gpr->ebp;
-  regs.esp = gpr->esp;
-  regs.eip = gpr->eip;
-  regs.eflags = gpr->eflags;
-
-#else
-  // fallback for unknown architectures - copy raw data
-  std::memcpy(regs.unknown_register_data, gpr, std::min(sizeof(regs.unknown_register_data), sizeof(QBDI::GPRState)));
-#endif
-
+  regs.registers = util_regs.get_all_registers();
   return regs;
 }
 
-stack_info transfer_collector::capture_stack_info(QBDI::VMInstanceRef vm, QBDI::GPRState* gpr) const {
+// helper function to convert our utility stack_info to w1xfer stack_info for JSON
+static stack_info convert_stack_info(const w1::util::stack_info& util_stack) {
   stack_info stack;
+  stack.stack_pointer = util_stack.stack_pointer;
+  stack.frame_pointer = util_stack.frame_pointer;
+  stack.return_address = util_stack.return_address;
 
-  // capture stack pointer across platforms
-#if defined(QBDI_ARCH_X86_64)
-  stack.stack_pointer = gpr->rsp;
-#elif defined(QBDI_ARCH_AARCH64) || defined(QBDI_ARCH_ARM)
-  stack.stack_pointer = gpr->sp;
-#elif defined(QBDI_ARCH_X86)
-  stack.stack_pointer = gpr->esp;
-#else
-  stack.stack_pointer = 0; // fallback
-#endif
-
-  // try to read return address and a few stack values
-  QBDI::VM* vm_ptr = static_cast<QBDI::VM*>(vm);
-
-  // read return address (at stack pointer for x64)
-  uint64_t return_addr = 0;
-  size_t read_bytes = vm_ptr->getInstMemoryAccess().size();
-  if (read_bytes >= sizeof(uint64_t)) {
-    // attempt to read from stack pointer
-    // note: this is a simplified approach - real implementation would need proper memory access
-    stack.return_address = return_addr;
-  }
-
-  // capture a few stack values around the stack pointer
-  constexpr size_t stack_capture_size = 8;
-  stack.stack_values.reserve(stack_capture_size);
-
-  for (size_t i = 0; i < stack_capture_size; ++i) {
-    // simplified - would need proper memory reading in real implementation
-    stack.stack_values.push_back(0);
+  // extract stack values from the captured entries
+  stack.stack_values.reserve(util_stack.values.size());
+  for (const auto& entry : util_stack.values) {
+    if (entry.is_valid) {
+      stack.stack_values.push_back(entry.value);
+    }
   }
 
   return stack;
@@ -515,5 +380,50 @@ symbol_info transfer_collector::enrich_symbol(uint64_t address) const {
 
   return info;
 }
+
+bool transfer_collector::should_collect_trace() const {
+  return collect_trace_ && !trace_overflow_ && trace_.size() < max_entries_;
+}
+
+transfer_entry transfer_collector::create_base_entry(
+    transfer_type type, uint64_t source_addr, uint64_t target_addr
+) const {
+  transfer_entry entry;
+  entry.type = type;
+  entry.source_address = source_addr;
+  entry.target_address = target_addr;
+  entry.timestamp = get_timestamp();
+  entry.instruction_count = instruction_count_;
+  return entry;
+}
+
+void transfer_collector::populate_entry_details(
+    transfer_entry& entry, uint64_t source_addr, uint64_t target_addr, QBDI::VMInstanceRef vm, QBDI::GPRState* gpr
+) const {
+  if (log_registers_) {
+    // use our register capture utility
+    auto util_regs = w1::util::register_capturer::capture(gpr);
+    entry.registers = convert_register_state(util_regs);
+  }
+
+  if (log_stack_info_) {
+    // use our stack capture utility
+    auto util_regs = w1::util::register_capturer::capture(gpr);
+    auto util_stack = w1::util::stack_capturer::capture(vm, util_regs);
+    entry.stack = convert_stack_info(util_stack);
+  }
+
+  if (log_call_targets_) {
+    entry.source_module = get_module_name(source_addr);
+    entry.target_module = get_module_name(target_addr);
+
+    if (symbol_enricher_) {
+      entry.source_symbol = enrich_symbol(source_addr);
+      entry.target_symbol = enrich_symbol(target_addr);
+    }
+  }
+}
+
+// format_interpreted_value is now replaced by w1::util::value_formatter
 
 } // namespace w1xfer

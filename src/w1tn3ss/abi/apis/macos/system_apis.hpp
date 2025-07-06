@@ -808,7 +808,10 @@ static const std::vector<api_info> macos_system_apis = {
      .flags = static_cast<uint32_t>(api_info::behavior_flags::BLOCKING),
      .parameters =
          {{.name = "req", .param_type = param_info::type::STRUCT, .param_direction = param_info::direction::IN},
-          {.name = "rem", .param_type = param_info::type::STRUCT, .param_direction = param_info::direction::OUT, .is_optional = true}},
+          {.name = "rem",
+           .param_type = param_info::type::STRUCT,
+           .param_direction = param_info::direction::OUT,
+           .is_optional = true}},
      .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
      .description = "sleep for specified nanoseconds",
      .headers = {"time.h"}},
@@ -818,7 +821,10 @@ static const std::vector<api_info> macos_system_apis = {
      .api_category = api_info::category::TIME,
      .flags = 0,
      .parameters =
-         {{.name = "tloc", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT, .is_optional = true}},
+         {{.name = "tloc",
+           .param_type = param_info::type::POINTER,
+           .param_direction = param_info::direction::OUT,
+           .is_optional = true}},
      .return_value = {.name = "seconds", .param_type = param_info::type::INTEGER},
      .description = "get current time in seconds since epoch",
      .headers = {"time.h"}}

@@ -9,6 +9,9 @@ add_library(w1tn3ss STATIC
     util/memory_range_index.cpp
     util/signal_handler.cpp
     util/safe_memory.cpp
+    util/register_capture.cpp
+    util/stack_capture.cpp
+    util/value_formatter.cpp
     # new calling convention system
     abi/calling_convention_factory.cpp
     abi/calling_convention_detector.cpp

@@ -9,6 +9,9 @@
 #include <common/ext/jsonstruct.hpp>
 #include <w1tn3ss/util/module_range_index.hpp>
 #include <w1tn3ss/util/module_scanner.hpp>
+#include <w1tn3ss/util/register_capture.hpp>
+#include <w1tn3ss/util/stack_capture.hpp>
+#include <w1tn3ss/util/value_formatter.hpp>
 #include <w1tn3ss/abi/api_analyzer.hpp>
 #include "symbol_enricher.hpp"
 
@@ -16,67 +19,20 @@ namespace w1xfer {
 
 enum class transfer_type { CALL = 0, RETURN = 1 };
 
-// cross-platform register state - architecture-specific with conditional compilation
+// register state is now a map of register names to values for JSON serialization
 struct register_state {
-#if defined(QBDI_ARCH_X86_64)
-  // x86_64 registers
-  uint64_t rax, rbx, rcx, rdx, rsi, rdi, r8, r9, r10, r11, r12, r13, r14, r15;
-  uint64_t rbp, rsp, rip, eflags, fs, gs;
+  std::unordered_map<std::string, uint64_t> registers;
 
-  JS_OBJECT(
-      JS_MEMBER(rax), JS_MEMBER(rbx), JS_MEMBER(rcx), JS_MEMBER(rdx), JS_MEMBER(rsi), JS_MEMBER(rdi), JS_MEMBER(r8),
-      JS_MEMBER(r9), JS_MEMBER(r10), JS_MEMBER(r11), JS_MEMBER(r12), JS_MEMBER(r13), JS_MEMBER(r14), JS_MEMBER(r15),
-      JS_MEMBER(rbp), JS_MEMBER(rsp), JS_MEMBER(rip), JS_MEMBER(eflags), JS_MEMBER(fs), JS_MEMBER(gs)
-  );
-
-#elif defined(QBDI_ARCH_AARCH64)
-  // aarch64 registers
-  uint64_t x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15;
-  uint64_t x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29;
-  uint64_t lr, sp, nzcv, pc;
-
-  JS_OBJECT(
-      JS_MEMBER(x0), JS_MEMBER(x1), JS_MEMBER(x2), JS_MEMBER(x3), JS_MEMBER(x4), JS_MEMBER(x5), JS_MEMBER(x6),
-      JS_MEMBER(x7), JS_MEMBER(x8), JS_MEMBER(x9), JS_MEMBER(x10), JS_MEMBER(x11), JS_MEMBER(x12), JS_MEMBER(x13),
-      JS_MEMBER(x14), JS_MEMBER(x15), JS_MEMBER(x16), JS_MEMBER(x17), JS_MEMBER(x18), JS_MEMBER(x19), JS_MEMBER(x20),
-      JS_MEMBER(x21), JS_MEMBER(x22), JS_MEMBER(x23), JS_MEMBER(x24), JS_MEMBER(x25), JS_MEMBER(x26), JS_MEMBER(x27),
-      JS_MEMBER(x28), JS_MEMBER(x29), JS_MEMBER(lr), JS_MEMBER(sp), JS_MEMBER(nzcv), JS_MEMBER(pc)
-  );
-
-#elif defined(QBDI_ARCH_ARM)
-  // arm32 registers
-  uint32_t r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12;
-  uint32_t sp, lr, pc, cpsr;
-
-  JS_OBJECT(
-      JS_MEMBER(r0), JS_MEMBER(r1), JS_MEMBER(r2), JS_MEMBER(r3), JS_MEMBER(r4), JS_MEMBER(r5), JS_MEMBER(r6),
-      JS_MEMBER(r7), JS_MEMBER(r8), JS_MEMBER(r9), JS_MEMBER(r10), JS_MEMBER(r11), JS_MEMBER(r12), JS_MEMBER(sp),
-      JS_MEMBER(lr), JS_MEMBER(pc), JS_MEMBER(cpsr)
-  );
-
-#elif defined(QBDI_ARCH_X86)
-  // x86 32-bit registers
-  uint32_t eax, ebx, ecx, edx, esi, edi, ebp, esp, eip, eflags;
-
-  JS_OBJECT(
-      JS_MEMBER(eax), JS_MEMBER(ebx), JS_MEMBER(ecx), JS_MEMBER(edx), JS_MEMBER(esi), JS_MEMBER(edi), JS_MEMBER(ebp),
-      JS_MEMBER(esp), JS_MEMBER(eip), JS_MEMBER(eflags)
-  );
-
-#else
-  // fallback for unknown architectures
-  uint64_t unknown_register_data[32];
-
-  JS_OBJECT(JS_MEMBER(unknown_register_data));
-#endif
+  JS_OBJECT(JS_MEMBER(registers));
 };
 
 struct stack_info {
   uint64_t stack_pointer;
+  uint64_t frame_pointer;
   uint64_t return_address;
   std::vector<uint64_t> stack_values;
 
-  JS_OBJECT(JS_MEMBER(stack_pointer), JS_MEMBER(return_address), JS_MEMBER(stack_values));
+  JS_OBJECT(JS_MEMBER(stack_pointer), JS_MEMBER(frame_pointer), JS_MEMBER(return_address), JS_MEMBER(stack_values));
 };
 
 // Rich symbol information for transfer endpoints
@@ -117,8 +73,8 @@ struct api_return_value {
   bool is_null;
 
   JS_OBJECT(
-      JS_MEMBER(raw_value), JS_MEMBER(param_type), JS_MEMBER(interpreted_value),
-      JS_MEMBER(is_pointer), JS_MEMBER(is_null)
+      JS_MEMBER(raw_value), JS_MEMBER(param_type), JS_MEMBER(interpreted_value), JS_MEMBER(is_pointer),
+      JS_MEMBER(is_null)
   );
 };
 
@@ -225,7 +181,7 @@ private:
   std::unique_ptr<symbol_enricher> symbol_enricher_;
   std::unique_ptr<w1::abi::api_analyzer> api_analyzer_;
 
-  // Call stack tracking for return value analysis  
+  // Call stack tracking for return value analysis
   struct pending_call {
     uint64_t call_target_address;
     std::string target_symbol_name;
@@ -235,11 +191,16 @@ private:
   };
   std::vector<pending_call> call_stack_;
 
-  register_state capture_registers(QBDI::GPRState* gpr) const;
-  stack_info capture_stack_info(QBDI::VMInstanceRef vm, QBDI::GPRState* gpr) const;
   uint64_t get_timestamp() const;
   void update_call_depth(transfer_type type);
   symbol_info enrich_symbol(uint64_t address) const;
+
+  // helper methods to reduce code duplication
+  bool should_collect_trace() const;
+  transfer_entry create_base_entry(transfer_type type, uint64_t source_addr, uint64_t target_addr) const;
+  void populate_entry_details(
+      transfer_entry& entry, uint64_t source_addr, uint64_t target_addr, QBDI::VMInstanceRef vm, QBDI::GPRState* gpr
+  ) const;
 };
 
 } // namespace w1xfer

@@ -236,11 +236,11 @@ public:
 
         result.return_value =
             argument_extractor_.extract_argument(api_info->return_value, ret_val, util::safe_memory_reader{ctx.vm});
-        
+
         // Log return value analysis
         if (api_info->return_value.param_type != param_info::type::VOID) {
           std::string return_str;
-          
+
           // Format return value based on type
           if (!result.return_value.string_preview.empty()) {
             return_str = "\"" + result.return_value.string_preview + "\"";
@@ -250,7 +250,8 @@ public:
             return_str = result.return_value.raw_value ? "true" : "false";
           } else if (result.return_value.param_type == param_info::type::ERROR_CODE) {
             std::stringstream ss;
-            ss << "0x" << std::hex << result.return_value.raw_value << " (" << static_cast<int64_t>(result.return_value.raw_value) << ")";
+            ss << "0x" << std::hex << result.return_value.raw_value << " ("
+               << static_cast<int64_t>(result.return_value.raw_value) << ")";
             return_str = ss.str();
           } else if (result.return_value.param_type == param_info::type::POINTER) {
             std::stringstream ss;
@@ -259,14 +260,13 @@ public:
           } else {
             return_str = std::to_string(static_cast<int64_t>(result.return_value.raw_value));
           }
-          
+
           // Build formatted return string and log it
           std::string formatted_return = result.symbol_name + "() = " + return_str;
-          
+
           log_.vrb(
               "analyzed api return", redlog::field("return", formatted_return),
-              redlog::field("raw_value", result.return_value.raw_value),
-              redlog::field("module", result.module_name)
+              redlog::field("raw_value", result.return_value.raw_value), redlog::field("module", result.module_name)
           );
         }
       }
