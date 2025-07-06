@@ -50,13 +50,6 @@ add_subdirectory(src/third_party/redlog_cpp)
 
 # add lief if enabled
 if(WITNESS_LIEF)
-    # make lief use qbdi's spdlog to avoid fmt symbol conflicts by bypassing find_package
-    set(LIEF_EXTERNAL_SPDLOG ON CACHE BOOL "use qbdi's spdlog")
-    
-    # provide spdlog target directly to satisfy lief's find_package requirement
-    # this avoids the need for spdlogConfig.cmake files
-    set(spdlog_FOUND TRUE CACHE BOOL "mark spdlog as found")
-    
     add_subdirectory(src/third_party/lief)
 endif()
 
