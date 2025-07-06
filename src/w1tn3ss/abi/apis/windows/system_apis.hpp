@@ -1,9 +1,9 @@
 #pragma once
 
-#include "../api_info.hpp"
+#include "../../api_knowledge_db.hpp"
 #include <array>
 
-namespace w1::abi::detail {
+namespace w1::abi::apis::windows {
 
 /**
  * @brief windows system api definitions
@@ -315,4 +315,4 @@ inline std::vector<api_info> get_all_windows_apis() {
     return apis;
 }
 
-} // namespace w1::abi::detail
+} // namespace w1::abi::apis::windows

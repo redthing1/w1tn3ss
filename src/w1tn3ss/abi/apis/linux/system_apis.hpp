@@ -1,9 +1,9 @@
 #pragma once
 
-#include "../api_knowledge_db.hpp"
+#include "../../api_knowledge_db.hpp"
 #include <vector>
 
-namespace w1::abi::detail {
+namespace w1::abi::apis::linux {
 
 // Linux system library APIs
 static const std::vector<api_info> linux_system_apis = {
@@ -232,4 +232,4 @@ static const std::vector<api_info> linux_system_apis = {
     }
 };
 
-} // namespace w1::abi::detail
+} // namespace w1::abi::apis::linux

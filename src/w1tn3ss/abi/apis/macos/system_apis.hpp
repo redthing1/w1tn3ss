@@ -1,9 +1,9 @@
 #pragma once
 
-#include "../api_knowledge_db.hpp"
+#include "../../api_knowledge_db.hpp"
 #include <vector>
 
-namespace w1::abi::detail {
+namespace w1::abi::apis::macos {
 
 // macOS system library APIs with correct library names and signatures
 static const std::vector<api_info> macos_system_apis = {
@@ -199,4 +199,4 @@ static const std::vector<api_info> macos_system_apis = {
     }
 };
 
-} // namespace w1::abi::detail
+} // namespace w1::abi::apis::macos
