@@ -71,7 +71,11 @@ BOOL WINAPI console_handler(DWORD ctrl_type) {
 
   if (g_config.log_signals) {
     const char* msg = "received ctrl+c signal\n";
-    write(STDERR_FILENO, msg, strlen(msg));
+    HANDLE hStderr = GetStdHandle(STD_ERROR_HANDLE);
+    if (hStderr != INVALID_HANDLE_VALUE) {
+      DWORD written;
+      WriteFile(hStderr, msg, static_cast<DWORD>(strlen(msg)), &written, NULL);
+    }
   }
 
   // forward to child processes

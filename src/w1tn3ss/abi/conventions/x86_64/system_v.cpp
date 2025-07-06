@@ -64,7 +64,7 @@ std::vector<x86_64_system_v::typed_arg> x86_64_system_v::extract_typed_args(
     case arg_type::FLOAT:
       if (float_reg_idx < max_float_reg_args) {
         // from xmm register
-        arg.value.f32 = ctx.fpr->xmm[float_reg_idx].reg32[0];
+        arg.value.f32 = get_xmm_float(ctx.fpr, float_reg_idx);
         arg.from_stack = false;
         float_reg_idx++;
       } else {
@@ -80,7 +80,7 @@ std::vector<x86_64_system_v::typed_arg> x86_64_system_v::extract_typed_args(
     case arg_type::DOUBLE:
       if (float_reg_idx < max_float_reg_args) {
         // from xmm register
-        arg.value.f64 = ctx.fpr->xmm[float_reg_idx].reg64[0];
+        arg.value.f64 = get_xmm_double(ctx.fpr, float_reg_idx);
         arg.from_stack = false;
         float_reg_idx++;
       } else {
@@ -96,7 +96,7 @@ std::vector<x86_64_system_v::typed_arg> x86_64_system_v::extract_typed_args(
     case arg_type::SIMD:
       if (float_reg_idx < max_float_reg_args) {
         // full xmm register
-        memcpy(arg.value.simd, &ctx.fpr->xmm[float_reg_idx], 16);
+        get_xmm_bytes(ctx.fpr, float_reg_idx, arg.value.simd);
         arg.from_stack = false;
         float_reg_idx++;
       } else {
@@ -158,15 +158,15 @@ x86_64_system_v::typed_arg x86_64_system_v::get_typed_return(
     break;
 
   case arg_type::FLOAT:
-    ret.value.f32 = fpr->xmm[0].reg32[0];
+    ret.value.f32 = get_xmm_float(fpr, 0);
     break;
 
   case arg_type::DOUBLE:
-    ret.value.f64 = fpr->xmm[0].reg64[0];
+    ret.value.f64 = get_xmm_double(fpr, 0);
     break;
 
   case arg_type::SIMD:
-    memcpy(ret.value.simd, &fpr->xmm[0], 16);
+    get_xmm_bytes(fpr, 0, ret.value.simd);
     break;
 
   case arg_type::STRUCT_BY_VALUE:
@@ -217,7 +217,7 @@ std::vector<double> x86_64_system_v::extract_float_args(const extraction_context
   // first 8 float/double args in xmm0-xmm7
   size_t reg_args = std::min(count, max_float_reg_args);
   for (size_t i = 0; i < reg_args; i++) {
-    args.push_back(ctx.fpr->xmm[i].reg64[0]);
+    args.push_back(get_xmm_double(ctx.fpr, i));
   }
 
   // remaining args on stack
