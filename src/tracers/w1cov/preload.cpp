@@ -55,17 +55,14 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
   // get config
   g_config = w1cov::coverage_config::from_environment();
 
-  w1::util::env_config config_loader("W1COV_");
-  int debug_level = config_loader.get<int>("VERBOSE", 0);
-
   // set log level based on debug level
-  if (debug_level >= 4) {
+  if (g_config.verbose >= 4) {
     redlog::set_level(redlog::level::pedantic);
-  } else if (debug_level >= 3) {
+  } else if (g_config.verbose >= 3) {
     redlog::set_level(redlog::level::debug);
-  } else if (debug_level >= 2) {
+  } else if (g_config.verbose >= 2) {
     redlog::set_level(redlog::level::trace);
-  } else if (debug_level >= 1) {
+  } else if (g_config.verbose >= 1) {
     redlog::set_level(redlog::level::verbose);
   } else {
     redlog::set_level(redlog::level::info);
@@ -74,7 +71,7 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
   // initialize signal handling for emergency coverage export
   w1::tn3ss::signal_handler::config sig_config;
   sig_config.context_name = "w1cov";
-  sig_config.log_signals = (debug_level >= 1);
+  sig_config.log_signals = (g_config.verbose >= 1);
 
   if (w1::tn3ss::signal_handler::initialize(sig_config)) {
     w1::tn3ss::signal_handler::register_cleanup(

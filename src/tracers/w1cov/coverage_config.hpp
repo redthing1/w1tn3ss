@@ -7,6 +7,7 @@
 namespace w1cov {
 
 struct coverage_config {
+  int verbose = 0;
   std::string output_file = "coverage.drcov";
   bool exclude_system_modules = true;
   std::vector<std::string> module_filter;
@@ -16,6 +17,7 @@ struct coverage_config {
     w1::util::env_config loader("W1COV_");
 
     coverage_config config;
+    config.verbose = loader.get<int>("VERBOSE", 0);
     config.output_file = loader.get<std::string>("OUTPUT", "coverage.drcov");
     config.exclude_system_modules = loader.get<bool>("EXCLUDE_SYSTEM", true);
     config.track_hitcounts = loader.get<bool>("TRACK_HITCOUNTS", true);

@@ -13,3 +13,6 @@
 [submodule "src/third_party/luajit"]
 	path = src/third_party/luajit
 	url = https://github.com/LuaJIT/LuaJIT
+[submodule "src/third_party/lief"]
+	path = src/third_party/lief
+	url = https://github.com/lief-project/LIEF

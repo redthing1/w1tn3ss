@@ -46,16 +46,25 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
   // get config from environment
   w1mem::memory_config config = w1mem::memory_config::from_environment();
 
-  if (config.verbose) {
+  // set log level based on debug level
+  if (config.verbose >= 4) {
+    redlog::set_level(redlog::level::pedantic);
+  } else if (config.verbose >= 3) {
     redlog::set_level(redlog::level::debug);
+  } else if (config.verbose >= 2) {
+    redlog::set_level(redlog::level::trace);
+  } else if (config.verbose >= 1) {
+    redlog::set_level(redlog::level::verbose);
+  } else {
+    redlog::set_level(redlog::level::info);
   }
 
   // initialize signal handling for emergency shutdown
-  w1::tn3ss::signal_handler::config sig_config;
-  sig_config.context_name = "w1mem";
-  sig_config.log_signals = config.verbose;
+  w1::tn3ss::signal_handler::config siconfig;
+  siconfig.context_name = "w1mem";
+  siconfig.log_signals = config.verbose;
 
-  if (w1::tn3ss::signal_handler::initialize(sig_config)) {
+  if (w1::tn3ss::signal_handler::initialize(siconfig)) {
     w1::tn3ss::signal_handler::register_cleanup(
         shutdown_tracer,
         200, // high priority

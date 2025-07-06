@@ -15,6 +15,7 @@ option(WITNESS_QBDI_EXTRAS "Build QBDI with examples, tests and additional tools
 include(${CMAKE_SOURCE_DIR}/cmake/CommonConfig.cmake)
 include(${CMAKE_SOURCE_DIR}/cmake/PlatformConfig.cmake)
 include(${CMAKE_SOURCE_DIR}/cmake/LuaConfig.cmake)
+include(${CMAKE_SOURCE_DIR}/cmake/LIEFConfig.cmake)
 
 # configure platform and architecture
 detect_qbdi_platform()
@@ -23,6 +24,9 @@ configure_qbdi_options()
 
 # setup lua environment once globally
 setup_lua_environment()
+
+# setup lief environment once globally
+setup_lief_environment()
 
 # print witness configuration block
 message(STATUS "")
@@ -33,6 +37,7 @@ message(STATUS "Build Type:            ${CMAKE_BUILD_TYPE}")
 message(STATUS "Static Libraries:      ${WITNESS_BUILD_STATIC}")
 message(STATUS "Shared Libraries:      ${WITNESS_BUILD_SHARED}")
 message(STATUS "Scripting Support:     ${WITNESS_SCRIPT}")
+message(STATUS "LIEF Support:          ${WITNESS_LIEF}")
 message(STATUS "Tests:                 ${BUILD_TESTS}")
 message(STATUS "")
 
@@ -42,6 +47,11 @@ add_subdirectory(src/third_party/qbdi)
 # configure redlog
 set(REDLOG_BUILD_TESTS OFF)
 add_subdirectory(src/third_party/redlog_cpp)
+
+# add lief if enabled
+if(WITNESS_LIEF)
+    add_subdirectory(src/third_party/lief)
+endif()
 
 # add project subdirectories
 add_subdirectory(src/common)
