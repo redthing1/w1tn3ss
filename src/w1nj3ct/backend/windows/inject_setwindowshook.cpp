@@ -1,6 +1,6 @@
+#include "winapis.h"
 #include "inject.hpp"
 #include "util.hpp"
-#include "winapis.h"
 
 // hook procedure that will be called by the windows hook
 LRESULT CALLBACK hook_proc(int n_code, WPARAM w_param, LPARAM l_param) {

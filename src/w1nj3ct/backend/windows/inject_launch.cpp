@@ -5,6 +5,7 @@
 #include <sstream>
 #include <string>
 
+#include "winapis.h"
 #include "inject.hpp"
 #include "util.hpp"
 
