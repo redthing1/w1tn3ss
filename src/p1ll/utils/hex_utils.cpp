@@ -92,11 +92,62 @@ std::vector<uint8_t> parse_hex_bytes(const std::string& hex) {
   return bytes;
 }
 
-std::string normalize_hex_pattern(const std::string& pattern) {
+std::string strip_comments(const std::string& pattern) {
   std::string result;
-  result.reserve(pattern.length());
+  std::istringstream stream(pattern);
+  std::string line;
 
-  for (char c : pattern) {
+  while (std::getline(stream, line)) {
+    // find the first comment delimiter
+    size_t comment_pos = std::string::npos;
+
+    // check for -- comment
+    size_t pos = line.find("--");
+    if (pos != std::string::npos) {
+      comment_pos = pos;
+    }
+
+    // check for // comment
+    pos = line.find("//");
+    if (pos != std::string::npos && pos < comment_pos) {
+      comment_pos = pos;
+    }
+
+    // check for # comment
+    pos = line.find('#');
+    if (pos != std::string::npos && pos < comment_pos) {
+      comment_pos = pos;
+    }
+
+    // check for ; comment
+    pos = line.find(';');
+    if (pos != std::string::npos && pos < comment_pos) {
+      comment_pos = pos;
+    }
+
+    // extract the part before the comment
+    if (comment_pos != std::string::npos) {
+      line = line.substr(0, comment_pos);
+    }
+
+    // add the line to result (with a space separator if needed)
+    if (!result.empty() && !line.empty()) {
+      result += " ";
+    }
+    result += line;
+  }
+
+  return result;
+}
+
+std::string normalize_hex_pattern(const std::string& pattern) {
+  // first strip comments
+  std::string stripped = strip_comments(pattern);
+
+  std::string result;
+  result.reserve(stripped.length());
+
+  for (char c : stripped) {
     if (std::isspace(c)) {
       // skip whitespace
       continue;
