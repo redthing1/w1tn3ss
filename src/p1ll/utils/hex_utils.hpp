@@ -18,6 +18,7 @@ std::string hex2str(const std::string& hex);
 // pattern validation and parsing
 bool is_valid_hex_pattern(const std::string& pattern);
 std::vector<uint8_t> parse_hex_bytes(const std::string& hex);
+std::string strip_comments(const std::string& pattern);
 std::string normalize_hex_pattern(const std::string& pattern);
 
 // address formatting
