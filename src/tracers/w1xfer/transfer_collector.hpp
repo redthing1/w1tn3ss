@@ -83,14 +83,13 @@ struct stack_info {
 struct symbol_info {
   std::string symbol_name;
   std::string demangled_name;
-  uint64_t symbol_offset;   // Offset within the symbol
-  uint64_t module_offset;   // Offset within the module
+  uint64_t symbol_offset; // Offset within the symbol
+  uint64_t module_offset; // Offset within the module
   bool is_exported;
   bool is_imported;
-  
+
   JS_OBJECT(
-      JS_MEMBER(symbol_name), JS_MEMBER(demangled_name), 
-      JS_MEMBER(symbol_offset), JS_MEMBER(module_offset),
+      JS_MEMBER(symbol_name), JS_MEMBER(demangled_name), JS_MEMBER(symbol_offset), JS_MEMBER(module_offset),
       JS_MEMBER(is_exported), JS_MEMBER(is_imported)
   );
 };
@@ -102,10 +101,10 @@ struct api_argument {
   std::string param_type;
   std::string interpreted_value; // string representation of interpreted value
   bool is_pointer;
-  
+
   JS_OBJECT(
-      JS_MEMBER(raw_value), JS_MEMBER(param_name), JS_MEMBER(param_type),
-      JS_MEMBER(interpreted_value), JS_MEMBER(is_pointer)
+      JS_MEMBER(raw_value), JS_MEMBER(param_name), JS_MEMBER(param_type), JS_MEMBER(interpreted_value),
+      JS_MEMBER(is_pointer)
   );
 };
 
@@ -116,10 +115,10 @@ struct api_analysis {
   std::vector<api_argument> arguments;
   std::string formatted_call;
   bool analysis_complete;
-  
+
   JS_OBJECT(
-      JS_MEMBER(api_category), JS_MEMBER(description), JS_MEMBER(arguments),
-      JS_MEMBER(formatted_call), JS_MEMBER(analysis_complete)
+      JS_MEMBER(api_category), JS_MEMBER(description), JS_MEMBER(arguments), JS_MEMBER(formatted_call),
+      JS_MEMBER(analysis_complete)
   );
 };
 
@@ -169,7 +168,9 @@ struct w1xfer_report {
 
 class transfer_collector {
 public:
-  explicit transfer_collector(uint64_t max_entries, bool log_registers, bool log_stack_info, bool log_call_targets, bool analyze_apis = false);
+  explicit transfer_collector(
+      uint64_t max_entries, bool log_registers, bool log_stack_info, bool log_call_targets, bool analyze_apis = false
+  );
 
   void initialize_module_tracking();
 

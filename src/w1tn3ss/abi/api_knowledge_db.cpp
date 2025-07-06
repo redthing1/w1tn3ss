@@ -199,7 +199,6 @@ private:
     auto windows_apis = apis::windows::get_all_windows_apis();
     load_api_set(windows_apis, "windows system apis");
 #endif
-
   }
 
   void load_api_set(const std::vector<api_info>& api_set, const std::string& set_name) {

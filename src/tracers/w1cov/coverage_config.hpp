@@ -6,7 +6,7 @@
 
 namespace w1cov {
 
-  struct coverage_config {
+struct coverage_config {
   int verbose = 0;
   std::string output_file = "coverage.drcov";
   bool exclude_system_modules = true;
