@@ -1,6 +1,6 @@
 #pragma once
 
-#include <windows.h>
+#include "../../../common/windows_clean.hpp"
 
 // define NTSTATUS if not already defined
 #ifndef NTSTATUS

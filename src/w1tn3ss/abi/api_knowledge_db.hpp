@@ -7,6 +7,25 @@
 #include <unordered_map>
 #include <memory>
 
+// Protect against Windows macro pollution
+#ifdef _WIN32
+#ifdef IN
+#undef IN
+#endif
+
+#ifdef OUT
+#undef OUT
+#endif
+
+#ifdef VOID
+#undef VOID
+#endif
+
+#ifdef ERROR
+#undef ERROR
+#endif
+#endif // _WIN32
+
 namespace w1::abi {
 
 // represents semantic information about an api parameter
@@ -209,3 +228,15 @@ param_info::type infer_param_type(const std::string& param_name, const std::stri
 std::string format_api_signature(const api_info& info);
 
 } // namespace w1::abi
+
+// NOTE: We deliberately do NOT restore Windows macros here.
+// Those macros are garbage pollution and should stay dead.
+// If some legacy code really needs them, include windows_clean.hpp after this file.
+//
+// #ifdef _WIN32
+// #ifdef W1_RESTORE_IN_MACRO
+// #pragma pop_macro("IN")
+// #undef W1_RESTORE_IN_MACRO
+// #endif
+// ... (other macro restores commented out)
+// #endif // _WIN32

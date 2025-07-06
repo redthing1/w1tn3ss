@@ -4,10 +4,9 @@
 #include <vector>
 
 #ifdef _WIN32
-#include <windows.h>
-
-#include <psapi.h>
-#include <tlhelp32.h>
+#define NEED_PSAPI
+#define NEED_TLHELP32
+#include "windows_clean.hpp"
 #endif
 
 namespace w1::common {
