@@ -7,7 +7,7 @@ namespace w1xfer {
 
 struct transfer_config {
   int verbose = 0;
-  std::string output_file = "transfers.json";
+  std::string output_file = "";
   uint64_t max_entries = 1000000;
   bool log_registers = true;
   bool log_stack_info = true;
@@ -19,7 +19,7 @@ struct transfer_config {
 
     transfer_config config;
     config.verbose = loader.get<int>("VERBOSE", 0);
-    config.output_file = loader.get<std::string>("OUTPUT", "transfers.json");
+    config.output_file = loader.get<std::string>("OUTPUT", "");
     config.max_entries = loader.get<uint64_t>("MAX_ENTRIES", 1000000);
     config.log_registers = loader.get<bool>("LOG_REGISTERS", true);
     config.log_stack_info = loader.get<bool>("LOG_STACK_INFO", true);

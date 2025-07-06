@@ -6,7 +6,7 @@
 namespace w1trace {
 
 struct trace_config {
-  std::string output_file = "trace.txt";
+  std::string output_file = "";
   size_t buffer_size = 256 * 1024 * 1024; // 256MB default
   bool verbose = false;
 
@@ -14,7 +14,7 @@ struct trace_config {
     w1::util::env_config loader("W1TRACE_");
 
     trace_config config;
-    config.output_file = loader.get<std::string>("OUTPUT", "trace.txt");
+    config.output_file = loader.get<std::string>("OUTPUT", "");
     config.buffer_size = static_cast<size_t>(loader.get<uint64_t>("BUFFER_SIZE", 256 * 1024 * 1024));
     config.verbose = loader.get<bool>("VERBOSE", false);
 

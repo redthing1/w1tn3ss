@@ -9,7 +9,7 @@
 namespace w1inst {
 
 struct instruction_config {
-  std::string output_file = "instructions.json";
+  std::string output_file = "";
   std::string target_mnemonics;           // comma-separated list
   std::vector<std::string> mnemonic_list; // parsed list
   uint64_t max_entries = 1000000000;      // 1B default
@@ -19,7 +19,7 @@ struct instruction_config {
     w1::util::env_config loader("W1INST_");
 
     instruction_config config;
-    config.output_file = loader.get<std::string>("OUTPUT", "instructions.json");
+    config.output_file = loader.get<std::string>("OUTPUT", "");
     config.target_mnemonics = loader.get<std::string>("MNEMONICS", "");
 
     if (config.target_mnemonics.empty()) {

@@ -66,6 +66,10 @@ void trace_collector::flush_buffer() {
 }
 
 void trace_collector::ensure_output_file() {
+  if (output_file_.empty()) {
+    return; // skip file operations when output file is not set
+  }
+  
   if (!output_stream_.is_open()) {
     output_stream_.open(output_file_, std::ios::out | std::ios::trunc);
     if (!output_stream_.is_open()) {

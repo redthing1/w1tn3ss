@@ -16,7 +16,7 @@ struct memory_config {
 
     memory_config config;
     config.verbose = loader.get<int>("VERBOSE", 0);
-    config.output_path = loader.get<std::string>("OUTPUT", "w1mem_trace.json");
+    config.output_path = loader.get<std::string>("OUTPUT", "");
     config.max_trace_entries = loader.get<uint64_t>("MAX_TRACE", 1000000000);
     config.collect_trace = !loader.get<bool>("STATS_ONLY", false);
     config.verbose = loader.get<bool>("VERBOSE", false);

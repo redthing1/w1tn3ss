@@ -129,6 +129,11 @@ const transfer_stats& transfer_tracer::get_stats() const { return collector_.get
 size_t transfer_tracer::get_trace_size() const { return collector_.get_trace_size(); }
 
 void transfer_tracer::export_report() const {
+  if (config_.output_file.empty()) {
+    log_.inf("skipping export; no output file specified");
+    return;
+  }
+
   log_.inf("exporting transfer trace report", redlog::field("path", config_.output_file));
 
   try {

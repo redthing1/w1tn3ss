@@ -77,6 +77,11 @@ const memory_stats& memory_tracer::get_stats() const { return collector_.get_sta
 size_t memory_tracer::get_trace_size() const { return collector_.get_trace_size(); }
 
 void memory_tracer::export_report() const {
+  if (config_.output_path.empty()) {
+    log_.inf("skipping export; no output file specified");
+    return;
+  }
+
   log_.inf("exporting memory trace report", redlog::field("path", config_.output_path));
 
   try {
