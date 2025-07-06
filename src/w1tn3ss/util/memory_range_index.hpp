@@ -23,7 +23,7 @@ class memory_range_index {
 public:
   using memory_interval = interval_tree::interval<QBDI::rword, memory_region>;
 
-  enum access_type { READ = QBDI::QBDI_PF_READ, WRITE = QBDI::QBDI_PF_WRITE, EXEC = QBDI::QBDI_PF_EXEC };
+  enum access_type { READ = QBDI_PF_READ, WRITE = QBDI_PF_WRITE, EXEC = QBDI_PF_EXEC };
 
   memory_range_index() = default;
 
