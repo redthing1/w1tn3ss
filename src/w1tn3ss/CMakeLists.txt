@@ -10,6 +10,9 @@ add_library(w1tn3ss STATIC
     util/signal_handler.cpp
     util/safe_memory.cpp
     abi/calling_convention.cpp
+    abi/api_knowledge_db.cpp
+    abi/argument_extractor.cpp
+    abi/api_analyzer.cpp
 )
 
 # Add LIEF components when enabled
@@ -26,7 +29,10 @@ if(WITNESS_LIEF)
     endif()
 endif()
 
-target_include_directories(w1tn3ss PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(w1tn3ss PUBLIC 
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_SOURCE_DIR}/src
+)
 
 target_link_libraries(w1tn3ss PUBLIC
     QBDI_static

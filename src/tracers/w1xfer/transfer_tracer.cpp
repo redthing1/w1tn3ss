@@ -6,14 +6,15 @@ namespace w1xfer {
 
 transfer_tracer::transfer_tracer(const transfer_config& config)
     : config_(config),
-      collector_(config.max_entries, config.log_registers, config.log_stack_info, config.log_call_targets) {
+      collector_(config.max_entries, config.log_registers, config.log_stack_info, config.log_call_targets, config.analyze_apis) {
 
   if (config_.verbose) {
     log_.inf(
         "transfer tracer created", redlog::field("output", config_.output_file),
         redlog::field("max_entries", config_.max_entries), redlog::field("log_registers", config_.log_registers),
         redlog::field("log_stack_info", config_.log_stack_info),
-        redlog::field("log_call_targets", config_.log_call_targets)
+        redlog::field("log_call_targets", config_.log_call_targets),
+        redlog::field("analyze_apis", config_.analyze_apis)
     );
   }
 }

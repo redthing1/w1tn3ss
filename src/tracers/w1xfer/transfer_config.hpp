@@ -12,6 +12,7 @@ struct transfer_config {
   bool log_registers = true;
   bool log_stack_info = true;
   bool log_call_targets = true;
+  bool analyze_apis = false;
 
   static transfer_config from_environment() {
     w1::util::env_config loader("W1XFER_");
@@ -23,6 +24,7 @@ struct transfer_config {
     config.log_registers = loader.get<bool>("LOG_REGISTERS", true);
     config.log_stack_info = loader.get<bool>("LOG_STACK_INFO", true);
     config.log_call_targets = loader.get<bool>("LOG_CALL_TARGETS", true);
+    config.analyze_apis = loader.get<bool>("ANALYZE_APIS", false);
 
     return config;
   }

@@ -4,15 +4,16 @@
 #include <chrono>
 #include <cstring>
 #include <cstdio>
+#include <sstream>
 #include <unordered_set>
 
 namespace w1xfer {
 
 transfer_collector::transfer_collector(
-    uint64_t max_entries, bool log_registers, bool log_stack_info, bool log_call_targets
+    uint64_t max_entries, bool log_registers, bool log_stack_info, bool log_call_targets, bool analyze_apis
 )
     : max_entries_(max_entries), instruction_count_(0), log_registers_(log_registers), log_stack_info_(log_stack_info),
-      log_call_targets_(log_call_targets), trace_overflow_(false), modules_initialized_(false) {
+      log_call_targets_(log_call_targets), analyze_apis_(analyze_apis), trace_overflow_(false), modules_initialized_(false) {
 
   trace_.reserve(std::min(max_entries_, static_cast<uint64_t>(10000)));
 
@@ -27,6 +28,15 @@ transfer_collector::transfer_collector(
   // Create symbol enricher if call targets are being logged
   if (log_call_targets_) {
     symbol_enricher_ = std::make_unique<symbol_enricher>();
+  }
+  
+  // Create API analyzer if API analysis is enabled
+  if (analyze_apis_) {
+    w1::abi::analyzer_config cfg;
+    cfg.extract_arguments = true;
+    cfg.format_calls = true;
+    cfg.max_string_length = 256;
+    api_analyzer_ = std::make_unique<w1::abi::api_analyzer>(cfg);
   }
 }
 
@@ -65,6 +75,54 @@ void transfer_collector::record_call(
     if (symbol_enricher_) {
       entry.source_symbol = enrich_symbol(source_addr);
       entry.target_symbol = enrich_symbol(target_addr);
+    }
+  }
+
+  // Perform API analysis if enabled
+  if (analyze_apis_ && api_analyzer_) {
+    w1::abi::api_context ctx;
+    ctx.call_address = source_addr;
+    ctx.target_address = target_addr;
+    ctx.module_name = entry.target_module;
+    ctx.symbol_name = entry.target_symbol.symbol_name;
+    ctx.vm = vm;
+    ctx.vm_state = state;
+    ctx.gpr_state = gpr;
+    ctx.fpr_state = fpr;
+    ctx.module_index = &index_;
+    ctx.timestamp = entry.timestamp;
+    
+    auto analysis = api_analyzer_->analyze_call(ctx);
+    
+    // Convert analysis result to our format
+    entry.api_info.api_category = analysis.category == w1::abi::api_info::category::UNKNOWN ? 
+                                  "" : std::to_string(static_cast<int>(analysis.category));
+    entry.api_info.description = analysis.description;
+    entry.api_info.formatted_call = analysis.formatted_call;
+    entry.api_info.analysis_complete = analysis.analysis_complete;
+    
+    // Convert arguments
+    for (const auto& arg : analysis.arguments) {
+      api_argument api_arg;
+      api_arg.raw_value = arg.raw_value;
+      api_arg.param_name = arg.param_name;
+      api_arg.param_type = std::to_string(static_cast<int>(arg.param_type));
+      api_arg.is_pointer = arg.is_valid_pointer;
+      
+      // Format interpreted value
+      if (!arg.string_preview.empty()) {
+        api_arg.interpreted_value = "\"" + arg.string_preview + "\"";
+      } else if (arg.is_null_pointer) {
+        api_arg.interpreted_value = "NULL";
+      } else if (arg.param_type == w1::abi::param_info::type::BOOLEAN) {
+        api_arg.interpreted_value = arg.raw_value ? "true" : "false";
+      } else {
+        std::stringstream ss;
+        ss << "0x" << std::hex << arg.raw_value;
+        api_arg.interpreted_value = ss.str();
+      }
+      
+      entry.api_info.arguments.push_back(api_arg);
     }
   }
 
@@ -292,6 +350,11 @@ void transfer_collector::initialize_module_tracking() {
   // Initialize symbol enricher with the module index
   if (symbol_enricher_) {
     symbol_enricher_->initialize(index_);
+  }
+  
+  // Initialize API analyzer with the module index
+  if (api_analyzer_) {
+    api_analyzer_->initialize(index_);
   }
 
   modules_initialized_ = true;

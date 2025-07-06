@@ -29,9 +29,9 @@ public:
         extracted_call_info info;
         info.api_name = api_name;
         info.module_name = module_name;
-        info.timestamp = ctx.timestamp;
+        info.timestamp = 0; // TODO: Add timestamp to context
         info.call_address = ctx.call_address;
-        info.return_address = ctx.return_address;
+        info.return_address = 0; // TODO: Calculate return address
         
         // look up api info
         auto api_info = api_db_->lookup(module_name, api_name);
@@ -53,7 +53,8 @@ public:
             // extract each parameter
             for (size_t i = 0; i < api_info->parameters.size(); ++i) {
                 const auto& param = api_info->parameters[i];
-                uint64_t raw_value = convention_->get_parameter(ctx, i);
+                auto raw_args = convention_->extract_args(ctx.gpr, ctx.vm, i + 1);
+                uint64_t raw_value = raw_args.size() > i ? raw_args[i] : 0;
                 
                 log_.debug("extracting parameter",
                           redlog::field("index", i),
@@ -71,7 +72,8 @@ public:
             // extract raw arguments without semantic info
             size_t max_args = 6;  // reasonable default
             for (size_t i = 0; i < max_args; ++i) {
-                uint64_t raw_value = convention_->get_parameter(ctx, i);
+                auto raw_args = convention_->extract_args(ctx.gpr, ctx.vm, i + 1);
+                uint64_t raw_value = raw_args.size() > i ? raw_args[i] : 0;
                 if (raw_value == 0 && i > 2) break;  // heuristic
                 
                 param_info generic_param;
@@ -94,7 +96,7 @@ public:
         log_.debug("extracting return value",
                   redlog::field("api", call_info.api_name));
         
-        uint64_t ret_val = convention_->get_return_value(ctx);
+        uint64_t ret_val = convention_->extract_integer_return(ctx.gpr);
         
         // look up return value info
         param_info ret_param;
@@ -253,10 +255,9 @@ private:
         
         if (arg.is_valid_pointer && config_.follow_pointers) {
             // try to read what it points to
-            uint64_t pointed_value = 0;
-            if (memory.read(value, &pointed_value, sizeof(pointed_value))) {
+            if (auto pointed_value = memory.read<uint64_t>(value)) {
                 arg.type_description = "pointer -> 0x" + 
-                    arg_utils::format_pointer(pointed_value);
+                    arg_utils::format_pointer(*pointed_value);
             }
         }
     }
@@ -298,16 +299,18 @@ private:
                                          param.size_hint);
             if (preview_size == 0) preview_size = config_.max_buffer_preview;
             
-            arg.buffer_preview.resize(preview_size);
-            size_t read = memory.read(value, arg.buffer_preview.data(), preview_size);
-            arg.buffer_preview.resize(read);
-            arg.buffer_size = param.size_hint;
-            
-            arg.type_description = "buffer[" + std::to_string(read) + " bytes]";
+            if (auto buffer_info = memory.read_buffer(value, preview_size)) {
+                arg.buffer_preview = buffer_info->data;
+                arg.buffer_size = param.size_hint;
+                arg.type_description = "buffer[" + std::to_string(buffer_info->bytes_read) + " bytes]";
+            } else {
+                arg.buffer_preview.clear();
+                arg.type_description = "buffer[0 bytes]";
+            }
             
             log_.debug("extracted buffer",
                       redlog::field("addr", value),
-                      redlog::field("preview_size", read));
+                      redlog::field("preview_size", arg.buffer_preview.size()));
         } else {
             arg.type_description = "invalid buffer pointer";
         }
@@ -479,8 +482,7 @@ bool is_valid_pointer(uint64_t addr, const util::safe_memory_reader& memory) {
     if (addr == 0) return false;
     
     // check if readable
-    uint8_t test;
-    return memory.read(addr, &test, 1) == 1;
+    return memory.read<uint8_t>(addr).has_value();
 }
 
 std::optional<std::string> read_string(
@@ -494,10 +496,11 @@ std::optional<std::string> read_string(
     result.reserve(std::min(max_length, size_t(256)));
     
     for (size_t i = 0; i < max_length; ++i) {
-        char ch;
-        if (memory.read(addr + i, &ch, 1) != 1) {
+        auto ch_opt = memory.read<char>(addr + i);
+        if (!ch_opt) {
             break;
         }
+        char ch = *ch_opt;
         
         if (ch == '\0') {
             return result;
@@ -526,10 +529,11 @@ std::optional<std::string> read_wide_string(
     result.reserve(std::min(max_length, size_t(256)));
     
     for (size_t i = 0; i < max_length; ++i) {
-        uint16_t wch;
-        if (memory.read(addr + i * 2, &wch, 2) != 2) {
+        auto wch_opt = memory.read<uint16_t>(addr + i * 2);
+        if (!wch_opt) {
             break;
         }
+        uint16_t wch = *wch_opt;
         
         if (wch == 0) {
             return result;

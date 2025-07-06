@@ -3,7 +3,16 @@
 #include <unordered_set>
 #include <algorithm>
 #include <fstream>
-#include <json.hpp>
+#include <common/ext/jsonstruct.hpp>
+
+// Platform-specific API definitions
+#ifdef __APPLE__
+#include "detail/macos_apis.hpp"
+#elif defined(__linux__)
+#include "detail/linux_apis.hpp"
+#elif defined(_WIN32)
+#include "detail/windows_apis.hpp"
+#endif
 
 namespace w1::abi {
 
@@ -196,11 +205,39 @@ public:
     std::optional<api_info> lookup(const std::string& api_name) const {
         log_.debug("looking up api", redlog::field("name", api_name));
         
+        // Try exact match first
         auto it = apis_.find(api_name);
         if (it != apis_.end()) {
             log_.debug("found api info", redlog::field("name", api_name), 
                       redlog::field("module", it->second.module),
-                      redlog::field("category", static_cast<int>(it->second.api_category)));
+                      redlog::field("category", static_cast<int>(it->second.api_category)),
+                      redlog::field("param_count", it->second.parameters.size()));
+            return it->second;
+        }
+        
+        // Try without underscore prefix (for macOS symbols)
+        if (!api_name.empty() && api_name[0] == '_') {
+            std::string without_underscore = api_name.substr(1);
+            it = apis_.find(without_underscore);
+            if (it != apis_.end()) {
+                log_.debug("found api info without underscore", 
+                          redlog::field("original", api_name),
+                          redlog::field("matched", without_underscore), 
+                          redlog::field("module", it->second.module),
+                          redlog::field("param_count", it->second.parameters.size()));
+                return it->second;
+            }
+        }
+        
+        // Try with underscore prefix (for macOS symbols)
+        std::string with_underscore = "_" + api_name;
+        it = apis_.find(with_underscore);
+        if (it != apis_.end()) {
+            log_.debug("found api info with underscore", 
+                      redlog::field("original", api_name),
+                      redlog::field("matched", with_underscore), 
+                      redlog::field("module", it->second.module),
+                      redlog::field("param_count", it->second.parameters.size()));
             return it->second;
         }
         
@@ -313,53 +350,16 @@ public:
                 return false;
             }
             
-            nlohmann::json j;
-            file >> j;
+            // Read entire file into string
+            std::string json_content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
             
-            size_t loaded = 0;
-            for (const auto& api_json : j["apis"]) {
-                api_info info;
-                
-                // parse basic info
-                info.name = api_json["name"];
-                info.module = api_json.value("module", "");
-                info.description = api_json.value("description", "");
-                
-                // parse category
-                std::string cat_str = api_json.value("category", "UNKNOWN");
-                info.api_category = string_to_category(cat_str);
-                
-                // parse flags
-                if (api_json.contains("flags")) {
-                    for (const auto& flag : api_json["flags"]) {
-                        info.flags |= string_to_flag(flag);
-                    }
-                }
-                
-                // parse parameters
-                if (api_json.contains("parameters")) {
-                    for (const auto& param_json : api_json["parameters"]) {
-                        param_info param;
-                        param.name = param_json["name"];
-                        param.param_type = string_to_param_type(param_json.value("type", "UNKNOWN"));
-                        param.param_direction = string_to_direction(param_json.value("direction", "IN"));
-                        param.is_optional = param_json.value("optional", false);
-                        param.description = param_json.value("description", "");
-                        info.parameters.push_back(param);
-                    }
-                }
-                
-                add_api(info);
-                loaded++;
-            }
-            
-            log_.info("loaded api definitions from file", 
-                     redlog::field("path", path),
-                     redlog::field("count", loaded));
-            return true;
+            // TODO: Parse using jsonstruct - need to define proper structs with JS_OBJECT macros
+            // For now, just log that we need to implement this
+            log_.warn("JSON parsing using jsonstruct not yet implemented - need to define JS_OBJECT structs");
+            return false;
             
         } catch (const std::exception& e) {
-            log_.err("failed to parse api definitions file", 
+            log_.err("failed to read api definitions file", 
                     redlog::field("path", path),
                     redlog::field("error", e.what()));
             return false;
@@ -375,13 +375,20 @@ private:
     std::unordered_set<std::string> modules_;
     
     void load_builtin_apis() {
-        log_.debug("loading builtin apis");
+        log_.debug("loading builtin apis for platform");
         
-        // load all builtin api sets
+        // Load platform-specific APIs
+#ifdef __APPLE__
+        load_api_set(detail::macos_system_apis, "macos system apis");
+#elif defined(__linux__)
+        load_api_set(detail::linux_system_apis, "linux system apis");
+#elif defined(_WIN32)
+        load_api_set(builtin_apis::kernel32_apis, "windows kernel32 apis");
+#endif
+        
+        // Keep the cross-platform APIs for now - but they'll be shadowed by platform-specific ones
         load_api_set(builtin_apis::libc_file_apis, "libc file apis");
         load_api_set(builtin_apis::libc_memory_apis, "libc memory apis");
-        load_api_set(builtin_apis::kernel32_apis, "kernel32 apis");
-        load_api_set(builtin_apis::macos_apis, "macos apis");
     }
     
     void load_api_set(const std::vector<api_info>& api_set, const std::string& set_name) {

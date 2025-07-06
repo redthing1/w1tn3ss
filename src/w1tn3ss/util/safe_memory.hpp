@@ -117,4 +117,26 @@ public:
         const std::vector<batch_read_request>& requests);
 };
 
+// Wrapper class for safe memory reading with RAII
+class safe_memory_reader {
+public:
+    explicit safe_memory_reader(QBDI::VMInstanceRef vm) : vm_(vm) {}
+    
+    template<typename T>
+    std::optional<T> read(uint64_t address) const {
+        return safe_memory::read<T>(vm_, address);
+    }
+    
+    std::optional<std::string> read_string(uint64_t address, size_t max_length = 256) const {
+        return safe_memory::read_string(vm_, address, max_length);
+    }
+    
+    std::optional<safe_memory::buffer_info> read_buffer(uint64_t address, size_t size, size_t max_size = 4096) const {
+        return safe_memory::read_buffer(vm_, address, size, max_size);
+    }
+    
+private:
+    QBDI::VMInstanceRef vm_;
+};
+
 } // namespace w1::util

@@ -72,6 +72,15 @@ struct extractor_config {
     bool safe_memory_only = true;        // only read from safe memory regions
 };
 
+// context for a function call
+struct call_context {
+    QBDI::VMInstanceRef vm;
+    QBDI::GPRState* gpr;
+    QBDI::FPRState* fpr;
+    uint64_t call_address;
+    uint64_t target_address;
+};
+
 // extracts and interprets function arguments
 class argument_extractor {
 public:

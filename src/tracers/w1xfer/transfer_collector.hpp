@@ -9,6 +9,7 @@
 #include <common/ext/jsonstruct.hpp>
 #include <w1tn3ss/util/module_range_index.hpp>
 #include <w1tn3ss/util/module_scanner.hpp>
+#include <w1tn3ss/abi/api_analyzer.hpp>
 #include "symbol_enricher.hpp"
 
 namespace w1xfer {
@@ -94,6 +95,34 @@ struct symbol_info {
   );
 };
 
+// API argument information
+struct api_argument {
+  uint64_t raw_value;
+  std::string param_name;
+  std::string param_type;
+  std::string interpreted_value; // string representation of interpreted value
+  bool is_pointer;
+  
+  JS_OBJECT(
+      JS_MEMBER(raw_value), JS_MEMBER(param_name), JS_MEMBER(param_type),
+      JS_MEMBER(interpreted_value), JS_MEMBER(is_pointer)
+  );
+};
+
+// API analysis information
+struct api_analysis {
+  std::string api_category;
+  std::string description;
+  std::vector<api_argument> arguments;
+  std::string formatted_call;
+  bool analysis_complete;
+  
+  JS_OBJECT(
+      JS_MEMBER(api_category), JS_MEMBER(description), JS_MEMBER(arguments),
+      JS_MEMBER(formatted_call), JS_MEMBER(analysis_complete)
+  );
+};
+
 struct transfer_entry {
   transfer_type type;
   uint64_t source_address;
@@ -107,11 +136,13 @@ struct transfer_entry {
   // Rich symbol information
   symbol_info source_symbol;
   symbol_info target_symbol;
+  // API analysis information
+  api_analysis api_info;
 
   JS_OBJECT(
       JS_MEMBER(type), JS_MEMBER(source_address), JS_MEMBER(target_address), JS_MEMBER(timestamp),
       JS_MEMBER(instruction_count), JS_MEMBER(registers), JS_MEMBER(stack), JS_MEMBER(source_module),
-      JS_MEMBER(target_module), JS_MEMBER(source_symbol), JS_MEMBER(target_symbol)
+      JS_MEMBER(target_module), JS_MEMBER(source_symbol), JS_MEMBER(target_symbol), JS_MEMBER(api_info)
   );
 };
 
@@ -138,7 +169,7 @@ struct w1xfer_report {
 
 class transfer_collector {
 public:
-  explicit transfer_collector(uint64_t max_entries, bool log_registers, bool log_stack_info, bool log_call_targets);
+  explicit transfer_collector(uint64_t max_entries, bool log_registers, bool log_stack_info, bool log_call_targets, bool analyze_apis = false);
 
   void initialize_module_tracking();
 
@@ -167,11 +198,13 @@ private:
   bool log_registers_;
   bool log_stack_info_;
   bool log_call_targets_;
+  bool analyze_apis_;
   bool trace_overflow_;
   w1::util::module_scanner scanner_;
   w1::util::module_range_index index_;
   bool modules_initialized_;
   std::unique_ptr<symbol_enricher> symbol_enricher_;
+  std::unique_ptr<w1::abi::api_analyzer> api_analyzer_;
 
   register_state capture_registers(QBDI::GPRState* gpr) const;
   stack_info capture_stack_info(QBDI::VMInstanceRef vm, QBDI::GPRState* gpr) const;

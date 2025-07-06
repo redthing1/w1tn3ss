@@ -60,9 +60,11 @@ struct api_info {
         // file operations
         FILE_IO,
         FILE_MANAGEMENT,
+        STDIO,              // standard I/O (printf, puts, etc)
         // process/thread
         PROCESS_CONTROL,
         THREAD_CONTROL,
+        THREADING,          // thread creation and management
         // memory
         MEMORY_MANAGEMENT,
         HEAP_MANAGEMENT,
