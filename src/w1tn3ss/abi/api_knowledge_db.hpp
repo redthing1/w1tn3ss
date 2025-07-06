@@ -1,5 +1,6 @@
 #pragma once
 
+#include "calling_convention_base.hpp"
 #include <string>
 #include <vector>
 #include <optional>
@@ -14,18 +15,23 @@ struct param_info {
         UNKNOWN,
         // numeric types
         INTEGER,
+        UNSIGNED,
         POINTER,
         SIZE,
         COUNT,
         FLAGS,
         BOOLEAN,
+        FLOAT,
+        DOUBLE,
         // special types
         HANDLE,
         FILE_DESCRIPTOR,
         STRING,
+        WSTRING,    // wide string (windows)
         BUFFER,
         STRUCT,
         CALLBACK,
+        VOID,       // for return values
         // semantic types
         PATH,
         URL,
@@ -47,10 +53,15 @@ struct param_info {
     size_t size_hint = 0;  // for buffers/structs
     bool is_optional = false;
     std::string description;
+    std::string type_description;  // human-readable type description
     
     // relationships to other parameters
     int size_param_index = -1;  // if this is a buffer, which param contains its size
     int count_param_index = -1; // if this is an array, which param contains count
+    size_t buffer_size = 0;     // known buffer size
+    
+    // for flags parameters
+    std::unordered_map<uint32_t, std::string> flag_values;  // flag -> name mapping
 };
 
 // represents semantic information about an api function
@@ -123,6 +134,11 @@ struct api_info {
     std::string module;  // e.g., "kernel32.dll", "libc.so.6"
     category api_category = category::UNKNOWN;
     uint32_t flags = 0;
+    
+    // calling convention
+    calling_convention_id convention = calling_convention_id::UNKNOWN;
+    // platform-specific overrides (e.g., "win32" -> X86_STDCALL)
+    std::unordered_map<std::string, calling_convention_id> platform_conventions;
     
     // parameters
     std::vector<param_info> parameters;

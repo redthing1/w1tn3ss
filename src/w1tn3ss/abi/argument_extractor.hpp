@@ -1,6 +1,8 @@
 #pragma once
 
-#include "calling_convention.hpp"
+#include "calling_convention_base.hpp"
+#include "calling_convention_factory.hpp"
+#include "calling_convention_detector.hpp"
 #include "api_knowledge_db.hpp"
 #include "../util/safe_memory.hpp"
 #include <redlog.hpp>
@@ -84,18 +86,35 @@ struct call_context {
 // extracts and interprets function arguments
 class argument_extractor {
 public:
+    // new constructor that supports dynamic convention selection
     argument_extractor(
-        std::shared_ptr<calling_convention> convention,
+        std::shared_ptr<api_knowledge_db> api_db,
+        std::shared_ptr<calling_convention_detector> detector = nullptr,
+        const extractor_config& config = {}
+    );
+    
+    // legacy constructor for compatibility
+    argument_extractor(
+        std::shared_ptr<calling_convention_base> convention,
         std::shared_ptr<api_knowledge_db> api_db,
         const extractor_config& config = {}
     );
     
     ~argument_extractor();
     
-    // extract arguments for a function call
+    // extract arguments for a function call with automatic convention detection
     extracted_call_info extract_call(
         const std::string& api_name,
         const std::string& module_name,
+        const util::safe_memory_reader& memory,
+        const call_context& ctx
+    ) const;
+    
+    // extract with explicit convention
+    extracted_call_info extract_call_with_convention(
+        const std::string& api_name,
+        const std::string& module_name,
+        calling_convention_ptr convention,
         const util::safe_memory_reader& memory,
         const call_context& ctx
     ) const;

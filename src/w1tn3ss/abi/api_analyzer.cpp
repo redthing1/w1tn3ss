@@ -11,8 +11,8 @@ public:
         : config_(config)
         , log_("w1::abi::api_analyzer")
         , api_db_(std::make_shared<api_knowledge_db>())
-        , calling_conv_(std::make_shared<calling_convention>())
-        , argument_extractor_(calling_conv_, api_db_) {
+        , detector_(std::make_shared<calling_convention_detector>())
+        , argument_extractor_(api_db_, detector_) {
         
 #ifdef WITNESS_LIEF_ENABLED
         if (config_.resolve_symbols) {
@@ -107,7 +107,9 @@ public:
         try {
             // Extract return value based on API info
             if (auto api_info = api_db_->lookup(result.symbol_name)) {
-                uint64_t ret_val = calling_conv_->extract_integer_return(ctx.gpr_state);
+                // Detect calling convention
+                auto convention = detector_->detect(result.module_name, result.symbol_name);
+                uint64_t ret_val = convention->get_integer_return(ctx.gpr_state);
                 
                 // Create safe memory reader
                 util::safe_memory::memory_validator().refresh();
@@ -164,7 +166,18 @@ private:
         log_.dbg("extracting raw argument values",
                  redlog::field("count", arg_count));
         
-        auto raw_args = calling_conv_->extract_args(ctx.gpr_state, ctx.vm, arg_count);
+        // Detect calling convention and extract args
+        auto convention = detector_->detect(result.module_name, result.symbol_name);
+        calling_convention_base::extraction_context extract_ctx{
+            ctx.gpr_state,
+            ctx.fpr_state,
+            [&ctx](uint64_t addr) -> uint64_t {
+                // use safe_memory for validated reads
+                auto value = util::safe_memory::read<uint64_t>(ctx.vm, addr);
+                return value.value_or(0);
+            }
+        };
+        auto raw_args = convention->extract_integer_args(extract_ctx, arg_count);
         
         log_.dbg("extracted raw args",
                  redlog::field("count", raw_args.size()));
@@ -289,7 +302,7 @@ private:
     
     const util::module_range_index* module_index_ = nullptr;
     std::shared_ptr<api_knowledge_db> api_db_;
-    std::shared_ptr<calling_convention> calling_conv_;
+    std::shared_ptr<calling_convention_detector> detector_;
     argument_extractor argument_extractor_;
     
 #ifdef WITNESS_LIEF_ENABLED

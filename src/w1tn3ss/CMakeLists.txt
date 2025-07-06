@@ -9,11 +9,39 @@ add_library(w1tn3ss STATIC
     util/memory_range_index.cpp
     util/signal_handler.cpp
     util/safe_memory.cpp
-    abi/calling_convention.cpp
+    # new calling convention system
+    abi/calling_convention_factory.cpp
+    abi/calling_convention_detector.cpp
+    # existing abi components
     abi/api_knowledge_db.cpp
     abi/argument_extractor.cpp
     abi/api_analyzer.cpp
 )
+
+# Add platform-specific calling convention implementations
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
+    target_sources(w1tn3ss PRIVATE
+        abi/conventions/x86_64/system_v.cpp
+        abi/conventions/x86_64/microsoft.cpp
+    )
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "i[3-6]86|x86")
+    target_sources(w1tn3ss PRIVATE
+        abi/conventions/x86/cdecl.cpp
+        # TODO: add when implemented
+        # abi/conventions/x86/stdcall.cpp
+        # abi/conventions/x86/fastcall.cpp
+        # abi/conventions/x86/thiscall.cpp
+    )
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|ARM64")
+    target_sources(w1tn3ss PRIVATE
+        abi/conventions/arm/aarch64_aapcs.cpp
+    )
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "arm|ARM")
+    # TODO: add ARM32 conventions when implemented
+    # target_sources(w1tn3ss PRIVATE
+    #     abi/conventions/arm/arm32_aapcs.cpp
+    # )
+endif()
 
 # Add LIEF components when enabled
 if(WITNESS_LIEF)
