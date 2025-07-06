@@ -25,6 +25,8 @@ macos_dyld_resolver::macos_dyld_resolver() : log_("w1::lief::macos_dyld") {
     // verify directory exists
     if (fs::exists(dump_dir_) && fs::is_directory(dump_dir_)) {
       log_.info("dyld shared cache dump directory configured", redlog::field("path", dump_dir_));
+      // Pre-populate the library cache
+      populate_library_cache();
     } else {
       log_.warn("dyld shared cache dump directory not found", redlog::field("path", dump_dir_));
       dump_dir_.clear();
@@ -40,19 +42,33 @@ std::optional<std::string> macos_dyld_resolver::resolve_extracted_path(const std
     return std::nullopt;
   }
 
-  log_.dbg("attempting to resolve dyld cached library", redlog::field("original_path", original_path));
+  log_.trc("attempting to resolve dyld cached library", redlog::field("original_path", original_path));
 
   // check if this is a system library that would be in dyld cache
   if (!is_dyld_cached_library(original_path)) {
-    log_.dbg("not a dyld cached library", redlog::field("path", original_path));
+    log_.trc("not a dyld cached library", redlog::field("path", original_path));
     return std::nullopt;
+  }
+
+  // Extract library name and check pre-computed cache first
+  std::string library_name = extract_library_name(original_path);
+  {
+    std::lock_guard<std::mutex> lock(cache_mutex_);
+    auto it = library_cache_.find(library_name);
+    if (it != library_cache_.end()) {
+      log_.info(
+          "found library in pre-computed cache", redlog::field("original", original_path),
+          redlog::field("resolved", it->second)
+      );
+      return it->second;
+    }
   }
 
   // strategy 1: direct path mapping
   // /usr/lib/system/libsystem_c.dylib -> $DUMP_DIR/usr/lib/system/libsystem_c.dylib
   std::string direct_path = dump_dir_ + original_path;
 
-  log_.ped("trying direct path mapping", redlog::field("mapped_path", direct_path));
+  log_.trc("trying direct path mapping", redlog::field("mapped_path", direct_path));
 
   if (fs::exists(direct_path)) {
     log_.info(
@@ -63,19 +79,22 @@ std::optional<std::string> macos_dyld_resolver::resolve_extracted_path(const std
   }
 
   // strategy 2: search for library name in dump
-  std::string library_name = extract_library_name(original_path);
-
-  log_.dbg("direct mapping failed, searching for library", redlog::field("library_name", library_name));
+  log_.trc("direct mapping failed, searching for library", redlog::field("library_name", library_name));
 
   if (auto found_path = find_library_in_dump(library_name)) {
     log_.info(
         "found library in dyld dump (recursive search)", redlog::field("original", original_path),
         redlog::field("resolved", *found_path), redlog::field("library_name", library_name)
     );
+    // Cache the result
+    {
+      std::lock_guard<std::mutex> lock(cache_mutex_);
+      library_cache_[library_name] = *found_path;
+    }
     return found_path;
   }
 
-  log_.dbg(
+  log_.trc(
       "library not found in dyld dump", redlog::field("original_path", original_path),
       redlog::field("library_name", library_name)
   );
@@ -84,7 +103,7 @@ std::optional<std::string> macos_dyld_resolver::resolve_extracted_path(const std
 }
 
 bool macos_dyld_resolver::is_dyld_cached_library(const std::string& path) const {
-  log_.ped("checking if path is dyld cached library", redlog::field("path", path));
+  log_.trc("checking if path is dyld cached library", redlog::field("path", path));
 
   // common system library paths that are in dyld shared cache
   static const std::vector<std::string> cached_prefixes = {
@@ -103,7 +122,7 @@ bool macos_dyld_resolver::is_dyld_cached_library(const std::string& path) const 
   // extract just the filename if it's a full path
   std::string filename = extract_library_name(path);
 
-  log_.ped(
+  log_.trc(
       "normalized path and extracted filename", redlog::field("norm_path", norm_path),
       redlog::field("filename", filename)
   );
@@ -111,7 +130,7 @@ bool macos_dyld_resolver::is_dyld_cached_library(const std::string& path) const 
   // check if path starts with any cached prefix
   for (const auto& prefix : cached_prefixes) {
     if (norm_path.find(prefix) == 0) {
-      log_.ped("matched cached prefix", redlog::field("prefix", prefix), redlog::field("path", path));
+      log_.trc("matched cached prefix", redlog::field("prefix", prefix), redlog::field("path", path));
       return true;
     }
   }
@@ -119,25 +138,25 @@ bool macos_dyld_resolver::is_dyld_cached_library(const std::string& path) const 
   // check if filename matches common cached library patterns
   for (const auto& pattern : cached_lib_patterns) {
     if (filename.find(pattern) == 0) {
-      log_.ped(
+      log_.trc(
           "matched cached library pattern", redlog::field("pattern", pattern), redlog::field("filename", filename)
       );
       return true;
     }
   }
 
-  log_.ped("not a dyld cached library", redlog::field("path", path));
+  log_.trc("not a dyld cached library", redlog::field("path", path));
   return false;
 }
 
 std::optional<std::string> macos_dyld_resolver::find_library_in_dump(const std::string& library_name) const {
 
-  log_.dbg(
+  log_.trc(
       "searching for library in dump", redlog::field("library_name", library_name), redlog::field("dump_dir", dump_dir_)
   );
 
   if (library_name.empty()) {
-    log_.dbg("library name is empty, returning nullopt");
+    log_.trc("library name is empty, returning nullopt");
     return std::nullopt;
   }
 
@@ -152,11 +171,11 @@ std::optional<std::string> macos_dyld_resolver::find_library_in_dump(const std::
       std::string search_path = dump_dir_ + subdir;
 
       if (!fs::exists(search_path)) {
-        log_.ped("search path does not exist", redlog::field("search_path", search_path));
+        log_.trc("search path does not exist", redlog::field("search_path", search_path));
         continue;
       }
 
-      log_.ped("searching in directory", redlog::field("path", search_path), redlog::field("library", library_name));
+      log_.trc("searching in directory", redlog::field("path", search_path), redlog::field("library", library_name));
 
       // look for exact match and versioned variants
       for (const auto& entry : fs::directory_iterator(search_path)) {
@@ -184,7 +203,7 @@ std::optional<std::string> macos_dyld_resolver::find_library_in_dump(const std::
           // check if filename starts with base_name and ends with .dylib
           if (filename.find(base_name) == 0 && filename.rfind(".dylib") == filename.length() - 6) {
 
-            log_.dbg(
+            log_.trc(
                 "found versioned match", redlog::field("requested", library_name), redlog::field("found", filename)
             );
             return entry.path().string();
@@ -194,7 +213,7 @@ std::optional<std::string> macos_dyld_resolver::find_library_in_dump(const std::
     }
 
     // if not found in common locations, do recursive search as last resort
-    log_.dbg("library not found in common locations, trying recursive search", redlog::field("library", library_name));
+    log_.trc("library not found in common locations, trying recursive search", redlog::field("library", library_name));
 
     // limit recursion depth to avoid excessive searching
     constexpr int max_depth = 5;
@@ -271,6 +290,46 @@ std::string macos_dyld_resolver::normalize_path(const std::string& path) const {
   } catch (...) {
     return path;
   }
+}
+
+void macos_dyld_resolver::populate_library_cache() {
+  log_.info("pre-populating dyld library cache", redlog::field("dump_dir", dump_dir_));
+
+  std::lock_guard<std::mutex> lock(cache_mutex_);
+  library_cache_.clear();
+
+  // Common subdirectories where libraries are typically found
+  static const std::vector<std::string> search_subdirs = {
+      "/usr/lib", "/usr/lib/system", "/System/Library/Frameworks", "/System/Library/PrivateFrameworks"
+  };
+
+  size_t total_libraries = 0;
+
+  try {
+    for (const auto& subdir : search_subdirs) {
+      std::string search_path = dump_dir_ + subdir;
+
+      if (!fs::exists(search_path)) {
+        continue;
+      }
+
+      for (const auto& entry : fs::directory_iterator(search_path)) {
+        if (!entry.is_regular_file() && !entry.is_symlink()) {
+          continue;
+        }
+
+        std::string filename = entry.path().filename().string();
+        if (filename.find(".dylib") != std::string::npos || filename.find(".framework") != std::string::npos) {
+          library_cache_[filename] = entry.path().string();
+          total_libraries++;
+        }
+      }
+    }
+  } catch (const fs::filesystem_error& e) {
+    log_.err("filesystem error while populating cache", redlog::field("error", e.what()));
+  }
+
+  log_.info("dyld library cache populated", redlog::field("total_libraries", total_libraries));
 }
 
 } // namespace w1::lief

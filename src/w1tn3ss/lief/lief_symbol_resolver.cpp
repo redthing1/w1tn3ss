@@ -8,7 +8,7 @@ namespace w1::lief {
 #ifdef WITNESS_LIEF_ENABLED
 
 // lief_binary_cache implementation
-lief_binary_cache::lief_binary_cache(size_t max_size) : max_size_(max_size), hits_(0), misses_(0) {
+lief_binary_cache::lief_binary_cache(size_t max_size) : max_size_(max_size), hits_(0), misses_(0), negative_hits_(0) {
 #ifdef __APPLE__
   dyld_resolver_ = std::make_shared<macos_dyld_resolver>();
 #endif
@@ -18,6 +18,12 @@ lief_binary_cache::~lief_binary_cache() = default;
 
 LIEF::Binary* lief_binary_cache::get_or_load(const std::string& path) const {
   std::shared_lock read_lock(mutex_);
+
+  // Check negative cache first (failed paths)
+  if (failed_paths_.find(path) != failed_paths_.end()) {
+    negative_hits_.fetch_add(1, std::memory_order_relaxed);
+    return nullptr;
+  }
 
   // Check cache
   auto it = cache_.find(path);
@@ -56,19 +62,19 @@ LIEF::Binary* lief_binary_cache::get_or_load(const std::string& path) const {
   auto log = redlog::get_logger("w1::lief::binary_cache");
 
   try {
-    log.dbg("attempting to load binary", redlog::field("path", path));
+    log.trc("attempting to load binary", redlog::field("path", path));
 
     auto binary = LIEF::Parser::parse(path);
     if (!binary) {
-      log.dbg("failed to parse binary at original path", redlog::field("path", path));
+      log.trc("failed to parse binary at original path", redlog::field("path", path));
 
 #ifdef __APPLE__
       // Try dyld shared cache dump resolution
       if (dyld_resolver_ && dyld_resolver_->is_available()) {
-        log.dbg("trying dyld shared cache dump resolution");
+        log.trc("trying dyld shared cache dump resolution");
 
         if (auto resolved_path = dyld_resolver_->resolve_extracted_path(path)) {
-          log.dbg(
+          log.trc(
               "resolved to dyld dump path", redlog::field("original", path), redlog::field("resolved", *resolved_path)
           );
 
@@ -90,11 +96,13 @@ LIEF::Binary* lief_binary_cache::get_or_load(const std::string& path) const {
 #endif
 
       if (!binary) {
-        log.dbg("binary load failed completely", redlog::field("path", path));
+        log.trc("binary load failed completely", redlog::field("path", path));
+        // Add to negative cache
+        failed_paths_.insert(path);
         return nullptr;
       }
     } else {
-      log.dbg("loaded binary from original path", redlog::field("path", path));
+      log.trc("loaded binary from original path", redlog::field("path", path));
     }
 
     // Evict if needed
@@ -113,6 +121,8 @@ LIEF::Binary* lief_binary_cache::get_or_load(const std::string& path) const {
 
   } catch (const std::exception& e) {
     log.err("failed to parse binary", redlog::field("path", path), redlog::field("error", e.what()));
+    // Add to negative cache
+    failed_paths_.insert(path);
     return nullptr;
   }
 }
@@ -121,17 +131,20 @@ void lief_binary_cache::clear() {
   std::unique_lock lock(mutex_);
   cache_.clear();
   lru_list_.clear();
+  failed_paths_.clear();
   hits_ = 0;
   misses_ = 0;
+  negative_hits_ = 0;
 }
 
 lief_symbol_resolver::cache_stats lief_binary_cache::get_stats() const {
   std::shared_lock lock(mutex_);
   size_t h = hits_.load();
   size_t m = misses_.load();
+  size_t nh = negative_hits_.load();
   size_t total = h + m;
 
-  return {cache_.size(), h, m, total > 0 ? double(h) / double(total) : 0.0};
+  return {cache_.size(), h + nh, m - nh, total > 0 ? double(h + nh) / double(total) : 0.0};
 }
 
 // lief_symbol_resolver implementation
@@ -186,32 +199,32 @@ std::optional<symbol_info> lief_symbol_resolver::resolve_in_module(
 ) const {
 
   auto log = redlog::get_logger("w1::lief::symbol_resolver");
-  log.ped("resolve_in_module", redlog::field("module", module_path), redlog::field("offset", offset));
+  log.trc("resolve_in_module", redlog::field("module", module_path), redlog::field("offset", offset));
 
   auto* binary = binary_cache_->get_or_load(module_path);
   if (!binary) {
-    log.dbg("failed to load binary", redlog::field("module", module_path));
+    log.trc("failed to load binary", redlog::field("module", module_path));
     return std::nullopt;
   }
 
-  log.ped("loaded binary, checking type", redlog::field("module", module_path));
+  log.dbg("loaded binary, checking type", redlog::field("module", module_path));
 
   // Platform-specific resolution
   if (auto elf = dynamic_cast<LIEF::ELF::Binary*>(binary)) {
-    log.ped("resolving ELF symbol", redlog::field("module", module_path));
+    log.trc("resolving ELF symbol", redlog::field("module", module_path));
     return resolve_elf_symbol(elf, offset);
   }
 #ifdef _WIN32
   else if (auto pe = dynamic_cast<LIEF::PE::Binary*>(binary)) {
-    log.ped("resolving PE symbol", redlog::field("module", module_path));
+    log.trc("resolving PE symbol", redlog::field("module", module_path));
     return resolve_pe_symbol(pe, offset);
   }
 #endif
   else if (auto macho = dynamic_cast<LIEF::MachO::Binary*>(binary)) {
-    log.ped("resolving MachO symbol", redlog::field("module", module_path));
+    log.dbg("resolving MachO symbol", redlog::field("module", module_path));
     return resolve_macho_symbol(macho, offset);
   } else if (auto fat = dynamic_cast<LIEF::MachO::FatBinary*>(binary)) {
-    log.ped("handling fat binary", redlog::field("module", module_path));
+    log.trc("handling fat binary", redlog::field("module", module_path));
     // Handle fat binaries by selecting the appropriate architecture
     // For now, just use the first one - in production code you'd want
     // to select based on the current process architecture
@@ -313,7 +326,7 @@ std::optional<symbol_info> lief_symbol_resolver::resolve_macho_symbol(
   std::stringstream offset_hex;
   offset_hex << "0x" << std::hex << offset;
 
-  log.ped(
+  log.trc(
       "resolving macho symbol", redlog::field("offset", offset), redlog::field("offset_hex", offset_hex.str()),
       redlog::field("total_symbols", macho->symbols().size())
   );
@@ -325,7 +338,7 @@ std::optional<symbol_info> lief_symbol_resolver::resolve_macho_symbol(
       text_va = segment.virtual_address();
       std::stringstream text_va_hex;
       text_va_hex << "0x" << std::hex << text_va;
-      log.ped("found TEXT segment", redlog::field("virtual_address", text_va_hex.str()));
+      log.dbg("found TEXT segment", redlog::field("virtual_address", text_va_hex.str()));
       break;
     }
   }
@@ -335,7 +348,7 @@ std::optional<symbol_info> lief_symbol_resolver::resolve_macho_symbol(
   uint64_t target_address = text_va + offset;
   std::stringstream target_hex;
   target_hex << "0x" << std::hex << target_address;
-  log.ped("looking for address", redlog::field("target_address", target_hex.str()));
+  log.dbg("looking for address", redlog::field("target_address", target_hex.str()));
 
   // MachO symbols often don't have size information, so we need to find
   // the best matching symbol by checking all symbols
@@ -355,15 +368,16 @@ std::optional<symbol_info> lief_symbol_resolver::resolve_macho_symbol(
     uint64_t sym_addr = symbol.value();
 
     // Log first few symbols for debugging
-    if (symbol_count++ < 5 || symbol.name() == "_strstr" || symbol.name() == "_strlen" || symbol.name() == "_strcpy") {
-      std::stringstream sym_hex;
-      sym_hex << "0x" << std::hex << sym_addr;
-      log.ped(
-          "examining symbol", redlog::field("name", symbol.name()), redlog::field("value", sym_addr),
-          redlog::field("value_hex", sym_hex.str()), redlog::field("type", static_cast<int>(symbol.type())),
-          redlog::field("category", static_cast<int>(symbol.category()))
-      );
-    }
+    // if (symbol_count++ < 5 || symbol.name() == "_strstr" || symbol.name() == "_strlen" || symbol.name() == "_strcpy")
+    // {
+    //   std::stringstream sym_hex;
+    //   sym_hex << "0x" << std::hex << sym_addr;
+    //   log.trc(
+    //       "examining symbol", redlog::field("name", symbol.name()), redlog::field("value", sym_addr),
+    //       redlog::field("value_hex", sym_hex.str()), redlog::field("type", static_cast<int>(symbol.type())),
+    //       redlog::field("category", static_cast<int>(symbol.category()))
+    //   );
+    // }
 
     // Skip absolute symbols (not in memory)
     if (symbol.type() == LIEF::MachO::Symbol::TYPE::ABSOLUTE_SYM) {
@@ -380,12 +394,12 @@ std::optional<symbol_info> lief_symbol_resolver::resolve_macho_symbol(
       uint64_t distance = target_address - sym_addr;
 
       // Log potential matches
-      if (distance < 0x1000) { // Within 4KB
-        log.ped(
-            "potential match", redlog::field("name", symbol.name()), redlog::field("value", sym_addr),
-            redlog::field("distance", distance), redlog::field("size", symbol.size())
-        );
-      }
+      // if (distance < 0x1000) { // Within 4KB
+      //   log.trc(
+      //       "potential match", redlog::field("name", symbol.name()), redlog::field("value", sym_addr),
+      //       redlog::field("distance", distance), redlog::field("size", symbol.size())
+      //   );
+      // }
 
       // If symbol has size, check if offset is within bounds
       if (symbol.size() > 0 && distance >= symbol.size()) {
@@ -406,7 +420,7 @@ std::optional<symbol_info> lief_symbol_resolver::resolve_macho_symbol(
     value_hex << "0x" << std::hex << best_match->value();
     offset_hex2 << "0x" << std::hex << offset;
 
-    log.dbg(
+    log.trc(
         "found macho symbol", redlog::field("name", best_match->name()), redlog::field("value", best_match->value()),
         redlog::field("value_hex", value_hex.str()), redlog::field("distance", best_distance),
         redlog::field("offset", offset), redlog::field("offset_hex", offset_hex2.str()),
@@ -419,9 +433,10 @@ std::optional<symbol_info> lief_symbol_resolver::resolve_macho_symbol(
     // This ensures symbol_enricher can correctly calculate symbol_offset
     symbol_info.offset = best_match->value() - text_va;
 
-    log.ped(
-        "adjusted symbol offset for module-relative addressing", redlog::field("absolute_address", best_match->value()),
-        redlog::field("text_va", text_va), redlog::field("module_relative_offset", symbol_info.offset)
+    log.dbg(
+        "adjusted symbol offset for module-relative addressing",
+        redlog::field("absolute_address", "0x%llx", best_match->value()), redlog::field("text_va", "0x%llx", text_va),
+        redlog::field("module_relative_offset", "0x%llx", symbol_info.offset)
     );
 
     return symbol_info;
@@ -508,9 +523,9 @@ symbol_info lief_symbol_resolver::macho_symbol_to_info(const LIEF::MachO::Symbol
   info.offset = sym.value();
   info.size = sym.size(); // Often 0 for MachO
 
-  log.ped(
+  log.dbg(
       "converting macho symbol to info", redlog::field("name", info.name),
-      redlog::field("demangled", info.demangled_name), redlog::field("offset", info.offset),
+      redlog::field("demangled", info.demangled_name), redlog::field("offset", "0x%llx", info.offset),
       redlog::field("size", info.size), redlog::field("type", static_cast<int>(sym.type())),
       redlog::field("category", static_cast<int>(sym.category()))
   );
@@ -546,7 +561,7 @@ symbol_info lief_symbol_resolver::macho_symbol_to_info(const LIEF::MachO::Symbol
   info.is_exported = sym.has_export_info();
   info.is_imported = (sym.has_binding_info() || sym.category() == LIEF::MachO::Symbol::CATEGORY::UNDEFINED);
 
-  log.ped(
+  log.dbg(
       "symbol info created", redlog::field("is_exported", info.is_exported),
       redlog::field("is_imported", info.is_imported), redlog::field("binding", static_cast<int>(info.symbol_binding))
   );

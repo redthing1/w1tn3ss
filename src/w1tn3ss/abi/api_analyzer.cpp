@@ -41,8 +41,12 @@ public:
       result.module_name = module->name;
       result.module_offset = ctx.target_address - module->base_address;
 
-      // Step 2: Symbol resolution
-      if (config_.resolve_symbols) {
+      // Step 2: Use symbol from context if available, otherwise resolve
+      if (!ctx.symbol_name.empty()) {
+        result.symbol_name = ctx.symbol_name;
+        // Note: demangled_name would need to be passed in context if needed
+        log_.dbg("using symbol from context", redlog::field("symbol", result.symbol_name));
+      } else if (config_.resolve_symbols) {
         resolve_symbol(result, ctx.target_address, *module);
       }
 
@@ -65,7 +69,7 @@ public:
 
           // Step 4: Argument extraction
           if (config_.extract_arguments && !api_info->parameters.empty()) {
-            log_.dbg(
+            log_.ped(
                 "extracting arguments", redlog::field("symbol", result.symbol_name),
                 redlog::field("param_count", api_info->parameters.size())
             );
@@ -84,6 +88,127 @@ public:
       }
 
       result.analysis_complete = true;
+
+      // Log completed API analysis
+      if (!result.symbol_name.empty() && config_.format_calls) {
+        // Build a concise argument summary with truncation
+        std::stringstream arg_summary;
+        for (size_t i = 0; i < result.arguments.size(); ++i) {
+          if (i > 0) {
+            arg_summary << ", ";
+          }
+          const auto& arg = result.arguments[i];
+
+          // Add parameter name if known
+          if (!arg.param_name.empty()) {
+            arg_summary << arg.param_name << "=";
+          }
+
+          // Format value based on type with truncation
+          if (arg.param_type == param_info::type::STRING && !arg.string_preview.empty()) {
+            // Truncate long strings
+            std::string preview = arg.string_preview;
+            if (preview.length() > 50) {
+              preview = preview.substr(0, 47) + "...";
+            }
+            arg_summary << "\"" << preview << "\"";
+          } else if (arg.is_null_pointer) {
+            arg_summary << "NULL";
+          } else if (arg.param_type == param_info::type::POINTER) {
+            arg_summary << "0x" << std::hex << arg.raw_value;
+          } else if (arg.param_type == param_info::type::BOOLEAN) {
+            arg_summary << (arg.raw_value ? "true" : "false");
+          } else {
+            arg_summary << arg.raw_value;
+          }
+
+          // Limit total length
+          if (arg_summary.str().length() > 200) {
+            arg_summary << ", ...";
+            break;
+          }
+        }
+
+        // Format category name
+        std::string category_name;
+        if (result.category != api_info::category::UNKNOWN) {
+          switch (result.category) {
+          case api_info::category::FILE_IO:
+          case api_info::category::FILE_MANAGEMENT:
+            category_name = "File";
+            break;
+          case api_info::category::STDIO:
+            category_name = "I/O";
+            break;
+          case api_info::category::PROCESS_CONTROL:
+            category_name = "Process";
+            break;
+          case api_info::category::THREAD_CONTROL:
+          case api_info::category::THREADING:
+            category_name = "Threading";
+            break;
+          case api_info::category::MEMORY_MANAGEMENT:
+            category_name = "Memory";
+            break;
+          case api_info::category::HEAP_MANAGEMENT:
+            category_name = "Heap";
+            break;
+          case api_info::category::SYNCHRONIZATION:
+          case api_info::category::MUTEX:
+          case api_info::category::EVENT:
+          case api_info::category::SEMAPHORE:
+            category_name = "Sync";
+            break;
+          case api_info::category::NETWORK_SOCKET:
+          case api_info::category::NETWORK_DNS:
+          case api_info::category::NETWORK_HTTP:
+            category_name = "Network";
+            break;
+          case api_info::category::REGISTRY:
+            category_name = "Registry";
+            break;
+          case api_info::category::SECURITY:
+            category_name = "Security";
+            break;
+          case api_info::category::CRYPTO:
+            category_name = "Crypto";
+            break;
+          case api_info::category::SYSTEM_INFO:
+            category_name = "System";
+            break;
+          case api_info::category::TIME:
+            category_name = "Time";
+            break;
+          case api_info::category::STRING_MANIPULATION:
+            category_name = "String";
+            break;
+          case api_info::category::LOCALE:
+            category_name = "Locale";
+            break;
+          case api_info::category::LIBRARY_LOADING:
+            category_name = "Library";
+            break;
+          case api_info::category::IPC:
+          case api_info::category::PIPE:
+          case api_info::category::SHARED_MEMORY:
+            category_name = "IPC";
+            break;
+          case api_info::category::UI:
+          case api_info::category::WINDOW:
+            category_name = "UI";
+            break;
+          case api_info::category::MISC:
+          default:
+            category_name = "Other";
+            break;
+          }
+        }
+
+        log_.vrb(
+            "analyzed api call", redlog::field("call", result.formatted_call), redlog::field("category", category_name),
+            redlog::field("module", result.module_name)
+        );
+      }
 
     } catch (const std::exception& e) {
       log_.err("analysis failed", redlog::field("error", e.what()));
@@ -157,7 +282,7 @@ private:
   void extract_arguments(api_analysis_result& result, const api_context& ctx, const api_info& api) {
     // Extract raw argument values
     size_t arg_count = std::min(api.parameters.size(), config_.max_arguments);
-    log_.dbg("extracting raw argument values", redlog::field("count", arg_count));
+    log_.ped("extracting raw argument values", redlog::field("count", arg_count));
 
     // Detect calling convention and extract args
     auto convention = detector_->detect(result.module_name, result.symbol_name);
@@ -170,7 +295,7 @@ private:
     };
     auto raw_args = convention->extract_integer_args(extract_ctx, arg_count);
 
-    log_.dbg("extracted raw args", redlog::field("count", raw_args.size()));
+    log_.ped("extracted raw args", redlog::field("count", raw_args.size()));
 
     // Create safe memory reader
     util::safe_memory::memory_validator().refresh();
@@ -178,14 +303,14 @@ private:
 
     // Extract and interpret each argument
     for (size_t i = 0; i < raw_args.size() && i < api.parameters.size(); ++i) {
-      log_.dbg(
+      log_.ped(
           "extracting argument", redlog::field("index", i), redlog::field("param_name", api.parameters[i].name),
           redlog::field("raw_value", raw_args[i]), redlog::field("type", static_cast<int>(api.parameters[i].param_type))
       );
 
       auto arg = argument_extractor_.extract_argument(api.parameters[i], raw_args[i], memory);
 
-      log_.dbg(
+      log_.ped(
           "extracted argument", redlog::field("index", i), redlog::field("param_name", arg.param_name),
           redlog::field("raw_value", arg.raw_value), redlog::field("string_preview", arg.string_preview),
           redlog::field("is_pointer", arg.is_valid_pointer)
@@ -195,7 +320,7 @@ private:
       stats_.arguments_extracted++;
     }
 
-    log_.dbg("argument extraction complete", redlog::field("extracted_count", result.arguments.size()));
+    log_.ped("argument extraction complete", redlog::field("extracted_count", result.arguments.size()));
   }
 
   void format_call(api_analysis_result& result) {

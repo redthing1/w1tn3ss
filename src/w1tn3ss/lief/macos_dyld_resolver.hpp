@@ -4,6 +4,8 @@
 
 #include <string>
 #include <optional>
+#include <unordered_map>
+#include <mutex>
 #include <redlog.hpp>
 
 namespace w1::lief {
@@ -27,6 +29,10 @@ private:
   std::string dump_dir_;
   mutable redlog::logger log_;
 
+  // Pre-computed cache of library name to dump path mappings
+  mutable std::unordered_map<std::string, std::string> library_cache_;
+  mutable std::mutex cache_mutex_;
+
   // check if path is a system library that would be in dyld cache
   bool is_dyld_cached_library(const std::string& path) const;
 
@@ -38,6 +44,9 @@ private:
 
   // normalize path for consistent matching
   std::string normalize_path(const std::string& path) const;
+
+  // pre-populate library cache
+  void populate_library_cache();
 };
 
 } // namespace w1::lief

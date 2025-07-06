@@ -73,7 +73,7 @@ QBDI::VMAction transfer_tracer::on_exec_transfer_call(
       target_module = collector_.get_module_name(target_addr);
     }
 
-    log_.trc(
+    log_.vrb(
         "call transfer detected", redlog::field("source", "0x%016llx", source_addr),
         redlog::field("target", "0x%016llx", target_addr), redlog::field("source_module", source_module),
         redlog::field("target_module", target_module)
@@ -111,7 +111,7 @@ QBDI::VMAction transfer_tracer::on_exec_transfer_return(
       target_module = collector_.get_module_name(target_addr);
     }
 
-    log_.trc(
+    log_.vrb(
         "return transfer detected", redlog::field("source", "0x%016llx", source_addr),
         redlog::field("target", "0x%016llx", target_addr), redlog::field("source_module", source_module),
         redlog::field("target_module", target_module)

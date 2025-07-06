@@ -3,6 +3,9 @@
 #include <memory>
 #include <string>
 #include <optional>
+#include <vector>
+#include <unordered_map>
+#include <mutex>
 #include <w1tn3ss/lief/lief_symbol_resolver.hpp>
 #include <w1tn3ss/util/module_range_index.hpp>
 
@@ -49,6 +52,11 @@ public:
 private:
   std::unique_ptr<w1::lief::lief_symbol_resolver> resolver_;
   const w1::util::module_range_index* module_index_ = nullptr;
+
+  // Address-to-symbol cache to avoid repeated lookups
+  mutable std::unordered_map<uint64_t, std::optional<symbol_context>> symbol_cache_;
+  mutable std::mutex symbol_cache_mutex_;
+  static constexpr size_t MAX_SYMBOL_CACHE_SIZE = 10000;
 
   // Convert internal symbol info to enriched context
   symbol_context to_context(

@@ -8,6 +8,7 @@
 #include <shared_mutex>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #ifdef WITNESS_LIEF_ENABLED
@@ -122,10 +123,12 @@ private:
   mutable std::list<std::string> lru_list_;
   mutable std::unordered_map<std::string, std::pair<std::list<std::string>::iterator, std::unique_ptr<LIEF::Binary>>>
       cache_;
+  mutable std::unordered_set<std::string> failed_paths_; // Cache for paths that failed to load
   mutable std::shared_mutex mutex_;
   size_t max_size_;
   mutable std::atomic<size_t> hits_;
   mutable std::atomic<size_t> misses_;
+  mutable std::atomic<size_t> negative_hits_; // Hits on failed path cache
 
 #ifdef __APPLE__
   std::shared_ptr<macos_dyld_resolver> dyld_resolver_;

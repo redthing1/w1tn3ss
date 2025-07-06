@@ -32,6 +32,15 @@ std::optional<symbol_enricher::symbol_context> symbol_enricher::enrich_address(u
 #ifdef WITNESS_LIEF_ENABLED
   auto log = redlog::get_logger("w1xfer::symbol_enricher");
 
+  // Check symbol cache first
+  {
+    std::lock_guard<std::mutex> lock(symbol_cache_mutex_);
+    auto it = symbol_cache_.find(address);
+    if (it != symbol_cache_.end()) {
+      return it->second;
+    }
+  }
+
   if (!resolver_ || !module_index_) {
     log.err("no resolver or module index available");
     return std::nullopt;
@@ -46,7 +55,7 @@ std::optional<symbol_enricher::symbol_context> symbol_enricher::enrich_address(u
 
   // Calculate offset within module
   uint64_t module_offset = address - module->base_address;
-  log.dbg(
+  log.trc(
       "resolving symbol", redlog::field("address", address), redlog::field("module_name", module->name),
       redlog::field("module_path", module->path), redlog::field("module_offset", module_offset)
   );
@@ -55,7 +64,7 @@ std::optional<symbol_enricher::symbol_context> symbol_enricher::enrich_address(u
   // Try with the path first (which might just be the name)
   std::string search_path = module->path;
 
-  log.ped("calling LIEF resolver", redlog::field("search_path", search_path), redlog::field("offset", module_offset));
+  log.dbg("calling LIEF resolver", redlog::field("search_path", search_path), redlog::field("offset", module_offset));
 
   auto symbol = resolver_->resolve_in_module(search_path, module_offset);
 
@@ -66,6 +75,16 @@ std::optional<symbol_enricher::symbol_context> symbol_enricher::enrich_address(u
     symbol_context ctx;
     ctx.module_name = module->name;
     ctx.module_offset = module_offset;
+
+    // Cache the result
+    {
+      std::lock_guard<std::mutex> lock(symbol_cache_mutex_);
+      if (symbol_cache_.size() >= MAX_SYMBOL_CACHE_SIZE) {
+        symbol_cache_.clear();
+      }
+      symbol_cache_[address] = ctx;
+    }
+
     return ctx;
   }
 
@@ -75,10 +94,22 @@ std::optional<symbol_enricher::symbol_context> symbol_enricher::enrich_address(u
       redlog::field("is_exported", symbol->is_exported)
   );
 
-  return to_context(address, *module, *symbol);
+  auto result = to_context(address, *module, *symbol);
+
+  // Cache the result
+  {
+    std::lock_guard<std::mutex> lock(symbol_cache_mutex_);
+    // Implement simple LRU by clearing cache when it gets too large
+    if (symbol_cache_.size() >= MAX_SYMBOL_CACHE_SIZE) {
+      symbol_cache_.clear();
+    }
+    symbol_cache_[address] = result;
+  }
+
+  return result;
 #else
   auto log = redlog::get_logger("w1xfer::symbol_enricher");
-  log.dbg("LIEF not enabled, no symbol resolution available");
+  log.trc("LIEF not enabled, no symbol resolution available");
   return std::nullopt;
 #endif
 }
@@ -130,6 +161,8 @@ void symbol_enricher::clear_cache() {
   if (resolver_) {
     resolver_->clear_cache();
   }
+  std::lock_guard<std::mutex> lock(symbol_cache_mutex_);
+  symbol_cache_.clear();
 #endif
 }
 

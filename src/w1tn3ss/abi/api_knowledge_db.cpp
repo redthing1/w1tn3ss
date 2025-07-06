@@ -31,7 +31,7 @@ public:
     // Try exact match first
     auto it = apis_.find(api_name);
     if (it != apis_.end()) {
-      log_.debug(
+      log_.trace(
           "found api info", redlog::field("name", api_name), redlog::field("module", it->second.module),
           redlog::field("category", static_cast<int>(it->second.api_category)),
           redlog::field("param_count", it->second.parameters.size())
