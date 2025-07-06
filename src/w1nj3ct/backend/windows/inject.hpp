@@ -1,9 +1,8 @@
 #pragma once
 
-#include <windows.h>
-
-#include <psapi.h>
-#include <tlhelp32.h>
+#define NEED_PSAPI
+#define NEED_TLHELP32
+#include "../../../common/windows_clean.hpp"
 
 #include "winapis.h"
 

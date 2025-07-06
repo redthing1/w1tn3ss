@@ -9,7 +9,7 @@
 #include <vector>
 
 #ifdef _WIN32
-#include <windows.h>
+#include "../../common/windows_clean.hpp"
 #else
 #include <errno.h>
 #include <sys/wait.h>

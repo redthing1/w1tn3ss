@@ -14,7 +14,7 @@ namespace w1::util {
 struct memory_region {
   QBDI::rword start;
   QBDI::rword end;
-  uint32_t permissions; // QBDI_PF_READ, QBDI_PF_WRITE, QBDI_PF_EXEC
+  uint32_t permissions; // QBDI::PF_READ, QBDI::PF_WRITE, QBDI::PF_EXEC
   std::string name;     // Module name if applicable
 };
 
