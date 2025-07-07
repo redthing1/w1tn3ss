@@ -408,9 +408,20 @@ std::optional<symbol_info> lief_symbol_resolver::resolve_pe_symbol(LIEF::PE::Bin
       log_.ped("checking import library", redlog::field("library", import.name()));
       
       for (const auto& entry : import.entries()) {
+        // Log detailed import entry information
+        log_.ped(
+            "examining import entry", redlog::field("library", import.name()),
+            redlog::field("function", entry.name()), redlog::field("iat_address", "0x%llx", entry.iat_address()),
+            redlog::field("iat_value", "0x%llx", entry.iat_value()), redlog::field("hint", entry.hint()),
+            redlog::field("is_ordinal", entry.is_ordinal())
+        );
+        
+        // Check multiple possible matches:
+        // 1. IAT address (RVA of the IAT slot)
+        // 2. IAT value (what the IAT slot points to - but this might be 0 in on-disk binary)
         if (entry.iat_address() == offset) {
           log_.ped(
-              "found exact import thunk match", redlog::field("library", import.name()),
+              "found exact import IAT address match", redlog::field("library", import.name()),
               redlog::field("function", entry.name()), redlog::field("iat_address", "0x%llx", entry.iat_address())
           );
           
@@ -419,6 +430,27 @@ std::optional<symbol_info> lief_symbol_resolver::resolve_pe_symbol(LIEF::PE::Bin
           info.name = entry.name();
           info.demangled_name = entry.name();
           info.offset = entry.iat_address();
+          info.size = 0;
+          info.symbol_type = symbol_info::FUNCTION;
+          info.symbol_binding = symbol_info::GLOBAL;
+          info.is_exported = false;
+          info.is_imported = true;
+          
+          return info;
+        }
+        
+        // Also check if we're hitting the resolved import address
+        if (entry.iat_value() != 0 && entry.iat_value() == offset) {
+          log_.ped(
+              "found exact import IAT value match", redlog::field("library", import.name()),
+              redlog::field("function", entry.name()), redlog::field("iat_value", "0x%llx", entry.iat_value())
+          );
+          
+          // Create symbol info for import
+          symbol_info info;
+          info.name = entry.name();
+          info.demangled_name = entry.name();
+          info.offset = entry.iat_value();
           info.size = 0;
           info.symbol_type = symbol_info::FUNCTION;
           info.symbol_binding = symbol_info::GLOBAL;
