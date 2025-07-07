@@ -45,6 +45,17 @@ message(STATUS "")
 # add third-party libraries
 add_subdirectory(src/third_party/qbdi)
 
+# force qbdi targets to use c++17 to avoid c++20 compatibility issues
+get_directory_property(QBDI_TARGETS DIRECTORY src/third_party/qbdi BUILDSYSTEM_TARGETS)
+message(STATUS "QBDI targets found: ${QBDI_TARGETS}")
+foreach(target ${QBDI_TARGETS})
+    if(TARGET ${target})
+        set_property(TARGET ${target} PROPERTY CXX_STANDARD 17)
+        set_property(TARGET ${target} PROPERTY CXX_STANDARD_REQUIRED ON)
+        message(STATUS "  - Set ${target} to C++17")
+    endif()
+endforeach()
+
 # configure redlog
 set(REDLOG_BUILD_TESTS OFF)
 add_subdirectory(src/third_party/redlog_cpp)
@@ -52,6 +63,17 @@ add_subdirectory(src/third_party/redlog_cpp)
 # add lief if enabled
 if(WITNESS_LIEF)
     add_subdirectory(src/third_party/lief)
+    
+    # force lief targets to use c++17 as well
+    get_directory_property(LIEF_TARGETS DIRECTORY src/third_party/lief BUILDSYSTEM_TARGETS)
+    message(STATUS "LIEF targets found: ${LIEF_TARGETS}")
+    foreach(target ${LIEF_TARGETS})
+        if(TARGET ${target})
+            set_property(TARGET ${target} PROPERTY CXX_STANDARD 17)
+            set_property(TARGET ${target} PROPERTY CXX_STANDARD_REQUIRED ON)
+            message(STATUS "  - Set ${target} to C++17")
+        endif()
+    endforeach()
 endif()
 
 # add project subdirectories
