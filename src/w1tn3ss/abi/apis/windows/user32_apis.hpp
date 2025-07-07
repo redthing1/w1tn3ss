@@ -346,6 +346,224 @@ static const std::vector<api_info> windows_user32_apis = {
         .description = "enumerate all top-level windows",
         .related_apis = {"EnumChildWindows", "FindWindow"},
         .headers = {"windows.h", "winuser.h"}
+    },
+
+    // === VM/SANDBOX DETECTION VIA USER32 ===
+
+    api_info{
+        .name = "GetSystemMetrics",
+        .module = "user32.dll",
+        .api_category = api_info::category::SYSTEM_INFO,
+        .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
+        .parameters = {
+            {.name = "nIndex", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
+        },
+        .return_value = {.name = "value", .param_type = param_info::type::INTEGER},
+        .description = "retrieve system metrics for vm detection",
+        .security_notes = {"screen resolution analysis", "vm detection via display metrics", "mouse detection"},
+        .related_apis = {"GetDeviceCaps", "EnumDisplayDevices"},
+        .headers = {"windows.h", "winuser.h"}
+    },
+
+    api_info{
+        .name = "GetCursorInfo",
+        .module = "user32.dll",
+        .api_category = api_info::category::UI,
+        .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
+        .parameters = {
+            {.name = "pci", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
+        },
+        .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
+        .description = "retrieve cursor information",
+        .security_notes = {"mouse interaction detection", "user activity analysis for vm detection"},
+        .related_apis = {"GetCursorPos", "SetCursorPos"},
+        .headers = {"windows.h", "winuser.h"}
+    },
+
+    api_info{
+        .name = "GetKeyboardState",
+        .module = "user32.dll",
+        .api_category = api_info::category::UI,
+        .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
+        .parameters = {
+            {.name = "lpKeyState", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT}
+        },
+        .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
+        .description = "retrieve state of all virtual keys",
+        .security_notes = {"keyboard activity analysis", "user interaction detection"},
+        .related_apis = {"GetKeyState", "GetAsyncKeyState"},
+        .headers = {"windows.h", "winuser.h"}
+    },
+
+    api_info{
+        .name = "BlockInput",
+        .module = "user32.dll",
+        .api_category = api_info::category::UI,
+        .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE) |
+                 static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
+        .parameters = {
+            {.name = "fBlockIt", .param_type = param_info::type::BOOLEAN, .param_direction = param_info::direction::IN}
+        },
+        .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
+        .description = "block or unblock keyboard and mouse input",
+        .security_notes = {"input blocking for evasion", "user interaction prevention"},
+        .related_apis = {"SetWindowsHookEx", "CallNextHookEx"},
+        .headers = {"windows.h", "winuser.h"}
+    },
+
+    // === WINDOWS HOOKING APIs ===
+
+    api_info{
+        .name = "SetWindowsHookExW",
+        .module = "user32.dll",
+        .api_category = api_info::category::SYSTEM_HOOK,
+        .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE) |
+                 static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE) |
+                 static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE),
+        .parameters = {
+            {.name = "idHook", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
+            {.name = "lpfn", .param_type = param_info::type::CALLBACK, .param_direction = param_info::direction::IN},
+            {.name = "hMod", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+            {.name = "dwThreadId", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
+        },
+        .return_value = {.name = "hookHandle", .param_type = param_info::type::HANDLE},
+        .description = "install hook procedure to monitor system events",
+        .cleanup_api = "UnhookWindowsHookEx",
+        .security_notes = {"system-wide hooking", "keylogger capability", "input monitoring", "dll injection vector"},
+        .related_apis = {"UnhookWindowsHookEx", "CallNextHookEx", "GetModuleHandle"},
+        .headers = {"windows.h", "winuser.h"}
+    },
+
+    api_info{
+        .name = "UnhookWindowsHookEx",
+        .module = "user32.dll",
+        .api_category = api_info::category::SYSTEM_HOOK,
+        .flags = static_cast<uint32_t>(api_info::behavior_flags::CLOSES_HANDLE),
+        .parameters = {
+            {.name = "hhk", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}
+        },
+        .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
+        .description = "remove hook procedure from hook chain",
+        .related_apis = {"SetWindowsHookExW", "CallNextHookEx"},
+        .headers = {"windows.h", "winuser.h"}
+    },
+
+    api_info{
+        .name = "CallNextHookEx",
+        .module = "user32.dll",
+        .api_category = api_info::category::SYSTEM_HOOK,
+        .flags = 0,
+        .parameters = {
+            {.name = "hhk", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+            {.name = "nCode", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
+            {.name = "wParam", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
+            {.name = "lParam", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN}
+        },
+        .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
+        .description = "pass hook information to next hook procedure",
+        .related_apis = {"SetWindowsHookExW", "UnhookWindowsHookEx"},
+        .headers = {"windows.h", "winuser.h"}
+    },
+
+    api_info{
+        .name = "GetKeyboardLayout",
+        .module = "user32.dll",
+        .api_category = api_info::category::UI,
+        .flags = 0,
+        .parameters = {
+            {.name = "idThread", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
+        },
+        .return_value = {.name = "layout", .param_type = param_info::type::HANDLE},
+        .description = "retrieve active keyboard layout",
+        .security_notes = {"keyboard layout detection", "locale fingerprinting"},
+        .related_apis = {"GetKeyboardLayoutList", "LoadKeyboardLayout"},
+        .headers = {"windows.h", "winuser.h"}
+    },
+
+    api_info{
+        .name = "RegisterHotKey",
+        .module = "user32.dll",
+        .api_category = api_info::category::SYSTEM_HOOK,
+        .flags = static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
+        .parameters = {
+            {.name = "hWnd", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+            {.name = "id", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
+            {.name = "fsModifiers", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
+            {.name = "vk", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
+        },
+        .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
+        .description = "register system-wide hotkey",
+        .cleanup_api = "UnregisterHotKey",
+        .security_notes = {"global hotkey registration", "system-wide input capture"},
+        .related_apis = {"UnregisterHotKey", "GetMessage"},
+        .headers = {"windows.h", "winuser.h"}
+    },
+
+    api_info{
+        .name = "UnregisterHotKey",
+        .module = "user32.dll",
+        .api_category = api_info::category::SYSTEM_HOOK,
+        .flags = static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
+        .parameters = {
+            {.name = "hWnd", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+            {.name = "id", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
+        },
+        .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
+        .description = "unregister system-wide hotkey",
+        .related_apis = {"RegisterHotKey"},
+        .headers = {"windows.h", "winuser.h"}
+    },
+
+    api_info{
+        .name = "GetAsyncKeyState",
+        .module = "user32.dll",
+        .api_category = api_info::category::UI,
+        .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
+        .parameters = {
+            {.name = "vKey", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
+        },
+        .return_value = {.name = "state", .param_type = param_info::type::INTEGER},
+        .description = "retrieve asynchronous key state",
+        .security_notes = {"keylogger functionality", "async key monitoring"},
+        .related_apis = {"GetKeyState", "GetKeyboardState"},
+        .headers = {"windows.h", "winuser.h"}
+    },
+
+    api_info{
+        .name = "SetWinEventHook",
+        .module = "user32.dll",
+        .api_category = api_info::category::SYSTEM_HOOK,
+        .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE) |
+                 static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE),
+        .parameters = {
+            {.name = "eventMin", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
+            {.name = "eventMax", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
+            {.name = "hmodWinEventProc", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+            {.name = "pfnWinEventProc", .param_type = param_info::type::CALLBACK, .param_direction = param_info::direction::IN},
+            {.name = "idProcess", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
+            {.name = "idThread", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
+            {.name = "dwFlags", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN}
+        },
+        .return_value = {.name = "hookHandle", .param_type = param_info::type::HANDLE},
+        .description = "set event hook for accessibility events",
+        .cleanup_api = "UnhookWinEvent",
+        .security_notes = {"accessibility event monitoring", "window event tracking"},
+        .related_apis = {"UnhookWinEvent", "SetWindowsHookExW"},
+        .headers = {"windows.h", "winuser.h"}
+    },
+
+    api_info{
+        .name = "UnhookWinEvent",
+        .module = "user32.dll",
+        .api_category = api_info::category::SYSTEM_HOOK,
+        .flags = static_cast<uint32_t>(api_info::behavior_flags::CLOSES_HANDLE),
+        .parameters = {
+            {.name = "hWinEventHook", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}
+        },
+        .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
+        .description = "remove event hook",
+        .related_apis = {"SetWinEventHook"},
+        .headers = {"windows.h", "winuser.h"}
     }
 };
 

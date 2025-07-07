@@ -244,6 +244,191 @@ static const std::vector<api_info> windows_ntdll_apis = {
         .description = "native handle close",
         .related_apis = {"CloseHandle"},
         .headers = {"ntddk.h"}
+    },
+
+    // === ANTI-ANALYSIS & EVASION DETECTION (NTDLL) ===
+
+    // process information queries for debugging detection
+    api_info{
+        .name = "NtQueryInformationProcess",
+        .module = "ntdll.dll",
+        .api_category = api_info::category::SECURITY,
+        .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
+        .parameters = {
+            {.name = "ProcessHandle", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+            {.name = "ProcessInformationClass", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
+            {.name = "ProcessInformation", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
+            {.name = "ProcessInformationLength", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN},
+            {.name = "ReturnLength", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
+        },
+        .return_value = {.name = "status", .param_type = param_info::type::INTEGER},
+        .description = "query process information including debug flags",
+        .security_notes = {"debugging detection via process flags", "heap flags inspection", "critical anti-analysis api"},
+        .related_apis = {"NtSetInformationProcess", "IsDebuggerPresent"},
+        .headers = {"ntddk.h", "winternl.h"}
+    },
+
+    api_info{
+        .name = "NtSetInformationProcess",
+        .module = "ntdll.dll",
+        .api_category = api_info::category::SECURITY,
+        .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE) |
+                 static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
+        .parameters = {
+            {.name = "ProcessHandle", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+            {.name = "ProcessInformationClass", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
+            {.name = "ProcessInformation", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::IN},
+            {.name = "ProcessInformationLength", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN}
+        },
+        .return_value = {.name = "status", .param_type = param_info::type::INTEGER},
+        .description = "modify process information and debug flags",
+        .security_notes = {"disable debugging", "process manipulation", "anti-analysis technique"},
+        .related_apis = {"NtQueryInformationProcess"},
+        .headers = {"ntddk.h", "winternl.h"}
+    },
+
+    api_info{
+        .name = "NtQuerySystemInformation",
+        .module = "ntdll.dll",
+        .api_category = api_info::category::SYSTEM_INFO,
+        .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
+        .parameters = {
+            {.name = "SystemInformationClass", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
+            {.name = "SystemInformation", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
+            {.name = "SystemInformationLength", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN},
+            {.name = "ReturnLength", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
+        },
+        .return_value = {.name = "status", .param_type = param_info::type::INTEGER},
+        .description = "query system information including debug state",
+        .security_notes = {"kernel debugger detection", "system configuration analysis", "vm detection"},
+        .related_apis = {"NtQueryInformationProcess", "GetSystemInfo"},
+        .headers = {"ntddk.h", "winternl.h"}
+    },
+
+    api_info{
+        .name = "NtQuerySystemTime",
+        .module = "ntdll.dll",
+        .api_category = api_info::category::TIME,
+        .flags = 0,
+        .parameters = {
+            {.name = "SystemTime", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
+        },
+        .return_value = {.name = "status", .param_type = param_info::type::INTEGER},
+        .description = "retrieve current system time",
+        .security_notes = {"timing analysis for evasion", "native time access"},
+        .related_apis = {"NtDelayExecution", "GetSystemTime"},
+        .headers = {"ntddk.h"}
+    },
+
+    api_info{
+        .name = "NtSetSystemTime",
+        .module = "ntdll.dll",
+        .api_category = api_info::category::TIME,
+        .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE) |
+                 static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE) |
+                 static_cast<uint32_t>(api_info::behavior_flags::PRIVILEGED),
+        .parameters = {
+            {.name = "SystemTime", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
+            {.name = "PreviousTime", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
+        },
+        .return_value = {.name = "status", .param_type = param_info::type::INTEGER},
+        .description = "modify system time",
+        .security_notes = {"timestamp manipulation", "forensic timestamp evasion", "requires privilege"},
+        .related_apis = {"NtQuerySystemTime", "SetSystemTime"},
+        .headers = {"ntddk.h"}
+    },
+
+    // advanced heap manipulation for anti-debugging
+    api_info{
+        .name = "RtlGetProcessHeaps",
+        .module = "ntdll.dll",
+        .api_category = api_info::category::HEAP_MANAGEMENT,
+        .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
+        .parameters = {
+            {.name = "NumberOfHeaps", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
+            {.name = "ProcessHeaps", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT}
+        },
+        .return_value = {.name = "heapCount", .param_type = param_info::type::INTEGER},
+        .description = "retrieve handles to process heaps",
+        .security_notes = {"heap flag analysis for debugging detection", "heap structure inspection"},
+        .related_apis = {"RtlQueryHeapInformation", "GetProcessHeap"},
+        .headers = {"ntddk.h"}
+    },
+
+    api_info{
+        .name = "LdrGetDllHandle",
+        .module = "ntdll.dll",
+        .api_category = api_info::category::LIBRARY_LOADING,
+        .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
+        .parameters = {
+            {.name = "DllPath", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
+            {.name = "DllCharacteristics", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
+            {.name = "DllName", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
+            {.name = "DllHandle", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
+        },
+        .return_value = {.name = "status", .param_type = param_info::type::INTEGER},
+        .description = "get handle to loaded dll",
+        .security_notes = {"detect analysis tools by checking loaded dlls", "vm/debugger dll detection"},
+        .related_apis = {"LdrLoadDll", "GetModuleHandle"},
+        .headers = {"ntddk.h"}
+    },
+
+    api_info{
+        .name = "LdrLoadDll",
+        .module = "ntdll.dll",
+        .api_category = api_info::category::LIBRARY_LOADING,
+        .flags = static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE) |
+                 static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
+        .parameters = {
+            {.name = "DllPath", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
+            {.name = "DllCharacteristics", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
+            {.name = "DllName", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
+            {.name = "DllHandle", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
+        },
+        .return_value = {.name = "status", .param_type = param_info::type::INTEGER},
+        .description = "load dll into process address space",
+        .security_notes = {"manual dll loading", "evasion via native api"},
+        .related_apis = {"LdrGetDllHandle", "LoadLibrary"},
+        .headers = {"ntddk.h"}
+    },
+
+    // exception handling for anti-debugging
+    api_info{
+        .name = "NtSetInformationThread",
+        .module = "ntdll.dll",
+        .api_category = api_info::category::THREAD_CONTROL,
+        .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE) |
+                 static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
+        .parameters = {
+            {.name = "ThreadHandle", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+            {.name = "ThreadInformationClass", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
+            {.name = "ThreadInformation", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::IN},
+            {.name = "ThreadInformationLength", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN}
+        },
+        .return_value = {.name = "status", .param_type = param_info::type::INTEGER},
+        .description = "modify thread information including hide from debugger",
+        .security_notes = {"hide thread from debugger", "anti-debugging technique"},
+        .related_apis = {"NtQueryInformationThread", "SetThreadInformation"},
+        .headers = {"ntddk.h"}
+    },
+
+    api_info{
+        .name = "NtQueryInformationThread",
+        .module = "ntdll.dll",
+        .api_category = api_info::category::THREAD_CONTROL,
+        .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
+        .parameters = {
+            {.name = "ThreadHandle", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+            {.name = "ThreadInformationClass", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
+            {.name = "ThreadInformation", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
+            {.name = "ThreadInformationLength", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN},
+            {.name = "ReturnLength", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
+        },
+        .return_value = {.name = "status", .param_type = param_info::type::INTEGER},
+        .description = "query thread information including debug flags",
+        .security_notes = {"thread state analysis", "debugging detection"},
+        .related_apis = {"NtSetInformationThread", "GetThreadContext"},
+        .headers = {"ntddk.h"}
     }
 };
 

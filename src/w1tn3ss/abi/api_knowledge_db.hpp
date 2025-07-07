@@ -127,6 +127,8 @@ struct api_info {
     // ui (if needed)
     UI,
     WINDOW,
+    // system hooks and monitoring
+    SYSTEM_HOOK,
     // other
     MISC
   };
