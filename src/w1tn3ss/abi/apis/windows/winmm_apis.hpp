@@ -5,6 +5,15 @@
 
 namespace w1::abi::apis::windows {
 
+// determine windows calling convention based on architecture
+#if defined(_M_X64) || defined(__x86_64__)
+#define WINDOWS_API_CONVENTION calling_convention_id::X86_64_MICROSOFT
+#elif defined(_M_IX86) || defined(__i386__)
+#define WINDOWS_API_CONVENTION calling_convention_id::X86_STDCALL
+#else
+#define WINDOWS_API_CONVENTION calling_convention_id::UNKNOWN
+#endif
+
 /**
  * @brief winmm.dll api definitions
  *
@@ -23,6 +32,7 @@ static const std::vector<api_info> windows_winmm_apis = {
         .module = "winmm.dll",
         .api_category = api_info::category::TIME,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {},
         .return_value = {.name = "milliseconds", .param_type = param_info::type::INTEGER},
         .description = "retrieve system time in milliseconds",
@@ -36,6 +46,7 @@ static const std::vector<api_info> windows_winmm_apis = {
         .module = "winmm.dll",
         .api_category = api_info::category::TIME,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "uPeriod", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
         },
@@ -51,6 +62,7 @@ static const std::vector<api_info> windows_winmm_apis = {
         .module = "winmm.dll",
         .api_category = api_info::category::TIME,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "uPeriod", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
         },
@@ -65,6 +77,7 @@ static const std::vector<api_info> windows_winmm_apis = {
         .module = "winmm.dll",
         .api_category = api_info::category::TIME,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "ptc", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
             {.name = "cbtc", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN}
@@ -82,6 +95,7 @@ static const std::vector<api_info> windows_winmm_apis = {
         .module = "winmm.dll",
         .api_category = api_info::category::SYSTEM_INFO,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {},
         .return_value = {.name = "deviceCount", .param_type = param_info::type::INTEGER},
         .description = "retrieve number of audio output devices",
@@ -95,6 +109,7 @@ static const std::vector<api_info> windows_winmm_apis = {
         .module = "winmm.dll",
         .api_category = api_info::category::SYSTEM_INFO,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {},
         .return_value = {.name = "deviceCount", .param_type = param_info::type::INTEGER},
         .description = "retrieve number of audio input devices",
@@ -108,6 +123,7 @@ static const std::vector<api_info> windows_winmm_apis = {
         .module = "winmm.dll",
         .api_category = api_info::category::SYSTEM_INFO,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {},
         .return_value = {.name = "deviceCount", .param_type = param_info::type::INTEGER},
         .description = "retrieve number of midi output devices",
@@ -121,6 +137,7 @@ static const std::vector<api_info> windows_winmm_apis = {
         .module = "winmm.dll",
         .api_category = api_info::category::SYSTEM_INFO,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {},
         .return_value = {.name = "deviceCount", .param_type = param_info::type::INTEGER},
         .description = "retrieve number of joystick devices",
@@ -129,5 +146,8 @@ static const std::vector<api_info> windows_winmm_apis = {
         .headers = {"windows.h", "mmsystem.h"}
     }
 };
+
+
+#undef WINDOWS_API_CONVENTION
 
 } // namespace w1::abi::apis::windows

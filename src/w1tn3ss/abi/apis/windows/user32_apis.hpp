@@ -5,6 +5,15 @@
 
 namespace w1::abi::apis::windows {
 
+// determine windows calling convention based on architecture
+#if defined(_M_X64) || defined(__x86_64__)
+#define WINDOWS_API_CONVENTION calling_convention_id::X86_64_MICROSOFT
+#elif defined(_M_IX86) || defined(__i386__)
+#define WINDOWS_API_CONVENTION calling_convention_id::X86_STDCALL
+#else
+#define WINDOWS_API_CONVENTION calling_convention_id::UNKNOWN
+#endif
+
 /**
  * @brief user32.dll api definitions
  *
@@ -24,6 +33,7 @@ static const std::vector<api_info> windows_user32_apis = {
         .module = "user32.dll",
         .api_category = api_info::category::UI,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "dwExStyle", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
             {.name = "lpClassName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
@@ -49,6 +59,7 @@ static const std::vector<api_info> windows_user32_apis = {
         .module = "user32.dll",
         .api_category = api_info::category::UI,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::CLOSES_HANDLE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "hWnd", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}
         },
@@ -63,6 +74,7 @@ static const std::vector<api_info> windows_user32_apis = {
         .module = "user32.dll",
         .api_category = api_info::category::UI,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "lpClassName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
             {.name = "lpWindowName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}
@@ -78,6 +90,7 @@ static const std::vector<api_info> windows_user32_apis = {
         .module = "user32.dll",
         .api_category = api_info::category::UI,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "hWnd", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "nCmdShow", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
@@ -93,6 +106,7 @@ static const std::vector<api_info> windows_user32_apis = {
         .module = "user32.dll",
         .api_category = api_info::category::UI,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "hWnd", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "lpString", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
@@ -109,6 +123,7 @@ static const std::vector<api_info> windows_user32_apis = {
         .module = "user32.dll",
         .api_category = api_info::category::UI,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "hWnd", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "lpString", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}
@@ -125,6 +140,7 @@ static const std::vector<api_info> windows_user32_apis = {
         .module = "user32.dll",
         .api_category = api_info::category::UI,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::BLOCKING),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "lpMsg", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
             {.name = "hWnd", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
@@ -142,6 +158,7 @@ static const std::vector<api_info> windows_user32_apis = {
         .module = "user32.dll",
         .api_category = api_info::category::UI,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "lpMsg", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
             {.name = "hWnd", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
@@ -160,6 +177,7 @@ static const std::vector<api_info> windows_user32_apis = {
         .module = "user32.dll",
         .api_category = api_info::category::UI,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "lpMsg", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN}
         },
@@ -174,6 +192,7 @@ static const std::vector<api_info> windows_user32_apis = {
         .module = "user32.dll",
         .api_category = api_info::category::UI,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::BLOCKING),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "hWnd", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "Msg", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
@@ -191,6 +210,7 @@ static const std::vector<api_info> windows_user32_apis = {
         .module = "user32.dll",
         .api_category = api_info::category::UI,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "hWnd", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "Msg", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
@@ -209,6 +229,7 @@ static const std::vector<api_info> windows_user32_apis = {
         .module = "user32.dll",
         .api_category = api_info::category::UI,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::BLOCKING),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "hWnd", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "lpText", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
@@ -226,6 +247,7 @@ static const std::vector<api_info> windows_user32_apis = {
         .module = "user32.dll",
         .api_category = api_info::category::UI,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "nVirtKey", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
         },
@@ -240,6 +262,7 @@ static const std::vector<api_info> windows_user32_apis = {
         .module = "user32.dll",
         .api_category = api_info::category::UI,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "lpPoint", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
         },
@@ -254,6 +277,7 @@ static const std::vector<api_info> windows_user32_apis = {
         .module = "user32.dll",
         .api_category = api_info::category::UI,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "X", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
             {.name = "Y", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
@@ -270,6 +294,7 @@ static const std::vector<api_info> windows_user32_apis = {
         .module = "user32.dll",
         .api_category = api_info::category::UI,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "hWnd", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}
         },
@@ -284,6 +309,7 @@ static const std::vector<api_info> windows_user32_apis = {
         .module = "user32.dll",
         .api_category = api_info::category::UI,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::CLOSES_HANDLE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "hWnd", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "hDC", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}
@@ -300,6 +326,7 @@ static const std::vector<api_info> windows_user32_apis = {
         .module = "user32.dll",
         .api_category = api_info::category::SYSTEM_INFO,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "nIndex", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
         },
@@ -313,6 +340,7 @@ static const std::vector<api_info> windows_user32_apis = {
         .module = "user32.dll",
         .api_category = api_info::category::UI,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {},
         .return_value = {.name = "hwnd", .param_type = param_info::type::HANDLE},
         .description = "retrieve handle to desktop window",
@@ -325,6 +353,7 @@ static const std::vector<api_info> windows_user32_apis = {
         .module = "user32.dll",
         .api_category = api_info::category::UI,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {},
         .return_value = {.name = "hwnd", .param_type = param_info::type::HANDLE},
         .description = "retrieve handle to foreground window",
@@ -338,6 +367,7 @@ static const std::vector<api_info> windows_user32_apis = {
         .module = "user32.dll",
         .api_category = api_info::category::UI,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "lpEnumFunc", .param_type = param_info::type::CALLBACK, .param_direction = param_info::direction::IN},
             {.name = "lParam", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN}
@@ -355,6 +385,7 @@ static const std::vector<api_info> windows_user32_apis = {
         .module = "user32.dll",
         .api_category = api_info::category::SYSTEM_INFO,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "nIndex", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
         },
@@ -370,6 +401,7 @@ static const std::vector<api_info> windows_user32_apis = {
         .module = "user32.dll",
         .api_category = api_info::category::UI,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "pci", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
         },
@@ -385,6 +417,7 @@ static const std::vector<api_info> windows_user32_apis = {
         .module = "user32.dll",
         .api_category = api_info::category::UI,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "lpKeyState", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT}
         },
@@ -401,6 +434,7 @@ static const std::vector<api_info> windows_user32_apis = {
         .api_category = api_info::category::UI,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE) |
                  static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "fBlockIt", .param_type = param_info::type::BOOLEAN, .param_direction = param_info::direction::IN}
         },
@@ -420,6 +454,7 @@ static const std::vector<api_info> windows_user32_apis = {
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE) |
                  static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE) |
                  static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "idHook", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
             {.name = "lpfn", .param_type = param_info::type::CALLBACK, .param_direction = param_info::direction::IN},
@@ -439,6 +474,7 @@ static const std::vector<api_info> windows_user32_apis = {
         .module = "user32.dll",
         .api_category = api_info::category::SYSTEM_HOOK,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::CLOSES_HANDLE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "hhk", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}
         },
@@ -453,6 +489,7 @@ static const std::vector<api_info> windows_user32_apis = {
         .module = "user32.dll",
         .api_category = api_info::category::SYSTEM_HOOK,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "hhk", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "nCode", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
@@ -470,6 +507,7 @@ static const std::vector<api_info> windows_user32_apis = {
         .module = "user32.dll",
         .api_category = api_info::category::UI,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "idThread", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
         },
@@ -485,6 +523,7 @@ static const std::vector<api_info> windows_user32_apis = {
         .module = "user32.dll",
         .api_category = api_info::category::SYSTEM_HOOK,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "hWnd", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "id", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
@@ -504,6 +543,7 @@ static const std::vector<api_info> windows_user32_apis = {
         .module = "user32.dll",
         .api_category = api_info::category::SYSTEM_HOOK,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "hWnd", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "id", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
@@ -519,6 +559,7 @@ static const std::vector<api_info> windows_user32_apis = {
         .module = "user32.dll",
         .api_category = api_info::category::UI,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "vKey", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
         },
@@ -535,6 +576,7 @@ static const std::vector<api_info> windows_user32_apis = {
         .api_category = api_info::category::SYSTEM_HOOK,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE) |
                  static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "eventMin", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
             {.name = "eventMax", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
@@ -557,6 +599,7 @@ static const std::vector<api_info> windows_user32_apis = {
         .module = "user32.dll",
         .api_category = api_info::category::SYSTEM_HOOK,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::CLOSES_HANDLE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "hWinEventHook", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}
         },
@@ -566,5 +609,8 @@ static const std::vector<api_info> windows_user32_apis = {
         .headers = {"windows.h", "winuser.h"}
     }
 };
+
+
+#undef WINDOWS_API_CONVENTION
 
 } // namespace w1::abi::apis::windows

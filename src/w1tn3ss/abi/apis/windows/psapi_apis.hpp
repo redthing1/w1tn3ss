@@ -5,6 +5,15 @@
 
 namespace w1::abi::apis::windows {
 
+// determine windows calling convention based on architecture
+#if defined(_M_X64) || defined(__x86_64__)
+#define WINDOWS_API_CONVENTION calling_convention_id::X86_64_MICROSOFT
+#elif defined(_M_IX86) || defined(__i386__)
+#define WINDOWS_API_CONVENTION calling_convention_id::X86_STDCALL
+#else
+#define WINDOWS_API_CONVENTION calling_convention_id::UNKNOWN
+#endif
+
 /**
  * @brief psapi.dll api definitions
  *
@@ -25,6 +34,7 @@ static const std::vector<api_info> windows_psapi_apis = {
         .module = "psapi.dll",
         .api_category = api_info::category::PROCESS_CONTROL,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "lpidProcess", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
             {.name = "cb", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN},
@@ -42,6 +52,7 @@ static const std::vector<api_info> windows_psapi_apis = {
         .module = "psapi.dll",
         .api_category = api_info::category::PROCESS_CONTROL,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "hProcess", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "lpImageFileName", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
@@ -58,6 +69,7 @@ static const std::vector<api_info> windows_psapi_apis = {
         .module = "psapi.dll",
         .api_category = api_info::category::MEMORY_MANAGEMENT,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "Process", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "ppsmemCounters", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
@@ -76,6 +88,7 @@ static const std::vector<api_info> windows_psapi_apis = {
         .module = "psapi.dll",
         .api_category = api_info::category::LIBRARY_LOADING,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "hProcess", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "lphModule", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
@@ -94,6 +107,7 @@ static const std::vector<api_info> windows_psapi_apis = {
         .module = "psapi.dll",
         .api_category = api_info::category::LIBRARY_LOADING,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "hProcess", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "lphModule", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
@@ -113,6 +127,7 @@ static const std::vector<api_info> windows_psapi_apis = {
         .module = "psapi.dll",
         .api_category = api_info::category::LIBRARY_LOADING,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "hProcess", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "hModule", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
@@ -130,6 +145,7 @@ static const std::vector<api_info> windows_psapi_apis = {
         .module = "psapi.dll",
         .api_category = api_info::category::LIBRARY_LOADING,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "hProcess", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "hModule", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
@@ -147,6 +163,7 @@ static const std::vector<api_info> windows_psapi_apis = {
         .module = "psapi.dll",
         .api_category = api_info::category::LIBRARY_LOADING,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "hProcess", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "hModule", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
@@ -166,6 +183,7 @@ static const std::vector<api_info> windows_psapi_apis = {
         .module = "psapi.dll",
         .api_category = api_info::category::MEMORY_MANAGEMENT,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "hProcess", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "pv", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
@@ -182,6 +200,7 @@ static const std::vector<api_info> windows_psapi_apis = {
         .module = "psapi.dll",
         .api_category = api_info::category::MEMORY_MANAGEMENT,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "hProcess", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "pv", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN_OUT},
@@ -198,6 +217,7 @@ static const std::vector<api_info> windows_psapi_apis = {
         .module = "psapi.dll",
         .api_category = api_info::category::MEMORY_MANAGEMENT,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "hProcess", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "lpWatchInfo", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
@@ -214,6 +234,7 @@ static const std::vector<api_info> windows_psapi_apis = {
         .module = "psapi.dll",
         .api_category = api_info::category::MEMORY_MANAGEMENT,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "hProcess", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}
         },
@@ -230,6 +251,7 @@ static const std::vector<api_info> windows_psapi_apis = {
         .module = "psapi.dll",
         .api_category = api_info::category::SYSTEM_INFO,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "lpImageBase", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
             {.name = "cb", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN},
@@ -247,6 +269,7 @@ static const std::vector<api_info> windows_psapi_apis = {
         .module = "psapi.dll",
         .api_category = api_info::category::SYSTEM_INFO,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "ImageBase", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
             {.name = "lpBaseName", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
@@ -263,6 +286,7 @@ static const std::vector<api_info> windows_psapi_apis = {
         .module = "psapi.dll",
         .api_category = api_info::category::SYSTEM_INFO,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "ImageBase", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
             {.name = "lpFileName", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
@@ -281,6 +305,7 @@ static const std::vector<api_info> windows_psapi_apis = {
         .module = "psapi.dll",
         .api_category = api_info::category::SYSTEM_INFO,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "pPerformanceInformation", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
             {.name = "cb", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN}
@@ -298,6 +323,7 @@ static const std::vector<api_info> windows_psapi_apis = {
         .module = "psapi.dll",
         .api_category = api_info::category::FILE_MANAGEMENT,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "hProcess", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "lpv", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
@@ -311,5 +337,8 @@ static const std::vector<api_info> windows_psapi_apis = {
         .headers = {"windows.h", "psapi.h"}
     }
 };
+
+
+#undef WINDOWS_API_CONVENTION
 
 } // namespace w1::abi::apis::windows

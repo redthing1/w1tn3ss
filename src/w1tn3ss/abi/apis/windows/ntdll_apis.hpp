@@ -5,6 +5,15 @@
 
 namespace w1::abi::apis::windows {
 
+// determine windows calling convention based on architecture
+#if defined(_M_X64) || defined(__x86_64__)
+#define WINDOWS_API_CONVENTION calling_convention_id::X86_64_MICROSOFT
+#elif defined(_M_IX86) || defined(__i386__)
+#define WINDOWS_API_CONVENTION calling_convention_id::X86_STDCALL
+#else
+#define WINDOWS_API_CONVENTION calling_convention_id::UNKNOWN
+#endif
+
 /**
  * @brief ntdll.dll api definitions
  *
@@ -25,6 +34,7 @@ static const std::vector<api_info> windows_ntdll_apis = {
         .module = "ntdll.dll",
         .api_category = api_info::category::FILE_IO,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "FileHandle", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
             {.name = "DesiredAccess", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
@@ -48,6 +58,7 @@ static const std::vector<api_info> windows_ntdll_apis = {
         .module = "ntdll.dll",
         .api_category = api_info::category::FILE_IO,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "FileHandle", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "Event", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
@@ -69,6 +80,7 @@ static const std::vector<api_info> windows_ntdll_apis = {
         .module = "ntdll.dll",
         .api_category = api_info::category::FILE_IO,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "FileHandle", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "Event", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
@@ -91,6 +103,7 @@ static const std::vector<api_info> windows_ntdll_apis = {
         .module = "ntdll.dll",
         .api_category = api_info::category::HEAP_MANAGEMENT,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::ALLOCATES_MEMORY),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "ProcessHandle", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "BaseAddress", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN_OUT},
@@ -110,6 +123,7 @@ static const std::vector<api_info> windows_ntdll_apis = {
         .module = "ntdll.dll",
         .api_category = api_info::category::HEAP_MANAGEMENT,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::FREES_MEMORY),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "ProcessHandle", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "BaseAddress", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN_OUT},
@@ -128,6 +142,7 @@ static const std::vector<api_info> windows_ntdll_apis = {
         .api_category = api_info::category::PROCESS_CONTROL,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE) |
                  static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "ProcessHandle", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
             {.name = "DesiredAccess", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
@@ -149,6 +164,7 @@ static const std::vector<api_info> windows_ntdll_apis = {
         .api_category = api_info::category::PROCESS_CONTROL,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE) |
                  static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "ProcessHandle", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "ExitStatus", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
@@ -166,6 +182,7 @@ static const std::vector<api_info> windows_ntdll_apis = {
         .api_category = api_info::category::THREAD_CONTROL,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE) |
                  static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "ThreadHandle", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
             {.name = "DesiredAccess", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
@@ -188,6 +205,7 @@ static const std::vector<api_info> windows_ntdll_apis = {
         .api_category = api_info::category::REGISTRY,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE) |
                  static_cast<uint32_t>(api_info::behavior_flags::REGISTRY_ACCESS),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "KeyHandle", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
             {.name = "DesiredAccess", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
@@ -203,6 +221,7 @@ static const std::vector<api_info> windows_ntdll_apis = {
         .module = "ntdll.dll",
         .api_category = api_info::category::REGISTRY,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::REGISTRY_ACCESS),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "KeyHandle", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "ValueName", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
@@ -222,6 +241,7 @@ static const std::vector<api_info> windows_ntdll_apis = {
         .module = "ntdll.dll",
         .api_category = api_info::category::SYNCHRONIZATION,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::BLOCKING),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "Alertable", .param_type = param_info::type::BOOLEAN, .param_direction = param_info::direction::IN},
             {.name = "DelayInterval", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN}
@@ -237,6 +257,7 @@ static const std::vector<api_info> windows_ntdll_apis = {
         .module = "ntdll.dll",
         .api_category = api_info::category::SYSTEM_INFO,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::CLOSES_HANDLE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "Handle", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}
         },
@@ -254,6 +275,7 @@ static const std::vector<api_info> windows_ntdll_apis = {
         .module = "ntdll.dll",
         .api_category = api_info::category::SECURITY,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "ProcessHandle", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "ProcessInformationClass", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
@@ -274,6 +296,7 @@ static const std::vector<api_info> windows_ntdll_apis = {
         .api_category = api_info::category::SECURITY,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE) |
                  static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "ProcessHandle", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "ProcessInformationClass", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
@@ -292,6 +315,7 @@ static const std::vector<api_info> windows_ntdll_apis = {
         .module = "ntdll.dll",
         .api_category = api_info::category::SYSTEM_INFO,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "SystemInformationClass", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
             {.name = "SystemInformation", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
@@ -310,6 +334,7 @@ static const std::vector<api_info> windows_ntdll_apis = {
         .module = "ntdll.dll",
         .api_category = api_info::category::TIME,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "SystemTime", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
         },
@@ -327,6 +352,7 @@ static const std::vector<api_info> windows_ntdll_apis = {
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE) |
                  static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE) |
                  static_cast<uint32_t>(api_info::behavior_flags::PRIVILEGED),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "SystemTime", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
             {.name = "PreviousTime", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
@@ -344,6 +370,7 @@ static const std::vector<api_info> windows_ntdll_apis = {
         .module = "ntdll.dll",
         .api_category = api_info::category::HEAP_MANAGEMENT,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "NumberOfHeaps", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
             {.name = "ProcessHeaps", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT}
@@ -360,6 +387,7 @@ static const std::vector<api_info> windows_ntdll_apis = {
         .module = "ntdll.dll",
         .api_category = api_info::category::LIBRARY_LOADING,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "DllPath", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
             {.name = "DllCharacteristics", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
@@ -379,6 +407,7 @@ static const std::vector<api_info> windows_ntdll_apis = {
         .api_category = api_info::category::LIBRARY_LOADING,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE) |
                  static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "DllPath", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
             {.name = "DllCharacteristics", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
@@ -399,6 +428,7 @@ static const std::vector<api_info> windows_ntdll_apis = {
         .api_category = api_info::category::THREAD_CONTROL,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE) |
                  static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "ThreadHandle", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "ThreadInformationClass", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
@@ -417,6 +447,7 @@ static const std::vector<api_info> windows_ntdll_apis = {
         .module = "ntdll.dll",
         .api_category = api_info::category::THREAD_CONTROL,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "ThreadHandle", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "ThreadInformationClass", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
@@ -431,5 +462,8 @@ static const std::vector<api_info> windows_ntdll_apis = {
         .headers = {"ntddk.h"}
     }
 };
+
+
+#undef WINDOWS_API_CONVENTION
 
 } // namespace w1::abi::apis::windows

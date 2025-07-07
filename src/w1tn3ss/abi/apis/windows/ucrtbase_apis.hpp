@@ -5,6 +5,15 @@
 
 namespace w1::abi::apis::windows {
 
+// determine windows calling convention based on architecture
+#if defined(_M_X64) || defined(__x86_64__)
+#define WINDOWS_API_CONVENTION calling_convention_id::X86_64_MICROSOFT
+#elif defined(_M_IX86) || defined(__i386__)
+#define WINDOWS_API_CONVENTION calling_convention_id::X86_STDCALL
+#else
+#define WINDOWS_API_CONVENTION calling_convention_id::UNKNOWN
+#endif
+
 /**
  * @brief universal c runtime (ucrtbase.dll) api definitions
  *
@@ -24,6 +33,7 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .module = "ucrtbase.dll",
         .api_category = api_info::category::STRING_MANIPULATION,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::ALLOCATES_MEMORY),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "strSource", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}
         },
@@ -39,6 +49,7 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .module = "ucrtbase.dll", 
         .api_category = api_info::category::STRING_MANIPULATION,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::ALLOCATES_MEMORY),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "strSource", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}
         },
@@ -54,6 +65,7 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .module = "ucrtbase.dll",
         .api_category = api_info::category::STRING_MANIPULATION,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "strDestination", .param_type = param_info::type::STRING, .param_direction = param_info::direction::OUT},
             {.name = "strSource", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}
@@ -70,6 +82,7 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .module = "ucrtbase.dll",
         .api_category = api_info::category::STRING_MANIPULATION,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "str", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}
         },
@@ -83,6 +96,7 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .module = "ucrtbase.dll",
         .api_category = api_info::category::STRING_MANIPULATION,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "string1", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
             {.name = "string2", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}
@@ -98,6 +112,7 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .module = "ucrtbase.dll",
         .api_category = api_info::category::HEAP_MANAGEMENT,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::ALLOCATES_MEMORY),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "size", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN}
         },
@@ -113,6 +128,7 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .module = "ucrtbase.dll",
         .api_category = api_info::category::HEAP_MANAGEMENT,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::FREES_MEMORY),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "ptr", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN}
         },
@@ -128,6 +144,7 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .module = "ucrtbase.dll",
         .api_category = api_info::category::HEAP_MANAGEMENT,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::ALLOCATES_MEMORY),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "num", .param_type = param_info::type::COUNT, .param_direction = param_info::direction::IN},
             {.name = "size", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN}
@@ -144,6 +161,7 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .module = "ucrtbase.dll",
         .api_category = api_info::category::MEMORY_MANAGEMENT,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "dest", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
             {.name = "src", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::IN},
@@ -161,6 +179,7 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .module = "ucrtbase.dll",
         .api_category = api_info::category::MEMORY_MANAGEMENT,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "dest", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
             {.name = "c", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
@@ -177,6 +196,7 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .module = "ucrtbase.dll",
         .api_category = api_info::category::STDIO,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "options", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
             {.name = "stream", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
@@ -195,6 +215,7 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .module = "ucrtbase.dll",
         .api_category = api_info::category::STDIO,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "format", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}
             // note: variadic parameters not fully supported yet
@@ -210,6 +231,7 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .module = "ucrtbase.dll",
         .api_category = api_info::category::STDIO,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "stream", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
             {.name = "format", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}
@@ -226,6 +248,7 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .module = "ucrtbase.dll",
         .api_category = api_info::category::STRING_MANIPULATION,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "c", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
         },
@@ -240,6 +263,7 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .module = "ucrtbase.dll",
         .api_category = api_info::category::STRING_MANIPULATION,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "c", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
         },
@@ -254,6 +278,7 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .module = "ucrtbase.dll",
         .api_category = api_info::category::STRING_MANIPULATION,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "c", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
         },
@@ -268,6 +293,7 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .module = "ucrtbase.dll",
         .api_category = api_info::category::STRING_MANIPULATION,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "c", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
         },
@@ -283,6 +309,7 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .module = "ucrtbase.dll",
         .api_category = api_info::category::MISC, // we need to add MATH category
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "x", .param_type = param_info::type::DOUBLE, .param_direction = param_info::direction::IN},
             {.name = "exp", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
@@ -298,6 +325,7 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .module = "ucrtbase.dll",
         .api_category = api_info::category::MISC, // MATH category needed
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "x", .param_type = param_info::type::DOUBLE, .param_direction = param_info::direction::IN}
         },
@@ -312,6 +340,7 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .module = "ucrtbase.dll",
         .api_category = api_info::category::MISC,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "x", .param_type = param_info::type::DOUBLE, .param_direction = param_info::direction::IN}
         },
@@ -326,6 +355,7 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .module = "ucrtbase.dll",
         .api_category = api_info::category::MISC,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "x", .param_type = param_info::type::DOUBLE, .param_direction = param_info::direction::IN}
         },
@@ -341,6 +371,7 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .module = "ucrtbase.dll",
         .api_category = api_info::category::PROCESS_CONTROL, // could be RUNTIME_CONTROL
         .flags = static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "table", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN_OUT},
             {.name = "function", .param_type = param_info::type::CALLBACK, .param_direction = param_info::direction::IN}
@@ -356,6 +387,7 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .module = "ucrtbase.dll",
         .api_category = api_info::category::PROCESS_CONTROL,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "function", .param_type = param_info::type::CALLBACK, .param_direction = param_info::direction::IN}
         },
@@ -370,6 +402,7 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .module = "ucrtbase.dll",
         .api_category = api_info::category::PROCESS_CONTROL,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "status", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
         },
@@ -384,6 +417,7 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .module = "ucrtbase.dll",
         .api_category = api_info::category::PROCESS_CONTROL,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {},
         .return_value = {.name = "void", .param_type = param_info::type::VOID},
         .description = "terminate program abnormally without cleanup",
@@ -391,5 +425,7 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .headers = {"stdlib.h"}
     }
 };
+
+#undef WINDOWS_API_CONVENTION
 
 } // namespace w1::abi::apis::windows

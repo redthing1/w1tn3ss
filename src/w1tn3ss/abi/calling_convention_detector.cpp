@@ -35,14 +35,22 @@ void calling_convention_detector::initialize_default_rules() {
 }
 
 calling_convention_ptr calling_convention_detector::detect(
-    const std::string& binary_path, const std::string& symbol_name
+    const std::string& binary_path, const std::string& symbol_name, const api_knowledge_db* api_db
 ) const {
 
   // extract module name from path
   size_t last_slash = binary_path.find_last_of("/\\");
   std::string module_name = (last_slash != std::string::npos) ? binary_path.substr(last_slash + 1) : binary_path;
 
-  // check custom rules first
+  // check api database first if provided
+  if (api_db) {
+    auto api_convention = lookup_api_convention(module_name, symbol_name, api_db);
+    if (api_convention && *api_convention != calling_convention_id::UNKNOWN) {
+      return calling_convention_factory::instance().create(*api_convention);
+    }
+  }
+
+  // check custom rules
   for (const auto& rule : rules_) {
     if (std::regex_match(module_name, rule.module_pattern) && std::regex_match(symbol_name, rule.symbol_pattern)) {
       return calling_convention_factory::instance().create(rule.convention);
@@ -50,17 +58,25 @@ calling_convention_ptr calling_convention_detector::detect(
   }
 
   // try symbol-based detection
-  return detect_from_symbol(symbol_name);
+  return detect_from_symbol(symbol_name, api_db);
 }
 
 calling_convention_ptr calling_convention_detector::detect_from_module(
-    const util::module_info& module, const std::string& symbol_name
+    const util::module_info& module, const std::string& symbol_name, const api_knowledge_db* api_db
 ) const {
 
-  return detect(module.path, symbol_name);
+  return detect(module.path, symbol_name, api_db);
 }
 
-calling_convention_ptr calling_convention_detector::detect_from_symbol(const std::string& symbol_name) const {
+calling_convention_ptr calling_convention_detector::detect_from_symbol(const std::string& symbol_name, const api_knowledge_db* api_db) const {
+
+  // if api database provided, try looking up by symbol name only
+  if (api_db) {
+    auto api_info = api_db->lookup(symbol_name);
+    if (api_info && api_info->convention != calling_convention_id::UNKNOWN) {
+      return calling_convention_factory::instance().create(api_info->convention);
+    }
+  }
 
 #ifdef _WIN32
 #ifdef _WIN64
@@ -94,6 +110,28 @@ void calling_convention_detector::add_rule(const detection_rule& rule) {
 }
 
 void calling_convention_detector::clear_rules() { rules_.clear(); }
+
+std::optional<calling_convention_id> calling_convention_detector::lookup_api_convention(
+    const std::string& module_name, const std::string& symbol_name, const api_knowledge_db* api_db
+) const {
+  if (!api_db) {
+    return std::nullopt;
+  }
+
+  // try lookup by module and symbol name first
+  auto api_info = api_db->lookup(module_name, symbol_name);
+  if (api_info && api_info->convention != calling_convention_id::UNKNOWN) {
+    return api_info->convention;
+  }
+
+  // fallback to symbol name only
+  api_info = api_db->lookup(symbol_name);
+  if (api_info && api_info->convention != calling_convention_id::UNKNOWN) {
+    return api_info->convention;
+  }
+
+  return std::nullopt;
+}
 
 std::optional<calling_convention_detector::decorated_info> calling_convention_detector::parse_decorated_name(
     const std::string& decorated_name

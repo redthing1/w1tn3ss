@@ -5,6 +5,15 @@
 
 namespace w1::abi::apis::windows {
 
+// determine windows calling convention based on architecture
+#if defined(_M_X64) || defined(__x86_64__)
+#define WINDOWS_API_CONVENTION calling_convention_id::X86_64_MICROSOFT
+#elif defined(_M_IX86) || defined(__i386__)
+#define WINDOWS_API_CONVENTION calling_convention_id::X86_STDCALL
+#else
+#define WINDOWS_API_CONVENTION calling_convention_id::UNKNOWN
+#endif
+
 /**
  * @brief ws2_32.dll api definitions
  *
@@ -26,6 +35,7 @@ static const std::vector<api_info> windows_ws2_32_apis = {
         .module = "ws2_32.dll",
         .api_category = api_info::category::NETWORK_SOCKET,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "wVersionRequested", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
             {.name = "lpWSAData", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
@@ -42,6 +52,7 @@ static const std::vector<api_info> windows_ws2_32_apis = {
         .module = "ws2_32.dll",
         .api_category = api_info::category::NETWORK_SOCKET,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {},
         .return_value = {.name = "error", .param_type = param_info::type::ERROR_CODE},
         .description = "terminate use of winsock dll",
@@ -57,6 +68,7 @@ static const std::vector<api_info> windows_ws2_32_apis = {
         .api_category = api_info::category::NETWORK_SOCKET,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE) |
                  static_cast<uint32_t>(api_info::behavior_flags::NETWORK_IO),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "af", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
             {.name = "type", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
@@ -76,6 +88,7 @@ static const std::vector<api_info> windows_ws2_32_apis = {
         .api_category = api_info::category::NETWORK_SOCKET,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE) |
                  static_cast<uint32_t>(api_info::behavior_flags::NETWORK_IO),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "af", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
             {.name = "type", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
@@ -97,6 +110,7 @@ static const std::vector<api_info> windows_ws2_32_apis = {
         .module = "ws2_32.dll",
         .api_category = api_info::category::NETWORK_SOCKET,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::CLOSES_HANDLE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "s", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}
         },
@@ -113,6 +127,7 @@ static const std::vector<api_info> windows_ws2_32_apis = {
         .module = "ws2_32.dll",
         .api_category = api_info::category::NETWORK_SOCKET,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::NETWORK_IO),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "s", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "name", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
@@ -130,6 +145,7 @@ static const std::vector<api_info> windows_ws2_32_apis = {
         .api_category = api_info::category::NETWORK_SOCKET,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::NETWORK_IO) |
                  static_cast<uint32_t>(api_info::behavior_flags::BLOCKING),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "s", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "name", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
@@ -147,6 +163,7 @@ static const std::vector<api_info> windows_ws2_32_apis = {
         .module = "ws2_32.dll",
         .api_category = api_info::category::NETWORK_SOCKET,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::NETWORK_IO),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "s", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "backlog", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
@@ -165,6 +182,7 @@ static const std::vector<api_info> windows_ws2_32_apis = {
         .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE) |
                  static_cast<uint32_t>(api_info::behavior_flags::NETWORK_IO) |
                  static_cast<uint32_t>(api_info::behavior_flags::BLOCKING),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "s", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "addr", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
@@ -185,6 +203,7 @@ static const std::vector<api_info> windows_ws2_32_apis = {
         .module = "ws2_32.dll",
         .api_category = api_info::category::NETWORK_SOCKET,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::NETWORK_IO),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "s", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "buf", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::IN},
@@ -204,6 +223,7 @@ static const std::vector<api_info> windows_ws2_32_apis = {
         .api_category = api_info::category::NETWORK_SOCKET,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::NETWORK_IO) |
                  static_cast<uint32_t>(api_info::behavior_flags::BLOCKING),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "s", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "buf", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
@@ -222,6 +242,7 @@ static const std::vector<api_info> windows_ws2_32_apis = {
         .module = "ws2_32.dll",
         .api_category = api_info::category::NETWORK_SOCKET,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::NETWORK_IO),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "s", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "buf", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::IN},
@@ -243,6 +264,7 @@ static const std::vector<api_info> windows_ws2_32_apis = {
         .api_category = api_info::category::NETWORK_SOCKET,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::NETWORK_IO) |
                  static_cast<uint32_t>(api_info::behavior_flags::BLOCKING),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "s", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "buf", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
@@ -265,6 +287,7 @@ static const std::vector<api_info> windows_ws2_32_apis = {
         .api_category = api_info::category::NETWORK_SOCKET,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::NETWORK_IO) |
                  static_cast<uint32_t>(api_info::behavior_flags::ASYNC),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "s", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "lpBuffers", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
@@ -286,6 +309,7 @@ static const std::vector<api_info> windows_ws2_32_apis = {
         .api_category = api_info::category::NETWORK_SOCKET,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::NETWORK_IO) |
                  static_cast<uint32_t>(api_info::behavior_flags::ASYNC),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "s", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "lpBuffers", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN_OUT},
@@ -309,6 +333,7 @@ static const std::vector<api_info> windows_ws2_32_apis = {
         .api_category = api_info::category::NETWORK_DNS,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::NETWORK_IO) |
                  static_cast<uint32_t>(api_info::behavior_flags::BLOCKING),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "pNodeName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
             {.name = "pServiceName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
@@ -328,6 +353,7 @@ static const std::vector<api_info> windows_ws2_32_apis = {
         .module = "ws2_32.dll",
         .api_category = api_info::category::NETWORK_DNS,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::FREES_MEMORY),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "pAddrInfo", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN}
         },
@@ -344,6 +370,7 @@ static const std::vector<api_info> windows_ws2_32_apis = {
         .flags = static_cast<uint32_t>(api_info::behavior_flags::NETWORK_IO) |
                  static_cast<uint32_t>(api_info::behavior_flags::BLOCKING) |
                  static_cast<uint32_t>(api_info::behavior_flags::DEPRECATED),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "name", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}
         },
@@ -359,6 +386,7 @@ static const std::vector<api_info> windows_ws2_32_apis = {
         .module = "ws2_32.dll",
         .api_category = api_info::category::NETWORK_DNS,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "name", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
             {.name = "namelen", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
@@ -376,6 +404,7 @@ static const std::vector<api_info> windows_ws2_32_apis = {
         .module = "ws2_32.dll",
         .api_category = api_info::category::NETWORK_SOCKET,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "s", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "level", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
@@ -394,6 +423,7 @@ static const std::vector<api_info> windows_ws2_32_apis = {
         .module = "ws2_32.dll",
         .api_category = api_info::category::NETWORK_SOCKET,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "s", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "level", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
@@ -412,6 +442,7 @@ static const std::vector<api_info> windows_ws2_32_apis = {
         .module = "ws2_32.dll",
         .api_category = api_info::category::NETWORK_SOCKET,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "s", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "cmd", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
@@ -430,6 +461,7 @@ static const std::vector<api_info> windows_ws2_32_apis = {
         .module = "ws2_32.dll",
         .api_category = api_info::category::NETWORK_SOCKET,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::BLOCKING),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "nfds", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
             {.name = "readfds", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN_OUT},
@@ -450,6 +482,7 @@ static const std::vector<api_info> windows_ws2_32_apis = {
         .module = "ws2_32.dll",
         .api_category = api_info::category::NETWORK_SOCKET,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {},
         .return_value = {.name = "error", .param_type = param_info::type::ERROR_CODE},
         .description = "retrieve error code for last winsock operation",
@@ -462,6 +495,7 @@ static const std::vector<api_info> windows_ws2_32_apis = {
         .module = "ws2_32.dll",
         .api_category = api_info::category::NETWORK_SOCKET,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "iError", .param_type = param_info::type::ERROR_CODE, .param_direction = param_info::direction::IN}
         },
@@ -471,5 +505,8 @@ static const std::vector<api_info> windows_ws2_32_apis = {
         .headers = {"winsock2.h"}
     }
 };
+
+
+#undef WINDOWS_API_CONVENTION
 
 } // namespace w1::abi::apis::windows

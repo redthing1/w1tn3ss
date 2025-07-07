@@ -46,7 +46,7 @@ public:
         convention = it->second;
       } else {
         // detect convention
-        convention = detector_->detect(module_name, api_name);
+        convention = detector_->detect(module_name, api_name, api_db_.get());
         convention_cache_[cache_key] = convention;
       }
     }

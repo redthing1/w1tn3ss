@@ -5,6 +5,15 @@
 
 namespace w1::abi::apis::windows {
 
+// determine windows calling convention based on architecture
+#if defined(_M_X64) || defined(__x86_64__)
+#define WINDOWS_API_CONVENTION calling_convention_id::X86_64_MICROSOFT
+#elif defined(_M_IX86) || defined(__i386__)
+#define WINDOWS_API_CONVENTION calling_convention_id::X86_STDCALL
+#else
+#define WINDOWS_API_CONVENTION calling_convention_id::UNKNOWN
+#endif
+
 /**
  * @brief advapi32.dll api definitions
  *
@@ -27,6 +36,7 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .api_category = api_info::category::SECURITY,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE) |
                  static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "ProcessHandle", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "DesiredAccess", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
@@ -46,6 +56,7 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .api_category = api_info::category::SECURITY,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE) |
                  static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "ThreadHandle", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "DesiredAccess", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
@@ -65,6 +76,7 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .api_category = api_info::category::SECURITY,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE) |
                  static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "TokenHandle", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "DisableAllPrivileges", .param_type = param_info::type::BOOLEAN, .param_direction = param_info::direction::IN},
@@ -85,6 +97,7 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .module = "advapi32.dll",
         .api_category = api_info::category::SECURITY,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "lpSystemName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
             {.name = "lpName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
@@ -101,6 +114,7 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .module = "advapi32.dll",
         .api_category = api_info::category::SECURITY,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "TokenHandle", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "TokenInformationClass", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
@@ -120,6 +134,7 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .api_category = api_info::category::SECURITY,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE) |
                  static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "hExistingToken", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "dwDesiredAccess", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
@@ -144,6 +159,7 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .api_category = api_info::category::SECURITY,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE) |
                  static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "hToken", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}
         },
@@ -159,6 +175,7 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .module = "advapi32.dll",
         .api_category = api_info::category::SECURITY,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "terminate impersonation of client",
@@ -172,6 +189,7 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .api_category = api_info::category::SECURITY,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE) |
                  static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "hNamedPipe", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}
         },
@@ -190,6 +208,7 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .api_category = api_info::category::SECURITY,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE) |
                  static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "lpMachineName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
             {.name = "lpDatabaseName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
@@ -210,6 +229,7 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE) |
                  static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE) |
                  static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "hSCManager", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "lpServiceName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
@@ -238,6 +258,7 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .module = "advapi32.dll",
         .api_category = api_info::category::SECURITY,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "hSCManager", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "lpServiceName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
@@ -256,6 +277,7 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .api_category = api_info::category::SECURITY,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE) |
                  static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "hService", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "dwNumServiceArgs", .param_type = param_info::type::COUNT, .param_direction = param_info::direction::IN},
@@ -274,6 +296,7 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .api_category = api_info::category::SECURITY,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE) |
                  static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "hService", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "dwControl", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
@@ -292,6 +315,7 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .api_category = api_info::category::SECURITY,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE) |
                  static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "hService", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}
         },
@@ -307,6 +331,7 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .module = "advapi32.dll",
         .api_category = api_info::category::SECURITY,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::CLOSES_HANDLE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "hSCObject", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}
         },
@@ -324,6 +349,7 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .api_category = api_info::category::REGISTRY,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE) |
                  static_cast<uint32_t>(api_info::behavior_flags::REGISTRY_ACCESS),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "hKey", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "lpSubKey", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
@@ -346,6 +372,7 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE) |
                  static_cast<uint32_t>(api_info::behavior_flags::REGISTRY_ACCESS) |
                  static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "hKey", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "lpSubKey", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
@@ -371,6 +398,7 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .api_category = api_info::category::REGISTRY,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::REGISTRY_ACCESS) |
                  static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "hKey", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "lpValueName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
@@ -391,6 +419,7 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .module = "advapi32.dll",
         .api_category = api_info::category::REGISTRY,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::REGISTRY_ACCESS),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "hKey", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "lpValueName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
@@ -411,6 +440,7 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .api_category = api_info::category::REGISTRY,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::REGISTRY_ACCESS) |
                  static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "hKey", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "lpValueName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}
@@ -428,6 +458,7 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .api_category = api_info::category::REGISTRY,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::REGISTRY_ACCESS) |
                  static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "hKey", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "lpSubKey", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}
@@ -444,6 +475,7 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .module = "advapi32.dll",
         .api_category = api_info::category::REGISTRY,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::CLOSES_HANDLE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "hKey", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}
         },
@@ -460,6 +492,7 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .module = "advapi32.dll",
         .api_category = api_info::category::CRYPTO,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "phProv", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
             {.name = "szContainer", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
@@ -479,6 +512,7 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .module = "advapi32.dll",
         .api_category = api_info::category::CRYPTO,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "hProv", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "dwLen", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN},
@@ -495,6 +529,7 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .module = "advapi32.dll",
         .api_category = api_info::category::CRYPTO,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "hProv", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "Algid", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
@@ -514,6 +549,7 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .module = "advapi32.dll",
         .api_category = api_info::category::CRYPTO,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "hHash", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "pbData", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::IN},
@@ -533,6 +569,7 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .module = "advapi32.dll",
         .api_category = api_info::category::SYSTEM_INFO,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "lpUNCServerName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
             {.name = "lpSourceName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}
@@ -549,6 +586,7 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .module = "advapi32.dll",
         .api_category = api_info::category::SYSTEM_INFO,
         .flags = 0,
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "hEventLog", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "dwReadFlags", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
@@ -570,6 +608,7 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .api_category = api_info::category::SYSTEM_INFO,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE) |
                  static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
+        .convention = WINDOWS_API_CONVENTION,
         .parameters = {
             {.name = "hEventLog", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
             {.name = "lpBackupFileName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}
@@ -581,5 +620,7 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .headers = {"windows.h", "winbase.h"}
     }
 };
+
+#undef WINDOWS_API_CONVENTION
 
 } // namespace w1::abi::apis::windows
