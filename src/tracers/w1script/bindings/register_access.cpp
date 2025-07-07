@@ -1,877 +1,241 @@
 #include "register_access.hpp"
+#include <w1tn3ss/util/register_access.hpp>
 #include <redlog.hpp>
+#include <unordered_map>
+#include <string>
 
 namespace w1::tracers::script::bindings {
 
+// helper to convert string register name to enum
+static std::optional<w1::registers::reg> string_to_reg(const std::string& name) {
+  static const std::unordered_map<std::string, w1::registers::reg> reg_map = {
+    // common architectural names
+    {"pc", w1::registers::reg::pc},
+    {"sp", w1::registers::reg::sp},
+    
+#if defined(QBDI_ARCH_X86_64)
+    {"rax", w1::registers::reg::rax},
+    {"rbx", w1::registers::reg::rbx},
+    {"rcx", w1::registers::reg::rcx},
+    {"rdx", w1::registers::reg::rdx},
+    {"rsi", w1::registers::reg::rsi},
+    {"rdi", w1::registers::reg::rdi},
+    {"rbp", w1::registers::reg::rbp},
+    {"rsp", w1::registers::reg::rsp},
+    {"r8", w1::registers::reg::r8},
+    {"r9", w1::registers::reg::r9},
+    {"r10", w1::registers::reg::r10},
+    {"r11", w1::registers::reg::r11},
+    {"r12", w1::registers::reg::r12},
+    {"r13", w1::registers::reg::r13},
+    {"r14", w1::registers::reg::r14},
+    {"r15", w1::registers::reg::r15},
+    {"rip", w1::registers::reg::rip},
+#elif defined(QBDI_ARCH_AARCH64)
+    {"x0", w1::registers::reg::x0},
+    {"x1", w1::registers::reg::x1},
+    {"x2", w1::registers::reg::x2},
+    {"x3", w1::registers::reg::x3},
+    {"x4", w1::registers::reg::x4},
+    {"x5", w1::registers::reg::x5},
+    {"x6", w1::registers::reg::x6},
+    {"x7", w1::registers::reg::x7},
+    {"x8", w1::registers::reg::x8},
+    {"x9", w1::registers::reg::x9},
+    {"x10", w1::registers::reg::x10},
+    {"x11", w1::registers::reg::x11},
+    {"x12", w1::registers::reg::x12},
+    {"x13", w1::registers::reg::x13},
+    {"x14", w1::registers::reg::x14},
+    {"x15", w1::registers::reg::x15},
+    {"x16", w1::registers::reg::x16},
+    {"x17", w1::registers::reg::x17},
+    {"x18", w1::registers::reg::x18},
+    {"x19", w1::registers::reg::x19},
+    {"x20", w1::registers::reg::x20},
+    {"x21", w1::registers::reg::x21},
+    {"x22", w1::registers::reg::x22},
+    {"x23", w1::registers::reg::x23},
+    {"x24", w1::registers::reg::x24},
+    {"x25", w1::registers::reg::x25},
+    {"x26", w1::registers::reg::x26},
+    {"x27", w1::registers::reg::x27},
+    {"x28", w1::registers::reg::x28},
+    {"x29", w1::registers::reg::x29},
+    {"lr", w1::registers::reg::lr},
+#elif defined(QBDI_ARCH_ARM)
+    {"r0", w1::registers::reg::r0},
+    {"r1", w1::registers::reg::r1},
+    {"r2", w1::registers::reg::r2},
+    {"r3", w1::registers::reg::r3},
+    {"r4", w1::registers::reg::r4},
+    {"r5", w1::registers::reg::r5},
+    {"r6", w1::registers::reg::r6},
+    {"r7", w1::registers::reg::r7},
+    {"r8", w1::registers::reg::r8},
+    {"r9", w1::registers::reg::r9},
+    {"r10", w1::registers::reg::r10},
+    {"r11", w1::registers::reg::r11},
+    {"r12", w1::registers::reg::r12},
+    {"r13", w1::registers::reg::r13},
+    {"r14", w1::registers::reg::r14},
+    {"r15", w1::registers::reg::r15},
+#elif defined(QBDI_ARCH_X86)
+    {"eax", w1::registers::reg::eax},
+    {"ebx", w1::registers::reg::ebx},
+    {"ecx", w1::registers::reg::ecx},
+    {"edx", w1::registers::reg::edx},
+    {"esi", w1::registers::reg::esi},
+    {"edi", w1::registers::reg::edi},
+    {"ebp", w1::registers::reg::ebp},
+    {"esp", w1::registers::reg::esp},
+    {"eip", w1::registers::reg::eip},
+#endif
+  };
+  
+  auto it = reg_map.find(name);
+  if (it != reg_map.end()) {
+    return it->second;
+  }
+  return std::nullopt;
+}
+
+// helper to set register value
+static bool set_register(QBDI::GPRState* gpr, w1::registers::reg r, QBDI::rword value) {
+  switch (r) {
+#if defined(QBDI_ARCH_X86_64)
+  case w1::registers::reg::rax: gpr->rax = value; return true;
+  case w1::registers::reg::rbx: gpr->rbx = value; return true;
+  case w1::registers::reg::rcx: gpr->rcx = value; return true;
+  case w1::registers::reg::rdx: gpr->rdx = value; return true;
+  case w1::registers::reg::rsi: gpr->rsi = value; return true;
+  case w1::registers::reg::rdi: gpr->rdi = value; return true;
+  case w1::registers::reg::rbp: gpr->rbp = value; return true;
+  case w1::registers::reg::rsp: gpr->rsp = value; return true;
+  case w1::registers::reg::r8: gpr->r8 = value; return true;
+  case w1::registers::reg::r9: gpr->r9 = value; return true;
+  case w1::registers::reg::r10: gpr->r10 = value; return true;
+  case w1::registers::reg::r11: gpr->r11 = value; return true;
+  case w1::registers::reg::r12: gpr->r12 = value; return true;
+  case w1::registers::reg::r13: gpr->r13 = value; return true;
+  case w1::registers::reg::r14: gpr->r14 = value; return true;
+  case w1::registers::reg::r15: gpr->r15 = value; return true;
+  case w1::registers::reg::rip: gpr->rip = value; return true;
+#elif defined(QBDI_ARCH_AARCH64)
+  case w1::registers::reg::x0: gpr->x0 = value; return true;
+  case w1::registers::reg::x1: gpr->x1 = value; return true;
+  case w1::registers::reg::x2: gpr->x2 = value; return true;
+  case w1::registers::reg::x3: gpr->x3 = value; return true;
+  case w1::registers::reg::x4: gpr->x4 = value; return true;
+  case w1::registers::reg::x5: gpr->x5 = value; return true;
+  case w1::registers::reg::x6: gpr->x6 = value; return true;
+  case w1::registers::reg::x7: gpr->x7 = value; return true;
+  case w1::registers::reg::x8: gpr->x8 = value; return true;
+  case w1::registers::reg::x9: gpr->x9 = value; return true;
+  case w1::registers::reg::x10: gpr->x10 = value; return true;
+  case w1::registers::reg::x11: gpr->x11 = value; return true;
+  case w1::registers::reg::x12: gpr->x12 = value; return true;
+  case w1::registers::reg::x13: gpr->x13 = value; return true;
+  case w1::registers::reg::x14: gpr->x14 = value; return true;
+  case w1::registers::reg::x15: gpr->x15 = value; return true;
+  case w1::registers::reg::x16: gpr->x16 = value; return true;
+  case w1::registers::reg::x17: gpr->x17 = value; return true;
+  case w1::registers::reg::x18: gpr->x18 = value; return true;
+  case w1::registers::reg::x19: gpr->x19 = value; return true;
+  case w1::registers::reg::x20: gpr->x20 = value; return true;
+  case w1::registers::reg::x21: gpr->x21 = value; return true;
+  case w1::registers::reg::x22: gpr->x22 = value; return true;
+  case w1::registers::reg::x23: gpr->x23 = value; return true;
+  case w1::registers::reg::x24: gpr->x24 = value; return true;
+  case w1::registers::reg::x25: gpr->x25 = value; return true;
+  case w1::registers::reg::x26: gpr->x26 = value; return true;
+  case w1::registers::reg::x27: gpr->x27 = value; return true;
+  case w1::registers::reg::x28: gpr->x28 = value; return true;
+  case w1::registers::reg::x29: gpr->x29 = value; return true;
+  case w1::registers::reg::sp: gpr->sp = value; return true;
+  case w1::registers::reg::lr: gpr->lr = value; return true;
+  case w1::registers::reg::pc: gpr->pc = value; return true;
+#elif defined(QBDI_ARCH_ARM)
+  case w1::registers::reg::r0: gpr->r0 = value; return true;
+  case w1::registers::reg::r1: gpr->r1 = value; return true;
+  case w1::registers::reg::r2: gpr->r2 = value; return true;
+  case w1::registers::reg::r3: gpr->r3 = value; return true;
+  case w1::registers::reg::r4: gpr->r4 = value; return true;
+  case w1::registers::reg::r5: gpr->r5 = value; return true;
+  case w1::registers::reg::r6: gpr->r6 = value; return true;
+  case w1::registers::reg::r7: gpr->r7 = value; return true;
+  case w1::registers::reg::r8: gpr->r8 = value; return true;
+  case w1::registers::reg::r9: gpr->r9 = value; return true;
+  case w1::registers::reg::r10: gpr->r10 = value; return true;
+  case w1::registers::reg::r11: gpr->r11 = value; return true;
+  case w1::registers::reg::r12: gpr->r12 = value; return true;
+  case w1::registers::reg::r13: gpr->r13 = value; return true;
+  case w1::registers::reg::r14: gpr->r14 = value; return true;
+  case w1::registers::reg::r15: gpr->r15 = value; return true;
+  case w1::registers::reg::sp: gpr->sp = value; return true;
+  case w1::registers::reg::pc: gpr->pc = value; return true;
+#elif defined(QBDI_ARCH_X86)
+  case w1::registers::reg::eax: gpr->eax = value; return true;
+  case w1::registers::reg::ebx: gpr->ebx = value; return true;
+  case w1::registers::reg::ecx: gpr->ecx = value; return true;
+  case w1::registers::reg::edx: gpr->edx = value; return true;
+  case w1::registers::reg::esi: gpr->esi = value; return true;
+  case w1::registers::reg::edi: gpr->edi = value; return true;
+  case w1::registers::reg::ebp: gpr->ebp = value; return true;
+  case w1::registers::reg::esp: gpr->esp = value; return true;
+  case w1::registers::reg::eip: gpr->eip = value; return true;
+#endif
+  default:
+    return false;
+  }
+}
+
 void setup_register_access(sol::state& lua, sol::table& w1_module) {
   auto logger = redlog::get_logger("w1.script_bindings");
-  logger.dbg("setting up platform-specific register access functions");
+  logger.dbg("setting up generic register access functions");
 
-  // platform-specific register access functions
-  // these functions take a void* pointer to GPRState and return the register value
-
-#if defined(__x86_64__) || defined(_M_X64) || defined(__amd64__)
-
-  logger.dbg("registering x86_64 register access functions");
-
-  // general purpose registers
-  w1_module.set_function("get_reg_rax", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->rax;
-  });
-
-  w1_module.set_function("get_reg_rbx", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->rbx;
-  });
-
-  w1_module.set_function("get_reg_rcx", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->rcx;
-  });
-
-  w1_module.set_function("get_reg_rdx", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->rdx;
-  });
-
-  // stack and frame pointers
-  w1_module.set_function("get_reg_rsp", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->rsp;
-  });
-
-  w1_module.set_function("get_reg_rbp", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->rbp;
-  });
-
-  // index registers
-  w1_module.set_function("get_reg_rsi", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->rsi;
-  });
-
-  w1_module.set_function("get_reg_rdi", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->rdi;
-  });
-
-  // instruction pointer
-  w1_module.set_function("get_reg_rip", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->rip;
-  });
-
-  // additional x86_64 registers (R8-R15)
-  w1_module.set_function("get_reg_r8", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->r8;
-  });
-
-  w1_module.set_function("get_reg_r9", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->r9;
-  });
-
-  w1_module.set_function("get_reg_r10", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->r10;
-  });
-
-  w1_module.set_function("get_reg_r11", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->r11;
-  });
-
-  w1_module.set_function("get_reg_r12", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->r12;
-  });
-
-  w1_module.set_function("get_reg_r13", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->r13;
-  });
-
-  w1_module.set_function("get_reg_r14", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->r14;
-  });
-
-  w1_module.set_function("get_reg_r15", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->r15;
-  });
-
-  // flags and segment registers
-  w1_module.set_function("get_reg_eflags", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->eflags;
-  });
-
-  w1_module.set_function("get_reg_fs", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->fs;
-  });
-
-  w1_module.set_function("get_reg_gs", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->gs;
-  });
-
-  // set register functions for x86_64
-  w1_module.set_function("set_reg_rax", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->rax = value;
-  });
-
-  w1_module.set_function("set_reg_rbx", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->rbx = value;
-  });
-
-  w1_module.set_function("set_reg_rcx", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->rcx = value;
-  });
-
-  w1_module.set_function("set_reg_rdx", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->rdx = value;
-  });
-
-  w1_module.set_function("set_reg_rsp", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->rsp = value;
-  });
-
-  w1_module.set_function("set_reg_rbp", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->rbp = value;
-  });
-
-  w1_module.set_function("set_reg_rsi", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->rsi = value;
-  });
-
-  w1_module.set_function("set_reg_rdi", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->rdi = value;
-  });
-
-  w1_module.set_function("set_reg_rip", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->rip = value;
-  });
-
-  w1_module.set_function("set_reg_r8", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->r8 = value;
-  });
-
-  w1_module.set_function("set_reg_r9", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->r9 = value;
-  });
-
-  w1_module.set_function("set_reg_r10", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->r10 = value;
-  });
-
-  w1_module.set_function("set_reg_r11", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->r11 = value;
-  });
-
-  w1_module.set_function("set_reg_r12", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->r12 = value;
-  });
-
-  w1_module.set_function("set_reg_r13", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->r13 = value;
-  });
-
-  w1_module.set_function("set_reg_r14", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->r14 = value;
-  });
-
-  w1_module.set_function("set_reg_r15", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->r15 = value;
-  });
-
-  w1_module.set_function("set_reg_eflags", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->eflags = value;
-  });
-
-  w1_module.set_function("set_reg_fs", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->fs = value;
-  });
-
-  w1_module.set_function("set_reg_gs", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->gs = value;
-  });
-
-  logger.inf("x86_64 register functions registered");
-
-#elif defined(__aarch64__) || defined(_M_ARM64)
-
-  logger.dbg("registering ARM64 register access functions");
-
-  // parameter and result registers
-  w1_module.set_function("get_reg_x0", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->x0;
-  });
-
-  w1_module.set_function("get_reg_x1", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->x1;
-  });
-
-  w1_module.set_function("get_reg_x2", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->x2;
-  });
-
-  w1_module.set_function("get_reg_x3", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->x3;
-  });
-
-  w1_module.set_function("get_reg_x4", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->x4;
-  });
-
-  w1_module.set_function("get_reg_x5", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->x5;
-  });
-
-  w1_module.set_function("get_reg_x6", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->x6;
-  });
-
-  w1_module.set_function("get_reg_x7", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->x7;
-  });
-
-  // stack pointer
-  w1_module.set_function("get_reg_sp", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->sp;
-  });
-
-  // link register (return address)
-  w1_module.set_function("get_reg_lr", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->lr;
-  });
-
-  // missing x8-x29 registers
-  w1_module.set_function("get_reg_x8", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->x8;
-  });
-
-  w1_module.set_function("get_reg_x9", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->x9;
-  });
-
-  w1_module.set_function("get_reg_x10", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->x10;
-  });
-
-  w1_module.set_function("get_reg_x11", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->x11;
-  });
-
-  w1_module.set_function("get_reg_x12", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->x12;
-  });
-
-  w1_module.set_function("get_reg_x13", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->x13;
-  });
-
-  w1_module.set_function("get_reg_x14", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->x14;
-  });
-
-  w1_module.set_function("get_reg_x15", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->x15;
-  });
-
-  w1_module.set_function("get_reg_x16", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->x16;
-  });
-
-  w1_module.set_function("get_reg_x17", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->x17;
-  });
-
-  w1_module.set_function("get_reg_x18", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->x18;
-  });
-
-  w1_module.set_function("get_reg_x19", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->x19;
-  });
-
-  w1_module.set_function("get_reg_x20", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->x20;
-  });
-
-  w1_module.set_function("get_reg_x21", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->x21;
-  });
-
-  w1_module.set_function("get_reg_x22", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->x22;
-  });
-
-  w1_module.set_function("get_reg_x23", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->x23;
-  });
-
-  w1_module.set_function("get_reg_x24", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->x24;
-  });
-
-  w1_module.set_function("get_reg_x25", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->x25;
-  });
-
-  w1_module.set_function("get_reg_x26", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->x26;
-  });
-
-  w1_module.set_function("get_reg_x27", [](void* gpr_ptr) -> QBDI::rword {
+  // generic register getter
+  w1_module.set_function("get_reg", [](void* gpr_ptr, const std::string& reg_name) -> sol::optional<QBDI::rword> {
     QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->x27;
+    
+    auto reg_opt = string_to_reg(reg_name);
+    if (!reg_opt) {
+      return sol::nullopt;
+    }
+    
+    return w1::registers::get(gpr, *reg_opt);
   });
 
-  w1_module.set_function("get_reg_x28", [](void* gpr_ptr) -> QBDI::rword {
+  // generic register setter
+  w1_module.set_function("set_reg", [](void* gpr_ptr, const std::string& reg_name, QBDI::rword value) -> bool {
     QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->x28;
+    
+    auto reg_opt = string_to_reg(reg_name);
+    if (!reg_opt) {
+      return false;
+    }
+    
+    return set_register(gpr, *reg_opt, value);
   });
 
-  w1_module.set_function("get_reg_x29", [](void* gpr_ptr) -> QBDI::rword {
+  // convenience functions for common registers
+  w1_module.set_function("get_pc", [](void* gpr_ptr) -> QBDI::rword {
     QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->x29;
+    return w1::registers::get_pc(gpr);
   });
 
-  // status flags
-  w1_module.set_function("get_reg_nzcv", [](void* gpr_ptr) -> QBDI::rword {
+  w1_module.set_function("get_sp", [](void* gpr_ptr) -> QBDI::rword {
     QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->nzcv;
+    return w1::registers::get_sp(gpr);
   });
 
-  // program counter
+  // legacy compatibility functions (deprecated)
   w1_module.set_function("get_reg_pc", [](void* gpr_ptr) -> QBDI::rword {
     QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->pc;
+    return w1::registers::get_pc(gpr);
   });
 
-  // set register functions for AARCH64
-  w1_module.set_function("set_reg_x0", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->x0 = value;
-  });
-
-  w1_module.set_function("set_reg_x1", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->x1 = value;
-  });
-
-  w1_module.set_function("set_reg_x2", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->x2 = value;
-  });
-
-  w1_module.set_function("set_reg_x3", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->x3 = value;
-  });
-
-  w1_module.set_function("set_reg_x4", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->x4 = value;
-  });
-
-  w1_module.set_function("set_reg_x5", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->x5 = value;
-  });
-
-  w1_module.set_function("set_reg_x6", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->x6 = value;
-  });
-
-  w1_module.set_function("set_reg_x7", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->x7 = value;
-  });
-
-  w1_module.set_function("set_reg_x8", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->x8 = value;
-  });
-
-  w1_module.set_function("set_reg_x9", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->x9 = value;
-  });
-
-  w1_module.set_function("set_reg_x10", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->x10 = value;
-  });
-
-  w1_module.set_function("set_reg_x11", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->x11 = value;
-  });
-
-  w1_module.set_function("set_reg_x12", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->x12 = value;
-  });
-
-  w1_module.set_function("set_reg_x13", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->x13 = value;
-  });
-
-  w1_module.set_function("set_reg_x14", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->x14 = value;
-  });
-
-  w1_module.set_function("set_reg_x15", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->x15 = value;
-  });
-
-  w1_module.set_function("set_reg_x16", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->x16 = value;
-  });
-
-  w1_module.set_function("set_reg_x17", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->x17 = value;
-  });
-
-  w1_module.set_function("set_reg_x18", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->x18 = value;
-  });
-
-  w1_module.set_function("set_reg_x19", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->x19 = value;
-  });
-
-  w1_module.set_function("set_reg_x20", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->x20 = value;
-  });
-
-  w1_module.set_function("set_reg_x21", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->x21 = value;
-  });
-
-  w1_module.set_function("set_reg_x22", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->x22 = value;
-  });
-
-  w1_module.set_function("set_reg_x23", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->x23 = value;
-  });
-
-  w1_module.set_function("set_reg_x24", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->x24 = value;
-  });
-
-  w1_module.set_function("set_reg_x25", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->x25 = value;
-  });
-
-  w1_module.set_function("set_reg_x26", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->x26 = value;
-  });
-
-  w1_module.set_function("set_reg_x27", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->x27 = value;
-  });
-
-  w1_module.set_function("set_reg_x28", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->x28 = value;
-  });
-
-  w1_module.set_function("set_reg_x29", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->x29 = value;
-  });
-
-  w1_module.set_function("set_reg_sp", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->sp = value;
-  });
-
-  w1_module.set_function("set_reg_lr", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->lr = value;
-  });
-
-  w1_module.set_function("set_reg_pc", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->pc = value;
-  });
-
-  w1_module.set_function("set_reg_nzcv", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->nzcv = value;
-  });
-
-  logger.inf("ARM64 register functions registered");
-
-#elif defined(__arm__) || defined(_M_ARM)
-
-  logger.dbg("registering ARM32 register access functions");
-
-  // general purpose registers
-  w1_module.set_function("get_reg_r0", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->r0;
-  });
-
-  w1_module.set_function("get_reg_r1", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->r1;
-  });
-
-  w1_module.set_function("get_reg_r2", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->r2;
-  });
-
-  w1_module.set_function("get_reg_r3", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->r3;
-  });
-
-  w1_module.set_function("get_reg_r4", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->r4;
-  });
-
-  w1_module.set_function("get_reg_r5", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->r5;
-  });
-
-  w1_module.set_function("get_reg_r6", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->r6;
-  });
-
-  w1_module.set_function("get_reg_r7", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->r7;
-  });
-
-  // stack pointer
-  w1_module.set_function("get_reg_sp", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->sp;
-  });
-
-  // link register
-  w1_module.set_function("get_reg_lr", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->lr;
-  });
-
-  // missing r8-r12 registers
-  w1_module.set_function("get_reg_r8", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->r8;
-  });
-
-  w1_module.set_function("get_reg_r9", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->r9;
-  });
-
-  w1_module.set_function("get_reg_r10", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->r10;
-  });
-
-  w1_module.set_function("get_reg_r11", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->r11;
-  });
-
-  w1_module.set_function("get_reg_r12", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->r12;
-  });
-
-  // status register
-  w1_module.set_function("get_reg_cpsr", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->cpsr;
-  });
-
-  // program counter
-  w1_module.set_function("get_reg_pc", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->pc;
-  });
-
-  // set register functions for ARM32
-  w1_module.set_function("set_reg_r0", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->r0 = value;
-  });
-
-  w1_module.set_function("set_reg_r1", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->r1 = value;
-  });
-
-  w1_module.set_function("set_reg_r2", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->r2 = value;
-  });
-
-  w1_module.set_function("set_reg_r3", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->r3 = value;
-  });
-
-  w1_module.set_function("set_reg_r4", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->r4 = value;
-  });
-
-  w1_module.set_function("set_reg_r5", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->r5 = value;
-  });
-
-  w1_module.set_function("set_reg_r6", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->r6 = value;
-  });
-
-  w1_module.set_function("set_reg_r7", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->r7 = value;
-  });
-
-  w1_module.set_function("set_reg_r8", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->r8 = value;
-  });
-
-  w1_module.set_function("set_reg_r9", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->r9 = value;
-  });
-
-  w1_module.set_function("set_reg_r10", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->r10 = value;
-  });
-
-  w1_module.set_function("set_reg_r11", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->r11 = value;
-  });
-
-  w1_module.set_function("set_reg_r12", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->r12 = value;
-  });
-
-  w1_module.set_function("set_reg_sp", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->sp = value;
-  });
-
-  w1_module.set_function("set_reg_lr", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->lr = value;
-  });
-
-  w1_module.set_function("set_reg_pc", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->pc = value;
-  });
-
-  w1_module.set_function("set_reg_cpsr", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->cpsr = value;
-  });
-
-  logger.inf("ARM32 register functions registered");
-
-#elif defined(__i386__) || defined(_M_IX86)
-
-  logger.dbg("registering x86 32-bit register access functions");
-
-  // general purpose registers
-  w1_module.set_function("get_reg_eax", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->eax;
-  });
-
-  w1_module.set_function("get_reg_ebx", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->ebx;
-  });
-
-  w1_module.set_function("get_reg_ecx", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->ecx;
-  });
-
-  w1_module.set_function("get_reg_edx", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->edx;
-  });
-
-  w1_module.set_function("get_reg_esi", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->esi;
-  });
-
-  w1_module.set_function("get_reg_edi", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->edi;
-  });
-
-  w1_module.set_function("get_reg_ebp", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->ebp;
-  });
-
-  w1_module.set_function("get_reg_esp", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->esp;
-  });
-
-  w1_module.set_function("get_reg_eip", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->eip;
-  });
-
-  w1_module.set_function("get_reg_eflags", [](void* gpr_ptr) -> QBDI::rword {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    return gpr->eflags;
-  });
-
-  // set register functions for x86 32-bit
-  w1_module.set_function("set_reg_eax", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->eax = value;
-  });
-
-  w1_module.set_function("set_reg_ebx", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->ebx = value;
-  });
-
-  w1_module.set_function("set_reg_ecx", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->ecx = value;
-  });
-
-  w1_module.set_function("set_reg_edx", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->edx = value;
-  });
-
-  w1_module.set_function("set_reg_esi", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->esi = value;
-  });
-
-  w1_module.set_function("set_reg_edi", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->edi = value;
-  });
-
-  w1_module.set_function("set_reg_ebp", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->ebp = value;
-  });
-
-  w1_module.set_function("set_reg_esp", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->esp = value;
-  });
-
-  w1_module.set_function("set_reg_eip", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->eip = value;
-  });
-
-  w1_module.set_function("set_reg_eflags", [](void* gpr_ptr, QBDI::rword value) {
-    QBDI::GPRState* gpr = static_cast<QBDI::GPRState*>(gpr_ptr);
-    gpr->eflags = value;
-  });
-
-  logger.inf("x86 32-bit register functions registered");
-
-#else
-  logger.wrn("no register functions available for this architecture");
-#endif
-
-  logger.dbg("register access functions setup complete");
+  logger.dbg("generic register access functions registered");
 }
 
 } // namespace w1::tracers::script::bindings

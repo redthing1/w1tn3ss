@@ -272,8 +272,8 @@ void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
       }
   );
 
-  // safe memory writing with error handling
-  w1_module.set_function("writeMemory", [](void* vm_ptr, QBDI::rword address, const std::string& hexData) -> bool {
+  // unsafe memory writing (deprecated - use write_mem instead)
+  w1_module.set_function("writeMemoryUnsafe", [](void* vm_ptr, QBDI::rword address, const std::string& hexData) -> bool {
     auto log = redlog::get_logger("w1.script_bindings");
 
     try {

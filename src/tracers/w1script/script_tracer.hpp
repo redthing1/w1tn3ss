@@ -16,6 +16,9 @@ namespace w1 {
 namespace lief {
 class symbol_resolver;
 }
+namespace hooking {
+class hook_manager;
+}
 } // namespace w1
 
 namespace w1::tracers::script {
@@ -46,6 +49,9 @@ private:
 
   // symbol resolver for api analysis
   std::unique_ptr<w1::lief::symbol_resolver> symbol_resolver_;
+  
+  // hook manager for dynamic hooking
+  std::shared_ptr<w1::hooking::hook_manager> hook_manager_;
 
   bool load_script();
   void setup_callbacks();

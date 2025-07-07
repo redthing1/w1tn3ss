@@ -1,4 +1,5 @@
 #include "utilities.hpp"
+#include <w1common/platform_utils.hpp>
 #include <redlog.hpp>
 #include <fstream>
 #include <chrono>
@@ -121,6 +122,52 @@ void setup_utilities(sol::state& lua, sol::table& w1_module) {
     }
     auto end = str.find_last_not_of(" \t\n\r");
     return str.substr(start, end - start + 1);
+  });
+
+  // === Platform Detection Functions ===
+  // get platform and architecture information
+  
+  w1_module.set_function("get_platform", []() -> std::string {
+    return w1::common::platform_utils::get_platform_name();
+  });
+  
+  w1_module.set_function("get_architecture", []() -> std::string {
+#if defined(QBDI_ARCH_X86_64)
+    return "x86_64";
+#elif defined(QBDI_ARCH_X86)
+    return "x86";
+#elif defined(QBDI_ARCH_ARM)
+    return "arm";
+#elif defined(QBDI_ARCH_AARCH64)
+    return "aarch64";
+#else
+    return "unknown";
+#endif
+  });
+  
+  w1_module.set_function("get_platform_info", [&lua]() -> sol::table {
+    sol::table info = lua.create_table();
+    
+    info["os"] = w1::common::platform_utils::get_platform_name();
+    
+#if defined(QBDI_ARCH_X86_64)
+    info["arch"] = "x86_64";
+    info["bits"] = 64;
+#elif defined(QBDI_ARCH_X86)
+    info["arch"] = "x86";
+    info["bits"] = 32;
+#elif defined(QBDI_ARCH_ARM)
+    info["arch"] = "arm";
+    info["bits"] = 32;
+#elif defined(QBDI_ARCH_AARCH64)
+    info["arch"] = "aarch64";
+    info["bits"] = 64;
+#else
+    info["arch"] = "unknown";
+    info["bits"] = 0;
+#endif
+    
+    return info;
   });
 
   logger.dbg("utility functions setup complete");

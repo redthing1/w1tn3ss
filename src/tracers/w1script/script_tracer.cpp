@@ -7,6 +7,7 @@
 #include <w1tn3ss/util/module_range_index.hpp>
 #include <w1tn3ss/util/register_access.hpp>
 #include <w1tn3ss/lief/symbol_resolver.hpp>
+#include <w1tn3ss/hooking/hook_manager.hpp>
 #include <fstream>
 #include <stdexcept>
 #include <chrono>
@@ -36,6 +37,10 @@ bool script_tracer::initialize(w1::tracer_engine<script_tracer>& engine) {
   // register callbacks dynamically based on script requirements
   QBDI::VM* vm = engine.get_vm();
   if (vm) {
+    // create hook manager
+    hook_manager_ = std::make_shared<w1::hooking::hook_manager>(vm);
+    logger_.inf("hook manager created");
+    
     register_callbacks_dynamically(vm);
 
     // enable memory recording if memory callbacks are used
@@ -142,7 +147,7 @@ bool script_tracer::load_script() {
     script_table_ = result;
 
     // now setup qbdi bindings with the script table
-    setup_qbdi_bindings(lua_, script_table_, api_manager_);
+    setup_qbdi_bindings(lua_, script_table_, api_manager_, hook_manager_);
 
     // call init function if it exists
     sol::optional<sol::function> init_fn = script_table_["init"];

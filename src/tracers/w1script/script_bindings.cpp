@@ -4,7 +4,8 @@
 namespace w1::tracers::script {
 
 void setup_qbdi_bindings(
-    sol::state& lua, sol::table& tracer_table, std::shared_ptr<bindings::api_analysis_manager>& api_manager
+    sol::state& lua, sol::table& tracer_table, std::shared_ptr<bindings::api_analysis_manager>& api_manager,
+    std::shared_ptr<w1::hooking::hook_manager>& hook_manager
 ) {
   auto logger = redlog::get_logger("w1.script_bindings");
   logger.inf("setting up modular qbdi bindings");
@@ -37,13 +38,25 @@ void setup_qbdi_bindings(
   logger.dbg("setting up api analysis");
   bindings::setup_api_analysis(lua, w1_module, tracer_table, api_manager);
 
+  logger.dbg("setting up memory access");
+  bindings::setup_memory_access(lua, w1_module);
+  
+  logger.dbg("setting up hooking functions");
+  bindings::setup_hooking(lua, w1_module, hook_manager);
+  
+  logger.dbg("setting up signature scanning");
+  bindings::setup_signature_scanning(lua, w1_module);
+  
+  // store hook manager pointer in w1 module for signature scanning
+  w1_module["_hook_manager"] = static_cast<void*>(hook_manager.get());
+
   // register the w1 module with the lua state
   lua["w1"] = w1_module;
 
   logger.inf("all qbdi bindings registered successfully");
   logger.dbg(
-      "available modules: core_types, register_access, vm_control, memory_analysis, module_analysis, utilities, "
-      "callback_system, api_analysis"
+      "available modules: core_types, register_access, vm_control, memory_access, memory_analysis, module_analysis, "
+      "utilities, callback_system, api_analysis, hooking, signature_scanning"
   );
 }
 
