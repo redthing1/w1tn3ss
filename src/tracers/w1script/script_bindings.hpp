@@ -39,9 +39,7 @@ namespace w1::tracers::script {
  * @param api_manager the api analysis manager (optional)
  */
 void setup_qbdi_bindings(
-    sol::state& lua, 
-    sol::table& tracer_table,
-    std::shared_ptr<bindings::api_analysis_manager>& api_manager
+    sol::state& lua, sol::table& tracer_table, std::shared_ptr<bindings::api_analysis_manager>& api_manager
 );
 
 } // namespace w1::tracers::script

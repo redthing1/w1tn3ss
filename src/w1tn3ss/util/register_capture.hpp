@@ -13,7 +13,7 @@ namespace w1::util {
  *
  * this class captures all cpu registers for debugging, tracing, and analysis.
  * it provides a complete snapshot of the register state at a point in time.
- * 
+ *
  * note: this is for full state capture. for efficient access to specific
  * architectural registers (pc, sp), use register_access.hpp instead.
  * for abi-specific operations (arguments, return values), use the calling
@@ -34,12 +34,12 @@ public:
   // note: for performance-critical code, use register_access.hpp directly
   uint64_t get_stack_pointer() const;
   uint64_t get_instruction_pointer() const;
-  
+
   // returns the architectural register commonly used as frame pointer
   // note: this is just the register value - actual frame pointer
   // usage and semantics are abi-specific
   uint64_t get_frame_pointer() const;
-  
+
   // get all register names for current architecture
   std::vector<std::string> get_register_names() const;
 
@@ -52,7 +52,6 @@ public:
 private:
   architecture arch_ = architecture::UNKNOWN;
   std::unordered_map<std::string, uint64_t> registers_;
-
 };
 
 /**

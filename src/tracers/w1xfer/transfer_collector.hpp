@@ -193,7 +193,7 @@ private:
   void populate_entry_details(
       transfer_entry& entry, uint64_t source_addr, uint64_t target_addr, QBDI::VMInstanceRef vm, QBDI::GPRState* gpr
   ) const;
-  
+
   // api event handlers
   void on_api_event(const w1::abi::api_event& event, transfer_entry& entry);
 };

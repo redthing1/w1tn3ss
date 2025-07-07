@@ -4,7 +4,6 @@
 
 namespace w1::util {
 
-
 bool register_state::get_register(const std::string& name, uint64_t& value) const {
   auto it = registers_.find(name);
   if (it != registers_.end()) {
@@ -48,7 +47,7 @@ uint64_t register_state::get_frame_pointer() const {
 #elif defined(QBDI_ARCH_AARCH64)
   return registers_.at("x29");
 #elif defined(QBDI_ARCH_ARM)
-  return registers_.at("r11");  // could also be r7 on some abis
+  return registers_.at("r11"); // could also be r7 on some abis
 #elif defined(QBDI_ARCH_X86)
   return registers_.at("ebp");
 #else

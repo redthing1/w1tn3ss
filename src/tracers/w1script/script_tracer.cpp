@@ -59,19 +59,19 @@ bool script_tracer::initialize(w1::tracer_engine<script_tracer>& engine) {
   module_index_ = std::make_unique<w1::util::module_range_index>();
   module_index_->rebuild_from_modules(std::move(modules));
   logger_.inf("module index built", redlog::field("module_count", module_index_->size()));
-  
+
   // create symbol resolver if lief is enabled
 #ifdef WITNESS_LIEF_ENABLED
   symbol_resolver_ = std::make_unique<w1::lief::lief_symbol_resolver>();
   logger_.inf("symbol resolver created");
 #endif
-  
+
   // initialize api manager if created
   if (api_manager_) {
     logger_.inf("initializing api manager");
     api_manager_->initialize(*module_index_);
   }
-  
+
   logger_.inf("initialization complete", redlog::field("enabled_callbacks", enabled_callbacks_.size()));
   return true;
 }
@@ -96,7 +96,7 @@ void script_tracer::shutdown() {
   // clear registered callbacks
   registered_callback_ids_.clear();
   lua_callbacks_.clear();
-  
+
   // shutdown api manager if it exists
   if (api_manager_) {
     api_manager_->shutdown();
@@ -140,10 +140,10 @@ bool script_tracer::load_script() {
     }
 
     script_table_ = result;
-    
+
     // now setup qbdi bindings with the script table
     setup_qbdi_bindings(lua_, script_table_, api_manager_);
-    
+
     // call init function if it exists
     sol::optional<sol::function> init_fn = script_table_["init"];
     if (init_fn) {
@@ -293,7 +293,9 @@ void script_tracer::register_callbacks_dynamically(QBDI::VM* vm) {
     }
   }
 
-  logger_.inf("dynamic callback registration complete", redlog::field("total_callbacks", registered_callback_ids_.size()));
+  logger_.inf(
+      "dynamic callback registration complete", redlog::field("total_callbacks", registered_callback_ids_.size())
+  );
 }
 
 QBDI::VMAction script_tracer::dispatch_simple_callback(
@@ -320,7 +322,8 @@ QBDI::VMAction script_tracer::dispatch_vm_event_callback(
     QBDI::FPRState* fpr
 ) {
   // process api analysis for exec_transfer events
-  if (api_manager_ && module_index_ && (callback_name == "on_exec_transfer_call" || callback_name == "on_exec_transfer_return")) {
+  if (api_manager_ && module_index_ &&
+      (callback_name == "on_exec_transfer_call" || callback_name == "on_exec_transfer_return")) {
     // build api context
     w1::abi::api_context ctx;
     ctx.vm = vm;
@@ -329,16 +332,16 @@ QBDI::VMAction script_tracer::dispatch_vm_event_callback(
     ctx.fpr_state = fpr;
     ctx.module_index = module_index_.get();
     ctx.timestamp = std::chrono::steady_clock::now().time_since_epoch().count();
-    
+
     if (callback_name == "on_exec_transfer_call") {
       // for calls: source is where we're calling from, target is what we're calling
       ctx.call_address = state->sequenceStart;
       ctx.target_address = w1::registers::get_pc(gpr);
-      
+
       // get module and symbol names
       if (auto module_info = module_index_->find_containing(ctx.target_address)) {
         ctx.module_name = module_info->name;
-        
+
         // resolve symbol if we have a resolver
 #ifdef WITNESS_LIEF_ENABLED
         if (symbol_resolver_) {
@@ -348,19 +351,21 @@ QBDI::VMAction script_tracer::dispatch_vm_event_callback(
         }
 #endif
       }
-      
-      logger_.dbg("processing api call", redlog::field("target", ctx.target_address), 
-              redlog::field("module", ctx.module_name), redlog::field("symbol", ctx.symbol_name));
+
+      logger_.dbg(
+          "processing api call", redlog::field("target", ctx.target_address), redlog::field("module", ctx.module_name),
+          redlog::field("symbol", ctx.symbol_name)
+      );
       api_manager_->process_call(ctx);
     } else {
       // for returns: source is what we're returning from, target is where we're returning to
       ctx.target_address = state->sequenceStart;
       ctx.call_address = w1::registers::get_pc(gpr);
-      
+
       // get module and symbol names
       if (auto module_info = module_index_->find_containing(ctx.target_address)) {
         ctx.module_name = module_info->name;
-        
+
         // resolve symbol if we have a resolver
 #ifdef WITNESS_LIEF_ENABLED
         if (symbol_resolver_) {
@@ -370,11 +375,11 @@ QBDI::VMAction script_tracer::dispatch_vm_event_callback(
         }
 #endif
       }
-      
+
       api_manager_->process_return(ctx);
     }
   }
-  
+
   auto it = lua_callbacks_.find(callback_name);
   if (it == lua_callbacks_.end() || !it->second.valid()) {
     return QBDI::VMAction::CONTINUE;
@@ -386,7 +391,9 @@ QBDI::VMAction script_tracer::dispatch_vm_event_callback(
       return static_cast<QBDI::VMAction>(result.get<int>());
     }
   } catch (const sol::error& e) {
-    logger_.err("error in vm event callback", redlog::field("callback", callback_name), redlog::field("error", e.what()));
+    logger_.err(
+        "error in vm event callback", redlog::field("callback", callback_name), redlog::field("error", e.what())
+    );
   }
   return QBDI::VMAction::CONTINUE;
 }
@@ -404,7 +411,9 @@ std::vector<QBDI::InstrRuleDataCBK> script_tracer::dispatch_instr_rule_callback(
     // for now, return empty vector - instruction rules require more complex handling
     return {};
   } catch (const sol::error& e) {
-    logger_.err("error in instr rule callback", redlog::field("callback", callback_name), redlog::field("error", e.what()));
+    logger_.err(
+        "error in instr rule callback", redlog::field("callback", callback_name), redlog::field("error", e.what())
+    );
   }
   return {};
 }

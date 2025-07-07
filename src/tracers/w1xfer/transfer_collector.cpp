@@ -72,7 +72,7 @@ void transfer_collector::record_call(
     ctx.fpr_state = fpr;
     ctx.module_index = &index_;
     ctx.timestamp = entry.timestamp;
-    
+
     // directly analyze the call
     if (auto api_event = api_listener_->analyze_call(ctx)) {
       on_api_event(*api_event, entry);
@@ -116,7 +116,7 @@ void transfer_collector::record_return(
     ctx.fpr_state = fpr;
     ctx.module_index = &index_;
     ctx.timestamp = entry.timestamp;
-    
+
     // directly analyze the return
     if (auto api_event = api_listener_->analyze_return(ctx)) {
       on_api_event(*api_event, entry);
@@ -305,13 +305,12 @@ void transfer_collector::populate_entry_details(
 
 void transfer_collector::on_api_event(const w1::abi::api_event& event, transfer_entry& entry) {
   // convert api_event data to transfer_entry api_analysis format
-  entry.api_info.api_category = event.category == w1::abi::api_info::category::UNKNOWN
-                                    ? ""
-                                    : std::to_string(static_cast<int>(event.category));
+  entry.api_info.api_category =
+      event.category == w1::abi::api_info::category::UNKNOWN ? "" : std::to_string(static_cast<int>(event.category));
   entry.api_info.description = event.description;
   entry.api_info.formatted_call = event.formatted_call;
   entry.api_info.analysis_complete = event.analysis_complete;
-  
+
   // convert arguments
   entry.api_info.arguments.clear();
   for (const auto& arg : event.arguments) {
@@ -323,7 +322,7 @@ void transfer_collector::on_api_event(const w1::abi::api_event& event, transfer_
     api_arg.interpreted_value = arg.interpreted_value;
     entry.api_info.arguments.push_back(api_arg);
   }
-  
+
   // handle return value if present
   if (event.type == w1::abi::api_event::event_type::RETURN && event.return_value.has_value()) {
     const auto& ret_val = event.return_value.value();

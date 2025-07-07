@@ -8,7 +8,8 @@ namespace w1::lief {
 #ifdef WITNESS_LIEF_ENABLED
 
 // lief_binary_cache implementation
-lief_binary_cache::lief_binary_cache(size_t max_size) : max_size_(max_size), hits_(0), misses_(0), negative_hits_(0), log_("w1.lief_binary_cache") {
+lief_binary_cache::lief_binary_cache(size_t max_size)
+    : max_size_(max_size), hits_(0), misses_(0), negative_hits_(0), log_("w1.lief_binary_cache") {
 #ifdef __APPLE__
   dyld_resolver_ = std::make_shared<macos_dyld_resolver>();
 #endif
@@ -148,7 +149,8 @@ lief_symbol_resolver::cache_stats lief_binary_cache::get_stats() const {
 
 // lief_symbol_resolver implementation
 lief_symbol_resolver::lief_symbol_resolver(const config& cfg)
-    : config_(cfg), binary_cache_(std::make_unique<lief_binary_cache>(cfg.max_cache_size)), log_("w1.lief_symbol_resolver") {}
+    : config_(cfg), binary_cache_(std::make_unique<lief_binary_cache>(cfg.max_cache_size)),
+      log_("w1.lief_symbol_resolver") {}
 
 lief_symbol_resolver::~lief_symbol_resolver() = default;
 

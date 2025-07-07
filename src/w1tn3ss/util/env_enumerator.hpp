@@ -11,7 +11,7 @@ namespace w1::util {
 
 /**
  * @brief Portable environment variable enumeration
- * 
+ *
  * This utility provides a clean, cross-platform way to enumerate
  * environment variables that match a given prefix.
  */

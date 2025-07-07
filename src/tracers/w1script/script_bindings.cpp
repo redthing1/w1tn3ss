@@ -4,9 +4,7 @@
 namespace w1::tracers::script {
 
 void setup_qbdi_bindings(
-    sol::state& lua, 
-    sol::table& tracer_table,
-    std::shared_ptr<bindings::api_analysis_manager>& api_manager
+    sol::state& lua, sol::table& tracer_table, std::shared_ptr<bindings::api_analysis_manager>& api_manager
 ) {
   auto logger = redlog::get_logger("w1.script_bindings");
   logger.inf("setting up modular qbdi bindings");
