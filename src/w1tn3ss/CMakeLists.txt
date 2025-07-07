@@ -4,6 +4,7 @@ include(${CMAKE_SOURCE_DIR}/cmake/CommonConfig.cmake)
 
 add_library(w1tn3ss STATIC
     util/env_config.cpp
+    util/env_enumerator.cpp
     util/module_scanner.cpp
     util/module_range_index.cpp
     util/memory_range_index.cpp
