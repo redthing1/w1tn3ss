@@ -56,8 +56,8 @@ static const std::vector<api_info> windows_kernel32_apis = {
         },
         .return_value = {.name = "handle", .param_type = param_info::type::HANDLE},
         .description = "open existing process object",
-        .cleanup_api = "CloseHandle",
         .related_apis = {"GetCurrentProcess", "CreateProcess"},
+        .cleanup_api = "CloseHandle",
         .headers = {"windows.h", "processthreadsapi.h"}
     },
 
@@ -176,8 +176,8 @@ static const std::vector<api_info> windows_kernel32_apis = {
         },
         .return_value = {.name = "pointer", .param_type = param_info::type::POINTER},
         .description = "allocate memory from heap",
-        .cleanup_api = "HeapFree",
         .related_apis = {"GetProcessHeap", "HeapCreate"},
+        .cleanup_api = "HeapFree",
         .headers = {"windows.h", "heapapi.h"}
     },
 
@@ -243,8 +243,8 @@ static const std::vector<api_info> windows_kernel32_apis = {
         },
         .return_value = {.name = "port", .param_type = param_info::type::HANDLE},
         .description = "create or associate file with i/o completion port",
-        .cleanup_api = "CloseHandle",
         .related_apis = {"GetQueuedCompletionStatus", "PostQueuedCompletionStatus"},
+        .cleanup_api = "CloseHandle",
         .headers = {"windows.h", "ioapiset.h"}
     },
 
@@ -652,9 +652,9 @@ static const std::vector<api_info> windows_kernel32_apis = {
         },
         .return_value = {.name = "baseAddress", .param_type = param_info::type::POINTER},
         .description = "allocate memory in remote process",
-        .cleanup_api = "VirtualFreeEx",
         .security_notes = {"code injection preparation", "common dll injection technique"},
         .related_apis = {"WriteProcessMemory", "CreateRemoteThread", "VirtualFreeEx"},
+        .cleanup_api = "VirtualFreeEx",
         .headers = {"windows.h", "memoryapi.h"}
     },
 
@@ -731,9 +731,9 @@ static const std::vector<api_info> windows_kernel32_apis = {
         },
         .return_value = {.name = "threadHandle", .param_type = param_info::type::HANDLE},
         .description = "create thread in remote process",
-        .cleanup_api = "CloseHandle",
         .security_notes = {"primary dll injection method", "requires create_thread access", "common malware technique"},
         .related_apis = {"WriteProcessMemory", "VirtualAllocEx", "LoadLibraryW"},
+        .cleanup_api = "CloseHandle",
         .headers = {"windows.h", "processthreadsapi.h"}
     },
 
@@ -770,8 +770,8 @@ static const std::vector<api_info> windows_kernel32_apis = {
         },
         .return_value = {.name = "mutexHandle", .param_type = param_info::type::HANDLE},
         .description = "create named or unnamed mutex object",
-        .cleanup_api = "CloseHandle",
         .related_apis = {"OpenMutexW", "ReleaseMutex", "WaitForSingleObject"},
+        .cleanup_api = "CloseHandle",
         .headers = {"windows.h", "synchapi.h"}
     },
 
@@ -787,8 +787,8 @@ static const std::vector<api_info> windows_kernel32_apis = {
         },
         .return_value = {.name = "mutexHandle", .param_type = param_info::type::HANDLE},
         .description = "open existing named mutex",
-        .cleanup_api = "CloseHandle",
         .related_apis = {"CreateMutexW", "ReleaseMutex"},
+        .cleanup_api = "CloseHandle",
         .headers = {"windows.h", "synchapi.h"}
     },
 
@@ -820,8 +820,8 @@ static const std::vector<api_info> windows_kernel32_apis = {
         },
         .return_value = {.name = "eventHandle", .param_type = param_info::type::HANDLE},
         .description = "create named or unnamed event object",
-        .cleanup_api = "CloseHandle",
         .related_apis = {"OpenEventW", "SetEvent", "ResetEvent"},
+        .cleanup_api = "CloseHandle",
         .headers = {"windows.h", "synchapi.h"}
     },
 
@@ -837,8 +837,9 @@ static const std::vector<api_info> windows_kernel32_apis = {
         },
         .return_value = {.name = "eventHandle", .param_type = param_info::type::HANDLE},
         .description = "open existing named event",
-        .cleanup_api = "CloseHandle",
         .related_apis = {"CreateEventW", "SetEvent", "ResetEvent"},
+
+        .cleanup_api = "CloseHandle",
         .headers = {"windows.h", "synchapi.h"}
     },
 
@@ -884,8 +885,9 @@ static const std::vector<api_info> windows_kernel32_apis = {
         },
         .return_value = {.name = "semaphoreHandle", .param_type = param_info::type::HANDLE},
         .description = "create named or unnamed semaphore object",
-        .cleanup_api = "CloseHandle",
         .related_apis = {"OpenSemaphoreW", "ReleaseSemaphore", "WaitForSingleObject"},
+
+        .cleanup_api = "CloseHandle",
         .headers = {"windows.h", "synchapi.h"}
     },
 
@@ -901,8 +903,9 @@ static const std::vector<api_info> windows_kernel32_apis = {
         },
         .return_value = {.name = "semaphoreHandle", .param_type = param_info::type::HANDLE},
         .description = "open existing named semaphore",
-        .cleanup_api = "CloseHandle",
         .related_apis = {"CreateSemaphoreW", "ReleaseSemaphore"},
+
+        .cleanup_api = "CloseHandle",
         .headers = {"windows.h", "synchapi.h"}
     },
 
@@ -974,9 +977,9 @@ static const std::vector<api_info> windows_kernel32_apis = {
         },
         .return_value = {.name = "pipeHandle", .param_type = param_info::type::HANDLE},
         .description = "create named pipe server",
-        .cleanup_api = "CloseHandle",
         .security_notes = {"ipc communication vector", "can be used for privilege escalation"},
         .related_apis = {"ConnectNamedPipe", "CreateFileW", "ReadFile", "WriteFile"},
+        .cleanup_api = "CloseHandle",
         .headers = {"windows.h", "namedpipeapi.h"}
     },
 
@@ -1043,8 +1046,9 @@ static const std::vector<api_info> windows_kernel32_apis = {
         },
         .return_value = {.name = "mailslotHandle", .param_type = param_info::type::HANDLE},
         .description = "create mailslot for one-way ipc",
-        .cleanup_api = "CloseHandle",
         .related_apis = {"GetMailslotInfo", "ReadFile", "WriteFile"},
+
+        .cleanup_api = "CloseHandle",
         .headers = {"windows.h", "winbase.h"}
     },
 
@@ -1080,8 +1084,9 @@ static const std::vector<api_info> windows_kernel32_apis = {
         },
         .return_value = {.name = "mappingHandle", .param_type = param_info::type::HANDLE},
         .description = "open existing named file mapping object",
-        .cleanup_api = "CloseHandle",
         .related_apis = {"CreateFileMappingW", "MapViewOfFile", "UnmapViewOfFile"},
+
+        .cleanup_api = "CloseHandle",
         .headers = {"windows.h", "memoryapi.h"}
     },
 
@@ -1168,9 +1173,9 @@ static const std::vector<api_info> windows_kernel32_apis = {
         },
         .return_value = {.name = "searchHandle", .param_type = param_info::type::HANDLE},
         .description = "search directory for file or subdirectory",
-        .cleanup_api = "FindClose",
         .security_notes = {"directory enumeration capability", "file discovery"},
         .related_apis = {"FindNextFileW", "FindClose", "FindFirstFileExW"},
+        .cleanup_api = "FindClose",
         .headers = {"windows.h", "fileapi.h"}
     },
 
@@ -1366,9 +1371,9 @@ static const std::vector<api_info> windows_kernel32_apis = {
         },
         .return_value = {.name = "snapshotHandle", .param_type = param_info::type::HANDLE},
         .description = "take snapshot of processes, threads, modules, and heaps",
-        .cleanup_api = "CloseHandle",
         .security_notes = {"system enumeration capability", "process discovery", "malware analysis tool"},
         .related_apis = {"Process32FirstW", "Thread32First", "Module32FirstW"},
+        .cleanup_api = "CloseHandle",
         .headers = {"windows.h", "tlhelp32.h"}
     },
 
@@ -1479,9 +1484,9 @@ static const std::vector<api_info> windows_kernel32_apis = {
         },
         .return_value = {.name = "threadHandle", .param_type = param_info::type::HANDLE},
         .description = "open existing thread object",
-        .cleanup_api = "CloseHandle",
         .security_notes = {"thread access for injection", "apc injection preparation"},
         .related_apis = {"GetCurrentThread", "CreateThread", "QueueUserAPC"},
+        .cleanup_api = "CloseHandle",
         .headers = {"windows.h", "processthreadsapi.h"}
     },
 
@@ -1935,9 +1940,9 @@ static const std::vector<api_info> windows_kernel32_apis = {
         },
         .return_value = {.name = "status", .param_type = param_info::type::INTEGER},
         .description = "open registry key",
-        .cleanup_api = "RegCloseKey",
         .security_notes = {"registry access", "system configuration modification"},
         .related_apis = {"RegCreateKeyExW", "RegCloseKey", "RegQueryValueExW"},
+        .cleanup_api = "RegCloseKey",
         .headers = {"windows.h", "winreg.h"}
     },
 
@@ -1961,9 +1966,9 @@ static const std::vector<api_info> windows_kernel32_apis = {
         },
         .return_value = {.name = "status", .param_type = param_info::type::INTEGER},
         .description = "create or open registry key",
-        .cleanup_api = "RegCloseKey",
         .security_notes = {"registry modification", "persistence mechanism", "system configuration change"},
         .related_apis = {"RegOpenKeyExW", "RegSetValueExW", "RegDeleteKeyW"},
+        .cleanup_api = "RegCloseKey",
         .headers = {"windows.h", "winreg.h"}
     },
 

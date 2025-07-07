@@ -32,8 +32,8 @@ static const std::vector<api_info> windows_ws2_32_apis = {
         },
         .return_value = {.name = "error", .param_type = param_info::type::ERROR_CODE},
         .description = "initialize winsock dll usage",
-        .cleanup_api = "WSACleanup",
         .related_apis = {"WSACleanup", "socket", "WSAGetLastError"},
+        .cleanup_api = "WSACleanup",
         .headers = {"winsock2.h", "ws2tcpip.h"}
     },
 
@@ -64,9 +64,9 @@ static const std::vector<api_info> windows_ws2_32_apis = {
         },
         .return_value = {.name = "socketHandle", .param_type = param_info::type::HANDLE},
         .description = "create socket for network communication",
-        .cleanup_api = "closesocket",
         .security_notes = {"network communication capability", "c2 communication vector"},
         .related_apis = {"bind", "connect", "listen", "closesocket"},
+        .cleanup_api = "closesocket",
         .headers = {"winsock2.h"}
     },
 
@@ -86,9 +86,9 @@ static const std::vector<api_info> windows_ws2_32_apis = {
         },
         .return_value = {.name = "socketHandle", .param_type = param_info::type::HANDLE},
         .description = "create socket with extended attributes",
-        .cleanup_api = "closesocket",
         .security_notes = {"raw socket capability", "advanced network operations"},
         .related_apis = {"socket", "WSADuplicateSocket", "closesocket"},
+        .cleanup_api = "closesocket",
         .headers = {"winsock2.h"}
     },
 
@@ -172,9 +172,9 @@ static const std::vector<api_info> windows_ws2_32_apis = {
         },
         .return_value = {.name = "clientSocket", .param_type = param_info::type::HANDLE},
         .description = "accept incoming connection request",
-        .cleanup_api = "closesocket",
         .security_notes = {"accept inbound connections", "backdoor communication"},
         .related_apis = {"listen", "send", "recv", "WSAAccept"},
+        .cleanup_api = "closesocket",
         .headers = {"winsock2.h"}
     },
 
@@ -317,9 +317,9 @@ static const std::vector<api_info> windows_ws2_32_apis = {
         },
         .return_value = {.name = "error", .param_type = param_info::type::ERROR_CODE},
         .description = "resolve hostname to network addresses",
-        .cleanup_api = "freeaddrinfo",
         .security_notes = {"dns resolution capability", "c2 domain resolution"},
         .related_apis = {"freeaddrinfo", "getnameinfo", "gethostbyname"},
+        .cleanup_api = "freeaddrinfo",
         .headers = {"winsock2.h", "ws2tcpip.h"}
     },
 

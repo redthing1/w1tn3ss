@@ -428,9 +428,9 @@ static const std::vector<api_info> windows_user32_apis = {
         },
         .return_value = {.name = "hookHandle", .param_type = param_info::type::HANDLE},
         .description = "install hook procedure to monitor system events",
-        .cleanup_api = "UnhookWindowsHookEx",
         .security_notes = {"system-wide hooking", "keylogger capability", "input monitoring", "dll injection vector"},
         .related_apis = {"UnhookWindowsHookEx", "CallNextHookEx", "GetModuleHandle"},
+        .cleanup_api = "UnhookWindowsHookEx",
         .headers = {"windows.h", "winuser.h"}
     },
 
@@ -493,9 +493,9 @@ static const std::vector<api_info> windows_user32_apis = {
         },
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "register system-wide hotkey",
-        .cleanup_api = "UnregisterHotKey",
         .security_notes = {"global hotkey registration", "system-wide input capture"},
         .related_apis = {"UnregisterHotKey", "GetMessage"},
+        .cleanup_api = "UnregisterHotKey",
         .headers = {"windows.h", "winuser.h"}
     },
 
@@ -546,9 +546,9 @@ static const std::vector<api_info> windows_user32_apis = {
         },
         .return_value = {.name = "hookHandle", .param_type = param_info::type::HANDLE},
         .description = "set event hook for accessibility events",
-        .cleanup_api = "UnhookWinEvent",
         .security_notes = {"accessibility event monitoring", "window event tracking"},
         .related_apis = {"UnhookWinEvent", "SetWindowsHookExW"},
+        .cleanup_api = "UnhookWinEvent",
         .headers = {"windows.h", "winuser.h"}
     },
 

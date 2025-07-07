@@ -34,9 +34,9 @@ static const std::vector<api_info> windows_advapi32_apis = {
         },
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "open access token associated with process",
-        .cleanup_api = "CloseHandle",
         .security_notes = {"privilege escalation vector", "token manipulation capability"},
         .related_apis = {"OpenThreadToken", "AdjustTokenPrivileges", "GetTokenInformation"},
+        .cleanup_api = "CloseHandle",
         .headers = {"windows.h", "processthreadsapi.h", "securitybaseapi.h"}
     },
 
@@ -54,8 +54,8 @@ static const std::vector<api_info> windows_advapi32_apis = {
         },
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "open access token associated with thread",
-        .cleanup_api = "CloseHandle",
         .related_apis = {"OpenProcessToken", "SetThreadToken", "ImpersonateLoggedOnUser"},
+        .cleanup_api = "CloseHandle",
         .headers = {"windows.h", "processthreadsapi.h", "securitybaseapi.h"}
     },
 
@@ -130,9 +130,9 @@ static const std::vector<api_info> windows_advapi32_apis = {
         },
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "create new access token that duplicates existing token",
-        .cleanup_api = "CloseHandle",
         .security_notes = {"token duplication for impersonation", "privilege escalation vector"},
         .related_apis = {"OpenProcessToken", "ImpersonateLoggedOnUser"},
+        .cleanup_api = "CloseHandle",
         .headers = {"windows.h", "securitybaseapi.h"}
     },
 
@@ -197,9 +197,9 @@ static const std::vector<api_info> windows_advapi32_apis = {
         },
         .return_value = {.name = "scHandle", .param_type = param_info::type::HANDLE},
         .description = "establish connection to service control manager",
-        .cleanup_api = "CloseServiceHandle",
         .security_notes = {"service manipulation capability", "persistence mechanism"},
         .related_apis = {"CreateServiceW", "OpenServiceW", "CloseServiceHandle"},
+        .cleanup_api = "CloseServiceHandle",
         .headers = {"windows.h", "winsvc.h"}
     },
 
@@ -227,9 +227,9 @@ static const std::vector<api_info> windows_advapi32_apis = {
         },
         .return_value = {.name = "serviceHandle", .param_type = param_info::type::HANDLE},
         .description = "create service object and add to scm database",
-        .cleanup_api = "CloseServiceHandle",
         .security_notes = {"service creation for persistence", "requires administrative privileges"},
         .related_apis = {"OpenSCManagerW", "StartServiceW", "DeleteService"},
+        .cleanup_api = "CloseServiceHandle",
         .headers = {"windows.h", "winsvc.h"}
     },
 
@@ -245,8 +245,8 @@ static const std::vector<api_info> windows_advapi32_apis = {
         },
         .return_value = {.name = "serviceHandle", .param_type = param_info::type::HANDLE},
         .description = "open existing service for specified access",
-        .cleanup_api = "CloseServiceHandle",
         .related_apis = {"OpenSCManagerW", "QueryServiceStatus", "ControlService"},
+        .cleanup_api = "CloseServiceHandle",
         .headers = {"windows.h", "winsvc.h"}
     },
 
@@ -333,9 +333,9 @@ static const std::vector<api_info> windows_advapi32_apis = {
         },
         .return_value = {.name = "error", .param_type = param_info::type::ERROR_CODE},
         .description = "open specified registry key",
-        .cleanup_api = "RegCloseKey",
         .security_notes = {"registry access for persistence", "configuration modification"},
         .related_apis = {"RegCreateKeyExW", "RegSetValueExW", "RegQueryValueExW"},
+        .cleanup_api = "RegCloseKey",
         .headers = {"windows.h", "winreg.h"}
     },
 
@@ -359,9 +359,9 @@ static const std::vector<api_info> windows_advapi32_apis = {
         },
         .return_value = {.name = "error", .param_type = param_info::type::ERROR_CODE},
         .description = "create registry key or open existing one",
-        .cleanup_api = "RegCloseKey",
         .security_notes = {"registry key creation for persistence", "system configuration modification"},
         .related_apis = {"RegOpenKeyExW", "RegSetValueExW", "RegDeleteKeyW"},
+        .cleanup_api = "RegCloseKey",
         .headers = {"windows.h", "winreg.h"}
     },
 
@@ -469,8 +469,8 @@ static const std::vector<api_info> windows_advapi32_apis = {
         },
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "acquire handle to cryptographic service provider",
-        .cleanup_api = "CryptReleaseContext",
         .related_apis = {"CryptGenRandom", "CryptCreateHash", "CryptReleaseContext"},
+        .cleanup_api = "CryptReleaseContext",
         .headers = {"windows.h", "wincrypt.h"}
     },
 
@@ -504,8 +504,8 @@ static const std::vector<api_info> windows_advapi32_apis = {
         },
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "create empty hash object",
-        .cleanup_api = "CryptDestroyHash",
         .related_apis = {"CryptHashData", "CryptGetHashParam", "CryptDestroyHash"},
+        .cleanup_api = "CryptDestroyHash",
         .headers = {"windows.h", "wincrypt.h"}
     },
 
@@ -539,8 +539,8 @@ static const std::vector<api_info> windows_advapi32_apis = {
         },
         .return_value = {.name = "eventLogHandle", .param_type = param_info::type::HANDLE},
         .description = "open handle to event log",
-        .cleanup_api = "CloseEventLog",
         .related_apis = {"ReadEventLogW", "WriteEventLogW", "CloseEventLog"},
+        .cleanup_api = "CloseEventLog",
         .headers = {"windows.h", "winbase.h"}
     },
 
