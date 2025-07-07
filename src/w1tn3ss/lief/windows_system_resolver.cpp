@@ -5,6 +5,11 @@
 #include <filesystem>
 #include <algorithm>
 #include <cctype>
+#include <dbghelp.h>
+#include <imagehlp.h>
+
+#pragma comment(lib, "dbghelp.lib")
+#pragma comment(lib, "imagehlp.lib")
 
 namespace w1::lief {
 
@@ -214,6 +219,113 @@ bool windows_system_resolver::is_likely_system_library(const std::string& basena
 
   log_.trc("no system library pattern match", redlog::field("basename", basename));
   return false;
+}
+
+std::optional<windows_symbol_info> windows_system_resolver::resolve_symbol_info_native(uint64_t address) const {
+  static bool sym_initialized = false;
+  static HANDLE process_handle = GetCurrentProcess();
+  
+  // Initialize symbol handler once
+  if (!sym_initialized) {
+    log_.dbg("initializing Windows symbol handler");
+    
+    DWORD options = SymGetOptions();
+    options |= SYMOPT_DEFERRED_LOADS | SYMOPT_UNDNAME | SYMOPT_LOAD_LINES;
+    options |= SYMOPT_INCLUDE_32BIT_MODULES; // Include 32-bit modules on 64-bit systems
+    options |= SYMOPT_CASE_INSENSITIVE;      // Case insensitive symbol searches
+    SymSetOptions(options);
+    
+    if (!SymInitialize(process_handle, NULL, TRUE)) {
+      DWORD error = GetLastError();
+      log_.err("failed to initialize symbol handler", redlog::field("error", error));
+      return std::nullopt;
+    }
+    
+    log_.info("Windows symbol handler initialized");
+    sym_initialized = true;
+  }
+  
+  // Allocate buffer for symbol info
+  const size_t buffer_size = sizeof(SYMBOL_INFO) + MAX_SYM_NAME * sizeof(TCHAR);
+  char buffer[sizeof(SYMBOL_INFO) + MAX_SYM_NAME * sizeof(TCHAR)];
+  PSYMBOL_INFO symbol_info = (PSYMBOL_INFO)buffer;
+  
+  symbol_info->SizeOfStruct = sizeof(SYMBOL_INFO);
+  symbol_info->MaxNameLen = MAX_SYM_NAME;
+  
+  DWORD64 displacement = 0;
+  
+  log_.ped("calling SymFromAddr", redlog::field("address", "0x%llx", address));
+  
+  if (SymFromAddr(process_handle, address, &displacement, symbol_info)) {
+    windows_symbol_info result;
+    
+    // Basic symbol information
+    result.name = std::string(symbol_info->Name, symbol_info->NameLen);
+    result.address = symbol_info->Address;
+    result.size = symbol_info->Size;
+    result.displacement = displacement;
+    
+    // Get module information
+    IMAGEHLP_MODULE64 module_info = {};
+    module_info.SizeOfStruct = sizeof(IMAGEHLP_MODULE64);
+    if (SymGetModuleInfo64(process_handle, address, &module_info)) {
+      result.module_name = module_info.ModuleName;
+      log_.ped("retrieved module info", redlog::field("module", result.module_name));
+    }
+    
+    // Determine symbol type based on flags
+    result.is_function = (symbol_info->Tag == SymTagFunction || 
+                         symbol_info->Tag == SymTagPublicSymbol ||
+                         (symbol_info->Flags & SYMFLAG_FUNCTION));
+    
+    result.is_exported = (symbol_info->Flags & SYMFLAG_EXPORT);
+    
+    // Try to get demangled name (C++ symbols)
+    result.demangled_name = result.name;
+    char demangled_buffer[MAX_SYM_NAME];
+    if (UnDecorateSymbolName(result.name.c_str(), demangled_buffer, MAX_SYM_NAME, 
+                            UNDNAME_COMPLETE | UNDNAME_NO_LEADING_UNDERSCORES)) {
+      if (strlen(demangled_buffer) > 0) {
+        result.demangled_name = demangled_buffer;
+      }
+    }
+    
+    log_.ped(
+        "SymFromAddr success", 
+        redlog::field("address", "0x%llx", address),
+        redlog::field("symbol", result.name), 
+        redlog::field("demangled", result.demangled_name),
+        redlog::field("displacement", displacement),
+        redlog::field("size", result.size),
+        redlog::field("module", result.module_name),
+        redlog::field("is_function", result.is_function),
+        redlog::field("is_exported", result.is_exported),
+        redlog::field("tag", symbol_info->Tag),
+        redlog::field("flags", "0x%x", symbol_info->Flags)
+    );
+    
+    return result;
+  } else {
+    DWORD error = GetLastError();
+    log_.ped("SymFromAddr failed", redlog::field("address", "0x%llx", address), redlog::field("error", error));
+    return std::nullopt;
+  }
+}
+
+std::optional<std::string> windows_system_resolver::resolve_symbol_native(uint64_t address) const {
+  if (auto symbol_info = resolve_symbol_info_native(address)) {
+    std::string symbol_name = symbol_info->name;
+    
+    // If there's displacement, add it to symbol name
+    if (symbol_info->displacement > 0) {
+      symbol_name += "+" + std::to_string(symbol_info->displacement);
+    }
+    
+    return symbol_name;
+  }
+  
+  return std::nullopt;
 }
 
 } // namespace w1::lief

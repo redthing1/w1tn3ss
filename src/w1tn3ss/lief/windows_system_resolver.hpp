@@ -11,6 +11,18 @@
 
 namespace w1::lief {
 
+// Rich symbol information structure for Windows
+struct windows_symbol_info {
+  std::string name;
+  std::string demangled_name;
+  uint64_t address;
+  uint64_t size;
+  uint64_t displacement;
+  std::string module_name;
+  bool is_function;
+  bool is_exported;
+};
+
 /**
  * @brief resolves windows system library basenames to full system paths
  * @details windows-specific resolver that maps bare dll names (e.g., "ucrtbase.dll") 
@@ -74,6 +86,20 @@ private:
    * @return true if likely system library based on name patterns
    */
   bool is_likely_system_library(const std::string& basename) const;
+
+  /**
+   * @brief resolve symbol using Windows SymFromAddr API
+   * @param address absolute address to resolve
+   * @return symbol name if found, nullopt otherwise
+   */
+  std::optional<std::string> resolve_symbol_native(uint64_t address) const;
+
+  /**
+   * @brief resolve rich symbol information using Windows SymFromAddr API
+   * @param address absolute address to resolve
+   * @return detailed symbol information if found, nullopt otherwise
+   */
+  std::optional<windows_symbol_info> resolve_symbol_info_native(uint64_t address) const;
 };
 
 } // namespace w1::lief

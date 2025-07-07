@@ -103,6 +103,11 @@ private:
 
   std::optional<symbol_info> resolve_macho_symbol(LIEF::MachO::Binary* macho, uint64_t offset) const;
 
+#ifdef _WIN32
+  // Native Windows symbol resolution using SymFromAddr
+  std::optional<symbol_info> resolve_windows_native(uint64_t address) const;
+#endif
+
   // Conversion helpers
   symbol_info elf_symbol_to_info(const LIEF::ELF::Symbol& sym) const;
   symbol_info pe_export_to_info(const LIEF::PE::ExportEntry& exp) const;

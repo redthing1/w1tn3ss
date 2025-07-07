@@ -216,6 +216,29 @@ std::optional<symbol_info> lief_symbol_resolver::resolve(
     uint64_t address, const util::module_range_index& module_index
 ) const {
 
+#ifdef _WIN32
+  // On Windows, use native symbol resolution with SymFromAddr
+  // This is the correct approach as recommended by QBDI docs
+  // It works directly with absolute addresses and handles imports/exports correctly
+  auto symbol = resolve_windows_native(address);
+  if (!symbol) {
+    log_.dbg("native Windows resolution failed", redlog::field("address", "0x%llx", address));
+  }
+  return symbol;
+  
+  // LIEF fallback disabled - SymFromAddr is the correct Windows approach
+  // Keeping LIEF code below for reference but not using it
+  /*
+  if (!symbol) {
+    log_.dbg("native Windows resolution failed, falling back to LIEF", redlog::field("address", "0x%llx", address));
+    // Fall through to LIEF resolution...
+  } else {
+    return symbol;
+  }
+  */
+#endif
+
+  // Cross-platform LIEF-based resolution (non-Windows platforms)
   // Find which module contains this address
   auto module = module_index.find_containing(address);
   if (!module) {
@@ -470,6 +493,55 @@ std::optional<symbol_info> lief_symbol_resolver::resolve_pe_symbol(LIEF::PE::Bin
   log_.ped("PE symbol resolution failed completely", redlog::field("offset", "0x%llx", offset));
   return std::nullopt;
 }
+
+#ifdef _WIN32
+std::optional<symbol_info> lief_symbol_resolver::resolve_windows_native(uint64_t address) const {
+  log_.ped("attempting native Windows symbol resolution", redlog::field("address", "0x%llx", address));
+  
+  if (binary_cache_ && binary_cache_->windows_resolver_) {
+    if (auto win_symbol = binary_cache_->windows_resolver_->resolve_symbol_info_native(address)) {
+      log_.info("resolved symbol using native Windows API", 
+                redlog::field("address", "0x%llx", address),
+                redlog::field("symbol", win_symbol->name),
+                redlog::field("demangled", win_symbol->demangled_name),
+                redlog::field("module", win_symbol->module_name),
+                redlog::field("size", win_symbol->size),
+                redlog::field("displacement", win_symbol->displacement));
+      
+      // Convert Windows symbol info to cross-platform symbol_info
+      symbol_info info;
+      info.name = win_symbol->name;
+      info.demangled_name = win_symbol->demangled_name;
+      
+      // Calculate module-relative offset for consistency with other platforms
+      // Note: This is for compatibility - Windows SymFromAddr gives us absolute addresses
+      info.offset = win_symbol->displacement; // Use displacement as offset within function
+      
+      info.size = win_symbol->size;
+      
+      // Map Windows symbol types to cross-platform types
+      info.symbol_type = win_symbol->is_function ? symbol_info::FUNCTION : symbol_info::OBJECT;
+      info.symbol_binding = symbol_info::GLOBAL; // Windows symbols are typically global if resolved
+      
+      info.is_exported = win_symbol->is_exported;
+      info.is_imported = false; // SymFromAddr resolves to actual symbols, not imports
+      
+      // Add Windows-specific information to name if displacement exists
+      if (win_symbol->displacement > 0) {
+        info.name += "+" + std::to_string(win_symbol->displacement);
+      }
+      
+      // Add module name as section for debugging
+      info.section = win_symbol->module_name;
+      
+      return info;
+    }
+  }
+  
+  log_.dbg("native Windows symbol resolution failed", redlog::field("address", "0x%llx", address));
+  return std::nullopt;
+}
+#endif
 
 std::optional<symbol_info> lief_symbol_resolver::resolve_macho_symbol(
     LIEF::MachO::Binary* macho, uint64_t offset
