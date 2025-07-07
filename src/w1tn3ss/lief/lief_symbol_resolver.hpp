@@ -21,6 +21,10 @@
 #include "macos_dyld_resolver.hpp"
 #endif
 
+#ifdef _WIN32
+#include "windows_system_resolver.hpp"
+#endif
+
 namespace w1::lief {
 
 #ifdef WITNESS_LIEF_ENABLED
@@ -122,6 +126,11 @@ public:
   void set_dyld_resolver(std::shared_ptr<macos_dyld_resolver> resolver) { dyld_resolver_ = resolver; }
 #endif
 
+#ifdef _WIN32
+  // Set Windows system resolver
+  void set_windows_resolver(std::shared_ptr<windows_system_resolver> resolver) { windows_resolver_ = resolver; }
+#endif
+
 private:
   mutable std::list<std::string> lru_list_;
   mutable std::unordered_map<std::string, std::pair<std::list<std::string>::iterator, std::unique_ptr<LIEF::Binary>>>
@@ -136,6 +145,10 @@ private:
 
 #ifdef __APPLE__
   std::shared_ptr<macos_dyld_resolver> dyld_resolver_;
+#endif
+
+#ifdef _WIN32
+  std::shared_ptr<windows_system_resolver> windows_resolver_;
 #endif
 };
 

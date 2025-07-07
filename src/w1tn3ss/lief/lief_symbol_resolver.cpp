@@ -3,6 +3,10 @@
 #include <sstream>
 #include <iomanip>
 
+#ifdef _WIN32
+#include "windows_system_resolver.hpp"
+#endif
+
 namespace w1::lief {
 
 #ifdef WITNESS_LIEF_ENABLED
@@ -12,6 +16,9 @@ lief_binary_cache::lief_binary_cache(size_t max_size)
     : max_size_(max_size), hits_(0), misses_(0), negative_hits_(0), log_("w1.lief_binary_cache") {
 #ifdef __APPLE__
   dyld_resolver_ = std::make_shared<macos_dyld_resolver>();
+#endif
+#ifdef _WIN32
+  windows_resolver_ = std::make_shared<windows_system_resolver>();
 #endif
 }
 
@@ -89,6 +96,35 @@ LIEF::Binary* lief_binary_cache::get_or_load(const std::string& path) const {
             log_.info(
                 "loaded from dyld shared cache dump", redlog::field("library", path),
                 redlog::field("symbols", symbol_count), redlog::field("dump_path", *resolved_path)
+            );
+          }
+        }
+      }
+#endif
+
+#ifdef _WIN32
+      // try windows system library resolution
+      if (windows_resolver_ && windows_resolver_->is_available()) {
+        log_.trc("trying windows system library resolution");
+
+        if (auto resolved_path = windows_resolver_->resolve_system_library(path)) {
+          log_.trc(
+              "resolved to system library path", redlog::field("original", path), redlog::field("resolved", *resolved_path)
+          );
+
+          binary = LIEF::Parser::parse(*resolved_path);
+          if (binary) {
+            // get symbol count for logging
+            size_t symbol_count = 0;
+            if (auto pe = dynamic_cast<LIEF::PE::Binary*>(binary.get())) {
+              if (pe->has_exports()) {
+                symbol_count = pe->get_export()->entries().size();
+              }
+            }
+
+            log_.info(
+                "loaded from windows system directory", redlog::field("library", path),
+                redlog::field("symbols", symbol_count), redlog::field("system_path", *resolved_path)
             );
           }
         }
