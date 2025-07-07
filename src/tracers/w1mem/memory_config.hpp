@@ -19,7 +19,6 @@ struct memory_config {
     config.output_path = loader.get<std::string>("OUTPUT", "");
     config.max_trace_entries = loader.get<uint64_t>("MAX_TRACE", 1000000000);
     config.collect_trace = !loader.get<bool>("STATS_ONLY", false);
-    config.verbose = loader.get<bool>("VERBOSE", false);
 
     return config;
   }
