@@ -16,8 +16,8 @@ install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/ext/
     FILES_MATCHING PATTERN "*.hpp" PATTERN "*.h"
 )
 
-install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/platform_utils.hpp
-              ${CMAKE_CURRENT_SOURCE_DIR}/windows_clean.hpp
+file(GLOB COMMON_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/*.hpp)
+install(FILES ${COMMON_HEADERS}
     DESTINATION include/w1common
 )
 
