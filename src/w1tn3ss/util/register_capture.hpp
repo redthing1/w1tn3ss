@@ -9,10 +9,15 @@
 namespace w1::util {
 
 /**
- * @brief Architecture-independent register state representation
+ * @brief full register state capture for debugging and tracing
  *
- * This structure provides a unified way to capture and access register values
- * across different architectures without architecture-specific code in users.
+ * this class captures all cpu registers for debugging, tracing, and analysis.
+ * it provides a complete snapshot of the register state at a point in time.
+ * 
+ * note: this is for full state capture. for efficient access to specific
+ * architectural registers (pc, sp), use register_access.hpp instead.
+ * for abi-specific operations (arguments, return values), use the calling
+ * convention layer.
  */
 class register_state {
 public:
@@ -25,15 +30,16 @@ public:
   // generic register access by name
   bool get_register(const std::string& name, uint64_t& value) const;
 
-  // common register accessors (work across architectures)
+  // architectural register accessors for convenience
+  // note: for performance-critical code, use register_access.hpp directly
   uint64_t get_stack_pointer() const;
   uint64_t get_instruction_pointer() const;
+  
+  // returns the architectural register commonly used as frame pointer
+  // note: this is just the register value - actual frame pointer
+  // usage and semantics are abi-specific
   uint64_t get_frame_pointer() const;
-  uint64_t get_return_value() const;
-
-  // get first N argument registers (architecture-aware)
-  std::vector<uint64_t> get_argument_registers(size_t count) const;
-
+  
   // get all register names for current architecture
   std::vector<std::string> get_register_names() const;
 
@@ -47,14 +53,12 @@ private:
   architecture arch_ = architecture::UNKNOWN;
   std::unordered_map<std::string, uint64_t> registers_;
 
-  // architecture-specific mappings
-  static const std::unordered_map<std::string, std::string> common_mappings_;
 };
 
 /**
- * @brief Captures register state from QBDI GPRState
+ * @brief captures register state from qbdi gprstate
  *
- * This class provides a clean abstraction for capturing register state
+ * this class provides a clean abstraction for capturing register state
  * across different architectures, eliminating code duplication.
  */
 class register_capturer {

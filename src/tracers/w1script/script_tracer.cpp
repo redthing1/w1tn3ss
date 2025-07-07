@@ -5,6 +5,7 @@
 #include "bindings/api_analysis.hpp"
 #include <w1tn3ss/util/module_scanner.hpp>
 #include <w1tn3ss/util/module_range_index.hpp>
+#include <w1tn3ss/util/register_access.hpp>
 #include <w1tn3ss/lief/lief_symbol_resolver.hpp>
 #include <fstream>
 #include <stdexcept>
@@ -332,7 +333,7 @@ QBDI::VMAction script_tracer::dispatch_vm_event_callback(
     if (callback_name == "on_exec_transfer_call") {
       // for calls: source is where we're calling from, target is what we're calling
       ctx.call_address = state->sequenceStart;
-      ctx.target_address = gpr->pc;
+      ctx.target_address = w1::registers::get_pc(gpr);
       
       // get module and symbol names
       if (auto module_info = module_index_->find_containing(ctx.target_address)) {
@@ -354,7 +355,7 @@ QBDI::VMAction script_tracer::dispatch_vm_event_callback(
     } else {
       // for returns: source is what we're returning from, target is where we're returning to
       ctx.target_address = state->sequenceStart;
-      ctx.call_address = gpr->pc;
+      ctx.call_address = w1::registers::get_pc(gpr);
       
       // get module and symbol names
       if (auto module_info = module_index_->find_containing(ctx.target_address)) {
