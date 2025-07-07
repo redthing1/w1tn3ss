@@ -17,6 +17,7 @@ install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/ext/
 )
 
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/platform_utils.hpp
+              ${CMAKE_CURRENT_SOURCE_DIR}/windows_clean.hpp
     DESTINATION include/w1common
 )
 
