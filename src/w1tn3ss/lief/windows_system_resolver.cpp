@@ -278,7 +278,7 @@ std::optional<windows_symbol_info> windows_system_resolver::resolve_symbol_info_
   
   // thread-safe initialization using std::call_once
   std::call_once(init_flag, [this]() {
-    log_.dbg("initializing Windows symbol handler");
+    log_.dbg("initializing winapi symbol handler");
     
     DWORD options = SymGetOptions();
     options |= SYMOPT_DEFERRED_LOADS | SYMOPT_UNDNAME | SYMOPT_LOAD_LINES;
@@ -293,7 +293,7 @@ std::optional<windows_symbol_info> windows_system_resolver::resolve_symbol_info_
       return;
     }
     
-    log_.trc("Windows symbol handler initialized");
+    log_.trc("winapi symbol handler initialized");
     init_success = true;
   });
   
@@ -401,11 +401,11 @@ std::optional<std::string> windows_system_resolver::resolve_symbol_name_native(u
 std::optional<symbol_info> windows_system_resolver::resolve_symbol_native(uint64_t address) const {
   auto win_symbol = resolve_symbol_info_native(address);
   if (!win_symbol) {
-    log_.dbg("native Windows symbol resolution failed", redlog::field("address", "0x%llx", address));
+    log_.dbg("native winapi symbol resolution failed", redlog::field("address", "0x%llx", address));
     return std::nullopt;
   }
 
-  log_.dbg("resolved symbol using native Windows API", 
+  log_.dbg("resolved symbol using native winapi", 
             redlog::field("address", "0x%llx", address),
             redlog::field("symbol", win_symbol->name),
             redlog::field("demangled", win_symbol->demangled_name),
@@ -515,7 +515,7 @@ std::optional<symbol_info> windows_system_resolver::resolve_in_module(const std:
 void windows_system_resolver::clear_cache() {
   std::lock_guard<std::mutex> lock(cache_mutex_);
   path_cache_.clear();
-  log_.dbg("Windows resolver cache cleared");
+  log_.dbg("winapi resolver cache cleared");
 }
 
 } // namespace w1::lief
