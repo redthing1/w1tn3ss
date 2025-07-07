@@ -557,9 +557,14 @@ bool auto_cure_engine::apply_patch_static(
     return false;
   }
 
-  // backup original bytes for comparison
-  std::vector<uint8_t> original_bytes(
-      file_data.begin() + patch_offset, file_data.begin() + patch_offset + compiled_patch.data.size()
+  // calculate aligned boundaries for context
+  size_t patch_size = compiled_patch.data.size();
+  size_t aligned_start = patch_offset & ~0xF;
+  size_t aligned_end = std::min(file_data.size(), ((patch_offset + patch_size + 15) & ~0xF));
+  
+  // backup original context (aligned)
+  std::vector<uint8_t> original_context(
+      file_data.begin() + aligned_start, file_data.begin() + aligned_end
   );
 
   // apply patch bytes (respecting mask)
@@ -571,9 +576,9 @@ bool auto_cure_engine::apply_patch_static(
     }
   }
 
-  // get modified bytes for comparison
-  std::vector<uint8_t> patched_bytes(
-      file_data.begin() + patch_offset, file_data.begin() + patch_offset + compiled_patch.data.size()
+  // get modified context (aligned)
+  std::vector<uint8_t> patched_context(
+      file_data.begin() + aligned_start, file_data.begin() + aligned_end
   );
 
   log.trc(
@@ -583,7 +588,8 @@ bool auto_cure_engine::apply_patch_static(
 
   // show beautiful patch hexdump at debug level
   if (redlog::get_level() <= redlog::level::debug) {
-    std::string patch_hexdump = utils::format_patch_hexdump(original_bytes, patched_bytes, patch_offset);
+    // pass aligned context with the aligned start as base offset
+    std::string patch_hexdump = utils::format_patch_hexdump(original_context, patched_context, aligned_start);
     log.dbg(
         "patch hexdump", redlog::field("offset", utils::format_address(patch_offset)),
         redlog::field("size", compiled_patch.data.size())
@@ -729,7 +735,23 @@ bool auto_cure_engine::apply_single_patch_to_address(
     }
   }
 
-  // step 2: backup original bytes and apply patch
+  // calculate aligned boundaries for context reading
+  size_t patch_size = patch_bytes.size();
+  uint64_t aligned_start = patch_address & ~0xF;
+  uint64_t aligned_end = (patch_address + patch_size + 15) & ~0xF;
+  size_t context_size = aligned_end - aligned_start;
+
+  // step 2: try to backup aligned context for better hexdump display
+  auto context_result = scanner_->read_memory(aligned_start, context_size);
+  std::vector<uint8_t> original_context;
+  bool has_context = false;
+  
+  if (context_result) {
+    original_context = *context_result;
+    has_context = true;
+  }
+
+  // backup original bytes and apply patch
   auto original_data_result = scanner_->read_memory(patch_address, patch_bytes.size());
   if (!original_data_result) {
     log.err("failed to read original bytes for backup", redlog::field("address", patch_address));
@@ -753,14 +775,41 @@ bool auto_cure_engine::apply_single_patch_to_address(
       if (patch_success) {
         // show beautiful patch hexdump at debug level
         if (redlog::get_level() <= redlog::level::debug) {
-          std::string patch_hexdump = utils::format_patch_hexdump(original_bytes, written_bytes, patch_address);
-          log.dbg(
-              "dynamic patch hexdump", redlog::field("address", utils::format_address(patch_address)),
-              redlog::field("size", patch_bytes.size())
-          );
-          // output the hexdump directly to stderr to preserve formatting
-          if (!patch_hexdump.empty()) {
-            std::fprintf(stderr, "%s", patch_hexdump.c_str());
+          if (has_context) {
+            // read the modified context
+            auto modified_context_result = scanner_->read_memory(aligned_start, context_size);
+            if (modified_context_result) {
+              auto modified_context = *modified_context_result;
+              std::string patch_hexdump = utils::format_patch_hexdump(original_context, modified_context, aligned_start);
+              log.dbg(
+                  "dynamic patch hexdump", redlog::field("address", utils::format_address(patch_address)),
+                  redlog::field("size", patch_bytes.size())
+              );
+              // output the hexdump directly to stderr to preserve formatting
+              if (!patch_hexdump.empty()) {
+                std::fprintf(stderr, "%s", patch_hexdump.c_str());
+              }
+            } else {
+              // fallback to just patch bytes
+              std::string patch_hexdump = utils::format_patch_hexdump(original_bytes, written_bytes, patch_address);
+              log.dbg(
+                  "dynamic patch hexdump", redlog::field("address", utils::format_address(patch_address)),
+                  redlog::field("size", patch_bytes.size())
+              );
+              if (!patch_hexdump.empty()) {
+                std::fprintf(stderr, "%s", patch_hexdump.c_str());
+              }
+            }
+          } else {
+            // fallback to just patch bytes
+            std::string patch_hexdump = utils::format_patch_hexdump(original_bytes, written_bytes, patch_address);
+            log.dbg(
+                "dynamic patch hexdump", redlog::field("address", utils::format_address(patch_address)),
+                redlog::field("size", patch_bytes.size())
+            );
+            if (!patch_hexdump.empty()) {
+              std::fprintf(stderr, "%s", patch_hexdump.c_str());
+            }
           }
         }
       } else {
