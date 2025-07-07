@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../util/module_range_index.hpp"
+#include "symbol_info.hpp"
 #include <optional>
 #include <string>
 #include <vector>
@@ -12,9 +13,6 @@
 #endif
 
 namespace w1::lief {
-
-// Forward declaration for symbol_info (defined in lief_symbol_resolver.hpp)
-struct symbol_info;
 
 /**
  * @brief Unified symbol resolver with platform-specific backends

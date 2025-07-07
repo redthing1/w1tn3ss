@@ -1,7 +1,6 @@
 #ifdef _WIN32
 
 #include "windows_system_resolver.hpp"
-#include "lief_symbol_resolver.hpp" // For symbol_info definition
 #include <windows.h>
 #include <filesystem>
 #include <algorithm>
@@ -9,6 +8,7 @@
 #include <dbghelp.h>
 #include <psapi.h>
 #include <mutex>
+#include <cvconst.h> // for symtag constants like SymTagFunction
 
 #pragma comment(lib, "dbghelp.lib")
 #pragma comment(lib, "psapi.lib")

@@ -9,10 +9,9 @@
 #include <mutex>
 #include <redlog.hpp>
 
-namespace w1::lief {
+#include "symbol_info.hpp"
 
-// Forward declaration for cross-platform symbol_info
-struct symbol_info;
+namespace w1::lief {
 
 // Rich symbol information structure for Windows
 struct windows_symbol_info {
