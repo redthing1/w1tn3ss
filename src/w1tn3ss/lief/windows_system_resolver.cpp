@@ -8,7 +8,55 @@
 #include <dbghelp.h>
 #include <psapi.h>
 #include <mutex>
-#include <cvconst.h> // for symtag constants like SymTagFunction
+
+// define SymTag constants since cvconst.h might not be available
+#ifndef SymTagFunction
+enum SymTagEnum {
+    SymTagNull,
+    SymTagExe,
+    SymTagCompiland,
+    SymTagCompilandDetails,
+    SymTagCompilandEnv,
+    SymTagFunction,
+    SymTagBlock,
+    SymTagData,
+    SymTagAnnotation,
+    SymTagLabel,
+    SymTagPublicSymbol,
+    SymTagUDT,
+    SymTagEnum,
+    SymTagFunctionType,
+    SymTagPointerType,
+    SymTagArrayType,
+    SymTagBaseType,
+    SymTagTypedef,
+    SymTagBaseClass,
+    SymTagFriend,
+    SymTagFunctionArgType,
+    SymTagFuncDebugStart,
+    SymTagFuncDebugEnd,
+    SymTagUsingNamespace,
+    SymTagVTableShape,
+    SymTagVTable,
+    SymTagCustom,
+    SymTagThunk,
+    SymTagCustomType,
+    SymTagManagedType,
+    SymTagDimension,
+    SymTagCallSite,
+    SymTagInlineSite,
+    SymTagBaseInterface,
+    SymTagVectorType,
+    SymTagMatrixType,
+    SymTagHLSLType,
+    SymTagCaller,
+    SymTagCallee,
+    SymTagExport,
+    SymTagHeapAllocationSite,
+    SymTagCoffGroup,
+    SymTagMax
+};
+#endif
 
 #pragma comment(lib, "dbghelp.lib")
 #pragma comment(lib, "psapi.lib")
