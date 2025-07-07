@@ -33,6 +33,7 @@ add_library(w1nj3ct STATIC ${COMMON_SOURCES} ${PLATFORM_SOURCES})
 target_include_directories(w1nj3ct
     PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}> $<INSTALL_INTERFACE:include>
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/backend
+            ${CMAKE_SOURCE_DIR}/src
 )
 
 target_link_libraries(w1nj3ct PUBLIC common redlog::redlog)
