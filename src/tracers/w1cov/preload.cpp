@@ -1,7 +1,6 @@
 #include <cstdlib>
 #include <cstring>
 #include <memory>
-#include <unistd.h>
 
 #include "QBDIPreload.h"
 #include <redlog.hpp>
@@ -9,6 +8,7 @@
 #include <w1tn3ss/engine/tracer_engine.hpp>
 #include <w1tn3ss/util/env_config.hpp>
 #include <w1tn3ss/util/signal_handler.hpp>
+#include <w1tn3ss/util/stderr_write.hpp>
 #include <w1tn3ss/formats/drcov.hpp>
 
 #include "coverage_config.hpp"
@@ -37,7 +37,7 @@ void export_coverage() {
   } catch (...) {
     // signal-safe error reporting
     const char* error_msg = "w1cov: coverage export failed\n";
-    write(STDERR_FILENO, error_msg, strlen(error_msg));
+    w1::util::stderr_write(error_msg);
   }
 }
 

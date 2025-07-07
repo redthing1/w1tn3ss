@@ -1,7 +1,7 @@
 #pragma once
 
 #include <QBDI.h>
-#include <QBDI/Memory.h>
+#include <QBDI/Memory.hpp>
 #include "interval_tree.hpp"
 #include <chrono>
 #include <mutex>
@@ -15,7 +15,7 @@ namespace w1::util {
 struct memory_region {
   QBDI::rword start;
   QBDI::rword end;
-  uint32_t permissions; // QBDI_PF_READ, QBDI_PF_WRITE, QBDI_PF_EXEC
+  uint32_t permissions; // QBDI::PF_READ, QBDI::PF_WRITE, QBDI::PF_EXEC
   std::string name;     // Module name if applicable
 };
 
@@ -24,7 +24,7 @@ class memory_range_index {
 public:
   using memory_interval = interval_tree::interval<QBDI::rword, memory_region>;
 
-  enum access_type { READ = QBDI::QBDI_PF_READ, WRITE = QBDI::QBDI_PF_WRITE, EXEC = QBDI::QBDI_PF_EXEC };
+  enum access_type { READ = QBDI::PF_READ, WRITE = QBDI::PF_WRITE, EXEC = QBDI::PF_EXEC };
 
   memory_range_index() : log_("w1.memory_range_index") {}
 

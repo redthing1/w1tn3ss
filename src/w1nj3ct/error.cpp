@@ -1,7 +1,7 @@
 #include "error.hpp"
 
 #ifdef _WIN32
-#include <windows.h>
+#include "../common/windows_clean.hpp"
 #elif defined(__APPLE__)
 #include <errno.h>
 #include <mach/mach.h>

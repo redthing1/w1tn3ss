@@ -30,8 +30,8 @@ if(WITNESS_SCRIPT)
         p1ll.cpp
     )
     
-    # create shared library for injection
-    add_library(p1ll SHARED ${P1LL_SOURCES})
+    # create static library
+    add_library(p1ll STATIC ${P1LL_SOURCES})
     
     # configure lua integration
     configure_target_with_lua(p1ll)
@@ -45,11 +45,9 @@ if(WITNESS_SCRIPT)
         PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..
     )
     
-    # set output name without lib prefix on macos for injection and output to lib directory
+    # set output directory for static library
     set_target_properties(p1ll PROPERTIES 
-        PREFIX ""
-        LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
-        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
+        ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
     )
     
     message(STATUS "p1ll library configured with lua scripting support")

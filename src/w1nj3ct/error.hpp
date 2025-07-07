@@ -4,7 +4,7 @@
 #include <string>
 
 #ifdef _WIN32
-#include <windows.h>
+#include "../common/windows_clean.hpp"
 #endif
 
 namespace w1::inject {

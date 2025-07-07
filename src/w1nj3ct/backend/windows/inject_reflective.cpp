@@ -1,10 +1,19 @@
-#include "inject.hpp"
-#include "util.hpp"
-
 #include <fstream>
 #include <iostream>
 #include <string>
 #include <vector>
+
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+
+#include <windows.h>
+#include "winapis.h"
+#include "inject.hpp"
+#include "util.hpp"
 
 /**
  * reflective loader implementation:
@@ -33,7 +42,8 @@ BOOL ManualMap(HANDLE hProc, const char* szDllFile);
 // performs relocations and loading of dll into process from within the process itself.
 void __stdcall LoaderStub(BYTE* imageBase);
 
-BOOL inject_dll_reflective_loader(HANDLE h_process, const std::wstring& dll_path) {
+// internal windows implementation
+static BOOL inject_dll_reflective_loader_impl(HANDLE h_process, const std::wstring& dll_path) {
   // call manual map injection
   // (we need to convert the dll path to a narrow string)
   std::string narrow_dll_path(dll_path.begin(), dll_path.end());
@@ -215,6 +225,13 @@ BOOL ManualMap(HANDLE hProc, const char* szDllFile) {
   CloseHandle(hThread);
 
   return true;
+}
+
+// clean wrapper for the public api
+bool w1::inject::windows::inject_dll_reflective_loader(process_handle h_process, const std::wstring& dll_path) {
+  HANDLE win_handle = static_cast<HANDLE>(h_process);
+  BOOL result = inject_dll_reflective_loader_impl(win_handle, dll_path);
+  return result != FALSE;
 }
 
 #define RELOC_FLAG32(relInfo) ((relInfo >> 0xC) == IMAGE_REL_BASED_HIGHLOW)

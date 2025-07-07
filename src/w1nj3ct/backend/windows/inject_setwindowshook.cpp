@@ -1,5 +1,15 @@
-#include "inject.hpp"
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+
+#include <windows.h>
+#include <tlhelp32.h>
+#include <sstream>
 #include "util.hpp"
+#include "inject.hpp"
 
 // hook procedure that will be called by the windows hook
 LRESULT CALLBACK hook_proc(int n_code, WPARAM w_param, LPARAM l_param) {
@@ -7,7 +17,8 @@ LRESULT CALLBACK hook_proc(int n_code, WPARAM w_param, LPARAM l_param) {
   return CallNextHookEx(NULL, n_code, w_param, l_param);
 }
 
-BOOL inject_dll_set_windows_hook_ex(HANDLE h_process, DWORD process_id, const std::wstring& dll_path) {
+// internal windows implementation
+static BOOL inject_dll_set_windows_hook_ex_impl(HANDLE h_process, DWORD process_id, const std::wstring& dll_path) {
   // this function injects a dll into a target process using the setwindowshookex method
   log_msg("starting setwindowshookex injection method");
 
@@ -97,4 +108,12 @@ BOOL inject_dll_set_windows_hook_ex(HANDLE h_process, DWORD process_id, const st
 
   log_msg("setwindowshookex injection completed successfully");
   return TRUE;
+}
+
+// clean wrapper for the public api
+bool w1::inject::windows::inject_dll_set_windows_hook_ex(process_handle h_process, process_id pid, const std::wstring& dll_path) {
+  HANDLE win_handle = static_cast<HANDLE>(h_process);
+  DWORD win_pid = static_cast<DWORD>(pid);
+  BOOL result = inject_dll_set_windows_hook_ex_impl(win_handle, win_pid, dll_path);
+  return result != FALSE;
 }

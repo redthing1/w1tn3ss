@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../../api_knowledge_db.hpp"
-#include <array>
+#include <vector>
 
 namespace w1::abi::apis::windows {
 
@@ -18,20 +18,20 @@ namespace w1::abi::apis::windows {
  *       the calling convention detector will handle this automatically
  */
 
-constexpr std::array windows_kernel32_apis = {
+static const std::vector<api_info> windows_kernel32_apis = {
     // process management
     api_info{
         .name = "CreateProcessW",
         .module = "kernel32.dll",
-        .api_category = api_info::category::PROCESS_MANAGEMENT,
-        .flags = static_cast<uint32_t>(api_info::behavior_flags::CREATES_PROCESS),
+        .api_category = api_info::category::PROCESS_CONTROL,
+        .flags = static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
         .parameters =
             {{.name = "lpApplicationName",
               .param_type = param_info::type::STRING,
               .param_direction = param_info::direction::IN},
              {.name = "lpCommandLine",
               .param_type = param_info::type::STRING,
-              .param_direction = param_info::direction::INOUT},
+              .param_direction = param_info::direction::IN_OUT},
              {.name = "lpProcessAttributes",
               .param_type = param_info::type::POINTER,
               .param_direction = param_info::direction::IN},
@@ -106,7 +106,7 @@ constexpr std::array windows_kernel32_apis = {
         .name = "CreateFileW",
         .module = "kernel32.dll",
         .api_category = api_info::category::FILE_IO,
-        .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_RESOURCE),
+        .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE),
         .parameters =
             {{.name = "lpFileName",
               .param_type = param_info::type::STRING,
@@ -139,7 +139,7 @@ constexpr std::array windows_kernel32_apis = {
         .name = "ReadFile",
         .module = "kernel32.dll",
         .api_category = api_info::category::FILE_IO,
-        .flags = static_cast<uint32_t>(api_info::behavior_flags::READS_DATA),
+        .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO),
         .parameters =
             {{.name = "hFile", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
              {.name = "lpBuffer",
@@ -153,7 +153,7 @@ constexpr std::array windows_kernel32_apis = {
               .param_direction = param_info::direction::OUT},
              {.name = "lpOverlapped",
               .param_type = param_info::type::POINTER,
-              .param_direction = param_info::direction::INOUT}},
+              .param_direction = param_info::direction::IN_OUT}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "read from file",
         .headers = {"windows.h", "fileapi.h"}
@@ -163,7 +163,7 @@ constexpr std::array windows_kernel32_apis = {
         .name = "WriteFile",
         .module = "kernel32.dll",
         .api_category = api_info::category::FILE_IO,
-        .flags = static_cast<uint32_t>(api_info::behavior_flags::WRITES_DATA),
+        .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO),
         .parameters =
             {{.name = "hFile", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
              {.name = "lpBuffer", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::IN},
@@ -175,7 +175,7 @@ constexpr std::array windows_kernel32_apis = {
               .param_direction = param_info::direction::OUT},
              {.name = "lpOverlapped",
               .param_type = param_info::type::POINTER,
-              .param_direction = param_info::direction::INOUT}},
+              .param_direction = param_info::direction::IN_OUT}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "write to file",
         .headers = {"windows.h", "fileapi.h"}
@@ -185,8 +185,8 @@ constexpr std::array windows_kernel32_apis = {
     api_info{
         .name = "CreateThread",
         .module = "kernel32.dll",
-        .api_category = api_info::category::THREAD_MANAGEMENT,
-        .flags = static_cast<uint32_t>(api_info::behavior_flags::CREATES_THREAD),
+        .api_category = api_info::category::THREAD_CONTROL,
+        .flags = static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
         .parameters =
             {{.name = "lpThreadAttributes",
               .param_type = param_info::type::POINTER,
@@ -217,7 +217,7 @@ constexpr std::array windows_kernel32_apis = {
         .name = "WaitForSingleObject",
         .module = "kernel32.dll",
         .api_category = api_info::category::SYNCHRONIZATION,
-        .flags = static_cast<uint32_t>(api_info::behavior_flags::BLOCKS_EXECUTION),
+        .flags = static_cast<uint32_t>(api_info::behavior_flags::BLOCKING),
         .parameters =
             {{.name = "hHandle", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
              {.name = "dwMilliseconds",
@@ -232,7 +232,7 @@ constexpr std::array windows_kernel32_apis = {
         .name = "CreateMutexW",
         .module = "kernel32.dll",
         .api_category = api_info::category::SYNCHRONIZATION,
-        .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_RESOURCE),
+        .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE),
         .parameters =
             {{.name = "lpMutexAttributes",
               .param_type = param_info::type::POINTER,
@@ -252,7 +252,7 @@ constexpr std::array windows_kernel32_apis = {
         .name = "LoadLibraryW",
         .module = "kernel32.dll",
         .api_category = api_info::category::LIBRARY_LOADING,
-        .flags = static_cast<uint32_t>(api_info::behavior_flags::LOADS_CODE),
+        .flags = static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
         .parameters =
             {{.name = "lpLibFileName",
               .param_type = param_info::type::STRING,
@@ -279,13 +279,13 @@ constexpr std::array windows_kernel32_apis = {
     }
 };
 
-constexpr std::array windows_ntdll_apis = {
+static const std::vector<api_info> windows_ntdll_apis = {
     // native nt apis
     api_info{
         .name = "NtCreateFile",
         .module = "ntdll.dll",
         .api_category = api_info::category::FILE_IO,
-        .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_RESOURCE),
+        .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE),
         .parameters =
             {{.name = "FileHandle",
               .param_type = param_info::type::POINTER,
@@ -334,13 +334,13 @@ constexpr std::array windows_ntdll_apis = {
               .param_direction = param_info::direction::IN},
              {.name = "BaseAddress",
               .param_type = param_info::type::POINTER,
-              .param_direction = param_info::direction::INOUT},
+              .param_direction = param_info::direction::IN_OUT},
              {.name = "ZeroBits",
               .param_type = param_info::type::INTEGER,
               .param_direction = param_info::direction::IN},
              {.name = "RegionSize",
               .param_type = param_info::type::POINTER,
-              .param_direction = param_info::direction::INOUT},
+              .param_direction = param_info::direction::IN_OUT},
              {.name = "AllocationType",
               .param_type = param_info::type::FLAGS,
               .param_direction = param_info::direction::IN},
@@ -352,13 +352,13 @@ constexpr std::array windows_ntdll_apis = {
     }
 };
 
-constexpr std::array windows_user32_apis = {
+static const std::vector<api_info> windows_user32_apis = {
     // window management
     api_info{
         .name = "CreateWindowExW",
         .module = "user32.dll",
         .api_category = api_info::category::UI,
-        .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_RESOURCE),
+        .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE),
         .parameters =
             {{.name = "dwExStyle", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
              {.name = "lpClassName",
@@ -392,7 +392,7 @@ constexpr std::array windows_user32_apis = {
         .name = "MessageBoxW",
         .module = "user32.dll",
         .api_category = api_info::category::UI,
-        .flags = static_cast<uint32_t>(api_info::behavior_flags::BLOCKS_EXECUTION),
+        .flags = static_cast<uint32_t>(api_info::behavior_flags::BLOCKING),
         .parameters =
             {{.name = "hWnd", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
              {.name = "lpText", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},

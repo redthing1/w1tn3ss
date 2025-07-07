@@ -16,6 +16,7 @@ include(${CMAKE_SOURCE_DIR}/cmake/CommonConfig.cmake)
 include(${CMAKE_SOURCE_DIR}/cmake/PlatformConfig.cmake)
 include(${CMAKE_SOURCE_DIR}/cmake/LuaConfig.cmake)
 include(${CMAKE_SOURCE_DIR}/cmake/LIEFConfig.cmake)
+include(${CMAKE_SOURCE_DIR}/cmake/WindowsSymbolConfig.cmake)
 
 # configure platform and architecture
 detect_qbdi_platform()
@@ -67,6 +68,11 @@ add_subdirectory(src/p01s0n)
 option(BUILD_TESTS "Build test programs and libraries" ON)
 if(BUILD_TESTS)
     add_subdirectory(tests)
+endif()
+
+# apply windows-specific symbol resolution for duplicate symbol conflicts
+if(WIN32 AND MSVC)
+    apply_windows_symbol_resolution_to_all()
 endif()
 
 # code formatting with clang-format

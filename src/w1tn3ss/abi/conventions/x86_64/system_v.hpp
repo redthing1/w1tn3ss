@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../../calling_convention_base.hpp"
+#include "../../fpr_utils.hpp"
 #include <array>
 
 namespace w1::abi::conventions {
@@ -47,7 +48,7 @@ public:
 
   double get_float_return(const QBDI::FPRState* fpr) const override {
     // return value in xmm0
-    return fpr->xmm[0].reg64[0];
+    return get_xmm_double(fpr, 0);
   }
 
   typed_arg get_typed_return(const QBDI::GPRState* gpr, const QBDI::FPRState* fpr, arg_type type) const override;

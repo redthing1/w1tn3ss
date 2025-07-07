@@ -1,5 +1,15 @@
 #pragma once
 
+// This file needs raw Windows headers for API definitions
+// It should only be included by inject.hpp which isolates the pollution
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+
 #include <windows.h>
 
 // define NTSTATUS if not already defined
@@ -30,7 +40,7 @@ typedef NTSTATUS (WINAPI* LPFUN_NtCreateThreadEx)(
 );
 // function Pointer Typedef for RtlCreateUserThread
 typedef DWORD (WINAPI* pRtlCreateUserThread)(
-    IN HANDLE ProcessHandle, IN PSECURITY_DESCRIPTOR SecurityDescriptor, IN BOOL CreateSuspended,
-    IN ULONG StackZeroBits, IN OUT PULONG StackReserved, IN OUT PULONG StackCommit, IN LPVOID StartAddress,
-    IN LPVOID StartParameter, OUT HANDLE ThreadHandle, OUT LPVOID ClientID
+    HANDLE ProcessHandle, PSECURITY_DESCRIPTOR SecurityDescriptor, BOOL CreateSuspended,
+    ULONG StackZeroBits, PULONG StackReserved, PULONG StackCommit, LPVOID StartAddress,
+    LPVOID StartParameter, HANDLE ThreadHandle, LPVOID ClientID
 );

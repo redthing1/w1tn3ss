@@ -1,4 +1,5 @@
 #include "signal_handler.hpp"
+#include "stderr_write.hpp"
 
 #include <algorithm>
 #include <atomic>
@@ -8,7 +9,7 @@
 #include <vector>
 
 #ifdef _WIN32
-#include <windows.h>
+#include "../../common/windows_clean.hpp"
 #else
 #include <errno.h>
 #include <sys/wait.h>
@@ -71,7 +72,7 @@ BOOL WINAPI console_handler(DWORD ctrl_type) {
 
   if (g_config.log_signals) {
     const char* msg = "received ctrl+c signal\n";
-    write(STDERR_FILENO, msg, strlen(msg));
+    w1::util::stderr_write(msg);
   }
 
   // forward to child processes
@@ -117,7 +118,7 @@ void unix_handler(int signum, siginfo_t* info, void* context) {
 
   if (g_config.log_signals) {
     const char* msg = "received sigint signal\n";
-    write(STDERR_FILENO, msg, strlen(msg));
+    w1::util::stderr_write(msg);
   }
 
   // forward to child processes

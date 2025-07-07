@@ -1,11 +1,11 @@
 #include <cstring>
 #include <memory>
-#include <unistd.h>
 
 #include "QBDIPreload.h"
 #include <redlog.hpp>
 #include <w1tn3ss/engine/tracer_engine.hpp>
 #include <w1tn3ss/util/signal_handler.hpp>
+#include <w1tn3ss/util/stderr_write.hpp>
 
 #include "transfer_config.hpp"
 #include "transfer_tracer.hpp"
@@ -28,7 +28,7 @@ void shutdown_tracer() {
     g_tracer->shutdown();
   } catch (...) {
     const char* error_msg = "w1xfer: tracer shutdown failed\n";
-    write(STDERR_FILENO, error_msg, strlen(error_msg));
+    w1::util::stderr_write(error_msg);
   }
 }
 
