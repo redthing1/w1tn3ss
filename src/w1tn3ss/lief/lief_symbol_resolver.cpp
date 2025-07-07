@@ -351,6 +351,25 @@ std::optional<symbol_info> lief_symbol_resolver::resolve_elf_symbol(LIEF::ELF::B
 std::optional<symbol_info> lief_symbol_resolver::resolve_pe_symbol(LIEF::PE::Binary* pe, uint64_t offset) const {
   log_.ped("entering PE symbol resolution", redlog::field("offset", "0x%llx", offset));
 
+  // Get PE image base for comprehensive diagnostics
+  uint64_t image_base = pe->optional_header().imagebase();
+  log_.ped("PE image base", redlog::field("image_base", "0x%llx", image_base));
+
+  // Log section information to understand where our offset falls
+  log_.ped("PE sections analysis", redlog::field("target_offset", "0x%llx", offset));
+  for (const auto& section : pe->sections()) {
+    uint64_t section_rva = section.virtual_address();
+    uint64_t section_size = section.virtual_size();
+    log_.ped(
+        "PE section", redlog::field("name", section.name()), redlog::field("rva", "0x%llx", section_rva),
+        redlog::field("size", "0x%llx", section_size), redlog::field("end_rva", "0x%llx", section_rva + section_size)
+    );
+    
+    if (offset >= section_rva && offset < section_rva + section_size) {
+      log_.ped("target offset falls in section", redlog::field("section", section.name()), redlog::field("offset_in_section", "0x%llx", offset - section_rva));
+    }
+  }
+
   // Check exports for EXACT matches only
   if (pe->has_exports()) {
     log_.ped(
@@ -364,7 +383,9 @@ std::optional<symbol_info> lief_symbol_resolver::resolve_pe_symbol(LIEF::PE::Bin
           redlog::field("target_offset", "0x%llx", offset)
       );
 
-      // EXACT RVA match - exp.address() should be module-relative RVA
+      // EXACT RVA match - exp.address() is relative to image base
+      // The offset we receive is relative to the actual load address
+      // So we compare RVA directly with our offset
       if (exp.address() == offset) {
         log_.ped(
             "found exact PE export match", redlog::field("name", exp.name()),
@@ -379,7 +400,42 @@ std::optional<symbol_info> lief_symbol_resolver::resolve_pe_symbol(LIEF::PE::Bin
     log_.ped("PE has no exports");
   }
 
-  log_.ped("PE symbol resolution failed", redlog::field("offset", "0x%llx", offset));
+  // Check imports to see if we're hitting an import thunk
+  if (pe->has_imports()) {
+    log_.ped("PE has imports, checking import thunks", redlog::field("import_count", pe->imports().size()));
+    
+    for (const auto& import : pe->imports()) {
+      log_.ped("checking import library", redlog::field("library", import.name()));
+      
+      for (const auto& entry : import.entries()) {
+        if (entry.iat_address() == offset) {
+          log_.ped(
+              "found exact import thunk match", redlog::field("library", import.name()),
+              redlog::field("function", entry.name()), redlog::field("iat_address", "0x%llx", entry.iat_address())
+          );
+          
+          // Create symbol info for import
+          symbol_info info;
+          info.name = entry.name();
+          info.demangled_name = entry.name();
+          info.offset = entry.iat_address();
+          info.size = 0;
+          info.symbol_type = symbol_info::FUNCTION;
+          info.symbol_binding = symbol_info::GLOBAL;
+          info.is_exported = false;
+          info.is_imported = true;
+          
+          return info;
+        }
+      }
+    }
+    
+    log_.ped("no exact import thunk match found", redlog::field("offset", "0x%llx", offset));
+  } else {
+    log_.ped("PE has no imports");
+  }
+
+  log_.ped("PE symbol resolution failed completely", redlog::field("offset", "0x%llx", offset));
   return std::nullopt;
 }
 
