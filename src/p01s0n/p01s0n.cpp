@@ -1,4 +1,5 @@
 #include "p01s0n.hpp"
+#include "p01s0n_config.hpp"
 
 #include <cstdlib>
 #include <iostream>
@@ -13,19 +14,20 @@
 namespace p01s0n {
 
 int p01s0n_run() {
-  // check for verbosity setting first
-  const char* verbose_env = std::getenv("POISON_VERBOSE");
-  if (verbose_env && strlen(verbose_env) > 0) {
-    int verbose_level = std::atoi(verbose_env);
-    if (verbose_level >= 1) {
-      redlog::set_level(redlog::level::trace);
-    }
-    if (verbose_level >= 2) {
-      redlog::set_level(redlog::level::debug);
-    }
-    if (verbose_level >= 3) {
-      redlog::set_level(redlog::level::pedantic);
-    }
+  // get config from environment
+  p01s0n_config config = p01s0n_config::from_environment();
+  
+  // set log level based on verbose setting
+  if (config.verbose >= 4) {
+    redlog::set_level(redlog::level::pedantic);
+  } else if (config.verbose >= 3) {
+    redlog::set_level(redlog::level::debug);
+  } else if (config.verbose >= 2) {
+    redlog::set_level(redlog::level::trace);
+  } else if (config.verbose >= 1) {
+    redlog::set_level(redlog::level::verbose);
+  } else {
+    redlog::set_level(redlog::level::info);
   }
 
   auto log = redlog::get_logger("p01s0n");
