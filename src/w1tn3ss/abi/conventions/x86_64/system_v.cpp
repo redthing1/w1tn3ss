@@ -8,20 +8,27 @@ std::vector<uint64_t> x86_64_system_v::extract_integer_args(const extraction_con
   std::vector<uint64_t> args;
   args.reserve(count);
 
-  // extract register arguments
-  size_t reg_args = std::min(count, int_arg_regs.size());
+  // extract register arguments (rdi, rsi, rdx, rcx, r8, r9)
+  size_t reg_args = std::min(count, size_t(6));
   for (size_t i = 0; i < reg_args; i++) {
-    args.push_back(reinterpret_cast<const QBDI::rword*>(ctx.gpr)[int_arg_regs[i]]);
+    switch (i) {
+    case 0: args.push_back(ctx.gpr->rdi); break;
+    case 1: args.push_back(ctx.gpr->rsi); break;
+    case 2: args.push_back(ctx.gpr->rdx); break;
+    case 3: args.push_back(ctx.gpr->rcx); break;
+    case 4: args.push_back(ctx.gpr->r8); break;
+    case 5: args.push_back(ctx.gpr->r9); break;
+    }
   }
 
   // extract stack arguments if needed
-  if (count > int_arg_regs.size()) {
+  if (count > 6) {
     // stack arguments start after return address
     // each argument takes 8 bytes on stack
     const uint64_t stack_base = ctx.gpr->rsp + 8; // skip return address
 
-    for (size_t i = int_arg_regs.size(); i < count; i++) {
-      uint64_t stack_offset = (i - int_arg_regs.size()) * 8;
+    for (size_t i = 6; i < count; i++) {
+      uint64_t stack_offset = (i - 6) * 8;
       args.push_back(ctx.read_stack(stack_base + stack_offset));
     }
   }
@@ -47,9 +54,16 @@ std::vector<x86_64_system_v::typed_arg> x86_64_system_v::extract_typed_args(
     switch (types[i]) {
     case arg_type::INTEGER:
     case arg_type::POINTER:
-      if (int_reg_idx < int_arg_regs.size()) {
+      if (int_reg_idx < 6) {
         // from register
-        arg.value.integer = reinterpret_cast<const QBDI::rword*>(ctx.gpr)[int_arg_regs[int_reg_idx]];
+        switch (int_reg_idx) {
+        case 0: arg.value.integer = ctx.gpr->rdi; break;
+        case 1: arg.value.integer = ctx.gpr->rsi; break;
+        case 2: arg.value.integer = ctx.gpr->rdx; break;
+        case 3: arg.value.integer = ctx.gpr->rcx; break;
+        case 4: arg.value.integer = ctx.gpr->r8; break;
+        case 5: arg.value.integer = ctx.gpr->r9; break;
+        }
         arg.from_stack = false;
         int_reg_idx++;
       } else {
@@ -123,8 +137,15 @@ std::vector<x86_64_system_v::typed_arg> x86_64_system_v::extract_typed_args(
 
     case arg_type::STRUCT_BY_REF:
       // passed as pointer
-      if (int_reg_idx < int_arg_regs.size()) {
-        arg.value.integer = reinterpret_cast<const QBDI::rword*>(ctx.gpr)[int_arg_regs[int_reg_idx]];
+      if (int_reg_idx < 6) {
+        switch (int_reg_idx) {
+        case 0: arg.value.integer = ctx.gpr->rdi; break;
+        case 1: arg.value.integer = ctx.gpr->rsi; break;
+        case 2: arg.value.integer = ctx.gpr->rdx; break;
+        case 3: arg.value.integer = ctx.gpr->rcx; break;
+        case 4: arg.value.integer = ctx.gpr->r8; break;
+        case 5: arg.value.integer = ctx.gpr->r9; break;
+        }
         arg.from_stack = false;
         int_reg_idx++;
       } else {

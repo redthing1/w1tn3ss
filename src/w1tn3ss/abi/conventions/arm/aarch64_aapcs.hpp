@@ -102,14 +102,9 @@ public:
   std::vector<double> extract_float_args(const extraction_context& ctx, size_t count) const override;
 
 private:
-  // integer argument registers: x0-x7
-  static constexpr std::array<size_t, 8> int_arg_regs = {
-      offsetof(QBDI::GPRState, x0) / sizeof(QBDI::rword), offsetof(QBDI::GPRState, x1) / sizeof(QBDI::rword),
-      offsetof(QBDI::GPRState, x2) / sizeof(QBDI::rword), offsetof(QBDI::GPRState, x3) / sizeof(QBDI::rword),
-      offsetof(QBDI::GPRState, x4) / sizeof(QBDI::rword), offsetof(QBDI::GPRState, x5) / sizeof(QBDI::rword),
-      offsetof(QBDI::GPRState, x6) / sizeof(QBDI::rword), offsetof(QBDI::GPRState, x7) / sizeof(QBDI::rword)
-  };
-
+  // integer argument registers: x0-x7 (accessed directly)
+  static constexpr size_t max_int_reg_args = 8;
+  
   // floating point argument registers: v0-v7
   static constexpr size_t max_float_reg_args = 8;
 };
