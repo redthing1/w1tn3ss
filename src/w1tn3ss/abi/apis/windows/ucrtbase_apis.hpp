@@ -29,8 +29,8 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         },
         .return_value = {.name = "duplicate", .param_type = param_info::type::STRING},
         .description = "duplicate string by allocating memory copy",
-        .cleanup_api = "free",
         .security_notes = {"allocates memory that must be freed", "returns null on allocation failure"},
+        .cleanup_api = "free",
         .headers = {"string.h"}
     },
 
@@ -44,8 +44,8 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         },
         .return_value = {.name = "duplicate", .param_type = param_info::type::STRING},
         .description = "microsoft-specific duplicate string function",
-        .cleanup_api = "free",
         .related_apis = {"strdup"},
+        .cleanup_api = "free",
         .headers = {"string.h"}
     },
 
@@ -103,8 +103,8 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         },
         .return_value = {.name = "pointer", .param_type = param_info::type::POINTER},
         .description = "allocate memory block on heap",
-        .cleanup_api = "free",
         .related_apis = {"calloc", "realloc", "free"},
+        .cleanup_api = "free",
         .headers = {"stdlib.h"}
     },
 
@@ -134,8 +134,8 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         },
         .return_value = {.name = "pointer", .param_type = param_info::type::POINTER},
         .description = "allocate and zero-initialize array of elements",
-        .cleanup_api = "free",
         .related_apis = {"malloc", "realloc", "free"},
+        .cleanup_api = "free",
         .headers = {"stdlib.h"}
     },
 
