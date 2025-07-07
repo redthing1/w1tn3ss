@@ -60,6 +60,13 @@ if(WITNESS_LIEF)
             lief/macos_dyld_resolver.cpp
         )
     endif()
+    
+    # Add Windows-specific system resolver
+    if(WIN32)
+        target_sources(w1tn3ss PRIVATE
+            lief/windows_system_resolver.cpp
+        )
+    endif()
 endif()
 
 target_include_directories(w1tn3ss PUBLIC 
