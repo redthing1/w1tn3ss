@@ -6,7 +6,7 @@
 #include <w1tn3ss/util/module_scanner.hpp>
 #include <w1tn3ss/util/module_range_index.hpp>
 #include <w1tn3ss/util/register_access.hpp>
-#include <w1tn3ss/lief/lief_symbol_resolver.hpp>
+#include <w1tn3ss/lief/symbol_resolver.hpp>
 #include <fstream>
 #include <stdexcept>
 #include <chrono>
@@ -62,7 +62,7 @@ bool script_tracer::initialize(w1::tracer_engine<script_tracer>& engine) {
 
   // create symbol resolver if lief is enabled
 #ifdef WITNESS_LIEF_ENABLED
-  symbol_resolver_ = std::make_unique<w1::lief::lief_symbol_resolver>();
+  symbol_resolver_ = std::make_unique<w1::lief::symbol_resolver>();
   logger_.inf("symbol resolver created");
 #endif
 

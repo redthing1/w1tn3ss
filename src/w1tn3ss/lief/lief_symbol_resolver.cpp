@@ -3,9 +3,7 @@
 #include <sstream>
 #include <iomanip>
 
-#ifdef _WIN32
-#include "windows_system_resolver.hpp"
-#endif
+// windows system resolver moved to unified symbol_resolver
 
 namespace w1::lief {
 
@@ -16,9 +14,6 @@ lief_binary_cache::lief_binary_cache(size_t max_size)
     : max_size_(max_size), hits_(0), misses_(0), negative_hits_(0), log_("w1.lief_binary_cache") {
 #ifdef __APPLE__
   dyld_resolver_ = std::make_shared<macos_dyld_resolver>();
-#endif
-#ifdef _WIN32
-  windows_resolver_ = std::make_shared<windows_system_resolver>();
 #endif
 }
 
@@ -112,45 +107,7 @@ LIEF::Binary* lief_binary_cache::get_or_load(const std::string& path) const {
       }
 #endif
 
-#ifdef _WIN32
-      // try windows system library resolution
-      if (windows_resolver_ && windows_resolver_->is_available()) {
-        log_.trc("trying windows system library resolution");
-
-        if (auto resolved_path = windows_resolver_->resolve_system_library(path)) {
-          log_.trc(
-              "resolved to system library path", redlog::field("original", path),
-              redlog::field("resolved", *resolved_path)
-          );
-
-          log_.ped(
-              "calling LIEF::Parser::parse on windows resolved path", redlog::field("resolved_path", *resolved_path)
-          );
-          binary = LIEF::Parser::parse(*resolved_path);
-          if (binary) {
-            log_.ped(
-                "LIEF::Parser::parse succeeded on windows resolved path", redlog::field("resolved_path", *resolved_path)
-            );
-            // get symbol count for logging
-            size_t symbol_count = 0;
-            if (auto pe = dynamic_cast<LIEF::PE::Binary*>(binary.get())) {
-              log_.ped("detected PE binary", redlog::field("path", *resolved_path));
-              if (pe->has_exports()) {
-                symbol_count = pe->get_export()->entries().size();
-                log_.ped("PE exports found", redlog::field("count", symbol_count));
-              } else {
-                log_.ped("PE has no exports", redlog::field("path", *resolved_path));
-              }
-            }
-
-            log_.info(
-                "loaded from windows system directory", redlog::field("library", path),
-                redlog::field("symbols", symbol_count), redlog::field("system_path", *resolved_path)
-            );
-          }
-        }
-      }
-#endif
+      // windows system library resolution removed - now handled by unified symbol_resolver
 
       if (!binary) {
         log_.trc("binary load failed completely", redlog::field("path", path));
@@ -216,30 +173,8 @@ std::optional<symbol_info> lief_symbol_resolver::resolve(
     uint64_t address, const util::module_range_index& module_index
 ) const {
 
-#ifdef _WIN32
-  // On Windows, use native symbol resolution with SymFromAddr
-  // This is the correct approach as recommended by QBDI docs
-  // It works directly with absolute addresses and handles imports/exports correctly
-  auto symbol = resolve_windows_native(address);
-  if (!symbol) {
-    log_.dbg("native Windows resolution failed", redlog::field("address", "0x%llx", address));
-  }
-  return symbol;
-  
-  // LIEF fallback disabled - SymFromAddr is the correct Windows approach
-  // Keeping LIEF code below for reference but not using it
-  /*
-  if (!symbol) {
-    log_.dbg("native Windows resolution failed, falling back to LIEF", redlog::field("address", "0x%llx", address));
-    // Fall through to LIEF resolution...
-  } else {
-    return symbol;
-  }
-  */
-#endif
-
-  // Cross-platform LIEF-based resolution (non-Windows platforms)
-  // Find which module contains this address
+  // lief-based resolution for all platforms
+  // find which module contains this address
   auto module = module_index.find_containing(address);
   if (!module) {
     return std::nullopt;
@@ -493,55 +428,6 @@ std::optional<symbol_info> lief_symbol_resolver::resolve_pe_symbol(LIEF::PE::Bin
   log_.ped("PE symbol resolution failed completely", redlog::field("offset", "0x%llx", offset));
   return std::nullopt;
 }
-
-#ifdef _WIN32
-std::optional<symbol_info> lief_symbol_resolver::resolve_windows_native(uint64_t address) const {
-  log_.ped("attempting native Windows symbol resolution", redlog::field("address", "0x%llx", address));
-  
-  if (binary_cache_ && binary_cache_->windows_resolver_) {
-    if (auto win_symbol = binary_cache_->windows_resolver_->resolve_symbol_info_native(address)) {
-      log_.info("resolved symbol using native Windows API", 
-                redlog::field("address", "0x%llx", address),
-                redlog::field("symbol", win_symbol->name),
-                redlog::field("demangled", win_symbol->demangled_name),
-                redlog::field("module", win_symbol->module_name),
-                redlog::field("size", win_symbol->size),
-                redlog::field("displacement", win_symbol->displacement));
-      
-      // Convert Windows symbol info to cross-platform symbol_info
-      symbol_info info;
-      info.name = win_symbol->name;
-      info.demangled_name = win_symbol->demangled_name;
-      
-      // Calculate module-relative offset for consistency with other platforms
-      // Note: This is for compatibility - Windows SymFromAddr gives us absolute addresses
-      info.offset = win_symbol->displacement; // Use displacement as offset within function
-      
-      info.size = win_symbol->size;
-      
-      // Map Windows symbol types to cross-platform types
-      info.symbol_type = win_symbol->is_function ? symbol_info::FUNCTION : symbol_info::OBJECT;
-      info.symbol_binding = symbol_info::GLOBAL; // Windows symbols are typically global if resolved
-      
-      info.is_exported = win_symbol->is_exported;
-      info.is_imported = false; // SymFromAddr resolves to actual symbols, not imports
-      
-      // Add Windows-specific information to name if displacement exists
-      if (win_symbol->displacement > 0) {
-        info.name += "+" + std::to_string(win_symbol->displacement);
-      }
-      
-      // Add module name as section for debugging
-      info.section = win_symbol->module_name;
-      
-      return info;
-    }
-  }
-  
-  log_.dbg("native Windows symbol resolution failed", redlog::field("address", "0x%llx", address));
-  return std::nullopt;
-}
-#endif
 
 std::optional<symbol_info> lief_symbol_resolver::resolve_macho_symbol(
     LIEF::MachO::Binary* macho, uint64_t offset

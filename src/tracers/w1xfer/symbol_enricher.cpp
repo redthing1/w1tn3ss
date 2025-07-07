@@ -5,14 +5,14 @@ namespace w1xfer {
 
 symbol_enricher::symbol_enricher() {
 #ifdef WITNESS_LIEF_ENABLED
-  log_.inf("creating lief symbol resolver with enhanced config");
+  log_.inf("creating unified symbol resolver with enhanced config");
 
-  w1::lief::lief_symbol_resolver::config cfg;
+  w1::lief::symbol_resolver::config cfg;
   cfg.max_cache_size = 100; // cache more binaries for transfer analysis
   cfg.prepopulate_exports = true;
   cfg.resolve_imports = true;
 
-  resolver_ = std::make_unique<w1::lief::lief_symbol_resolver>(cfg);
+  resolver_ = std::make_unique<w1::lief::symbol_resolver>(cfg);
 #else
   log_.wrn("lief support not enabled, symbol resolution will be limited");
 #endif
@@ -60,7 +60,7 @@ std::optional<symbol_enricher::symbol_context> symbol_enricher::enrich_address(u
   // try with the path first (which might just be the name)
   std::string search_path = module->path;
 
-  log_.dbg("calling lief resolver", redlog::field("search_path", search_path), redlog::field("offset", module_offset));
+  log_.dbg("calling unified symbol resolver", redlog::field("search_path", search_path), redlog::field("offset", module_offset));
 
   auto symbol = resolver_->resolve_in_module(search_path, module_offset);
 

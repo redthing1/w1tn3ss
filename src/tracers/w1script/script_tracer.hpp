@@ -14,7 +14,7 @@
 
 namespace w1 {
 namespace lief {
-class lief_symbol_resolver;
+class symbol_resolver;
 }
 } // namespace w1
 
@@ -45,7 +45,7 @@ private:
   std::unique_ptr<w1::util::module_range_index> module_index_;
 
   // symbol resolver for api analysis
-  std::unique_ptr<w1::lief::lief_symbol_resolver> symbol_resolver_;
+  std::unique_ptr<w1::lief::symbol_resolver> symbol_resolver_;
 
   bool load_script();
   void setup_callbacks();

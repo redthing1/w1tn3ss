@@ -103,11 +103,6 @@ private:
 
   std::optional<symbol_info> resolve_macho_symbol(LIEF::MachO::Binary* macho, uint64_t offset) const;
 
-#ifdef _WIN32
-  // Native Windows symbol resolution using SymFromAddr
-  std::optional<symbol_info> resolve_windows_native(uint64_t address) const;
-#endif
-
   // Conversion helpers
   symbol_info elf_symbol_to_info(const LIEF::ELF::Symbol& sym) const;
   symbol_info pe_export_to_info(const LIEF::PE::ExportEntry& exp) const;
@@ -131,11 +126,6 @@ public:
   void set_dyld_resolver(std::shared_ptr<macos_dyld_resolver> resolver) { dyld_resolver_ = resolver; }
 #endif
 
-#ifdef _WIN32
-  // Set Windows system resolver
-  void set_windows_resolver(std::shared_ptr<windows_system_resolver> resolver) { windows_resolver_ = resolver; }
-#endif
-
 private:
   mutable std::list<std::string> lru_list_;
   mutable std::unordered_map<std::string, std::pair<std::list<std::string>::iterator, std::unique_ptr<LIEF::Binary>>>
@@ -150,10 +140,6 @@ private:
 
 #ifdef __APPLE__
   std::shared_ptr<macos_dyld_resolver> dyld_resolver_;
-#endif
-
-#ifdef _WIN32
-  std::shared_ptr<windows_system_resolver> windows_resolver_;
 #endif
 };
 

@@ -11,6 +11,9 @@
 
 namespace w1::lief {
 
+// Forward declaration for cross-platform symbol_info
+struct symbol_info;
+
 // Rich symbol information structure for Windows
 struct windows_symbol_info {
   std::string name;
@@ -88,11 +91,11 @@ private:
   bool is_likely_system_library(const std::string& basename) const;
 
   /**
-   * @brief resolve symbol using Windows SymFromAddr API
+   * @brief resolve symbol using Windows SymFromAddr API (returns name only)
    * @param address absolute address to resolve
    * @return symbol name if found, nullopt otherwise
    */
-  std::optional<std::string> resolve_symbol_native(uint64_t address) const;
+  std::optional<std::string> resolve_symbol_name_native(uint64_t address) const;
 
   /**
    * @brief resolve rich symbol information using Windows SymFromAddr API
@@ -100,6 +103,26 @@ private:
    * @return detailed symbol information if found, nullopt otherwise
    */
   std::optional<windows_symbol_info> resolve_symbol_info_native(uint64_t address) const;
+
+  /**
+   * @brief resolve symbol using Windows SymFromAddr API (returns cross-platform symbol_info)
+   * @param address absolute address to resolve
+   * @return cross-platform symbol information if found, nullopt otherwise
+   */
+  std::optional<symbol_info> resolve_symbol_native(uint64_t address) const;
+
+  /**
+   * @brief resolve symbol in a specific module at given offset
+   * @param module_path path to the module (can be system library name or full path)
+   * @param offset offset within the module
+   * @return symbol information if found, nullopt otherwise
+   */
+  std::optional<symbol_info> resolve_in_module(const std::string& module_path, uint64_t offset) const;
+
+  /**
+   * @brief clear symbol resolution caches
+   */
+  void clear_cache();
 };
 
 } // namespace w1::lief

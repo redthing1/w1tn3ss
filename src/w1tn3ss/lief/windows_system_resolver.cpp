@@ -1,13 +1,17 @@
 #ifdef _WIN32
 
 #include "windows_system_resolver.hpp"
+#include "lief_symbol_resolver.hpp" // For symbol_info definition
 #include <windows.h>
 #include <filesystem>
 #include <algorithm>
 #include <cctype>
 #include <dbghelp.h>
+#include <psapi.h>
+#include <mutex>
 
 #pragma comment(lib, "dbghelp.lib")
+#pragma comment(lib, "psapi.lib")
 
 namespace w1::lief {
 
@@ -21,7 +25,7 @@ windows_system_resolver::windows_system_resolver() : log_("w1.windows_system_res
   if (system_directories_.empty()) {
     log_.err("failed to discover any windows system directories");
   } else {
-    log_.info("windows system resolver initialized", redlog::field("system_directories", system_directories_.size()));
+    log_.trc("windows system resolver initialized", redlog::field("system_directories", system_directories_.size()));
 
     for (const auto& dir : system_directories_) {
       log_.dbg("system directory", redlog::field("path", dir));
@@ -69,7 +73,7 @@ std::optional<std::string> windows_system_resolver::resolve_system_library(const
   auto resolved_path = find_in_system_directories(norm_basename);
 
   if (resolved_path) {
-    log_.info(
+    log_.dbg(
         "resolved system library", redlog::field("basename", basename), redlog::field("resolved_path", *resolved_path)
     );
 
@@ -144,7 +148,7 @@ std::vector<std::string> windows_system_resolver::discover_system_directories() 
     }
   }
 
-  log_.info("system directory discovery complete", redlog::field("directories_found", directories.size()));
+  log_.trc("system directory discovery complete", redlog::field("directories_found", directories.size()));
 
   return directories;
 }
@@ -220,27 +224,35 @@ bool windows_system_resolver::is_likely_system_library(const std::string& basena
 }
 
 std::optional<windows_symbol_info> windows_system_resolver::resolve_symbol_info_native(uint64_t address) const {
-  static bool sym_initialized = false;
+  static std::once_flag init_flag;
   static HANDLE process_handle = GetCurrentProcess();
+  static bool init_success = false;
   
-  // Initialize symbol handler once
-  if (!sym_initialized) {
+  // thread-safe initialization using std::call_once
+  std::call_once(init_flag, [this]() {
     log_.dbg("initializing Windows symbol handler");
     
     DWORD options = SymGetOptions();
     options |= SYMOPT_DEFERRED_LOADS | SYMOPT_UNDNAME | SYMOPT_LOAD_LINES;
-    options |= SYMOPT_INCLUDE_32BIT_MODULES; // Include 32-bit modules on 64-bit systems
-    options |= SYMOPT_CASE_INSENSITIVE;      // Case insensitive symbol searches
+    options |= SYMOPT_INCLUDE_32BIT_MODULES; // include 32-bit modules on 64-bit systems
+    options |= SYMOPT_CASE_INSENSITIVE;      // case insensitive symbol searches
     SymSetOptions(options);
     
     if (!SymInitialize(process_handle, NULL, TRUE)) {
       DWORD error = GetLastError();
       log_.err("failed to initialize symbol handler", redlog::field("error", error));
-      return std::nullopt;
+      init_success = false;
+      return;
     }
     
-    log_.info("Windows symbol handler initialized");
-    sym_initialized = true;
+    log_.trc("Windows symbol handler initialized");
+    init_success = true;
+  });
+  
+  // check if initialization succeeded
+  if (!init_success) {
+    log_.trc("symbol handler initialization failed, cannot resolve symbols");
+    return std::nullopt;
   }
   
   // Allocate buffer for symbol info
@@ -258,34 +270,45 @@ std::optional<windows_symbol_info> windows_system_resolver::resolve_symbol_info_
   if (SymFromAddr(process_handle, address, &displacement, symbol_info)) {
     windows_symbol_info result;
     
-    // Basic symbol information
-    result.name = std::string(symbol_info->Name, symbol_info->NameLen);
+    // basic symbol information - ensure proper string construction
+    if (symbol_info->NameLen > 0 && symbol_info->Name) {
+      result.name.assign(symbol_info->Name, symbol_info->NameLen);
+    } else {
+      result.name.clear();
+    }
     result.address = symbol_info->Address;
     result.size = symbol_info->Size;
     result.displacement = displacement;
     
-    // Get module information
+    // get module information with proper string handling
     IMAGEHLP_MODULE64 module_info = {};
     module_info.SizeOfStruct = sizeof(IMAGEHLP_MODULE64);
     if (SymGetModuleInfo64(process_handle, address, &module_info)) {
-      result.module_name = module_info.ModuleName;
+      result.module_name = std::string(module_info.ModuleName);
       log_.ped("retrieved module info", redlog::field("module", result.module_name));
+    } else {
+      result.module_name.clear();
     }
     
-    // Determine symbol type based on flags
+    // determine symbol type based on flags
     result.is_function = (symbol_info->Tag == SymTagFunction || 
                          symbol_info->Tag == SymTagPublicSymbol ||
                          (symbol_info->Flags & SYMFLAG_FUNCTION));
     
     result.is_exported = (symbol_info->Flags & SYMFLAG_EXPORT);
     
-    // Try to get demangled name (C++ symbols)
-    result.demangled_name = result.name;
-    char demangled_buffer[MAX_SYM_NAME];
-    if (UnDecorateSymbolName(result.name.c_str(), demangled_buffer, MAX_SYM_NAME, 
-                            UNDNAME_COMPLETE | UNDNAME_NO_LEADING_UNDERSCORES)) {
-      if (strlen(demangled_buffer) > 0) {
-        result.demangled_name = demangled_buffer;
+    // try to get demangled name (C++ symbols) with proper error handling
+    result.demangled_name = result.name; // fallback to original name
+    if (!result.name.empty()) {
+      char demangled_buffer[MAX_SYM_NAME] = {};
+      DWORD demangled_length = UnDecorateSymbolName(
+          result.name.c_str(), 
+          demangled_buffer, 
+          MAX_SYM_NAME, 
+          UNDNAME_COMPLETE | UNDNAME_NO_LEADING_UNDERSCORES
+      );
+      if (demangled_length > 0 && demangled_buffer[0] != '\0') {
+        result.demangled_name = std::string(demangled_buffer, demangled_length);
       }
     }
     
@@ -311,19 +334,140 @@ std::optional<windows_symbol_info> windows_system_resolver::resolve_symbol_info_
   }
 }
 
-std::optional<std::string> windows_system_resolver::resolve_symbol_native(uint64_t address) const {
-  if (auto symbol_info = resolve_symbol_info_native(address)) {
-    std::string symbol_name = symbol_info->name;
-    
-    // If there's displacement, add it to symbol name
-    if (symbol_info->displacement > 0) {
-      symbol_name += "+" + std::to_string(symbol_info->displacement);
-    }
-    
-    return symbol_name;
+std::optional<std::string> windows_system_resolver::resolve_symbol_name_native(uint64_t address) const {
+  auto symbol_info = resolve_symbol_info_native(address);
+  if (!symbol_info || symbol_info->name.empty()) {
+    return std::nullopt;
   }
   
-  return std::nullopt;
+  std::string symbol_name = symbol_info->name;
+  
+  // if there's displacement, add it to symbol name for precise location
+  if (symbol_info->displacement > 0) {
+    symbol_name += "+" + std::to_string(symbol_info->displacement);
+  }
+  
+  return symbol_name;
+}
+
+std::optional<symbol_info> windows_system_resolver::resolve_symbol_native(uint64_t address) const {
+  auto win_symbol = resolve_symbol_info_native(address);
+  if (!win_symbol) {
+    log_.dbg("native Windows symbol resolution failed", redlog::field("address", "0x%llx", address));
+    return std::nullopt;
+  }
+
+  log_.dbg("resolved symbol using native Windows API", 
+            redlog::field("address", "0x%llx", address),
+            redlog::field("symbol", win_symbol->name),
+            redlog::field("demangled", win_symbol->demangled_name),
+            redlog::field("module", win_symbol->module_name),
+            redlog::field("size", win_symbol->size),
+            redlog::field("displacement", win_symbol->displacement));
+  
+  // convert Windows symbol info to cross-platform symbol_info
+  symbol_info info{};
+  
+  // copy string fields with validation (both source and dest are std::string)
+  info.name = win_symbol->name;
+  info.demangled_name = win_symbol->demangled_name;
+  info.section = win_symbol->module_name;
+  
+  // ensure we have at least a name for a valid symbol
+  if (info.name.empty()) {
+    log_.dbg("symbol name is empty, using address as fallback", 
+             redlog::field("address", "0x%llx", address));
+    info.name = "sub_" + std::to_string(address);
+  }
+  
+  // handle numeric fields with proper validation
+  info.size = win_symbol->size;
+  
+  // for offset: Windows SymFromAddr gives displacement from symbol start
+  // this is exactly what we want for the offset field
+  info.offset = win_symbol->displacement;
+  
+  // map Windows symbol type to cross-platform enum
+  info.symbol_type = win_symbol->is_function ? symbol_info::type::FUNCTION : symbol_info::type::OBJECT;
+  
+  // Windows resolved symbols are typically global scope
+  info.symbol_binding = symbol_info::binding::GLOBAL;
+  
+  // copy boolean flags directly (both are bool)
+  info.is_exported = win_symbol->is_exported;
+  info.is_imported = false; // SymFromAddr resolves actual symbols, not import stubs
+  
+  // version field is typically empty for Windows symbols
+  info.version.clear();
+  
+  return info;
+}
+
+std::optional<symbol_info> windows_system_resolver::resolve_in_module(const std::string& module_path, uint64_t offset) const {
+  log_.trc("resolving symbol in module", 
+           redlog::field("module_path", module_path), 
+           redlog::field("offset", "0x%llx", offset));
+  
+  // first, try to find the module base address
+  HANDLE process_handle = GetCurrentProcess();
+  HMODULE module_handle = nullptr;
+  
+  // try different approaches to get module handle
+  std::string search_path = module_path;
+  
+  // if it's just a basename, try to resolve it to full path
+  if (module_path.find('\\') == std::string::npos && module_path.find('/') == std::string::npos) {
+    if (auto resolved = resolve_system_library(module_path)) {
+      search_path = *resolved;
+      log_.trc("resolved module basename to full path", 
+               redlog::field("basename", module_path), 
+               redlog::field("full_path", search_path));
+    }
+  }
+  
+  // try to get module handle by name
+  module_handle = GetModuleHandleA(search_path.c_str());
+  if (!module_handle) {
+    // try with just the basename
+    std::string basename = module_path;
+    size_t last_slash = basename.find_last_of("\\/");
+    if (last_slash != std::string::npos) {
+      basename = basename.substr(last_slash + 1);
+    }
+    module_handle = GetModuleHandleA(basename.c_str());
+    
+    if (!module_handle) {
+      log_.trc("module not loaded", redlog::field("module_path", module_path));
+      return std::nullopt;
+    }
+  }
+  
+  // get module base address
+  MODULEINFO module_info;
+  if (!GetModuleInformation(process_handle, module_handle, &module_info, sizeof(module_info))) {
+    DWORD error = GetLastError();
+    log_.trc("failed to get module information", 
+             redlog::field("module_path", module_path), 
+             redlog::field("error", error));
+    return std::nullopt;
+  }
+  
+  uint64_t module_base = reinterpret_cast<uint64_t>(module_info.lpBaseOfDll);
+  uint64_t absolute_address = module_base + offset;
+  
+  log_.trc("calculated absolute address", 
+           redlog::field("module_base", "0x%llx", module_base),
+           redlog::field("offset", "0x%llx", offset),
+           redlog::field("absolute_address", "0x%llx", absolute_address));
+  
+  // now resolve the symbol at the absolute address
+  return resolve_symbol_native(absolute_address);
+}
+
+void windows_system_resolver::clear_cache() {
+  std::lock_guard<std::mutex> lock(cache_mutex_);
+  path_cache_.clear();
+  log_.dbg("Windows resolver cache cleared");
 }
 
 } // namespace w1::lief

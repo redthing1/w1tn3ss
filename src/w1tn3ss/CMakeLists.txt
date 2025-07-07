@@ -52,6 +52,7 @@ endif()
 if(WITNESS_LIEF)
     target_sources(w1tn3ss PRIVATE
         lief/lief_symbol_resolver.cpp
+        lief/symbol_resolver.cpp
     )
     
     # Add macOS-specific dyld resolver
