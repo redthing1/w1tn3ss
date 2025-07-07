@@ -6,10 +6,8 @@
 #include <algorithm>
 #include <cctype>
 #include <dbghelp.h>
-#include <imagehlp.h>
 
 #pragma comment(lib, "dbghelp.lib")
-#pragma comment(lib, "imagehlp.lib")
 
 namespace w1::lief {
 
