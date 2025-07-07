@@ -55,6 +55,26 @@ public:
    */
   const std::vector<std::string>& get_system_directories() const { return system_directories_; }
 
+  /**
+   * @brief resolve symbol using Windows SymFromAddr API (returns cross-platform symbol_info)
+   * @param address absolute address to resolve
+   * @return cross-platform symbol information if found, nullopt otherwise
+   */
+  std::optional<symbol_info> resolve_symbol_native(uint64_t address) const;
+
+  /**
+   * @brief resolve symbol in a specific module at given offset
+   * @param module_path path to the module (can be system library name or full path)
+   * @param offset offset within the module
+   * @return symbol information if found, nullopt otherwise
+   */
+  std::optional<symbol_info> resolve_in_module(const std::string& module_path, uint64_t offset) const;
+
+  /**
+   * @brief clear symbol resolution caches
+   */
+  void clear_cache();
+
 private:
   std::vector<std::string> system_directories_;
   mutable redlog::logger log_;
@@ -103,26 +123,6 @@ private:
    * @return detailed symbol information if found, nullopt otherwise
    */
   std::optional<windows_symbol_info> resolve_symbol_info_native(uint64_t address) const;
-
-  /**
-   * @brief resolve symbol using Windows SymFromAddr API (returns cross-platform symbol_info)
-   * @param address absolute address to resolve
-   * @return cross-platform symbol information if found, nullopt otherwise
-   */
-  std::optional<symbol_info> resolve_symbol_native(uint64_t address) const;
-
-  /**
-   * @brief resolve symbol in a specific module at given offset
-   * @param module_path path to the module (can be system library name or full path)
-   * @param offset offset within the module
-   * @return symbol information if found, nullopt otherwise
-   */
-  std::optional<symbol_info> resolve_in_module(const std::string& module_path, uint64_t offset) const;
-
-  /**
-   * @brief clear symbol resolution caches
-   */
-  void clear_cache();
 };
 
 } // namespace w1::lief
