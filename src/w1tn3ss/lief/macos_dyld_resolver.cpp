@@ -24,7 +24,7 @@ macos_dyld_resolver::macos_dyld_resolver() : log_("w1.macos_dyld_resolver") {
 
     // verify directory exists
     if (fs::exists(dump_dir_) && fs::is_directory(dump_dir_)) {
-      log_.info("dyld shared cache dump directory configured", redlog::field("path", dump_dir_));
+      log_.trc("dyld shared cache dump directory configured", redlog::field("path", dump_dir_));
       // Pre-populate the library cache
       populate_library_cache();
     } else {
@@ -56,7 +56,7 @@ std::optional<std::string> macos_dyld_resolver::resolve_extracted_path(const std
     std::lock_guard<std::mutex> lock(cache_mutex_);
     auto it = library_cache_.find(library_name);
     if (it != library_cache_.end()) {
-      log_.info(
+      log_.trc(
           "found library in pre-computed cache", redlog::field("original", original_path),
           redlog::field("resolved", it->second)
       );
@@ -71,7 +71,7 @@ std::optional<std::string> macos_dyld_resolver::resolve_extracted_path(const std
   log_.trc("trying direct path mapping", redlog::field("mapped_path", direct_path));
 
   if (fs::exists(direct_path)) {
-    log_.info(
+    log_.trc(
         "found library in dyld dump (direct mapping)", redlog::field("original", original_path),
         redlog::field("resolved", direct_path)
     );
@@ -82,7 +82,7 @@ std::optional<std::string> macos_dyld_resolver::resolve_extracted_path(const std
   log_.trc("direct mapping failed, searching for library", redlog::field("library_name", library_name));
 
   if (auto found_path = find_library_in_dump(library_name)) {
-    log_.info(
+    log_.trc(
         "found library in dyld dump (recursive search)", redlog::field("original", original_path),
         redlog::field("resolved", *found_path), redlog::field("library_name", library_name)
     );
@@ -187,7 +187,7 @@ std::optional<std::string> macos_dyld_resolver::find_library_in_dump(const std::
 
         // exact match
         if (filename == library_name) {
-          log_.info(
+          log_.trc(
               "found exact library match", redlog::field("library", library_name),
               redlog::field("path", entry.path().string())
           );
@@ -293,7 +293,7 @@ std::string macos_dyld_resolver::normalize_path(const std::string& path) const {
 }
 
 void macos_dyld_resolver::populate_library_cache() {
-  log_.info("pre-populating dyld library cache", redlog::field("dump_dir", dump_dir_));
+  log_.trc("pre-populating dyld library cache", redlog::field("dump_dir", dump_dir_));
 
   std::lock_guard<std::mutex> lock(cache_mutex_);
   library_cache_.clear();
@@ -329,7 +329,7 @@ void macos_dyld_resolver::populate_library_cache() {
     log_.err("filesystem error while populating cache", redlog::field("error", e.what()));
   }
 
-  log_.info("dyld library cache populated", redlog::field("total_libraries", total_libraries));
+  log_.trc("dyld library cache populated", redlog::field("total_libraries", total_libraries));
 }
 
 } // namespace w1::lief
