@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../api_knowledge_db.hpp"
+#include "abi/api_knowledge_db.hpp"
 #include <vector>
 
 namespace w1::abi::apis::windows {
@@ -19,7 +19,7 @@ namespace w1::abi::apis::windows {
  *
  * covers modern windows c runtime apis:
  * - string manipulation functions
- * - memory management functions  
+ * - memory management functions
  * - i/o and formatting functions
  * - character classification and conversion
  * - mathematical functions
@@ -34,9 +34,10 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .api_category = api_info::category::STRING_MANIPULATION,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::ALLOCATES_MEMORY),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "strSource", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "strSource",
+              .param_type = param_info::type::STRING,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "duplicate", .param_type = param_info::type::STRING},
         .description = "duplicate string by allocating memory copy",
         .security_notes = {"allocates memory that must be freed", "returns null on allocation failure"},
@@ -46,13 +47,14 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
 
     api_info{
         .name = "_strdup",
-        .module = "ucrtbase.dll", 
+        .module = "ucrtbase.dll",
         .api_category = api_info::category::STRING_MANIPULATION,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::ALLOCATES_MEMORY),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "strSource", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "strSource",
+              .param_type = param_info::type::STRING,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "duplicate", .param_type = param_info::type::STRING},
         .description = "microsoft-specific duplicate string function",
         .related_apis = {"strdup"},
@@ -66,10 +68,13 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .api_category = api_info::category::STRING_MANIPULATION,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "strDestination", .param_type = param_info::type::STRING, .param_direction = param_info::direction::OUT},
-            {.name = "strSource", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "strDestination",
+              .param_type = param_info::type::STRING,
+              .param_direction = param_info::direction::OUT},
+             {.name = "strSource",
+              .param_type = param_info::type::STRING,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "destination", .param_type = param_info::type::STRING},
         .description = "copy string to destination buffer",
         .security_notes = {"buffer overflow risk", "destination must be large enough", "use strcpy_s instead"},
@@ -83,9 +88,8 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .api_category = api_info::category::STRING_MANIPULATION,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "str", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "str", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "length", .param_type = param_info::type::SIZE},
         .description = "get length of null-terminated string",
         .headers = {"string.h"}
@@ -97,10 +101,9 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .api_category = api_info::category::STRING_MANIPULATION,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "string1", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
-            {.name = "string2", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "string1", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
+             {.name = "string2", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
         .description = "compare two strings lexicographically",
         .headers = {"string.h"}
@@ -113,9 +116,8 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .api_category = api_info::category::HEAP_MANAGEMENT,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::ALLOCATES_MEMORY),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "size", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "size", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "pointer", .param_type = param_info::type::POINTER},
         .description = "allocate memory block on heap",
         .related_apis = {"calloc", "realloc", "free"},
@@ -129,9 +131,8 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .api_category = api_info::category::HEAP_MANAGEMENT,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::FREES_MEMORY),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "ptr", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "ptr", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "void", .param_type = param_info::type::VOID},
         .description = "free previously allocated memory block",
         .security_notes = {"double-free vulnerability", "use-after-free vulnerability"},
@@ -145,10 +146,9 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .api_category = api_info::category::HEAP_MANAGEMENT,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::ALLOCATES_MEMORY),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "num", .param_type = param_info::type::COUNT, .param_direction = param_info::direction::IN},
-            {.name = "size", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "num", .param_type = param_info::type::COUNT, .param_direction = param_info::direction::IN},
+             {.name = "size", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "pointer", .param_type = param_info::type::POINTER},
         .description = "allocate and zero-initialize array of elements",
         .related_apis = {"malloc", "realloc", "free"},
@@ -162,11 +162,10 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .api_category = api_info::category::MEMORY_MANAGEMENT,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "dest", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
-            {.name = "src", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::IN},
-            {.name = "count", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "dest", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
+             {.name = "src", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::IN},
+             {.name = "count", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "dest", .param_type = param_info::type::POINTER},
         .description = "copy bytes between buffers",
         .security_notes = {"buffer overflow risk", "overlapping buffers undefined", "use memcpy_s instead"},
@@ -180,11 +179,10 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .api_category = api_info::category::MEMORY_MANAGEMENT,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "dest", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
-            {.name = "c", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "count", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "dest", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
+             {.name = "c", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
+             {.name = "count", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "dest", .param_type = param_info::type::POINTER},
         .description = "set bytes in buffer to specified value",
         .headers = {"string.h"}
@@ -197,13 +195,14 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .api_category = api_info::category::STDIO,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "options", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "stream", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
-            {.name = "format", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
-            {.name = "locale", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
-            {.name = "arglist", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "options", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
+             {.name = "stream", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
+             {.name = "format", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
+             {.name = "locale", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
+             {.name = "arglist",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "chars_written", .param_type = param_info::type::INTEGER},
         .description = "secure formatted output to stream with locale",
         .related_apis = {"printf", "fprintf", "sprintf"},
@@ -216,10 +215,11 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .api_category = api_info::category::STDIO,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "format", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}
-            // note: variadic parameters not fully supported yet
-        },
+        .parameters =
+            {
+                {.name = "format", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}
+                // note: variadic parameters not fully supported yet
+            },
         .return_value = {.name = "chars_written", .param_type = param_info::type::INTEGER},
         .description = "formatted output to stdout",
         .related_apis = {"fprintf", "sprintf", "_stdio_common_vfprintf_s"},
@@ -232,10 +232,9 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .api_category = api_info::category::STDIO,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "stream", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
-            {.name = "format", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "stream", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
+             {.name = "format", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "chars_written", .param_type = param_info::type::INTEGER},
         .description = "formatted output to stream",
         .related_apis = {"printf", "sprintf", "_stdio_common_vfprintf_s"},
@@ -249,9 +248,8 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .api_category = api_info::category::STRING_MANIPULATION,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "c", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "c", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "lowercase", .param_type = param_info::type::INTEGER},
         .description = "convert wide character to lowercase",
         .related_apis = {"towupper", "tolower"},
@@ -264,9 +262,8 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .api_category = api_info::category::STRING_MANIPULATION,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "c", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "c", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "uppercase", .param_type = param_info::type::INTEGER},
         .description = "convert wide character to uppercase",
         .related_apis = {"towlower", "toupper"},
@@ -279,9 +276,8 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .api_category = api_info::category::STRING_MANIPULATION,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "c", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "c", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "result", .param_type = param_info::type::BOOLEAN},
         .description = "check if character is alphabetic",
         .related_apis = {"isdigit", "isalnum", "isspace"},
@@ -294,9 +290,8 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .api_category = api_info::category::STRING_MANIPULATION,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "c", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "c", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "result", .param_type = param_info::type::BOOLEAN},
         .description = "check if character is decimal digit",
         .related_apis = {"isalpha", "isalnum", "isxdigit"},
@@ -310,10 +305,9 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .api_category = api_info::category::MISC, // we need to add MATH category
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "x", .param_type = param_info::type::DOUBLE, .param_direction = param_info::direction::IN},
-            {.name = "exp", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "x", .param_type = param_info::type::DOUBLE, .param_direction = param_info::direction::IN},
+             {.name = "exp", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "result", .param_type = param_info::type::DOUBLE},
         .description = "multiply floating-point number by power of 2",
         .related_apis = {"ldexp", "frexp", "modf"},
@@ -326,9 +320,8 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .api_category = api_info::category::MISC, // MATH category needed
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "x", .param_type = param_info::type::DOUBLE, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "x", .param_type = param_info::type::DOUBLE, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "result", .param_type = param_info::type::DOUBLE},
         .description = "calculate sine of angle in radians",
         .related_apis = {"cos", "tan", "asin"},
@@ -341,9 +334,8 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .api_category = api_info::category::MISC,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "x", .param_type = param_info::type::DOUBLE, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "x", .param_type = param_info::type::DOUBLE, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "result", .param_type = param_info::type::DOUBLE},
         .description = "calculate cosine of angle in radians",
         .related_apis = {"sin", "tan", "acos"},
@@ -356,9 +348,8 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .api_category = api_info::category::MISC,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "x", .param_type = param_info::type::DOUBLE, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "x", .param_type = param_info::type::DOUBLE, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "result", .param_type = param_info::type::DOUBLE},
         .description = "calculate square root",
         .related_apis = {"pow", "cbrt"},
@@ -372,10 +363,13 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .api_category = api_info::category::PROCESS_CONTROL, // could be RUNTIME_CONTROL
         .flags = static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "table", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN_OUT},
-            {.name = "function", .param_type = param_info::type::CALLBACK, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "table",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN_OUT},
+             {.name = "function",
+              .param_type = param_info::type::CALLBACK,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
         .description = "register function to be called at program termination",
         .related_apis = {"atexit", "_onexit", "exit"},
@@ -388,9 +382,10 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .api_category = api_info::category::PROCESS_CONTROL,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "function", .param_type = param_info::type::CALLBACK, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "function",
+              .param_type = param_info::type::CALLBACK,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
         .description = "register function to be called at normal program termination",
         .related_apis = {"_onexit", "register_onexit_function", "exit"},
@@ -403,9 +398,8 @@ static const std::vector<api_info> windows_ucrtbase_apis = {
         .api_category = api_info::category::PROCESS_CONTROL,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "status", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "status", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "void", .param_type = param_info::type::VOID},
         .description = "terminate program normally with cleanup",
         .related_apis = {"abort", "_exit", "atexit"},

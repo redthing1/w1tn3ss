@@ -3,7 +3,7 @@
 #include <cstring>
 
 #ifdef _WIN32
-#include "../../common/windows_clean.hpp"
+#include <w1common/windows_clean.hpp>
 #else
 #include <unistd.h>
 #endif

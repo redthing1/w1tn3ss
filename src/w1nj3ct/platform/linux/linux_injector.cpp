@@ -1,11 +1,11 @@
 #include "linux_injector.hpp"
-#include "../../error.hpp"
+#include "error.hpp"
 #include <chrono>
 #include <redlog.hpp>
 
 // include the kubo injector backend
 extern "C" {
-#include "../../backend/linux/injector.h"
+#include "backend/linux/injector.h"
 }
 
 #include <cstdlib>

@@ -27,7 +27,7 @@ struct windows_symbol_info {
 
 /**
  * @brief resolves windows system library basenames to full system paths
- * @details windows-specific resolver that maps bare dll names (e.g., "ucrtbase.dll") 
+ * @details windows-specific resolver that maps bare dll names (e.g., "ucrtbase.dll")
  * to their full system paths (e.g., "C:\Windows\System32\ucrtbase.dll").
  * handles system32, syswow64, and windows directory search.
  */

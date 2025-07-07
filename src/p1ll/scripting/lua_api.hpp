@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../core/types.hpp"
+#include "core/types.hpp"
 #include <sol/sol.hpp>
 #include <string>
 #include <memory>

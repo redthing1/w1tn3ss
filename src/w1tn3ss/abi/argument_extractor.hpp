@@ -4,7 +4,7 @@
 #include "calling_convention_factory.hpp"
 #include "calling_convention_detector.hpp"
 #include "api_knowledge_db.hpp"
-#include "../util/safe_memory.hpp"
+#include "util/safe_memory.hpp"
 #include <redlog.hpp>
 #include <vector>
 #include <string>

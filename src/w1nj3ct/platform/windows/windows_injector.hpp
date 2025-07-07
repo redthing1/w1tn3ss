@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../w1nj3ct.hpp"
+#include "w1nj3ct.hpp"
 
 namespace w1::inject::windows {
 // wrapper around the existing win_inject backend

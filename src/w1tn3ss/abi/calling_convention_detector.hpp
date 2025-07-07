@@ -2,7 +2,7 @@
 
 #include "calling_convention_base.hpp"
 #include "api_knowledge_db.hpp"
-#include "../util/module_info.hpp"
+#include "util/module_info.hpp"
 #include <regex>
 #include <vector>
 #include <optional>
@@ -23,13 +23,19 @@ public:
   calling_convention_detector();
 
   // detect convention from binary and symbol
-  calling_convention_ptr detect(const std::string& binary_path, const std::string& symbol_name, const api_knowledge_db* api_db = nullptr) const;
+  calling_convention_ptr detect(
+      const std::string& binary_path, const std::string& symbol_name, const api_knowledge_db* api_db = nullptr
+  ) const;
 
   // detect from module info
-  calling_convention_ptr detect_from_module(const util::module_info& module, const std::string& symbol_name, const api_knowledge_db* api_db = nullptr) const;
+  calling_convention_ptr detect_from_module(
+      const util::module_info& module, const std::string& symbol_name, const api_knowledge_db* api_db = nullptr
+  ) const;
 
   // detect from symbol name alone
-  calling_convention_ptr detect_from_symbol(const std::string& symbol_name, const api_knowledge_db* api_db = nullptr) const;
+  calling_convention_ptr detect_from_symbol(
+      const std::string& symbol_name, const api_knowledge_db* api_db = nullptr
+  ) const;
 
   // platform-specific detection rules
   struct detection_rule {
@@ -66,7 +72,9 @@ private:
   void initialize_default_rules();
 
   // api database lookup
-  std::optional<calling_convention_id> lookup_api_convention(const std::string& module_name, const std::string& symbol_name, const api_knowledge_db* api_db) const;
+  std::optional<calling_convention_id> lookup_api_convention(
+      const std::string& module_name, const std::string& symbol_name, const api_knowledge_db* api_db
+  ) const;
 
   // windows-specific detection
   calling_convention_id detect_windows_x86(const std::string& symbol_name) const;

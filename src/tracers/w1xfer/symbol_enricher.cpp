@@ -60,7 +60,10 @@ std::optional<symbol_enricher::symbol_context> symbol_enricher::enrich_address(u
   // try with the path first (which might just be the name)
   std::string search_path = module->path;
 
-  log_.dbg("calling unified symbol resolver", redlog::field("search_path", search_path), redlog::field("offset", module_offset));
+  log_.dbg(
+      "calling unified symbol resolver", redlog::field("search_path", search_path),
+      redlog::field("offset", module_offset)
+  );
 
   auto symbol = resolver_->resolve_in_module(search_path, module_offset);
 

@@ -322,9 +322,12 @@ std::optional<symbol_info> lief_symbol_resolver::resolve_pe_symbol(LIEF::PE::Bin
         "PE section", redlog::field("name", section.name()), redlog::field("rva", "0x%llx", section_rva),
         redlog::field("size", "0x%llx", section_size), redlog::field("end_rva", "0x%llx", section_rva + section_size)
     );
-    
+
     if (offset >= section_rva && offset < section_rva + section_size) {
-      log_.ped("target offset falls in section", redlog::field("section", section.name()), redlog::field("offset_in_section", "0x%llx", offset - section_rva));
+      log_.ped(
+          "target offset falls in section", redlog::field("section", section.name()),
+          redlog::field("offset_in_section", "0x%llx", offset - section_rva)
+      );
     }
   }
 
@@ -361,19 +364,19 @@ std::optional<symbol_info> lief_symbol_resolver::resolve_pe_symbol(LIEF::PE::Bin
   // Check imports to see if we're hitting an import thunk
   if (pe->has_imports()) {
     log_.ped("PE has imports, checking import thunks", redlog::field("import_count", pe->imports().size()));
-    
+
     for (const auto& import : pe->imports()) {
       log_.ped("checking import library", redlog::field("library", import.name()));
-      
+
       for (const auto& entry : import.entries()) {
         // Log detailed import entry information
         log_.ped(
-            "examining import entry", redlog::field("library", import.name()),
-            redlog::field("function", entry.name()), redlog::field("iat_address", "0x%llx", entry.iat_address()),
+            "examining import entry", redlog::field("library", import.name()), redlog::field("function", entry.name()),
+            redlog::field("iat_address", "0x%llx", entry.iat_address()),
             redlog::field("iat_value", "0x%llx", entry.iat_value()), redlog::field("hint", entry.hint()),
             redlog::field("is_ordinal", entry.is_ordinal())
         );
-        
+
         // Check multiple possible matches:
         // 1. IAT address (RVA of the IAT slot)
         // 2. IAT value (what the IAT slot points to - but this might be 0 in on-disk binary)
@@ -382,7 +385,7 @@ std::optional<symbol_info> lief_symbol_resolver::resolve_pe_symbol(LIEF::PE::Bin
               "found exact import IAT address match", redlog::field("library", import.name()),
               redlog::field("function", entry.name()), redlog::field("iat_address", "0x%llx", entry.iat_address())
           );
-          
+
           // Create symbol info for import
           symbol_info info;
           info.name = entry.name();
@@ -393,17 +396,17 @@ std::optional<symbol_info> lief_symbol_resolver::resolve_pe_symbol(LIEF::PE::Bin
           info.symbol_binding = symbol_info::GLOBAL;
           info.is_exported = false;
           info.is_imported = true;
-          
+
           return info;
         }
-        
+
         // Also check if we're hitting the resolved import address
         if (entry.iat_value() != 0 && entry.iat_value() == offset) {
           log_.ped(
               "found exact import IAT value match", redlog::field("library", import.name()),
               redlog::field("function", entry.name()), redlog::field("iat_value", "0x%llx", entry.iat_value())
           );
-          
+
           // Create symbol info for import
           symbol_info info;
           info.name = entry.name();
@@ -414,12 +417,12 @@ std::optional<symbol_info> lief_symbol_resolver::resolve_pe_symbol(LIEF::PE::Bin
           info.symbol_binding = symbol_info::GLOBAL;
           info.is_exported = false;
           info.is_imported = true;
-          
+
           return info;
         }
       }
     }
-    
+
     log_.ped("no exact import thunk match found", redlog::field("offset", "0x%llx", offset));
   } else {
     log_.ped("PE has no imports");

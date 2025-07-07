@@ -12,14 +12,30 @@ std::vector<uint64_t> aarch64_aapcs::extract_integer_args(const extraction_conte
   size_t reg_args = std::min(count, size_t(8));
   for (size_t i = 0; i < reg_args; i++) {
     switch (i) {
-    case 0: args.push_back(ctx.gpr->x0); break;
-    case 1: args.push_back(ctx.gpr->x1); break;
-    case 2: args.push_back(ctx.gpr->x2); break;
-    case 3: args.push_back(ctx.gpr->x3); break;
-    case 4: args.push_back(ctx.gpr->x4); break;
-    case 5: args.push_back(ctx.gpr->x5); break;
-    case 6: args.push_back(ctx.gpr->x6); break;
-    case 7: args.push_back(ctx.gpr->x7); break;
+    case 0:
+      args.push_back(ctx.gpr->x0);
+      break;
+    case 1:
+      args.push_back(ctx.gpr->x1);
+      break;
+    case 2:
+      args.push_back(ctx.gpr->x2);
+      break;
+    case 3:
+      args.push_back(ctx.gpr->x3);
+      break;
+    case 4:
+      args.push_back(ctx.gpr->x4);
+      break;
+    case 5:
+      args.push_back(ctx.gpr->x5);
+      break;
+    case 6:
+      args.push_back(ctx.gpr->x6);
+      break;
+    case 7:
+      args.push_back(ctx.gpr->x7);
+      break;
     }
   }
 
@@ -59,14 +75,30 @@ std::vector<aarch64_aapcs::typed_arg> aarch64_aapcs::extract_typed_args(
       if (int_reg_idx < 8) {
         // from register
         switch (int_reg_idx) {
-        case 0: arg.value.integer = ctx.gpr->x0; break;
-        case 1: arg.value.integer = ctx.gpr->x1; break;
-        case 2: arg.value.integer = ctx.gpr->x2; break;
-        case 3: arg.value.integer = ctx.gpr->x3; break;
-        case 4: arg.value.integer = ctx.gpr->x4; break;
-        case 5: arg.value.integer = ctx.gpr->x5; break;
-        case 6: arg.value.integer = ctx.gpr->x6; break;
-        case 7: arg.value.integer = ctx.gpr->x7; break;
+        case 0:
+          arg.value.integer = ctx.gpr->x0;
+          break;
+        case 1:
+          arg.value.integer = ctx.gpr->x1;
+          break;
+        case 2:
+          arg.value.integer = ctx.gpr->x2;
+          break;
+        case 3:
+          arg.value.integer = ctx.gpr->x3;
+          break;
+        case 4:
+          arg.value.integer = ctx.gpr->x4;
+          break;
+        case 5:
+          arg.value.integer = ctx.gpr->x5;
+          break;
+        case 6:
+          arg.value.integer = ctx.gpr->x6;
+          break;
+        case 7:
+          arg.value.integer = ctx.gpr->x7;
+          break;
         }
         arg.from_stack = false;
         int_reg_idx++;
@@ -141,14 +173,30 @@ std::vector<aarch64_aapcs::typed_arg> aarch64_aapcs::extract_typed_args(
       // this is simplified - real implementation would need size info
       if (int_reg_idx < 8) {
         switch (int_reg_idx) {
-        case 0: arg.value.struct_data.data[0] = ctx.gpr->x0; break;
-        case 1: arg.value.struct_data.data[0] = ctx.gpr->x1; break;
-        case 2: arg.value.struct_data.data[0] = ctx.gpr->x2; break;
-        case 3: arg.value.struct_data.data[0] = ctx.gpr->x3; break;
-        case 4: arg.value.struct_data.data[0] = ctx.gpr->x4; break;
-        case 5: arg.value.struct_data.data[0] = ctx.gpr->x5; break;
-        case 6: arg.value.struct_data.data[0] = ctx.gpr->x6; break;
-        case 7: arg.value.struct_data.data[0] = ctx.gpr->x7; break;
+        case 0:
+          arg.value.struct_data.data[0] = ctx.gpr->x0;
+          break;
+        case 1:
+          arg.value.struct_data.data[0] = ctx.gpr->x1;
+          break;
+        case 2:
+          arg.value.struct_data.data[0] = ctx.gpr->x2;
+          break;
+        case 3:
+          arg.value.struct_data.data[0] = ctx.gpr->x3;
+          break;
+        case 4:
+          arg.value.struct_data.data[0] = ctx.gpr->x4;
+          break;
+        case 5:
+          arg.value.struct_data.data[0] = ctx.gpr->x5;
+          break;
+        case 6:
+          arg.value.struct_data.data[0] = ctx.gpr->x6;
+          break;
+        case 7:
+          arg.value.struct_data.data[0] = ctx.gpr->x7;
+          break;
         }
         arg.value.struct_data.size = 8;
         arg.from_stack = false;
@@ -166,14 +214,30 @@ std::vector<aarch64_aapcs::typed_arg> aarch64_aapcs::extract_typed_args(
       // passed as pointer
       if (int_reg_idx < 8) {
         switch (int_reg_idx) {
-        case 0: arg.value.integer = ctx.gpr->x0; break;
-        case 1: arg.value.integer = ctx.gpr->x1; break;
-        case 2: arg.value.integer = ctx.gpr->x2; break;
-        case 3: arg.value.integer = ctx.gpr->x3; break;
-        case 4: arg.value.integer = ctx.gpr->x4; break;
-        case 5: arg.value.integer = ctx.gpr->x5; break;
-        case 6: arg.value.integer = ctx.gpr->x6; break;
-        case 7: arg.value.integer = ctx.gpr->x7; break;
+        case 0:
+          arg.value.integer = ctx.gpr->x0;
+          break;
+        case 1:
+          arg.value.integer = ctx.gpr->x1;
+          break;
+        case 2:
+          arg.value.integer = ctx.gpr->x2;
+          break;
+        case 3:
+          arg.value.integer = ctx.gpr->x3;
+          break;
+        case 4:
+          arg.value.integer = ctx.gpr->x4;
+          break;
+        case 5:
+          arg.value.integer = ctx.gpr->x5;
+          break;
+        case 6:
+          arg.value.integer = ctx.gpr->x6;
+          break;
+        case 7:
+          arg.value.integer = ctx.gpr->x7;
+          break;
         }
         arg.from_stack = false;
         int_reg_idx++;

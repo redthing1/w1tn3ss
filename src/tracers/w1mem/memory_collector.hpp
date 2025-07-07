@@ -3,7 +3,7 @@
 #include <vector>
 #include <unordered_set>
 #include <cstdint>
-#include <common/ext/jsonstruct.hpp>
+#include <w1common/ext/jsonstruct.hpp>
 
 namespace w1mem {
 

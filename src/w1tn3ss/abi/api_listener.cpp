@@ -1,7 +1,7 @@
 #include "api_listener.hpp"
 #include "api_analyzer.hpp"
-#include "../util/module_range_index.hpp"
-#include "../util/value_formatter.hpp"
+#include "util/module_range_index.hpp"
+#include "util/value_formatter.hpp"
 #include <redlog.hpp>
 #include <algorithm>
 #include <chrono>

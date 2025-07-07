@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../api_knowledge_db.hpp"
+#include "abi/api_knowledge_db.hpp"
 #include <vector>
 
 namespace w1::abi::apis::windows {
@@ -29,7 +29,7 @@ namespace w1::abi::apis::windows {
 
 static const std::vector<api_info> windows_advapi32_apis = {
     // === TOKEN AND PRIVILEGE MANIPULATION ===
-    
+
     api_info{
         .name = "OpenProcessToken",
         .module = "advapi32.dll",
@@ -37,11 +37,16 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE) |
                  static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "ProcessHandle", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "DesiredAccess", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "TokenHandle", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "ProcessHandle",
+              .param_type = param_info::type::HANDLE,
+              .param_direction = param_info::direction::IN},
+             {.name = "DesiredAccess",
+              .param_type = param_info::type::FLAGS,
+              .param_direction = param_info::direction::IN},
+             {.name = "TokenHandle",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "open access token associated with process",
         .security_notes = {"privilege escalation vector", "token manipulation capability"},
@@ -57,12 +62,19 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE) |
                  static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "ThreadHandle", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "DesiredAccess", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "OpenAsSelf", .param_type = param_info::type::BOOLEAN, .param_direction = param_info::direction::IN},
-            {.name = "TokenHandle", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "ThreadHandle",
+              .param_type = param_info::type::HANDLE,
+              .param_direction = param_info::direction::IN},
+             {.name = "DesiredAccess",
+              .param_type = param_info::type::FLAGS,
+              .param_direction = param_info::direction::IN},
+             {.name = "OpenAsSelf",
+              .param_type = param_info::type::BOOLEAN,
+              .param_direction = param_info::direction::IN},
+             {.name = "TokenHandle",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "open access token associated with thread",
         .related_apis = {"OpenProcessToken", "SetThreadToken", "ImpersonateLoggedOnUser"},
@@ -77,14 +89,25 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE) |
                  static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "TokenHandle", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "DisableAllPrivileges", .param_type = param_info::type::BOOLEAN, .param_direction = param_info::direction::IN},
-            {.name = "NewState", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
-            {.name = "BufferLength", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN},
-            {.name = "PreviousState", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
-            {.name = "ReturnLength", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "TokenHandle",
+              .param_type = param_info::type::HANDLE,
+              .param_direction = param_info::direction::IN},
+             {.name = "DisableAllPrivileges",
+              .param_type = param_info::type::BOOLEAN,
+              .param_direction = param_info::direction::IN},
+             {.name = "NewState",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN},
+             {.name = "BufferLength",
+              .param_type = param_info::type::SIZE,
+              .param_direction = param_info::direction::IN},
+             {.name = "PreviousState",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT},
+             {.name = "ReturnLength",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "enable or disable privileges in access token",
         .security_notes = {"privilege escalation mechanism", "requires se_privilege to adjust"},
@@ -98,11 +121,14 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .api_category = api_info::category::SECURITY,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpSystemName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
-            {.name = "lpName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
-            {.name = "lpLuid", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "lpSystemName",
+              .param_type = param_info::type::STRING,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
+             {.name = "lpLuid",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "retrieve luid for privilege name",
         .related_apis = {"AdjustTokenPrivileges", "LookupPrivilegeName"},
@@ -115,13 +141,22 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .api_category = api_info::category::SECURITY,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "TokenHandle", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "TokenInformationClass", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "TokenInformation", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
-            {.name = "TokenInformationLength", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN},
-            {.name = "ReturnLength", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "TokenHandle",
+              .param_type = param_info::type::HANDLE,
+              .param_direction = param_info::direction::IN},
+             {.name = "TokenInformationClass",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN},
+             {.name = "TokenInformation",
+              .param_type = param_info::type::BUFFER,
+              .param_direction = param_info::direction::OUT},
+             {.name = "TokenInformationLength",
+              .param_type = param_info::type::SIZE,
+              .param_direction = param_info::direction::IN},
+             {.name = "ReturnLength",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "retrieve information about access token",
         .related_apis = {"OpenProcessToken", "SetTokenInformation"},
@@ -135,14 +170,25 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE) |
                  static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hExistingToken", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "dwDesiredAccess", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "lpTokenAttributes", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
-            {.name = "ImpersonationLevel", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "TokenType", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "phNewToken", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "hExistingToken",
+              .param_type = param_info::type::HANDLE,
+              .param_direction = param_info::direction::IN},
+             {.name = "dwDesiredAccess",
+              .param_type = param_info::type::FLAGS,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpTokenAttributes",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN},
+             {.name = "ImpersonationLevel",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN},
+             {.name = "TokenType",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN},
+             {.name = "phNewToken",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "create new access token that duplicates existing token",
         .security_notes = {"token duplication for impersonation", "privilege escalation vector"},
@@ -160,9 +206,8 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE) |
                  static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hToken", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hToken", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "impersonate security context of logged-on user",
         .security_notes = {"impersonation capability", "privilege escalation vector"},
@@ -190,9 +235,10 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE) |
                  static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hNamedPipe", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hNamedPipe",
+              .param_type = param_info::type::HANDLE,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "impersonate security context of named pipe client",
         .security_notes = {"named pipe impersonation", "privilege escalation via ipc"},
@@ -209,11 +255,16 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE) |
                  static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpMachineName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
-            {.name = "lpDatabaseName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
-            {.name = "dwDesiredAccess", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "lpMachineName",
+              .param_type = param_info::type::STRING,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpDatabaseName",
+              .param_type = param_info::type::STRING,
+              .param_direction = param_info::direction::IN},
+             {.name = "dwDesiredAccess",
+              .param_type = param_info::type::FLAGS,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "scHandle", .param_type = param_info::type::HANDLE},
         .description = "establish connection to service control manager",
         .security_notes = {"service manipulation capability", "persistence mechanism"},
@@ -230,21 +281,46 @@ static const std::vector<api_info> windows_advapi32_apis = {
                  static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE) |
                  static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hSCManager", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "lpServiceName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
-            {.name = "lpDisplayName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
-            {.name = "dwDesiredAccess", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "dwServiceType", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "dwStartType", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "dwErrorControl", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "lpBinaryPathName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
-            {.name = "lpLoadOrderGroup", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
-            {.name = "lpdwTagId", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
-            {.name = "lpDependencies", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
-            {.name = "lpServiceStartName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
-            {.name = "lpPassword", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hSCManager",
+              .param_type = param_info::type::HANDLE,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpServiceName",
+              .param_type = param_info::type::STRING,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpDisplayName",
+              .param_type = param_info::type::STRING,
+              .param_direction = param_info::direction::IN},
+             {.name = "dwDesiredAccess",
+              .param_type = param_info::type::FLAGS,
+              .param_direction = param_info::direction::IN},
+             {.name = "dwServiceType",
+              .param_type = param_info::type::FLAGS,
+              .param_direction = param_info::direction::IN},
+             {.name = "dwStartType",
+              .param_type = param_info::type::FLAGS,
+              .param_direction = param_info::direction::IN},
+             {.name = "dwErrorControl",
+              .param_type = param_info::type::FLAGS,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpBinaryPathName",
+              .param_type = param_info::type::STRING,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpLoadOrderGroup",
+              .param_type = param_info::type::STRING,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpdwTagId",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT},
+             {.name = "lpDependencies",
+              .param_type = param_info::type::STRING,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpServiceStartName",
+              .param_type = param_info::type::STRING,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpPassword",
+              .param_type = param_info::type::STRING,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "serviceHandle", .param_type = param_info::type::HANDLE},
         .description = "create service object and add to scm database",
         .security_notes = {"service creation for persistence", "requires administrative privileges"},
@@ -259,11 +335,16 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .api_category = api_info::category::SECURITY,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hSCManager", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "lpServiceName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
-            {.name = "dwDesiredAccess", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hSCManager",
+              .param_type = param_info::type::HANDLE,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpServiceName",
+              .param_type = param_info::type::STRING,
+              .param_direction = param_info::direction::IN},
+             {.name = "dwDesiredAccess",
+              .param_type = param_info::type::FLAGS,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "serviceHandle", .param_type = param_info::type::HANDLE},
         .description = "open existing service for specified access",
         .related_apis = {"OpenSCManagerW", "QueryServiceStatus", "ControlService"},
@@ -278,11 +359,14 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE) |
                  static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hService", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "dwNumServiceArgs", .param_type = param_info::type::COUNT, .param_direction = param_info::direction::IN},
-            {.name = "lpServiceArgVectors", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hService", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "dwNumServiceArgs",
+              .param_type = param_info::type::COUNT,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpServiceArgVectors",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "start service",
         .security_notes = {"service execution capability", "potential privilege escalation"},
@@ -297,11 +381,12 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE) |
                  static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hService", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "dwControl", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "lpServiceStatus", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "hService", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "dwControl", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
+             {.name = "lpServiceStatus",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "send control code to service",
         .security_notes = {"service control capability", "can stop/pause/continue services"},
@@ -316,9 +401,10 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE) |
                  static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hService", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hService",
+              .param_type = param_info::type::HANDLE,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "mark service for deletion",
         .security_notes = {"service deletion capability", "anti-forensics technique"},
@@ -332,9 +418,10 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .api_category = api_info::category::SECURITY,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::CLOSES_HANDLE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hSCObject", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hSCObject",
+              .param_type = param_info::type::HANDLE,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "close handle to service control manager or service",
         .related_apis = {"OpenSCManagerW", "OpenServiceW", "CreateServiceW"},
@@ -350,13 +437,16 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE) |
                  static_cast<uint32_t>(api_info::behavior_flags::REGISTRY_ACCESS),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hKey", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "lpSubKey", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
-            {.name = "ulOptions", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "samDesired", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "phkResult", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "hKey", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "lpSubKey", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
+             {.name = "ulOptions", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
+             {.name = "samDesired",
+              .param_type = param_info::type::FLAGS,
+              .param_direction = param_info::direction::IN},
+             {.name = "phkResult",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "error", .param_type = param_info::type::ERROR_CODE},
         .description = "open specified registry key",
         .security_notes = {"registry access for persistence", "configuration modification"},
@@ -373,17 +463,26 @@ static const std::vector<api_info> windows_advapi32_apis = {
                  static_cast<uint32_t>(api_info::behavior_flags::REGISTRY_ACCESS) |
                  static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hKey", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "lpSubKey", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
-            {.name = "Reserved", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "lpClass", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
-            {.name = "dwOptions", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "samDesired", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "lpSecurityAttributes", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
-            {.name = "phkResult", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
-            {.name = "lpdwDisposition", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "hKey", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "lpSubKey", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
+             {.name = "Reserved",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpClass", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
+             {.name = "dwOptions", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
+             {.name = "samDesired",
+              .param_type = param_info::type::FLAGS,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpSecurityAttributes",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN},
+             {.name = "phkResult",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT},
+             {.name = "lpdwDisposition",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "error", .param_type = param_info::type::ERROR_CODE},
         .description = "create registry key or open existing one",
         .security_notes = {"registry key creation for persistence", "system configuration modification"},
@@ -399,14 +498,17 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .flags = static_cast<uint32_t>(api_info::behavior_flags::REGISTRY_ACCESS) |
                  static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hKey", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "lpValueName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
-            {.name = "Reserved", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "dwType", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "lpData", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::IN},
-            {.name = "cbData", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hKey", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "lpValueName",
+              .param_type = param_info::type::STRING,
+              .param_direction = param_info::direction::IN},
+             {.name = "Reserved",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN},
+             {.name = "dwType", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
+             {.name = "lpData", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::IN},
+             {.name = "cbData", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "error", .param_type = param_info::type::ERROR_CODE},
         .description = "set data for specified registry value",
         .security_notes = {"registry modification for persistence", "configuration tampering"},
@@ -420,14 +522,19 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .api_category = api_info::category::REGISTRY,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::REGISTRY_ACCESS),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hKey", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "lpValueName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
-            {.name = "lpReserved", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
-            {.name = "lpType", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
-            {.name = "lpData", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
-            {.name = "lpcbData", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN_OUT}
-        },
+        .parameters =
+            {{.name = "hKey", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "lpValueName",
+              .param_type = param_info::type::STRING,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpReserved",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpType", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
+             {.name = "lpData", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
+             {.name = "lpcbData",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN_OUT}},
         .return_value = {.name = "error", .param_type = param_info::type::ERROR_CODE},
         .description = "retrieve data for specified registry value",
         .related_apis = {"RegSetValueExW", "RegEnumValueW", "RegOpenKeyExW"},
@@ -441,10 +548,11 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .flags = static_cast<uint32_t>(api_info::behavior_flags::REGISTRY_ACCESS) |
                  static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hKey", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "lpValueName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hKey", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "lpValueName",
+              .param_type = param_info::type::STRING,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "error", .param_type = param_info::type::ERROR_CODE},
         .description = "delete named value from specified registry key",
         .security_notes = {"registry cleanup", "anti-forensics technique"},
@@ -459,10 +567,11 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .flags = static_cast<uint32_t>(api_info::behavior_flags::REGISTRY_ACCESS) |
                  static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hKey", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "lpSubKey", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hKey", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "lpSubKey",
+              .param_type = param_info::type::STRING,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "error", .param_type = param_info::type::ERROR_CODE},
         .description = "delete subkey and all its values",
         .security_notes = {"registry key deletion", "anti-forensics technique"},
@@ -476,9 +585,8 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .api_category = api_info::category::REGISTRY,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::CLOSES_HANDLE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hKey", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hKey", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "error", .param_type = param_info::type::ERROR_CODE},
         .description = "close handle to specified registry key",
         .related_apis = {"RegOpenKeyExW", "RegCreateKeyExW"},
@@ -493,13 +601,18 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .api_category = api_info::category::CRYPTO,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "phProv", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
-            {.name = "szContainer", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
-            {.name = "szProvider", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
-            {.name = "dwProvType", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "dwFlags", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "phProv", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
+             {.name = "szContainer",
+              .param_type = param_info::type::STRING,
+              .param_direction = param_info::direction::IN},
+             {.name = "szProvider",
+              .param_type = param_info::type::STRING,
+              .param_direction = param_info::direction::IN},
+             {.name = "dwProvType",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN},
+             {.name = "dwFlags", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "acquire handle to cryptographic service provider",
         .related_apis = {"CryptGenRandom", "CryptCreateHash", "CryptReleaseContext"},
@@ -513,11 +626,12 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .api_category = api_info::category::CRYPTO,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hProv", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "dwLen", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN},
-            {.name = "pbBuffer", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "hProv", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "dwLen", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN},
+             {.name = "pbBuffer",
+              .param_type = param_info::type::BUFFER,
+              .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "generate cryptographically random data",
         .related_apis = {"CryptAcquireContextW", "CryptCreateHash"},
@@ -530,13 +644,14 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .api_category = api_info::category::CRYPTO,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hProv", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "Algid", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "hKey", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "dwFlags", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "phHash", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "hProv", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "Algid", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
+             {.name = "hKey", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "dwFlags", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
+             {.name = "phHash",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "create empty hash object",
         .related_apis = {"CryptHashData", "CryptGetHashParam", "CryptDestroyHash"},
@@ -550,12 +665,11 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .api_category = api_info::category::CRYPTO,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hHash", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "pbData", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::IN},
-            {.name = "dwDataLen", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN},
-            {.name = "dwFlags", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hHash", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "pbData", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::IN},
+             {.name = "dwDataLen", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN},
+             {.name = "dwFlags", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "add data to specified hash object",
         .related_apis = {"CryptCreateHash", "CryptGetHashParam"},
@@ -570,10 +684,13 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .api_category = api_info::category::SYSTEM_INFO,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpUNCServerName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
-            {.name = "lpSourceName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "lpUNCServerName",
+              .param_type = param_info::type::STRING,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpSourceName",
+              .param_type = param_info::type::STRING,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "eventLogHandle", .param_type = param_info::type::HANDLE},
         .description = "open handle to event log",
         .related_apis = {"ReadEventLogW", "WriteEventLogW", "CloseEventLog"},
@@ -587,15 +704,28 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .api_category = api_info::category::SYSTEM_INFO,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hEventLog", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "dwReadFlags", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "dwRecordOffset", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "lpBuffer", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
-            {.name = "nNumberOfBytesToRead", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN},
-            {.name = "pnBytesRead", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
-            {.name = "pnMinNumberOfBytesNeeded", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "hEventLog",
+              .param_type = param_info::type::HANDLE,
+              .param_direction = param_info::direction::IN},
+             {.name = "dwReadFlags",
+              .param_type = param_info::type::FLAGS,
+              .param_direction = param_info::direction::IN},
+             {.name = "dwRecordOffset",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpBuffer",
+              .param_type = param_info::type::BUFFER,
+              .param_direction = param_info::direction::OUT},
+             {.name = "nNumberOfBytesToRead",
+              .param_type = param_info::type::SIZE,
+              .param_direction = param_info::direction::IN},
+             {.name = "pnBytesRead",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT},
+             {.name = "pnMinNumberOfBytesNeeded",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "read entries from event log",
         .related_apis = {"OpenEventLogW", "GetOldestEventLogRecord"},
@@ -609,10 +739,13 @@ static const std::vector<api_info> windows_advapi32_apis = {
         .flags = static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE) |
                  static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hEventLog", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "lpBackupFileName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hEventLog",
+              .param_type = param_info::type::HANDLE,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpBackupFileName",
+              .param_type = param_info::type::STRING,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "clear event log",
         .security_notes = {"log clearing for anti-forensics", "evidence destruction"},

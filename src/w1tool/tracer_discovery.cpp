@@ -5,7 +5,7 @@
 
 #include <redlog.hpp>
 
-#include "common/platform_utils.hpp"
+#include <w1common/platform_utils.hpp>
 
 namespace w1tool::tracer_discovery {
 

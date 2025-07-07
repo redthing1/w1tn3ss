@@ -1,9 +1,9 @@
 #include "windows_injector.hpp"
-#include "../../error.hpp"
+#include "error.hpp"
 
 // include windows injection backend
-#include "../../backend/windows/auxiliary.hpp"
-#include "../../backend/windows/inject.hpp"
+#include "backend/windows/auxiliary.hpp"
+#include "backend/windows/inject.hpp"
 
 #include <string>
 

@@ -1,5 +1,5 @@
 #include "hex_utils.hpp"
-#include "../core/types.hpp"
+#include "core/types.hpp"
 #include <redlog.hpp>
 #include <sstream>
 #include <iomanip>

@@ -7,7 +7,7 @@
 
 #include <QBDI.h>
 #include <redlog.hpp>
-#include <common/ext/jsonstruct.hpp>
+#include <w1common/ext/jsonstruct.hpp>
 #include <w1tn3ss/util/module_range_index.hpp>
 #include <w1tn3ss/util/module_scanner.hpp>
 #include <w1tn3ss/util/register_capture.hpp>

@@ -12,12 +12,24 @@ std::vector<uint64_t> x86_64_system_v::extract_integer_args(const extraction_con
   size_t reg_args = std::min(count, size_t(6));
   for (size_t i = 0; i < reg_args; i++) {
     switch (i) {
-    case 0: args.push_back(ctx.gpr->rdi); break;
-    case 1: args.push_back(ctx.gpr->rsi); break;
-    case 2: args.push_back(ctx.gpr->rdx); break;
-    case 3: args.push_back(ctx.gpr->rcx); break;
-    case 4: args.push_back(ctx.gpr->r8); break;
-    case 5: args.push_back(ctx.gpr->r9); break;
+    case 0:
+      args.push_back(ctx.gpr->rdi);
+      break;
+    case 1:
+      args.push_back(ctx.gpr->rsi);
+      break;
+    case 2:
+      args.push_back(ctx.gpr->rdx);
+      break;
+    case 3:
+      args.push_back(ctx.gpr->rcx);
+      break;
+    case 4:
+      args.push_back(ctx.gpr->r8);
+      break;
+    case 5:
+      args.push_back(ctx.gpr->r9);
+      break;
     }
   }
 
@@ -57,12 +69,24 @@ std::vector<x86_64_system_v::typed_arg> x86_64_system_v::extract_typed_args(
       if (int_reg_idx < 6) {
         // from register
         switch (int_reg_idx) {
-        case 0: arg.value.integer = ctx.gpr->rdi; break;
-        case 1: arg.value.integer = ctx.gpr->rsi; break;
-        case 2: arg.value.integer = ctx.gpr->rdx; break;
-        case 3: arg.value.integer = ctx.gpr->rcx; break;
-        case 4: arg.value.integer = ctx.gpr->r8; break;
-        case 5: arg.value.integer = ctx.gpr->r9; break;
+        case 0:
+          arg.value.integer = ctx.gpr->rdi;
+          break;
+        case 1:
+          arg.value.integer = ctx.gpr->rsi;
+          break;
+        case 2:
+          arg.value.integer = ctx.gpr->rdx;
+          break;
+        case 3:
+          arg.value.integer = ctx.gpr->rcx;
+          break;
+        case 4:
+          arg.value.integer = ctx.gpr->r8;
+          break;
+        case 5:
+          arg.value.integer = ctx.gpr->r9;
+          break;
         }
         arg.from_stack = false;
         int_reg_idx++;
@@ -139,12 +163,24 @@ std::vector<x86_64_system_v::typed_arg> x86_64_system_v::extract_typed_args(
       // passed as pointer
       if (int_reg_idx < 6) {
         switch (int_reg_idx) {
-        case 0: arg.value.integer = ctx.gpr->rdi; break;
-        case 1: arg.value.integer = ctx.gpr->rsi; break;
-        case 2: arg.value.integer = ctx.gpr->rdx; break;
-        case 3: arg.value.integer = ctx.gpr->rcx; break;
-        case 4: arg.value.integer = ctx.gpr->r8; break;
-        case 5: arg.value.integer = ctx.gpr->r9; break;
+        case 0:
+          arg.value.integer = ctx.gpr->rdi;
+          break;
+        case 1:
+          arg.value.integer = ctx.gpr->rsi;
+          break;
+        case 2:
+          arg.value.integer = ctx.gpr->rdx;
+          break;
+        case 3:
+          arg.value.integer = ctx.gpr->rcx;
+          break;
+        case 4:
+          arg.value.integer = ctx.gpr->r8;
+          break;
+        case 5:
+          arg.value.integer = ctx.gpr->r9;
+          break;
         }
         arg.from_stack = false;
         int_reg_idx++;

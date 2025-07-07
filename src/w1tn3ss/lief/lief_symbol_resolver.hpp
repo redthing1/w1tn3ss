@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../util/module_range_index.hpp"
+#include "util/module_range_index.hpp"
 #include <atomic>
 #include <list>
 #include <memory>

@@ -5,7 +5,7 @@
 #include <vector>
 
 #ifdef _WIN32
-#include "../../common/windows_clean.hpp"
+#include <w1common/windows_clean.hpp>
 #else
 #include <signal.h>
 #include <sys/types.h>

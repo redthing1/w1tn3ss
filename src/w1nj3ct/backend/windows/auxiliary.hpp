@@ -1,7 +1,7 @@
 #pragma once
 
 #include <string>
-#include "../../../common/windows_clean.hpp"
+#include <w1common/windows_clean.hpp>
 
 // find the process ID of a given process name
 // returns 0 if the process is not found

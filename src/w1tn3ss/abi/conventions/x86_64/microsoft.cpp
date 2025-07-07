@@ -12,10 +12,18 @@ std::vector<uint64_t> x86_64_microsoft::extract_integer_args(const extraction_co
   size_t reg_args = std::min(count, max_reg_args);
   for (size_t i = 0; i < reg_args; i++) {
     switch (i) {
-    case 0: args.push_back(ctx.gpr->rcx); break;
-    case 1: args.push_back(ctx.gpr->rdx); break;
-    case 2: args.push_back(ctx.gpr->r8); break;
-    case 3: args.push_back(ctx.gpr->r9); break;
+    case 0:
+      args.push_back(ctx.gpr->rcx);
+      break;
+    case 1:
+      args.push_back(ctx.gpr->rdx);
+      break;
+    case 2:
+      args.push_back(ctx.gpr->r8);
+      break;
+    case 3:
+      args.push_back(ctx.gpr->r9);
+      break;
     }
   }
 
@@ -56,10 +64,18 @@ std::vector<x86_64_microsoft::typed_arg> x86_64_microsoft::extract_typed_args(
       case arg_type::POINTER:
       case arg_type::STRUCT_BY_REF:
         switch (reg_idx) {
-        case 0: arg.value.integer = ctx.gpr->rcx; break;
-        case 1: arg.value.integer = ctx.gpr->rdx; break;
-        case 2: arg.value.integer = ctx.gpr->r8; break;
-        case 3: arg.value.integer = ctx.gpr->r9; break;
+        case 0:
+          arg.value.integer = ctx.gpr->rcx;
+          break;
+        case 1:
+          arg.value.integer = ctx.gpr->rdx;
+          break;
+        case 2:
+          arg.value.integer = ctx.gpr->r8;
+          break;
+        case 3:
+          arg.value.integer = ctx.gpr->r9;
+          break;
         }
         arg.from_stack = false;
         break;
@@ -79,10 +95,18 @@ std::vector<x86_64_microsoft::typed_arg> x86_64_microsoft::extract_typed_args(
       case arg_type::SIMD:
         // __m128 passed by reference in integer register
         switch (reg_idx) {
-        case 0: arg.value.integer = ctx.gpr->rcx; break;
-        case 1: arg.value.integer = ctx.gpr->rdx; break;
-        case 2: arg.value.integer = ctx.gpr->r8; break;
-        case 3: arg.value.integer = ctx.gpr->r9; break;
+        case 0:
+          arg.value.integer = ctx.gpr->rcx;
+          break;
+        case 1:
+          arg.value.integer = ctx.gpr->rdx;
+          break;
+        case 2:
+          arg.value.integer = ctx.gpr->r8;
+          break;
+        case 3:
+          arg.value.integer = ctx.gpr->r9;
+          break;
         }
         arg.from_stack = false;
         break;
@@ -90,10 +114,18 @@ std::vector<x86_64_microsoft::typed_arg> x86_64_microsoft::extract_typed_args(
       case arg_type::STRUCT_BY_VALUE:
         // structures > 8 bytes passed by reference
         switch (reg_idx) {
-        case 0: arg.value.integer = ctx.gpr->rcx; break;
-        case 1: arg.value.integer = ctx.gpr->rdx; break;
-        case 2: arg.value.integer = ctx.gpr->r8; break;
-        case 3: arg.value.integer = ctx.gpr->r9; break;
+        case 0:
+          arg.value.integer = ctx.gpr->rcx;
+          break;
+        case 1:
+          arg.value.integer = ctx.gpr->rdx;
+          break;
+        case 2:
+          arg.value.integer = ctx.gpr->r8;
+          break;
+        case 3:
+          arg.value.integer = ctx.gpr->r9;
+          break;
         }
         arg.from_stack = false;
         break;

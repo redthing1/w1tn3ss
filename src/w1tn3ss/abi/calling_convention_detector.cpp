@@ -68,7 +68,9 @@ calling_convention_ptr calling_convention_detector::detect_from_module(
   return detect(module.path, symbol_name, api_db);
 }
 
-calling_convention_ptr calling_convention_detector::detect_from_symbol(const std::string& symbol_name, const api_knowledge_db* api_db) const {
+calling_convention_ptr calling_convention_detector::detect_from_symbol(
+    const std::string& symbol_name, const api_knowledge_db* api_db
+) const {
 
   // if api database provided, try looking up by symbol name only
   if (api_db) {

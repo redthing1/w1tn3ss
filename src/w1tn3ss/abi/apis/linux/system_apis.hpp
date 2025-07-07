@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../api_knowledge_db.hpp"
+#include "abi/api_knowledge_db.hpp"
 #include <vector>
 
 namespace w1::abi::apis::linux {

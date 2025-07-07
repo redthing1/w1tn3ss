@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../api_knowledge_db.hpp"
+#include "abi/api_knowledge_db.hpp"
 #include <vector>
 
 namespace w1::abi::apis::windows {
@@ -34,20 +34,29 @@ static const std::vector<api_info> windows_user32_apis = {
         .api_category = api_info::category::UI,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "dwExStyle", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "lpClassName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
-            {.name = "lpWindowName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
-            {.name = "dwStyle", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "X", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "Y", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "nWidth", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "nHeight", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "hWndParent", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "hMenu", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "hInstance", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
-            {.name = "lpParam", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "dwExStyle", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
+             {.name = "lpClassName",
+              .param_type = param_info::type::STRING,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpWindowName",
+              .param_type = param_info::type::STRING,
+              .param_direction = param_info::direction::IN},
+             {.name = "dwStyle", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
+             {.name = "X", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
+             {.name = "Y", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
+             {.name = "nWidth", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
+             {.name = "nHeight", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
+             {.name = "hWndParent",
+              .param_type = param_info::type::HANDLE,
+              .param_direction = param_info::direction::IN},
+             {.name = "hMenu", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "hInstance",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpParam",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "hwnd", .param_type = param_info::type::HANDLE},
         .description = "create window with extended styles",
         .cleanup_api = "DestroyWindow",
@@ -60,9 +69,8 @@ static const std::vector<api_info> windows_user32_apis = {
         .api_category = api_info::category::UI,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::CLOSES_HANDLE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hWnd", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hWnd", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "destroy specified window",
         .related_apis = {"CreateWindowExW", "CloseWindow"},
@@ -75,10 +83,13 @@ static const std::vector<api_info> windows_user32_apis = {
         .api_category = api_info::category::UI,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpClassName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
-            {.name = "lpWindowName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "lpClassName",
+              .param_type = param_info::type::STRING,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpWindowName",
+              .param_type = param_info::type::STRING,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "hwnd", .param_type = param_info::type::HANDLE},
         .description = "find window by class name and/or window name",
         .related_apis = {"FindWindowExW", "EnumWindows"},
@@ -91,10 +102,11 @@ static const std::vector<api_info> windows_user32_apis = {
         .api_category = api_info::category::UI,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hWnd", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "nCmdShow", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hWnd", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "nCmdShow",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "was_visible", .param_type = param_info::type::BOOLEAN},
         .description = "set window show state",
         .related_apis = {"SetWindowPos", "IsWindowVisible"},
@@ -107,11 +119,14 @@ static const std::vector<api_info> windows_user32_apis = {
         .api_category = api_info::category::UI,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hWnd", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "lpString", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
-            {.name = "nMaxCount", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hWnd", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "lpString",
+              .param_type = param_info::type::BUFFER,
+              .param_direction = param_info::direction::OUT},
+             {.name = "nMaxCount",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "length", .param_type = param_info::type::INTEGER},
         .description = "copy window title to buffer",
         .related_apis = {"SetWindowTextW", "GetWindowTextLengthW"},
@@ -124,10 +139,11 @@ static const std::vector<api_info> windows_user32_apis = {
         .api_category = api_info::category::UI,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hWnd", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "lpString", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hWnd", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "lpString",
+              .param_type = param_info::type::STRING,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "change window title",
         .related_apis = {"GetWindowTextW", "GetWindowTextLengthW"},
@@ -141,12 +157,15 @@ static const std::vector<api_info> windows_user32_apis = {
         .api_category = api_info::category::UI,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::BLOCKING),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpMsg", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
-            {.name = "hWnd", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "wMsgFilterMin", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "wMsgFilterMax", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "lpMsg", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
+             {.name = "hWnd", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "wMsgFilterMin",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN},
+             {.name = "wMsgFilterMax",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
         .description = "retrieve message from calling thread's message queue",
         .related_apis = {"PeekMessage", "PostMessage", "DispatchMessage"},
@@ -159,13 +178,18 @@ static const std::vector<api_info> windows_user32_apis = {
         .api_category = api_info::category::UI,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpMsg", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
-            {.name = "hWnd", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "wMsgFilterMin", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "wMsgFilterMax", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "wRemoveMsg", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "lpMsg", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
+             {.name = "hWnd", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "wMsgFilterMin",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN},
+             {.name = "wMsgFilterMax",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN},
+             {.name = "wRemoveMsg",
+              .param_type = param_info::type::FLAGS,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "message_available", .param_type = param_info::type::BOOLEAN},
         .description = "check for message without blocking",
         .related_apis = {"GetMessage", "PostMessage", "DispatchMessage"},
@@ -178,9 +202,8 @@ static const std::vector<api_info> windows_user32_apis = {
         .api_category = api_info::category::UI,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpMsg", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "lpMsg", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
         .description = "dispatch message to window procedure",
         .related_apis = {"GetMessage", "PeekMessage", "TranslateMessage"},
@@ -193,12 +216,11 @@ static const std::vector<api_info> windows_user32_apis = {
         .api_category = api_info::category::UI,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::BLOCKING),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hWnd", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "Msg", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "wParam", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
-            {.name = "lParam", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hWnd", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "Msg", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
+             {.name = "wParam", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
+             {.name = "lParam", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
         .description = "send message to window (synchronous)",
         .related_apis = {"PostMessage", "SendMessageTimeout"},
@@ -211,12 +233,11 @@ static const std::vector<api_info> windows_user32_apis = {
         .api_category = api_info::category::UI,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hWnd", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "Msg", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "wParam", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
-            {.name = "lParam", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hWnd", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "Msg", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
+             {.name = "wParam", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
+             {.name = "lParam", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "post message to window (asynchronous)",
         .related_apis = {"SendMessage", "PostThreadMessage"},
@@ -230,12 +251,13 @@ static const std::vector<api_info> windows_user32_apis = {
         .api_category = api_info::category::UI,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::BLOCKING),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hWnd", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "lpText", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
-            {.name = "lpCaption", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
-            {.name = "uType", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hWnd", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "lpText", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
+             {.name = "lpCaption",
+              .param_type = param_info::type::STRING,
+              .param_direction = param_info::direction::IN},
+             {.name = "uType", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
         .description = "display message box",
         .headers = {"windows.h", "winuser.h"}
@@ -248,9 +270,10 @@ static const std::vector<api_info> windows_user32_apis = {
         .api_category = api_info::category::UI,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "nVirtKey", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "nVirtKey",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "state", .param_type = param_info::type::INTEGER},
         .description = "retrieve state of virtual key",
         .related_apis = {"GetAsyncKeyState", "GetKeyboardState"},
@@ -263,9 +286,10 @@ static const std::vector<api_info> windows_user32_apis = {
         .api_category = api_info::category::UI,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpPoint", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "lpPoint",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "retrieve cursor position in screen coordinates",
         .related_apis = {"SetCursorPos", "ClientToScreen"},
@@ -278,10 +302,9 @@ static const std::vector<api_info> windows_user32_apis = {
         .api_category = api_info::category::UI,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "X", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "Y", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "X", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
+             {.name = "Y", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "move cursor to specified screen coordinates",
         .related_apis = {"GetCursorPos", "ScreenToClient"},
@@ -295,9 +318,8 @@ static const std::vector<api_info> windows_user32_apis = {
         .api_category = api_info::category::UI,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hWnd", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hWnd", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "hdc", .param_type = param_info::type::HANDLE},
         .description = "retrieve device context for window",
         .cleanup_api = "ReleaseDC",
@@ -310,10 +332,9 @@ static const std::vector<api_info> windows_user32_apis = {
         .api_category = api_info::category::UI,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::CLOSES_HANDLE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hWnd", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "hDC", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hWnd", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "hDC", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "success", .param_type = param_info::type::INTEGER},
         .description = "release device context",
         .related_apis = {"GetDC", "GetWindowDC"},
@@ -327,9 +348,8 @@ static const std::vector<api_info> windows_user32_apis = {
         .api_category = api_info::category::SYSTEM_INFO,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "nIndex", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "nIndex", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "value", .param_type = param_info::type::INTEGER},
         .description = "retrieve system metrics and configuration",
         .headers = {"windows.h", "winuser.h"}
@@ -368,10 +388,11 @@ static const std::vector<api_info> windows_user32_apis = {
         .api_category = api_info::category::UI,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpEnumFunc", .param_type = param_info::type::CALLBACK, .param_direction = param_info::direction::IN},
-            {.name = "lParam", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "lpEnumFunc",
+              .param_type = param_info::type::CALLBACK,
+              .param_direction = param_info::direction::IN},
+             {.name = "lParam", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "enumerate all top-level windows",
         .related_apis = {"EnumChildWindows", "FindWindow"},
@@ -386,9 +407,8 @@ static const std::vector<api_info> windows_user32_apis = {
         .api_category = api_info::category::SYSTEM_INFO,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "nIndex", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "nIndex", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "value", .param_type = param_info::type::INTEGER},
         .description = "retrieve system metrics for vm detection",
         .security_notes = {"screen resolution analysis", "vm detection via display metrics", "mouse detection"},
@@ -402,9 +422,8 @@ static const std::vector<api_info> windows_user32_apis = {
         .api_category = api_info::category::UI,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "pci", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "pci", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "retrieve cursor information",
         .security_notes = {"mouse interaction detection", "user activity analysis for vm detection"},
@@ -418,9 +437,10 @@ static const std::vector<api_info> windows_user32_apis = {
         .api_category = api_info::category::UI,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpKeyState", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "lpKeyState",
+              .param_type = param_info::type::BUFFER,
+              .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "retrieve state of all virtual keys",
         .security_notes = {"keyboard activity analysis", "user interaction detection"},
@@ -435,9 +455,10 @@ static const std::vector<api_info> windows_user32_apis = {
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE) |
                  static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "fBlockIt", .param_type = param_info::type::BOOLEAN, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "fBlockIt",
+              .param_type = param_info::type::BOOLEAN,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "block or unblock keyboard and mouse input",
         .security_notes = {"input blocking for evasion", "user interaction prevention"},
@@ -455,12 +476,13 @@ static const std::vector<api_info> windows_user32_apis = {
                  static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE) |
                  static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "idHook", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "lpfn", .param_type = param_info::type::CALLBACK, .param_direction = param_info::direction::IN},
-            {.name = "hMod", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "dwThreadId", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "idHook", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
+             {.name = "lpfn", .param_type = param_info::type::CALLBACK, .param_direction = param_info::direction::IN},
+             {.name = "hMod", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "dwThreadId",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "hookHandle", .param_type = param_info::type::HANDLE},
         .description = "install hook procedure to monitor system events",
         .security_notes = {"system-wide hooking", "keylogger capability", "input monitoring", "dll injection vector"},
@@ -475,9 +497,8 @@ static const std::vector<api_info> windows_user32_apis = {
         .api_category = api_info::category::SYSTEM_HOOK,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::CLOSES_HANDLE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hhk", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hhk", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "remove hook procedure from hook chain",
         .related_apis = {"SetWindowsHookExW", "CallNextHookEx"},
@@ -490,12 +511,11 @@ static const std::vector<api_info> windows_user32_apis = {
         .api_category = api_info::category::SYSTEM_HOOK,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hhk", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "nCode", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "wParam", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
-            {.name = "lParam", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hhk", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "nCode", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
+             {.name = "wParam", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
+             {.name = "lParam", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
         .description = "pass hook information to next hook procedure",
         .related_apis = {"SetWindowsHookExW", "UnhookWindowsHookEx"},
@@ -508,9 +528,10 @@ static const std::vector<api_info> windows_user32_apis = {
         .api_category = api_info::category::UI,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "idThread", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "idThread",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "layout", .param_type = param_info::type::HANDLE},
         .description = "retrieve active keyboard layout",
         .security_notes = {"keyboard layout detection", "locale fingerprinting"},
@@ -524,12 +545,13 @@ static const std::vector<api_info> windows_user32_apis = {
         .api_category = api_info::category::SYSTEM_HOOK,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hWnd", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "id", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "fsModifiers", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "vk", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hWnd", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "id", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
+             {.name = "fsModifiers",
+              .param_type = param_info::type::FLAGS,
+              .param_direction = param_info::direction::IN},
+             {.name = "vk", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "register system-wide hotkey",
         .security_notes = {"global hotkey registration", "system-wide input capture"},
@@ -544,10 +566,9 @@ static const std::vector<api_info> windows_user32_apis = {
         .api_category = api_info::category::SYSTEM_HOOK,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hWnd", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "id", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hWnd", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "id", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "unregister system-wide hotkey",
         .related_apis = {"RegisterHotKey"},
@@ -560,9 +581,8 @@ static const std::vector<api_info> windows_user32_apis = {
         .api_category = api_info::category::UI,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "vKey", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "vKey", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "state", .param_type = param_info::type::INTEGER},
         .description = "retrieve asynchronous key state",
         .security_notes = {"keylogger functionality", "async key monitoring"},
@@ -577,15 +597,26 @@ static const std::vector<api_info> windows_user32_apis = {
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE) |
                  static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "eventMin", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "eventMax", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "hmodWinEventProc", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "pfnWinEventProc", .param_type = param_info::type::CALLBACK, .param_direction = param_info::direction::IN},
-            {.name = "idProcess", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "idThread", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "dwFlags", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "eventMin",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN},
+             {.name = "eventMax",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN},
+             {.name = "hmodWinEventProc",
+              .param_type = param_info::type::HANDLE,
+              .param_direction = param_info::direction::IN},
+             {.name = "pfnWinEventProc",
+              .param_type = param_info::type::CALLBACK,
+              .param_direction = param_info::direction::IN},
+             {.name = "idProcess",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN},
+             {.name = "idThread",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN},
+             {.name = "dwFlags", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "hookHandle", .param_type = param_info::type::HANDLE},
         .description = "set event hook for accessibility events",
         .security_notes = {"accessibility event monitoring", "window event tracking"},
@@ -600,16 +631,16 @@ static const std::vector<api_info> windows_user32_apis = {
         .api_category = api_info::category::SYSTEM_HOOK,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::CLOSES_HANDLE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hWinEventHook", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hWinEventHook",
+              .param_type = param_info::type::HANDLE,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "remove event hook",
         .related_apis = {"SetWinEventHook"},
         .headers = {"windows.h", "winuser.h"}
     }
 };
-
 
 #undef WINDOWS_API_CONVENTION
 

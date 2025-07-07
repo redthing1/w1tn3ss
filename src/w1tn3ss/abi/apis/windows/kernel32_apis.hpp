@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../api_knowledge_db.hpp"
+#include "abi/api_knowledge_db.hpp"
 #include <vector>
 
 namespace w1::abi::apis::windows {
@@ -37,18 +37,37 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::PROCESS_CONTROL,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpApplicationName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
-            {.name = "lpCommandLine", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN_OUT},
-            {.name = "lpProcessAttributes", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
-            {.name = "lpThreadAttributes", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
-            {.name = "bInheritHandles", .param_type = param_info::type::BOOLEAN, .param_direction = param_info::direction::IN},
-            {.name = "dwCreationFlags", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "lpEnvironment", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
-            {.name = "lpCurrentDirectory", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
-            {.name = "lpStartupInfo", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
-            {.name = "lpProcessInformation", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "lpApplicationName",
+              .param_type = param_info::type::STRING,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpCommandLine",
+              .param_type = param_info::type::STRING,
+              .param_direction = param_info::direction::IN_OUT},
+             {.name = "lpProcessAttributes",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpThreadAttributes",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN},
+             {.name = "bInheritHandles",
+              .param_type = param_info::type::BOOLEAN,
+              .param_direction = param_info::direction::IN},
+             {.name = "dwCreationFlags",
+              .param_type = param_info::type::FLAGS,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpEnvironment",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpCurrentDirectory",
+              .param_type = param_info::type::STRING,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpStartupInfo",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpProcessInformation",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "create new process and primary thread",
         .headers = {"windows.h", "processthreadsapi.h"}
@@ -58,14 +77,19 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .name = "OpenProcess",
         .module = "kernel32.dll",
         .api_category = api_info::category::PROCESS_CONTROL,
-        .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE) | 
+        .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE) |
                  static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "dwDesiredAccess", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "bInheritHandle", .param_type = param_info::type::BOOLEAN, .param_direction = param_info::direction::IN},
-            {.name = "dwProcessId", .param_type = param_info::type::PROCESS_ID, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "dwDesiredAccess",
+              .param_type = param_info::type::FLAGS,
+              .param_direction = param_info::direction::IN},
+             {.name = "bInheritHandle",
+              .param_type = param_info::type::BOOLEAN,
+              .param_direction = param_info::direction::IN},
+             {.name = "dwProcessId",
+              .param_type = param_info::type::PROCESS_ID,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "handle", .param_type = param_info::type::HANDLE},
         .description = "open existing process object",
         .related_apis = {"GetCurrentProcess", "CreateProcess"},
@@ -105,9 +129,10 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::PROCESS_CONTROL,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "uExitCode", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "uExitCode",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "void", .param_type = param_info::type::VOID},
         .description = "terminate current process and all its threads",
         .related_apis = {"TerminateProcess", "exit"},
@@ -121,10 +146,11 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .flags = static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE) |
                  static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hProcess", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "uExitCode", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hProcess", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "uExitCode",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "terminate specified process forcefully",
         .security_notes = {"dangerous - can corrupt data", "use ExitProcess for self-termination"},
@@ -138,10 +164,11 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::PROCESS_CONTROL,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hProcess", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "lpExitCode", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "hProcess", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "lpExitCode",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "retrieve exit code of specified process",
         .related_apis = {"ExitProcess", "WaitForSingleObject"},
@@ -155,12 +182,17 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::HEAP_MANAGEMENT,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::ALLOCATES_MEMORY),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpAddress", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
-            {.name = "dwSize", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN},
-            {.name = "flAllocationType", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "flProtect", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "lpAddress",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN},
+             {.name = "dwSize", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN},
+             {.name = "flAllocationType",
+              .param_type = param_info::type::FLAGS,
+              .param_direction = param_info::direction::IN},
+             {.name = "flProtect",
+              .param_type = param_info::type::FLAGS,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "baseAddress", .param_type = param_info::type::POINTER},
         .description = "allocate virtual memory",
         .cleanup_api = "VirtualFree",
@@ -173,11 +205,14 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::HEAP_MANAGEMENT,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::FREES_MEMORY),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpAddress", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
-            {.name = "dwSize", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN},
-            {.name = "dwFreeType", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "lpAddress",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN},
+             {.name = "dwSize", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN},
+             {.name = "dwFreeType",
+              .param_type = param_info::type::FLAGS,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "free virtual memory",
         .headers = {"windows.h", "memoryapi.h"}
@@ -189,11 +224,10 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::HEAP_MANAGEMENT,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::ALLOCATES_MEMORY),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hHeap", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "dwFlags", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "dwBytes", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hHeap", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "dwFlags", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
+             {.name = "dwBytes", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "pointer", .param_type = param_info::type::POINTER},
         .description = "allocate memory from heap",
         .related_apis = {"GetProcessHeap", "HeapCreate"},
@@ -207,11 +241,10 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::HEAP_MANAGEMENT,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::FREES_MEMORY),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hHeap", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "dwFlags", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "lpMem", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hHeap", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "dwFlags", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
+             {.name = "lpMem", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "free memory allocated from heap",
         .related_apis = {"HeapAlloc", "GetProcessHeap"},
@@ -239,13 +272,22 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .flags = static_cast<uint32_t>(api_info::behavior_flags::BLOCKING) |
                  static_cast<uint32_t>(api_info::behavior_flags::ASYNC),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "CompletionPort", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "lpNumberOfBytesTransferred", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
-            {.name = "lpCompletionKey", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
-            {.name = "lpOverlapped", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
-            {.name = "dwMilliseconds", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "CompletionPort",
+              .param_type = param_info::type::HANDLE,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpNumberOfBytesTransferred",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT},
+             {.name = "lpCompletionKey",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT},
+             {.name = "lpOverlapped",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT},
+             {.name = "dwMilliseconds",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "dequeue completion packet from i/o completion port",
         .related_apis = {"CreateIoCompletionPort", "PostQueuedCompletionStatus"},
@@ -259,12 +301,19 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE) |
                  static_cast<uint32_t>(api_info::behavior_flags::ASYNC),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "FileHandle", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "ExistingCompletionPort", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "CompletionKey", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
-            {.name = "NumberOfConcurrentThreads", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "FileHandle",
+              .param_type = param_info::type::HANDLE,
+              .param_direction = param_info::direction::IN},
+             {.name = "ExistingCompletionPort",
+              .param_type = param_info::type::HANDLE,
+              .param_direction = param_info::direction::IN},
+             {.name = "CompletionKey",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN},
+             {.name = "NumberOfConcurrentThreads",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "port", .param_type = param_info::type::HANDLE},
         .description = "create or associate file with i/o completion port",
         .related_apis = {"GetQueuedCompletionStatus", "PostQueuedCompletionStatus"},
@@ -278,12 +327,19 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::SYNCHRONIZATION,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::ASYNC),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "CompletionPort", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "dwNumberOfBytesTransferred", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "dwCompletionKey", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
-            {.name = "lpOverlapped", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "CompletionPort",
+              .param_type = param_info::type::HANDLE,
+              .param_direction = param_info::direction::IN},
+             {.name = "dwNumberOfBytesTransferred",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN},
+             {.name = "dwCompletionKey",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpOverlapped",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "post completion packet to i/o completion port",
         .related_apis = {"CreateIoCompletionPort", "GetQueuedCompletionStatus"},
@@ -297,15 +353,28 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::FILE_IO,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpFileName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
-            {.name = "dwDesiredAccess", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "dwShareMode", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "lpSecurityAttributes", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
-            {.name = "dwCreationDisposition", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "dwFlagsAndAttributes", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "hTemplateFile", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "lpFileName",
+              .param_type = param_info::type::STRING,
+              .param_direction = param_info::direction::IN},
+             {.name = "dwDesiredAccess",
+              .param_type = param_info::type::FLAGS,
+              .param_direction = param_info::direction::IN},
+             {.name = "dwShareMode",
+              .param_type = param_info::type::FLAGS,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpSecurityAttributes",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN},
+             {.name = "dwCreationDisposition",
+              .param_type = param_info::type::FLAGS,
+              .param_direction = param_info::direction::IN},
+             {.name = "dwFlagsAndAttributes",
+              .param_type = param_info::type::FLAGS,
+              .param_direction = param_info::direction::IN},
+             {.name = "hTemplateFile",
+              .param_type = param_info::type::HANDLE,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "handle", .param_type = param_info::type::HANDLE},
         .description = "open or create file",
         .cleanup_api = "CloseHandle",
@@ -318,13 +387,20 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::FILE_IO,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hFile", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "lpBuffer", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
-            {.name = "nNumberOfBytesToRead", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN},
-            {.name = "lpNumberOfBytesRead", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
-            {.name = "lpOverlapped", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN_OUT}
-        },
+        .parameters =
+            {{.name = "hFile", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "lpBuffer",
+              .param_type = param_info::type::BUFFER,
+              .param_direction = param_info::direction::OUT},
+             {.name = "nNumberOfBytesToRead",
+              .param_type = param_info::type::SIZE,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpNumberOfBytesRead",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT},
+             {.name = "lpOverlapped",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN_OUT}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "read from file",
         .headers = {"windows.h", "fileapi.h"}
@@ -336,13 +412,18 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::FILE_IO,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hFile", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "lpBuffer", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::IN},
-            {.name = "nNumberOfBytesToWrite", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN},
-            {.name = "lpNumberOfBytesWritten", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
-            {.name = "lpOverlapped", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN_OUT}
-        },
+        .parameters =
+            {{.name = "hFile", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "lpBuffer", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::IN},
+             {.name = "nNumberOfBytesToWrite",
+              .param_type = param_info::type::SIZE,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpNumberOfBytesWritten",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT},
+             {.name = "lpOverlapped",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN_OUT}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "write to file",
         .headers = {"windows.h", "fileapi.h"}
@@ -355,14 +436,25 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::THREAD_CONTROL,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpThreadAttributes", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
-            {.name = "dwStackSize", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN},
-            {.name = "lpStartAddress", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
-            {.name = "lpParameter", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
-            {.name = "dwCreationFlags", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "lpThreadId", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "lpThreadAttributes",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN},
+             {.name = "dwStackSize",
+              .param_type = param_info::type::SIZE,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpStartAddress",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpParameter",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN},
+             {.name = "dwCreationFlags",
+              .param_type = param_info::type::FLAGS,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpThreadId",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "handle", .param_type = param_info::type::HANDLE},
         .description = "create new thread",
         .cleanup_api = "CloseHandle",
@@ -376,10 +468,11 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::SYNCHRONIZATION,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::BLOCKING),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hHandle", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "dwMilliseconds", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hHandle", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "dwMilliseconds",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
         .description = "wait for object state",
         .headers = {"windows.h", "synchapi.h"}
@@ -391,11 +484,14 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::SYNCHRONIZATION,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpMutexAttributes", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
-            {.name = "bInitialOwner", .param_type = param_info::type::BOOLEAN, .param_direction = param_info::direction::IN},
-            {.name = "lpName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "lpMutexAttributes",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN},
+             {.name = "bInitialOwner",
+              .param_type = param_info::type::BOOLEAN,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "handle", .param_type = param_info::type::HANDLE},
         .description = "create mutex object",
         .cleanup_api = "CloseHandle",
@@ -409,9 +505,8 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::SYSTEM_INFO,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::CLOSES_HANDLE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hObject", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hObject", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "close object handle",
         .security_notes = {"double-close can cause issues", "invalid handle causes undefined behavior"},
@@ -424,22 +519,35 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::SYSTEM_INFO,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hSourceProcessHandle", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "hSourceHandle", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "hTargetProcessHandle", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "lpTargetHandle", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
-            {.name = "dwDesiredAccess", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "bInheritHandle", .param_type = param_info::type::BOOLEAN, .param_direction = param_info::direction::IN},
-            {.name = "dwOptions", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hSourceProcessHandle",
+              .param_type = param_info::type::HANDLE,
+              .param_direction = param_info::direction::IN},
+             {.name = "hSourceHandle",
+              .param_type = param_info::type::HANDLE,
+              .param_direction = param_info::direction::IN},
+             {.name = "hTargetProcessHandle",
+              .param_type = param_info::type::HANDLE,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpTargetHandle",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT},
+             {.name = "dwDesiredAccess",
+              .param_type = param_info::type::FLAGS,
+              .param_direction = param_info::direction::IN},
+             {.name = "bInheritHandle",
+              .param_type = param_info::type::BOOLEAN,
+              .param_direction = param_info::direction::IN},
+             {.name = "dwOptions",
+              .param_type = param_info::type::FLAGS,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "duplicate object handle",
         .cleanup_api = "CloseHandle",
         .headers = {"windows.h", "handleapi.h"}
     },
 
-    // error handling  
+    // error handling
     api_info{
         .name = "GetLastError",
         .module = "kernel32.dll",
@@ -459,9 +567,10 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::SYSTEM_INFO,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "dwErrCode", .param_type = param_info::type::ERROR_CODE, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "dwErrCode",
+              .param_type = param_info::type::ERROR_CODE,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "void", .param_type = param_info::type::VOID},
         .description = "set calling thread's last error code",
         .related_apis = {"GetLastError", "FormatMessage"},
@@ -474,15 +583,24 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::STRING_MANIPULATION,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::ALLOCATES_MEMORY),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "dwFlags", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "lpSource", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
-            {.name = "dwMessageId", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "dwLanguageId", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "lpBuffer", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
-            {.name = "nSize", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN},
-            {.name = "Arguments", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "dwFlags", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
+             {.name = "lpSource",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN},
+             {.name = "dwMessageId",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN},
+             {.name = "dwLanguageId",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpBuffer",
+              .param_type = param_info::type::BUFFER,
+              .param_direction = param_info::direction::OUT},
+             {.name = "nSize", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN},
+             {.name = "Arguments",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "length", .param_type = param_info::type::SIZE},
         .description = "format message string from system error code",
         .related_apis = {"GetLastError", "SetLastError"},
@@ -496,9 +614,10 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::SYSTEM_INFO,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpSystemInfo", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "lpSystemInfo",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "void", .param_type = param_info::type::VOID},
         .description = "retrieve system configuration information",
         .headers = {"windows.h", "sysinfoapi.h"}
@@ -510,10 +629,13 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::SYSTEM_INFO,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpBuffer", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
-            {.name = "nSize", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN_OUT}
-        },
+        .parameters =
+            {{.name = "lpBuffer",
+              .param_type = param_info::type::BUFFER,
+              .param_direction = param_info::direction::OUT},
+             {.name = "nSize",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN_OUT}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "retrieve netbios name of local computer",
         .headers = {"windows.h", "winbase.h"}
@@ -526,9 +648,10 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::LIBRARY_LOADING,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpLibFileName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "lpLibFileName",
+              .param_type = param_info::type::STRING,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "module", .param_type = param_info::type::POINTER},
         .description = "load dll into process",
         .cleanup_api = "FreeLibrary",
@@ -541,10 +664,11 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::LIBRARY_LOADING,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hModule", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
-            {.name = "lpProcName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hModule", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
+             {.name = "lpProcName",
+              .param_type = param_info::type::STRING,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "address", .param_type = param_info::type::POINTER},
         .description = "get function address from dll",
         .headers = {"windows.h", "libloaderapi.h"}
@@ -556,9 +680,10 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::LIBRARY_LOADING,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpModuleName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "lpModuleName",
+              .param_type = param_info::type::STRING,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "module", .param_type = param_info::type::POINTER},
         .description = "get handle to loaded module",
         .related_apis = {"LoadLibraryW", "GetModuleFileName"},
@@ -571,11 +696,12 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::LIBRARY_LOADING,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hModule", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
-            {.name = "lpFilename", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
-            {.name = "nSize", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hModule", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
+             {.name = "lpFilename",
+              .param_type = param_info::type::BUFFER,
+              .param_direction = param_info::direction::OUT},
+             {.name = "nSize", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "length", .param_type = param_info::type::SIZE},
         .description = "get fully qualified path of loaded module",
         .related_apis = {"GetModuleHandle", "LoadLibraryW"},
@@ -588,9 +714,10 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::LIBRARY_LOADING,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hLibModule", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hLibModule",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "unload dll from process",
         .related_apis = {"LoadLibraryW", "GetProcAddress"},
@@ -604,14 +731,23 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::STRING_MANIPULATION,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "CodePage", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "dwFlags", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "lpMultiByteStr", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
-            {.name = "cbMultiByte", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "lpWideCharStr", .param_type = param_info::type::WSTRING, .param_direction = param_info::direction::OUT},
-            {.name = "cchWideChar", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "CodePage",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN},
+             {.name = "dwFlags", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
+             {.name = "lpMultiByteStr",
+              .param_type = param_info::type::STRING,
+              .param_direction = param_info::direction::IN},
+             {.name = "cbMultiByte",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpWideCharStr",
+              .param_type = param_info::type::WSTRING,
+              .param_direction = param_info::direction::OUT},
+             {.name = "cchWideChar",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "chars_written", .param_type = param_info::type::INTEGER},
         .description = "convert multibyte string to wide character string",
         .related_apis = {"WideCharToMultiByte"},
@@ -624,16 +760,29 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::STRING_MANIPULATION,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "CodePage", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "dwFlags", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "lpWideCharStr", .param_type = param_info::type::WSTRING, .param_direction = param_info::direction::IN},
-            {.name = "cchWideChar", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "lpMultiByteStr", .param_type = param_info::type::STRING, .param_direction = param_info::direction::OUT},
-            {.name = "cbMultiByte", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "lpDefaultChar", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
-            {.name = "lpUsedDefaultChar", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "CodePage",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN},
+             {.name = "dwFlags", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
+             {.name = "lpWideCharStr",
+              .param_type = param_info::type::WSTRING,
+              .param_direction = param_info::direction::IN},
+             {.name = "cchWideChar",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpMultiByteStr",
+              .param_type = param_info::type::STRING,
+              .param_direction = param_info::direction::OUT},
+             {.name = "cbMultiByte",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpDefaultChar",
+              .param_type = param_info::type::STRING,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpUsedDefaultChar",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "chars_written", .param_type = param_info::type::INTEGER},
         .description = "convert wide character string to multibyte string",
         .related_apis = {"MultiByteToWideChar"},
@@ -641,7 +790,7 @@ static const std::vector<api_info> windows_kernel32_apis = {
     },
 
     // === PHASE 1: MEMORY MANIPULATION & PROCESS INJECTION ===
-    
+
     // process memory manipulation
     api_info{
         .name = "WriteProcessMemory",
@@ -650,13 +799,16 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE) |
                  static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hProcess", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "lpBaseAddress", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
-            {.name = "lpBuffer", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::IN},
-            {.name = "nSize", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN},
-            {.name = "lpNumberOfBytesWritten", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "hProcess", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "lpBaseAddress",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpBuffer", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::IN},
+             {.name = "nSize", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN},
+             {.name = "lpNumberOfBytesWritten",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "write data to process memory",
         .security_notes = {"code injection vector", "requires process_vm_write access", "common malware technique"},
@@ -670,13 +822,18 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::MEMORY_MANAGEMENT,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hProcess", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "lpBaseAddress", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
-            {.name = "lpBuffer", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
-            {.name = "nSize", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN},
-            {.name = "lpNumberOfBytesRead", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "hProcess", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "lpBaseAddress",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpBuffer",
+              .param_type = param_info::type::BUFFER,
+              .param_direction = param_info::direction::OUT},
+             {.name = "nSize", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN},
+             {.name = "lpNumberOfBytesRead",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "read data from process memory",
         .security_notes = {"memory dumping capability", "requires process_vm_read access"},
@@ -691,13 +848,18 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .flags = static_cast<uint32_t>(api_info::behavior_flags::ALLOCATES_MEMORY) |
                  static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hProcess", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "lpAddress", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
-            {.name = "dwSize", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN},
-            {.name = "flAllocationType", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "flProtect", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hProcess", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "lpAddress",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN},
+             {.name = "dwSize", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN},
+             {.name = "flAllocationType",
+              .param_type = param_info::type::FLAGS,
+              .param_direction = param_info::direction::IN},
+             {.name = "flProtect",
+              .param_type = param_info::type::FLAGS,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "baseAddress", .param_type = param_info::type::POINTER},
         .description = "allocate memory in remote process",
         .security_notes = {"code injection preparation", "common dll injection technique"},
@@ -712,12 +874,15 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::HEAP_MANAGEMENT,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::FREES_MEMORY),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hProcess", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "lpAddress", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
-            {.name = "dwSize", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN},
-            {.name = "dwFreeType", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hProcess", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "lpAddress",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN},
+             {.name = "dwSize", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN},
+             {.name = "dwFreeType",
+              .param_type = param_info::type::FLAGS,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "free memory in remote process",
         .related_apis = {"VirtualAllocEx", "WriteProcessMemory"},
@@ -731,13 +896,18 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE) |
                  static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hProcess", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "lpAddress", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
-            {.name = "dwSize", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN},
-            {.name = "flNewProtect", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "lpflOldProtect", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "hProcess", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "lpAddress",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN},
+             {.name = "dwSize", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN},
+             {.name = "flNewProtect",
+              .param_type = param_info::type::FLAGS,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpflOldProtect",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "change protection of remote process memory",
         .security_notes = {"code execution preparation", "common shellcode injection technique"},
@@ -751,12 +921,15 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::MEMORY_MANAGEMENT,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hProcess", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "lpAddress", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
-            {.name = "lpBuffer", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
-            {.name = "dwLength", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hProcess", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "lpAddress",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpBuffer",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT},
+             {.name = "dwLength", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "bytesReturned", .param_type = param_info::type::SIZE},
         .description = "get information about remote process memory",
         .related_apis = {"VirtualQuery", "ReadProcessMemory"},
@@ -772,15 +945,26 @@ static const std::vector<api_info> windows_kernel32_apis = {
                  static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE) |
                  static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hProcess", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "lpThreadAttributes", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
-            {.name = "dwStackSize", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN},
-            {.name = "lpStartAddress", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
-            {.name = "lpParameter", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
-            {.name = "dwCreationFlags", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "lpThreadId", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "hProcess", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "lpThreadAttributes",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN},
+             {.name = "dwStackSize",
+              .param_type = param_info::type::SIZE,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpStartAddress",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpParameter",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN},
+             {.name = "dwCreationFlags",
+              .param_type = param_info::type::FLAGS,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpThreadId",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "threadHandle", .param_type = param_info::type::HANDLE},
         .description = "create thread in remote process",
         .security_notes = {"primary dll injection method", "requires create_thread access", "common malware technique"},
@@ -796,11 +980,10 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE) |
                  static_cast<uint32_t>(api_info::behavior_flags::ASYNC),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "pfnAPC", .param_type = param_info::type::CALLBACK, .param_direction = param_info::direction::IN},
-            {.name = "hThread", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "dwData", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "pfnAPC", .param_type = param_info::type::CALLBACK, .param_direction = param_info::direction::IN},
+             {.name = "hThread", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "dwData", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "queue asynchronous procedure call to thread",
         .security_notes = {"apc injection technique", "executed when thread enters alertable state"},
@@ -817,11 +1000,14 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::MUTEX,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpMutexAttributes", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
-            {.name = "bInitialOwner", .param_type = param_info::type::BOOLEAN, .param_direction = param_info::direction::IN},
-            {.name = "lpName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "lpMutexAttributes",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN},
+             {.name = "bInitialOwner",
+              .param_type = param_info::type::BOOLEAN,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "mutexHandle", .param_type = param_info::type::HANDLE},
         .description = "create named or unnamed mutex object",
         .related_apis = {"OpenMutexW", "ReleaseMutex", "WaitForSingleObject"},
@@ -835,11 +1021,14 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::MUTEX,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "dwDesiredAccess", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "bInheritHandle", .param_type = param_info::type::BOOLEAN, .param_direction = param_info::direction::IN},
-            {.name = "lpName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "dwDesiredAccess",
+              .param_type = param_info::type::FLAGS,
+              .param_direction = param_info::direction::IN},
+             {.name = "bInheritHandle",
+              .param_type = param_info::type::BOOLEAN,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "mutexHandle", .param_type = param_info::type::HANDLE},
         .description = "open existing named mutex",
         .related_apis = {"CreateMutexW", "ReleaseMutex"},
@@ -853,9 +1042,8 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::MUTEX,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hMutex", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hMutex", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "release ownership of mutex",
         .related_apis = {"CreateMutexW", "WaitForSingleObject"},
@@ -869,12 +1057,17 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::EVENT,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpEventAttributes", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
-            {.name = "bManualReset", .param_type = param_info::type::BOOLEAN, .param_direction = param_info::direction::IN},
-            {.name = "bInitialState", .param_type = param_info::type::BOOLEAN, .param_direction = param_info::direction::IN},
-            {.name = "lpName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "lpEventAttributes",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN},
+             {.name = "bManualReset",
+              .param_type = param_info::type::BOOLEAN,
+              .param_direction = param_info::direction::IN},
+             {.name = "bInitialState",
+              .param_type = param_info::type::BOOLEAN,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "eventHandle", .param_type = param_info::type::HANDLE},
         .description = "create named or unnamed event object",
         .related_apis = {"OpenEventW", "SetEvent", "ResetEvent"},
@@ -888,11 +1081,14 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::EVENT,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "dwDesiredAccess", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "bInheritHandle", .param_type = param_info::type::BOOLEAN, .param_direction = param_info::direction::IN},
-            {.name = "lpName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "dwDesiredAccess",
+              .param_type = param_info::type::FLAGS,
+              .param_direction = param_info::direction::IN},
+             {.name = "bInheritHandle",
+              .param_type = param_info::type::BOOLEAN,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "eventHandle", .param_type = param_info::type::HANDLE},
         .description = "open existing named event",
         .related_apis = {"CreateEventW", "SetEvent", "ResetEvent"},
@@ -907,9 +1103,8 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::EVENT,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hEvent", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hEvent", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "set event object to signaled state",
         .related_apis = {"CreateEventW", "ResetEvent", "WaitForSingleObject"},
@@ -922,9 +1117,8 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::EVENT,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hEvent", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hEvent", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "reset event object to non-signaled state",
         .related_apis = {"CreateEventW", "SetEvent", "WaitForSingleObject"},
@@ -938,12 +1132,17 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::SEMAPHORE,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpSemaphoreAttributes", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
-            {.name = "lInitialCount", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "lMaximumCount", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "lpName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "lpSemaphoreAttributes",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN},
+             {.name = "lInitialCount",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN},
+             {.name = "lMaximumCount",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "semaphoreHandle", .param_type = param_info::type::HANDLE},
         .description = "create named or unnamed semaphore object",
         .related_apis = {"OpenSemaphoreW", "ReleaseSemaphore", "WaitForSingleObject"},
@@ -958,11 +1157,14 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::SEMAPHORE,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "dwDesiredAccess", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "bInheritHandle", .param_type = param_info::type::BOOLEAN, .param_direction = param_info::direction::IN},
-            {.name = "lpName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "dwDesiredAccess",
+              .param_type = param_info::type::FLAGS,
+              .param_direction = param_info::direction::IN},
+             {.name = "bInheritHandle",
+              .param_type = param_info::type::BOOLEAN,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "semaphoreHandle", .param_type = param_info::type::HANDLE},
         .description = "open existing named semaphore",
         .related_apis = {"CreateSemaphoreW", "ReleaseSemaphore"},
@@ -977,11 +1179,16 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::SEMAPHORE,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hSemaphore", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "lReleaseCount", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "lpPreviousCount", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "hSemaphore",
+              .param_type = param_info::type::HANDLE,
+              .param_direction = param_info::direction::IN},
+             {.name = "lReleaseCount",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpPreviousCount",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "increase semaphore count",
         .related_apis = {"CreateSemaphoreW", "WaitForSingleObject"},
@@ -995,10 +1202,11 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::SYNCHRONIZATION,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::BLOCKING),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hHandle", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "dwMilliseconds", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hHandle", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "dwMilliseconds",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "waitResult", .param_type = param_info::type::INTEGER},
         .description = "wait for object to become signaled",
         .related_apis = {"WaitForMultipleObjects", "WaitForSingleObjectEx"},
@@ -1011,12 +1219,17 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::SYNCHRONIZATION,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::BLOCKING),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "nCount", .param_type = param_info::type::COUNT, .param_direction = param_info::direction::IN},
-            {.name = "lpHandles", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
-            {.name = "bWaitAll", .param_type = param_info::type::BOOLEAN, .param_direction = param_info::direction::IN},
-            {.name = "dwMilliseconds", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "nCount", .param_type = param_info::type::COUNT, .param_direction = param_info::direction::IN},
+             {.name = "lpHandles",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN},
+             {.name = "bWaitAll",
+              .param_type = param_info::type::BOOLEAN,
+              .param_direction = param_info::direction::IN},
+             {.name = "dwMilliseconds",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "waitResult", .param_type = param_info::type::INTEGER},
         .description = "wait for multiple objects to become signaled",
         .related_apis = {"WaitForSingleObject", "WaitForMultipleObjectsEx"},
@@ -1024,23 +1237,36 @@ static const std::vector<api_info> windows_kernel32_apis = {
     },
 
     // === IPC - NAMED PIPES ===
-    
+
     api_info{
         .name = "CreateNamedPipeW",
         .module = "kernel32.dll",
         .api_category = api_info::category::PIPE,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
-            {.name = "dwOpenMode", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "dwPipeMode", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "nMaxInstances", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "nOutBufferSize", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN},
-            {.name = "nInBufferSize", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN},
-            {.name = "nDefaultTimeOut", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "lpSecurityAttributes", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "lpName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
+             {.name = "dwOpenMode",
+              .param_type = param_info::type::FLAGS,
+              .param_direction = param_info::direction::IN},
+             {.name = "dwPipeMode",
+              .param_type = param_info::type::FLAGS,
+              .param_direction = param_info::direction::IN},
+             {.name = "nMaxInstances",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN},
+             {.name = "nOutBufferSize",
+              .param_type = param_info::type::SIZE,
+              .param_direction = param_info::direction::IN},
+             {.name = "nInBufferSize",
+              .param_type = param_info::type::SIZE,
+              .param_direction = param_info::direction::IN},
+             {.name = "nDefaultTimeOut",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpSecurityAttributes",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "pipeHandle", .param_type = param_info::type::HANDLE},
         .description = "create named pipe server",
         .security_notes = {"ipc communication vector", "can be used for privilege escalation"},
@@ -1055,10 +1281,13 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::PIPE,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::BLOCKING),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hNamedPipe", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "lpOverlapped", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN_OUT}
-        },
+        .parameters =
+            {{.name = "hNamedPipe",
+              .param_type = param_info::type::HANDLE,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpOverlapped",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN_OUT}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "wait for client to connect to named pipe",
         .related_apis = {"CreateNamedPipeW", "DisconnectNamedPipe", "PeekNamedPipe"},
@@ -1071,9 +1300,10 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::PIPE,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hNamedPipe", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hNamedPipe",
+              .param_type = param_info::type::HANDLE,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "disconnect client from named pipe",
         .related_apis = {"ConnectNamedPipe", "CreateNamedPipeW"},
@@ -1086,14 +1316,25 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::PIPE,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hNamedPipe", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "lpBuffer", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
-            {.name = "nBufferSize", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN},
-            {.name = "lpBytesRead", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
-            {.name = "lpTotalBytesAvail", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
-            {.name = "lpBytesLeftThisMessage", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "hNamedPipe",
+              .param_type = param_info::type::HANDLE,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpBuffer",
+              .param_type = param_info::type::BUFFER,
+              .param_direction = param_info::direction::OUT},
+             {.name = "nBufferSize",
+              .param_type = param_info::type::SIZE,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpBytesRead",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT},
+             {.name = "lpTotalBytesAvail",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT},
+             {.name = "lpBytesLeftThisMessage",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "peek at data in named pipe without removing it",
         .related_apis = {"ReadFile", "WriteFile", "ConnectNamedPipe"},
@@ -1101,19 +1342,24 @@ static const std::vector<api_info> windows_kernel32_apis = {
     },
 
     // === IPC - MAILSLOTS ===
-    
+
     api_info{
         .name = "CreateMailslotW",
         .module = "kernel32.dll",
         .api_category = api_info::category::IPC,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
-            {.name = "nMaxMessageSize", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN},
-            {.name = "lReadTimeout", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "lpSecurityAttributes", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "lpName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
+             {.name = "nMaxMessageSize",
+              .param_type = param_info::type::SIZE,
+              .param_direction = param_info::direction::IN},
+             {.name = "lReadTimeout",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpSecurityAttributes",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "mailslotHandle", .param_type = param_info::type::HANDLE},
         .description = "create mailslot for one-way ipc",
         .related_apis = {"GetMailslotInfo", "ReadFile", "WriteFile"},
@@ -1128,13 +1374,22 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::IPC,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hMailslot", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "lpMaxMessageSize", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
-            {.name = "lpNextSize", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
-            {.name = "lpMessageCount", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
-            {.name = "lpReadTimeout", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "hMailslot",
+              .param_type = param_info::type::HANDLE,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpMaxMessageSize",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT},
+             {.name = "lpNextSize",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT},
+             {.name = "lpMessageCount",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT},
+             {.name = "lpReadTimeout",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "get mailslot information",
         .related_apis = {"CreateMailslotW", "SetMailslotInfo"},
@@ -1149,11 +1404,14 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::SHARED_MEMORY,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "dwDesiredAccess", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "bInheritHandle", .param_type = param_info::type::BOOLEAN, .param_direction = param_info::direction::IN},
-            {.name = "lpName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "dwDesiredAccess",
+              .param_type = param_info::type::FLAGS,
+              .param_direction = param_info::direction::IN},
+             {.name = "bInheritHandle",
+              .param_type = param_info::type::BOOLEAN,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "mappingHandle", .param_type = param_info::type::HANDLE},
         .description = "open existing named file mapping object",
         .related_apis = {"CreateFileMappingW", "MapViewOfFile", "UnmapViewOfFile"},
@@ -1164,16 +1422,17 @@ static const std::vector<api_info> windows_kernel32_apis = {
 
     // === PHASE 3: FILE SYSTEM & PROCESS ANALYSIS ===
 
-    // file system operations  
+    // file system operations
     api_info{
         .name = "GetFileAttributesW",
         .module = "kernel32.dll",
         .api_category = api_info::category::FILE_MANAGEMENT,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpFileName", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "lpFileName",
+              .param_type = param_info::type::PATH,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "attributes", .param_type = param_info::type::FLAGS},
         .description = "retrieve file system attributes of file or directory",
         .related_apis = {"SetFileAttributesW", "GetFileAttributesExW"},
@@ -1187,10 +1446,11 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO) |
                  static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpFileName", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN},
-            {.name = "dwFileAttributes", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "lpFileName", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN},
+             {.name = "dwFileAttributes",
+              .param_type = param_info::type::FLAGS,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "set attributes for file or directory",
         .security_notes = {"file hiding capability", "timestamp manipulation preparation"},
@@ -1204,12 +1464,17 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::FILE_MANAGEMENT,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hFile", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "lpCreationTime", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
-            {.name = "lpLastAccessTime", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
-            {.name = "lpLastWriteTime", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "hFile", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "lpCreationTime",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT},
+             {.name = "lpLastAccessTime",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT},
+             {.name = "lpLastWriteTime",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "retrieve file time stamps",
         .related_apis = {"SetFileTime", "GetFileAttributesExW"},
@@ -1224,12 +1489,17 @@ static const std::vector<api_info> windows_kernel32_apis = {
                  static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE) |
                  static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hFile", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "lpCreationTime", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
-            {.name = "lpLastAccessTime", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
-            {.name = "lpLastWriteTime", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hFile", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "lpCreationTime",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpLastAccessTime",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpLastWriteTime",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "set file time stamps",
         .security_notes = {"timestamp manipulation", "anti-forensics technique", "file timestomping"},
@@ -1244,10 +1514,11 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE) |
                  static_cast<uint32_t>(api_info::behavior_flags::FILE_IO),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpFileName", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN},
-            {.name = "lpFindFileData", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "lpFileName", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN},
+             {.name = "lpFindFileData",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "searchHandle", .param_type = param_info::type::HANDLE},
         .description = "search directory for file or subdirectory",
         .security_notes = {"directory enumeration capability", "file discovery"},
@@ -1262,10 +1533,13 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::FILE_MANAGEMENT,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hFindFile", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "lpFindFileData", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "hFindFile",
+              .param_type = param_info::type::HANDLE,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpFindFileData",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "continue file search from previous call",
         .related_apis = {"FindFirstFileW", "FindClose"},
@@ -1278,9 +1552,10 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::FILE_MANAGEMENT,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::CLOSES_HANDLE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hFindFile", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hFindFile",
+              .param_type = param_info::type::HANDLE,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "close file search handle",
         .related_apis = {"FindFirstFileW", "FindNextFileW"},
@@ -1294,10 +1569,11 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO) |
                  static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpPathName", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN},
-            {.name = "lpSecurityAttributes", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "lpPathName", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN},
+             {.name = "lpSecurityAttributes",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "create new directory",
         .security_notes = {"directory creation for persistence", "file system modification"},
@@ -1312,9 +1588,10 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO) |
                  static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpPathName", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "lpPathName",
+              .param_type = param_info::type::PATH,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "delete existing empty directory",
         .security_notes = {"directory cleanup", "anti-forensics technique"},
@@ -1330,9 +1607,10 @@ static const std::vector<api_info> windows_kernel32_apis = {
                  static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE) |
                  static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpFileName", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "lpFileName",
+              .param_type = param_info::type::PATH,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "delete existing file",
         .security_notes = {"file deletion capability", "evidence destruction", "anti-forensics"},
@@ -1347,10 +1625,13 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO) |
                  static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpExistingFileName", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN},
-            {.name = "lpNewFileName", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "lpExistingFileName",
+              .param_type = param_info::type::PATH,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpNewFileName",
+              .param_type = param_info::type::PATH,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "move or rename file or directory",
         .related_apis = {"CopyFileW", "MoveFileExW", "DeleteFileW"},
@@ -1364,11 +1645,16 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO) |
                  static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpExistingFileName", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN},
-            {.name = "lpNewFileName", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN},
-            {.name = "bFailIfExists", .param_type = param_info::type::BOOLEAN, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "lpExistingFileName",
+              .param_type = param_info::type::PATH,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpNewFileName",
+              .param_type = param_info::type::PATH,
+              .param_direction = param_info::direction::IN},
+             {.name = "bFailIfExists",
+              .param_type = param_info::type::BOOLEAN,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "copy existing file to new file",
         .security_notes = {"file duplication capability", "backup creation"},
@@ -1383,16 +1669,31 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::SYSTEM_INFO,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpRootPathName", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN},
-            {.name = "lpVolumeNameBuffer", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
-            {.name = "nVolumeNameSize", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN},
-            {.name = "lpVolumeSerialNumber", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
-            {.name = "lpMaximumComponentLength", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
-            {.name = "lpFileSystemFlags", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
-            {.name = "lpFileSystemNameBuffer", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
-            {.name = "nFileSystemNameSize", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "lpRootPathName",
+              .param_type = param_info::type::PATH,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpVolumeNameBuffer",
+              .param_type = param_info::type::BUFFER,
+              .param_direction = param_info::direction::OUT},
+             {.name = "nVolumeNameSize",
+              .param_type = param_info::type::SIZE,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpVolumeSerialNumber",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT},
+             {.name = "lpMaximumComponentLength",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT},
+             {.name = "lpFileSystemFlags",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT},
+             {.name = "lpFileSystemNameBuffer",
+              .param_type = param_info::type::BUFFER,
+              .param_direction = param_info::direction::OUT},
+             {.name = "nFileSystemNameSize",
+              .param_type = param_info::type::SIZE,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "retrieve volume information",
         .related_apis = {"GetDiskFreeSpaceW", "GetLogicalDrives"},
@@ -1405,13 +1706,22 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::SYSTEM_INFO,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpRootPathName", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN},
-            {.name = "lpSectorsPerCluster", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
-            {.name = "lpBytesPerSector", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
-            {.name = "lpNumberOfFreeClusters", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
-            {.name = "lpTotalNumberOfClusters", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "lpRootPathName",
+              .param_type = param_info::type::PATH,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpSectorsPerCluster",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT},
+             {.name = "lpBytesPerSector",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT},
+             {.name = "lpNumberOfFreeClusters",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT},
+             {.name = "lpTotalNumberOfClusters",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "retrieve disk space information",
         .related_apis = {"GetVolumeInformationW", "GetDiskFreeSpaceExW"},
@@ -1437,9 +1747,10 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::SYSTEM_INFO,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpRootPathName", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "lpRootPathName",
+              .param_type = param_info::type::PATH,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "driveType", .param_type = param_info::type::INTEGER},
         .description = "determine drive type",
         .related_apis = {"GetLogicalDrives", "GetVolumeInformationW"},
@@ -1454,10 +1765,11 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::PROCESS_CONTROL,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "dwFlags", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "th32ProcessID", .param_type = param_info::type::PROCESS_ID, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "dwFlags", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
+             {.name = "th32ProcessID",
+              .param_type = param_info::type::PROCESS_ID,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "snapshotHandle", .param_type = param_info::type::HANDLE},
         .description = "take snapshot of processes, threads, modules, and heaps",
         .security_notes = {"system enumeration capability", "process discovery", "malware analysis tool"},
@@ -1472,10 +1784,11 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::PROCESS_CONTROL,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hSnapshot", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "lppe", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "hSnapshot",
+              .param_type = param_info::type::HANDLE,
+              .param_direction = param_info::direction::IN},
+             {.name = "lppe", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "retrieve first process from snapshot",
         .security_notes = {"process enumeration", "system discovery"},
@@ -1489,10 +1802,11 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::PROCESS_CONTROL,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hSnapshot", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "lppe", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "hSnapshot",
+              .param_type = param_info::type::HANDLE,
+              .param_direction = param_info::direction::IN},
+             {.name = "lppe", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "retrieve next process from snapshot",
         .related_apis = {"Process32FirstW", "CreateToolhelp32Snapshot"},
@@ -1505,10 +1819,11 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::THREAD_CONTROL,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hSnapshot", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "lpte", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "hSnapshot",
+              .param_type = param_info::type::HANDLE,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpte", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "retrieve first thread from snapshot",
         .security_notes = {"thread enumeration", "injection target discovery"},
@@ -1522,10 +1837,11 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::THREAD_CONTROL,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hSnapshot", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "lpte", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "hSnapshot",
+              .param_type = param_info::type::HANDLE,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpte", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "retrieve next thread from snapshot",
         .related_apis = {"Thread32First", "CreateToolhelp32Snapshot"},
@@ -1538,10 +1854,11 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::LIBRARY_LOADING,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hSnapshot", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "lpme", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "hSnapshot",
+              .param_type = param_info::type::HANDLE,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpme", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "retrieve first module from snapshot",
         .security_notes = {"module enumeration", "dll discovery"},
@@ -1555,10 +1872,11 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::LIBRARY_LOADING,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hSnapshot", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "lpme", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "hSnapshot",
+              .param_type = param_info::type::HANDLE,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpme", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "retrieve next module from snapshot",
         .related_apis = {"Module32FirstW", "CreateToolhelp32Snapshot"},
@@ -1573,11 +1891,16 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE) |
                  static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "dwDesiredAccess", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "bInheritHandle", .param_type = param_info::type::BOOLEAN, .param_direction = param_info::direction::IN},
-            {.name = "dwThreadId", .param_type = param_info::type::THREAD_ID, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "dwDesiredAccess",
+              .param_type = param_info::type::FLAGS,
+              .param_direction = param_info::direction::IN},
+             {.name = "bInheritHandle",
+              .param_type = param_info::type::BOOLEAN,
+              .param_direction = param_info::direction::IN},
+             {.name = "dwThreadId",
+              .param_type = param_info::type::THREAD_ID,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "threadHandle", .param_type = param_info::type::HANDLE},
         .description = "open existing thread object",
         .security_notes = {"thread access for injection", "apc injection preparation"},
@@ -1593,9 +1916,8 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE) |
                  static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hThread", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hThread", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "previousSuspendCount", .param_type = param_info::type::INTEGER},
         .description = "suspend specified thread",
         .security_notes = {"thread suspension for analysis", "process hollowing technique"},
@@ -1609,9 +1931,8 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::THREAD_CONTROL,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hThread", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hThread", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "previousSuspendCount", .param_type = param_info::type::INTEGER},
         .description = "resume suspended thread",
         .related_apis = {"SuspendThread", "CreateThread"},
@@ -1624,10 +1945,11 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::THREAD_CONTROL,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hThread", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "lpContext", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "hThread", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "lpContext",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "retrieve thread context (registers)",
         .security_notes = {"register inspection", "process hollowing analysis"},
@@ -1642,10 +1964,11 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE) |
                  static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hThread", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "lpContext", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hThread", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "lpContext",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "set thread context (registers)",
         .security_notes = {"execution redirection", "process hollowing technique", "injection method"},
@@ -1690,9 +2013,10 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::TIME,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpPerformanceCount", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "lpPerformanceCount",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "retrieve high-resolution performance counter",
         .security_notes = {"precise timing for anti-debugging", "rdtsc alternative"},
@@ -1706,9 +2030,10 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::TIME,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpFrequency", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "lpFrequency",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "retrieve performance counter frequency",
         .related_apis = {"QueryPerformanceCounter"},
@@ -1721,9 +2046,10 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::TIME,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::BLOCKING),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "dwMilliseconds", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "dwMilliseconds",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "void", .param_type = param_info::type::VOID},
         .description = "suspend execution for specified interval",
         .security_notes = {"delay execution for analysis evasion", "sandbox timeout technique"},
@@ -1737,10 +2063,13 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::TIME,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::BLOCKING),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "dwMilliseconds", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "bAlertable", .param_type = param_info::type::BOOLEAN, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "dwMilliseconds",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN},
+             {.name = "bAlertable",
+              .param_type = param_info::type::BOOLEAN,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
         .description = "suspend execution with alertable state",
         .security_notes = {"apc-aware sleep for evasion", "alertable delay technique"},
@@ -1769,10 +2098,11 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::SECURITY,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hProcess", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "pbDebuggerPresent", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "hProcess", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "pbDebuggerPresent",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "determine if debugger is attached to process",
         .security_notes = {"remote debugging detection", "anti-analysis technique"},
@@ -1786,9 +2116,10 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::SECURITY,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpOutputString", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "lpOutputString",
+              .param_type = param_info::type::STRING,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "void", .param_type = param_info::type::VOID},
         .description = "send string to debugger for display",
         .security_notes = {"debugger detection via exception", "anti-debugging technique"},
@@ -1803,10 +2134,13 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::SYSTEM_INFO,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpBuffer", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
-            {.name = "pcbBuffer", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN_OUT}
-        },
+        .parameters =
+            {{.name = "lpBuffer",
+              .param_type = param_info::type::BUFFER,
+              .param_direction = param_info::direction::OUT},
+             {.name = "pcbBuffer",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN_OUT}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "retrieve current user name",
         .security_notes = {"user profiling for sandbox detection", "common sandbox usernames"},
@@ -1820,11 +2154,12 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::SYSTEM_INFO,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
-            {.name = "lpBuffer", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
-            {.name = "nSize", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "lpName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
+             {.name = "lpBuffer",
+              .param_type = param_info::type::BUFFER,
+              .param_direction = param_info::direction::OUT},
+             {.name = "nSize", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "length", .param_type = param_info::type::SIZE},
         .description = "retrieve environment variable value",
         .security_notes = {"environment fingerprinting", "sandbox detection via env vars"},
@@ -1838,10 +2173,9 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::SYSTEM_INFO,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
-            {.name = "lpValue", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "lpName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
+             {.name = "lpValue", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "set environment variable value",
         .related_apis = {"GetEnvironmentVariableW"},
@@ -1868,9 +2202,10 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::SYSTEM_INFO,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::DEPRECATED),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpVersionInformation", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "lpVersionInformation",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "retrieve operating system version information",
         .security_notes = {"os fingerprinting for evasion", "version-specific exploits"},
@@ -1884,9 +2219,10 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::SYSTEM_INFO,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpSystemInfo", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "lpSystemInfo",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "void", .param_type = param_info::type::VOID},
         .description = "retrieve native system information",
         .security_notes = {"architecture detection", "wow64 environment analysis"},
@@ -1900,10 +2236,11 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::SYSTEM_INFO,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hProcess", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "Wow64Process", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "hProcess", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "Wow64Process",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "determine if process is running under wow64",
         .security_notes = {"architecture detection", "32-bit on 64-bit detection"},
@@ -1918,12 +2255,15 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::LOCALE,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "Locale", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "LCType", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "lpLCData", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
-            {.name = "cchData", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "Locale", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
+             {.name = "LCType", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
+             {.name = "lpLCData",
+              .param_type = param_info::type::BUFFER,
+              .param_direction = param_info::direction::OUT},
+             {.name = "cchData",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "length", .param_type = param_info::type::INTEGER},
         .description = "retrieve locale-specific information",
         .security_notes = {"geographic targeting", "locale-based evasion"},
@@ -1951,9 +2291,10 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::TIME,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpTimeZoneInformation", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "lpTimeZoneInformation",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
         .description = "retrieve current time zone settings",
         .security_notes = {"geographic location inference", "timezone-based targeting"},
@@ -1968,10 +2309,11 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::SYSTEM_INFO,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "Buffer", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
-            {.name = "ReturnedLength", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN_OUT}
-        },
+        .parameters =
+            {{.name = "Buffer", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
+             {.name = "ReturnedLength",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN_OUT}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "retrieve logical processor and cache information",
         .security_notes = {"cpu core detection for vm analysis", "hardware fingerprinting"},
@@ -1986,9 +2328,10 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::MEMORY_MANAGEMENT,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpBuffer", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "lpBuffer",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "success", .param_type = param_info::type::BOOLEAN},
         .description = "retrieve extended memory status",
         .security_notes = {"memory size detection for vm analysis", "low memory sandbox detection"},
@@ -2003,10 +2346,13 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::SYSTEM_INFO,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "nBufferLength", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN},
-            {.name = "lpBuffer", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "nBufferLength",
+              .param_type = param_info::type::SIZE,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpBuffer",
+              .param_type = param_info::type::BUFFER,
+              .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "length", .param_type = param_info::type::SIZE},
         .description = "retrieve temporary file path",
         .security_notes = {"temp directory analysis", "sandbox temp path detection"},
@@ -2020,10 +2366,11 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::SYSTEM_INFO,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpBuffer", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
-            {.name = "uSize", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "lpBuffer",
+              .param_type = param_info::type::BUFFER,
+              .param_direction = param_info::direction::OUT},
+             {.name = "uSize", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "length", .param_type = param_info::type::SIZE},
         .description = "retrieve windows directory path",
         .security_notes = {"system directory analysis", "installation path detection"},
@@ -2037,10 +2384,11 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::SYSTEM_INFO,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "lpBuffer", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
-            {.name = "uSize", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "lpBuffer",
+              .param_type = param_info::type::BUFFER,
+              .param_direction = param_info::direction::OUT},
+             {.name = "uSize", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "length", .param_type = param_info::type::SIZE},
         .description = "retrieve system directory path",
         .related_apis = {"GetWindowsDirectoryW", "GetSystemWow64DirectoryW"},
@@ -2056,13 +2404,16 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE) |
                  static_cast<uint32_t>(api_info::behavior_flags::REGISTRY_ACCESS),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hKey", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "lpSubKey", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
-            {.name = "ulOptions", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "samDesired", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "phkResult", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "hKey", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "lpSubKey", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
+             {.name = "ulOptions", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
+             {.name = "samDesired",
+              .param_type = param_info::type::FLAGS,
+              .param_direction = param_info::direction::IN},
+             {.name = "phkResult",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "status", .param_type = param_info::type::INTEGER},
         .description = "open registry key",
         .security_notes = {"registry access", "system configuration modification"},
@@ -2079,17 +2430,26 @@ static const std::vector<api_info> windows_kernel32_apis = {
                  static_cast<uint32_t>(api_info::behavior_flags::REGISTRY_ACCESS) |
                  static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hKey", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "lpSubKey", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
-            {.name = "Reserved", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "lpClass", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
-            {.name = "dwOptions", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "samDesired", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "lpSecurityAttributes", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
-            {.name = "phkResult", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
-            {.name = "lpdwDisposition", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "hKey", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "lpSubKey", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
+             {.name = "Reserved",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpClass", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
+             {.name = "dwOptions", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
+             {.name = "samDesired",
+              .param_type = param_info::type::FLAGS,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpSecurityAttributes",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN},
+             {.name = "phkResult",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT},
+             {.name = "lpdwDisposition",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "status", .param_type = param_info::type::INTEGER},
         .description = "create or open registry key",
         .security_notes = {"registry modification", "persistence mechanism", "system configuration change"},
@@ -2105,14 +2465,17 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .flags = static_cast<uint32_t>(api_info::behavior_flags::REGISTRY_ACCESS) |
                  static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hKey", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "lpValueName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
-            {.name = "Reserved", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "dwType", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-            {.name = "lpData", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::IN},
-            {.name = "cbData", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hKey", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "lpValueName",
+              .param_type = param_info::type::STRING,
+              .param_direction = param_info::direction::IN},
+             {.name = "Reserved",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN},
+             {.name = "dwType", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
+             {.name = "lpData", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::IN},
+             {.name = "cbData", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "status", .param_type = param_info::type::INTEGER},
         .description = "set registry value",
         .security_notes = {"registry modification", "persistence mechanism", "autostart configuration"},
@@ -2126,14 +2489,19 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::REGISTRY,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::REGISTRY_ACCESS),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hKey", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "lpValueName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
-            {.name = "lpReserved", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
-            {.name = "lpType", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
-            {.name = "lpData", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
-            {.name = "lpcbData", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN_OUT}
-        },
+        .parameters =
+            {{.name = "hKey", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "lpValueName",
+              .param_type = param_info::type::STRING,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpReserved",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpType", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
+             {.name = "lpData", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
+             {.name = "lpcbData",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN_OUT}},
         .return_value = {.name = "status", .param_type = param_info::type::INTEGER},
         .description = "query registry value",
         .security_notes = {"registry inspection", "system configuration analysis"},
@@ -2148,10 +2516,11 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .flags = static_cast<uint32_t>(api_info::behavior_flags::REGISTRY_ACCESS) |
                  static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hKey", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "lpSubKey", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hKey", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "lpSubKey",
+              .param_type = param_info::type::STRING,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "status", .param_type = param_info::type::INTEGER},
         .description = "delete registry key",
         .security_notes = {"registry cleanup", "evidence removal", "system modification"},
@@ -2166,10 +2535,11 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .flags = static_cast<uint32_t>(api_info::behavior_flags::REGISTRY_ACCESS) |
                  static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hKey", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "lpValueName", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hKey", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "lpValueName",
+              .param_type = param_info::type::STRING,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "status", .param_type = param_info::type::INTEGER},
         .description = "delete registry value",
         .security_notes = {"registry cleanup", "configuration removal"},
@@ -2183,9 +2553,8 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::REGISTRY,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::CLOSES_HANDLE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hKey", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "hKey", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "status", .param_type = param_info::type::INTEGER},
         .description = "close registry key handle",
         .related_apis = {"RegOpenKeyExW", "RegCreateKeyExW"},
@@ -2198,16 +2567,23 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::REGISTRY,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::REGISTRY_ACCESS),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hKey", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "dwIndex", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "lpName", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
-            {.name = "lpcchName", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN_OUT},
-            {.name = "lpReserved", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
-            {.name = "lpClass", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
-            {.name = "lpcchClass", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN_OUT},
-            {.name = "lpftLastWriteTime", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT}
-        },
+        .parameters =
+            {{.name = "hKey", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "dwIndex", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
+             {.name = "lpName", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
+             {.name = "lpcchName",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN_OUT},
+             {.name = "lpReserved",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpClass", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
+             {.name = "lpcchClass",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN_OUT},
+             {.name = "lpftLastWriteTime",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::OUT}},
         .return_value = {.name = "status", .param_type = param_info::type::INTEGER},
         .description = "enumerate registry subkeys",
         .security_notes = {"registry discovery", "system configuration enumeration"},
@@ -2221,16 +2597,23 @@ static const std::vector<api_info> windows_kernel32_apis = {
         .api_category = api_info::category::REGISTRY,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::REGISTRY_ACCESS),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "hKey", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
-            {.name = "dwIndex", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-            {.name = "lpValueName", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
-            {.name = "lpcchValueName", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN_OUT},
-            {.name = "lpReserved", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
-            {.name = "lpType", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
-            {.name = "lpData", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
-            {.name = "lpcbData", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN_OUT}
-        },
+        .parameters =
+            {{.name = "hKey", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
+             {.name = "dwIndex", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
+             {.name = "lpValueName",
+              .param_type = param_info::type::BUFFER,
+              .param_direction = param_info::direction::OUT},
+             {.name = "lpcchValueName",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN_OUT},
+             {.name = "lpReserved",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN},
+             {.name = "lpType", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
+             {.name = "lpData", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
+             {.name = "lpcbData",
+              .param_type = param_info::type::POINTER,
+              .param_direction = param_info::direction::IN_OUT}},
         .return_value = {.name = "status", .param_type = param_info::type::INTEGER},
         .description = "enumerate registry values",
         .security_notes = {"registry discovery", "value enumeration"},

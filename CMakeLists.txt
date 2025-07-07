@@ -77,7 +77,7 @@ if(WITNESS_LIEF)
 endif()
 
 # add project subdirectories
-add_subdirectory(src/common)
+add_subdirectory(src/w1common)
 add_subdirectory(src/w1tn3ss)
 add_subdirectory(src/tracers)
 add_subdirectory(src/w1nj3ct)
@@ -85,6 +85,10 @@ add_subdirectory(src/w1tool)
 add_subdirectory(src/p1ll)
 add_subdirectory(src/p1llx)
 add_subdirectory(src/p01s0n)
+
+# setup global include directories for clean project-based includes
+# this allows includes like <w1common/platform_utils.hpp> instead of ../common/platform_utils.hpp
+include_directories(${CMAKE_SOURCE_DIR}/src)
 
 # add tests (optional)
 option(BUILD_TESTS "Build test programs and libraries" ON)
@@ -111,7 +115,7 @@ if(CLANG_FORMAT_EXECUTABLE)
         "${CMAKE_SOURCE_DIR}/src/w1nj3ct/*.cpp" "${CMAKE_SOURCE_DIR}/src/w1nj3ct/*.hpp"
         "${CMAKE_SOURCE_DIR}/src/w1tool/*.cpp" "${CMAKE_SOURCE_DIR}/src/w1tool/*.hpp"
         "${CMAKE_SOURCE_DIR}/src/tracers/*.cpp" "${CMAKE_SOURCE_DIR}/src/tracers/*.hpp"
-        "${CMAKE_SOURCE_DIR}/src/common/*.cpp" "${CMAKE_SOURCE_DIR}/src/common/*.hpp"
+        "${CMAKE_SOURCE_DIR}/src/w1common/*.cpp" "${CMAKE_SOURCE_DIR}/src/w1common/*.hpp"
         "${CMAKE_SOURCE_DIR}/src/p1ll/*.cpp" "${CMAKE_SOURCE_DIR}/src/p1ll/*.hpp"
         "${CMAKE_SOURCE_DIR}/src/p1llx/*.cpp" "${CMAKE_SOURCE_DIR}/src/p1llx/*.hpp"
         "${CMAKE_SOURCE_DIR}/src/p01s0n/*.cpp" "${CMAKE_SOURCE_DIR}/src/p01s0n/*.hpp"

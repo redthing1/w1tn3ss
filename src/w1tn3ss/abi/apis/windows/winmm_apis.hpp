@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../api_knowledge_db.hpp"
+#include "abi/api_knowledge_db.hpp"
 #include <vector>
 
 namespace w1::abi::apis::windows {
@@ -26,7 +26,7 @@ namespace w1::abi::apis::windows {
 
 static const std::vector<api_info> windows_winmm_apis = {
     // === TIMING FUNCTIONS FOR EVASION ===
-    
+
     api_info{
         .name = "timeGetTime",
         .module = "winmm.dll",
@@ -47,9 +47,10 @@ static const std::vector<api_info> windows_winmm_apis = {
         .api_category = api_info::category::TIME,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "uPeriod", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "uPeriod",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
         .description = "request minimum timer resolution",
         .security_notes = {"improve timing precision for evasion", "system-wide timer modification"},
@@ -63,9 +64,10 @@ static const std::vector<api_info> windows_winmm_apis = {
         .api_category = api_info::category::TIME,
         .flags = static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "uPeriod", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "uPeriod",
+              .param_type = param_info::type::INTEGER,
+              .param_direction = param_info::direction::IN}},
         .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
         .description = "clear timer resolution request",
         .related_apis = {"timeBeginPeriod", "timeGetTime"},
@@ -78,10 +80,9 @@ static const std::vector<api_info> windows_winmm_apis = {
         .api_category = api_info::category::TIME,
         .flags = 0,
         .convention = WINDOWS_API_CONVENTION,
-        .parameters = {
-            {.name = "ptc", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
-            {.name = "cbtc", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN}
-        },
+        .parameters =
+            {{.name = "ptc", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
+             {.name = "cbtc", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN}},
         .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
         .description = "query timer device capabilities",
         .security_notes = {"timer hardware analysis", "system capability fingerprinting"},
@@ -146,7 +147,6 @@ static const std::vector<api_info> windows_winmm_apis = {
         .headers = {"windows.h", "mmsystem.h"}
     }
 };
-
 
 #undef WINDOWS_API_CONVENTION
 
