@@ -14,6 +14,7 @@
 #include <w1tn3ss/util/module_scanner.hpp>
 #include <w1tn3ss/util/signal_handler.hpp>
 #include <w1tn3ss/util/stderr_write.hpp>
+#include <w1tn3ss/util/safe_memory.hpp>
 
 class hooktest_tracer {
 public:
@@ -229,10 +230,25 @@ private:
 #endif
     } else if (strcmp(func_name, "format_message") == 0) {
 #if defined(__aarch64__)
-      log_.inf(
-          "format_message params", redlog::field("buffer", "0x%lx", gpr->x0),
-          redlog::field("name_ptr", "0x%lx", gpr->x1), redlog::field("value", static_cast<int>(gpr->x2))
-      );
+      QBDI::rword buffer_ptr = gpr->x0;
+      QBDI::rword name_ptr = gpr->x1;
+      int value = static_cast<int>(gpr->x2);
+
+      // safely read the name string
+      auto name_str = w1::util::safe_memory::read_string(vm, name_ptr, 256);
+      if (name_str) {
+        log_.inf(
+            "format_message params", redlog::field("buffer", "0x%lx", buffer_ptr),
+            redlog::field("name_ptr", "0x%lx", name_ptr), redlog::field("name", name_str->c_str()),
+            redlog::field("value", value)
+        );
+      } else {
+        log_.inf(
+            "format_message params", redlog::field("buffer", "0x%lx", buffer_ptr),
+            redlog::field("name_ptr", "0x%lx", name_ptr), redlog::field("name", "<read failed>"),
+            redlog::field("value", value)
+        );
+      }
 #endif
     } else if (strcmp(func_name, "allocate_buffer") == 0) {
 #if defined(__aarch64__)
@@ -243,17 +259,43 @@ private:
 #if defined(__aarch64__)
       QBDI::rword str1_ptr = gpr->x0;
       QBDI::rword str2_ptr = gpr->x1;
-      log_.inf(
-          "compare_strings params", redlog::field("str1_ptr", "0x%lx", str1_ptr),
-          redlog::field("str2_ptr", "0x%lx", str2_ptr)
-      );
+
+      // safely read both strings
+      auto str1 = w1::util::safe_memory::read_string(vm, str1_ptr, 256);
+      auto str2 = w1::util::safe_memory::read_string(vm, str2_ptr, 256);
+
+      if (str1 && str2) {
+        log_.inf(
+            "compare_strings params", redlog::field("str1_ptr", "0x%lx", str1_ptr),
+            redlog::field("str1", str1->c_str()), redlog::field("str2_ptr", "0x%lx", str2_ptr),
+            redlog::field("str2", str2->c_str())
+        );
+      } else {
+        log_.inf(
+            "compare_strings params", redlog::field("str1_ptr", "0x%lx", str1_ptr),
+            redlog::field("str1", str1 ? str1->c_str() : "<read failed>"), redlog::field("str2_ptr", "0x%lx", str2_ptr),
+            redlog::field("str2", str2 ? str2->c_str() : "<read failed>")
+        );
+      }
 #endif
     } else if (strcmp(func_name, "unsafe_copy") == 0) {
 #if defined(__aarch64__)
-      log_.wrn(
-          "unsafe_copy detected - security risk", redlog::field("dst", "0x%lx", gpr->x0),
-          redlog::field("src_ptr", "0x%lx", gpr->x1)
-      );
+      QBDI::rword dst_ptr = gpr->x0;
+      QBDI::rword src_ptr = gpr->x1;
+
+      // try to read source string to see what's being copied
+      auto src_str = w1::util::safe_memory::read_string(vm, src_ptr, 256);
+      if (src_str) {
+        log_.wrn(
+            "unsafe_copy detected - security risk", redlog::field("dst", "0x%lx", dst_ptr),
+            redlog::field("src_ptr", "0x%lx", src_ptr), redlog::field("src_content", src_str->c_str())
+        );
+      } else {
+        log_.wrn(
+            "unsafe_copy detected - security risk", redlog::field("dst", "0x%lx", dst_ptr),
+            redlog::field("src_ptr", "0x%lx", src_ptr), redlog::field("src_content", "<read failed>")
+        );
+      }
 #endif
     }
 
