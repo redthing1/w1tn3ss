@@ -462,7 +462,11 @@ def auto_cure(
         actual_input = input_path
 
     # build p1llx command
-    cmd_args = ["cure", "-c", cure_script, "-i", str(actual_input)]
+    cmd_args = []
+    if global_verbose > 0:
+        cmd_args.append("-" + "v" * global_verbose)
+
+    cmd_args.extend(["cure", "-c", cure_script, "-i", str(actual_input)])
 
     # determine target file and ensure we don't modify backup in-place
     # critical: p1llx modifies input file when no -o is specified!
@@ -483,10 +487,6 @@ def auto_cure(
 
     if platform_override:
         cmd_args.extend(["-p", platform_override])
-
-    # add verbosity to p1llx
-    if global_verbose > 0:
-        cmd_args.append("-" + "v" * global_verbose)
 
     # run p1llx
     if not P1llxRunner.run_p1llx(cmd_args, global_sudo):
@@ -519,16 +519,17 @@ def cure(
     """
     pass-through to p1llx cure with optional enhancements
     """
-    cmd_args = ["cure", "-c", cure_script, "-i", input_file]
+    cmd_args = []
+    if global_verbose > 0:
+        cmd_args.append("-" + "v" * global_verbose)
+
+    cmd_args.extend(["cure", "-c", cure_script, "-i", input_file])
 
     if output_file:
         cmd_args.extend(["-o", output_file])
 
     if platform_override:
         cmd_args.extend(["-p", platform_override])
-
-    if global_verbose > 0:
-        cmd_args.append("-" + "v" * global_verbose)
 
     if not P1llxRunner.run_p1llx(cmd_args, global_sudo):
         raise typer.Exit(1)
@@ -546,19 +547,22 @@ def patch(
     """
     pass-through to p1llx patch
     """
-    cmd_args = [
-        "patch",
-        f"--address={address}",
-        f"--replace={replace}",
-        "-i",
-        input_file,
-    ]
+    cmd_args = []
+    if global_verbose > 0:
+        cmd_args.append("-" + "v" * global_verbose)
+
+    cmd_args.extend(
+        [
+            "patch",
+            f"--address={address}",
+            f"--replace={replace}",
+            "-i",
+            input_file,
+        ]
+    )
 
     if output_file:
         cmd_args.extend(["-o", output_file])
-
-    if global_verbose > 0:
-        cmd_args.append("-" + "v" * global_verbose)
 
     if not P1llxRunner.run_p1llx(cmd_args, global_sudo):
         raise typer.Exit(1)
@@ -582,7 +586,11 @@ def poison(
     """
     pass-through to p1llx poison for dynamic patching
     """
-    cmd_args = ["poison", "-c", cure_script]
+    cmd_args = []
+    if global_verbose > 0:
+        cmd_args.append("-" + "v" * global_verbose)
+
+    cmd_args.extend(["poison", "-c", cure_script])
 
     # target specification
     if spawn:
@@ -599,9 +607,6 @@ def poison(
 
     if suspended:
         cmd_args.append("--suspended")
-
-    if global_verbose > 0:
-        cmd_args.append("-" + "v" * global_verbose)
 
     if args:
         cmd_args.extend(args)
