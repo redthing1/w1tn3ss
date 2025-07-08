@@ -132,13 +132,13 @@ void setup_utilities(sol::state& lua, sol::table& w1_module) {
   });
 
   w1_module.set_function("get_architecture", []() -> std::string {
-#if defined(QBDI_ARCH_X86_64)
+#if defined(__x86_64__) || defined(_M_X64)
     return "x86_64";
-#elif defined(QBDI_ARCH_X86)
+#elif defined(__i386__) || defined(_M_IX86)
     return "x86";
-#elif defined(QBDI_ARCH_ARM)
+#elif defined(__arm__) || defined(_M_ARM)
     return "arm";
-#elif defined(QBDI_ARCH_AARCH64)
+#elif defined(__aarch64__) || defined(_M_ARM64)
     return "aarch64";
 #else
     return "unknown";
@@ -150,16 +150,16 @@ void setup_utilities(sol::state& lua, sol::table& w1_module) {
 
     info["os"] = w1::common::platform_utils::get_platform_name();
 
-#if defined(QBDI_ARCH_X86_64)
+#if defined(__x86_64__) || defined(_M_X64)
     info["arch"] = "x86_64";
     info["bits"] = 64;
-#elif defined(QBDI_ARCH_X86)
+#elif defined(__i386__) || defined(_M_IX86)
     info["arch"] = "x86";
     info["bits"] = 32;
-#elif defined(QBDI_ARCH_ARM)
+#elif defined(__arm__) || defined(_M_ARM)
     info["arch"] = "arm";
     info["bits"] = 32;
-#elif defined(QBDI_ARCH_AARCH64)
+#elif defined(__aarch64__) || defined(_M_ARM64)
     info["arch"] = "aarch64";
     info["bits"] = 64;
 #else

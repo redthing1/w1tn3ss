@@ -47,6 +47,9 @@ void setup_qbdi_bindings(
   logger.dbg("setting up signature scanning");
   bindings::setup_signature_scanning(lua, w1_module);
 
+  logger.dbg("setting up calling convention");
+  bindings::setup_calling_convention(lua, w1_module);
+
   // store hook manager pointer in w1 module for signature scanning
   w1_module["_hook_manager"] = static_cast<void*>(hook_manager.get());
 
@@ -56,7 +59,7 @@ void setup_qbdi_bindings(
   logger.inf("all qbdi bindings registered successfully");
   logger.dbg(
       "available modules: core_types, register_access, vm_control, memory_access, memory_analysis, module_analysis, "
-      "utilities, callback_system, api_analysis, hooking, signature_scanning"
+      "utilities, callback_system, api_analysis, hooking, signature_scanning, calling_convention"
   );
 }
 

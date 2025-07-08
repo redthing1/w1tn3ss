@@ -16,6 +16,7 @@
 #include "bindings/api_analysis.hpp"
 #include "bindings/hooking.hpp"
 #include "bindings/signature_scanning.hpp"
+#include "bindings/calling_convention.hpp"
 
 namespace w1::hooking {
 class hook_manager;

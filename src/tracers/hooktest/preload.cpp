@@ -15,13 +15,17 @@
 #include <w1tn3ss/util/signal_handler.hpp>
 #include <w1tn3ss/util/stderr_write.hpp>
 #include <w1tn3ss/util/safe_memory.hpp>
+#include <w1tn3ss/abi/calling_convention_factory.hpp>
 
 class hooktest_tracer {
 public:
-  explicit hooktest_tracer() { log_.inf("hooktest tracer created"); }
+  explicit hooktest_tracer(bool use_abi = false) : use_abi_(use_abi) {
+    log_.inf("hooktest tracer created", redlog::field("use_abi", use_abi_));
+  }
 
   bool initialize(w1::tracer_engine<hooktest_tracer>& engine) {
     log_.inf("initializing hooktest tracer");
+    log_.inf("argument extraction mode", redlog::field("use_abi", use_abi_ ? "calling convention" : "direct register"));
 
     // scan and index modules
     log_.inf("scanning modules");
@@ -155,6 +159,8 @@ private:
   QBDI::VMAction on_function_hook(
       QBDI::VMInstanceRef vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr, QBDI::rword address, const char* func_name
   ) {
+    // get calling convention
+    auto cc = w1::abi::create_default_calling_convention();
     // log the function call
     log_.inf("hook triggered", redlog::field("function", func_name), redlog::field("address", "0x%lx", address));
 
@@ -171,30 +177,62 @@ private:
       log_.dbg("exception getting instruction analysis");
     }
 
-    // dump first few arguments (platform specific)
-#if defined(__x86_64__)
-    // x86_64 calling convention: rdi, rsi, rdx, rcx, r8, r9
-    log_.inf(
-        "arguments (x86_64)", redlog::field("rdi", "0x%lx", QBDI_GPR_GET(gpr, QBDI::REG_RDI)),
-        redlog::field("rsi", "0x%lx", QBDI_GPR_GET(gpr, QBDI::REG_RSI)),
-        redlog::field("rdx", "0x%lx", QBDI_GPR_GET(gpr, QBDI::REG_RDX)),
-        redlog::field("rcx", "0x%lx", QBDI_GPR_GET(gpr, QBDI::REG_RCX))
-    );
-#elif defined(__aarch64__)
-    // arm64 calling convention: x0-x7
-    log_.inf(
-        "arguments (arm64)", redlog::field("x0", "0x%lx", gpr->x0), redlog::field("x1", "0x%lx", gpr->x1),
-        redlog::field("x2", "0x%lx", gpr->x2), redlog::field("x3", "0x%lx", gpr->x3)
-    );
+    // extract arguments using configured method
+    if (use_abi_ && cc) {
+      // use calling convention api
+      w1::abi::calling_convention_base::extraction_context ctx;
+      ctx.gpr = gpr;
+      ctx.fpr = fpr;
+      ctx.read_stack = [vm](uint64_t addr) -> uint64_t {
+        uint64_t value = 0;
+        // note: proper memory reading would need vm->readMemory() but simplified here
+        // in real use, hook manager has the vm instance
+        return value;
+      };
 
-    // also show 32-bit views for debugging
-    log_.dbg(
-        "arguments (32-bit view)", redlog::field("w0", "0x%x", static_cast<uint32_t>(gpr->x0)),
-        redlog::field("w1", "0x%x", static_cast<uint32_t>(gpr->x1)),
-        redlog::field("w2", "0x%x", static_cast<uint32_t>(gpr->x2)),
-        redlog::field("w3", "0x%x", static_cast<uint32_t>(gpr->x3))
-    );
+      // extract first 4 arguments
+      auto args = cc->extract_integer_args(ctx, 4);
+
+      log_.inf(
+          "arguments (calling convention)", redlog::field("platform", cc->get_name().c_str()),
+          redlog::field("arg1", "0x%lx", args.size() > 0 ? args[0] : 0),
+          redlog::field("arg2", "0x%lx", args.size() > 1 ? args[1] : 0),
+          redlog::field("arg3", "0x%lx", args.size() > 2 ? args[2] : 0),
+          redlog::field("arg4", "0x%lx", args.size() > 3 ? args[3] : 0)
+      );
+
+      // log calling convention details once
+      if (!cc_logged_) {
+        log_.inf(
+            "calling convention details", redlog::field("name", cc->get_name().c_str()),
+            redlog::field("stack_alignment", cc->get_stack_alignment()),
+            redlog::field("red_zone_size", cc->get_red_zone_size())
+        );
+        cc_logged_ = true;
+      }
+    } else {
+      // use direct register access
+#if defined(__aarch64__)
+      log_.inf(
+          "arguments (direct arm64)", redlog::field("x0", "0x%lx", gpr->x0), redlog::field("x1", "0x%lx", gpr->x1),
+          redlog::field("x2", "0x%lx", gpr->x2), redlog::field("x3", "0x%lx", gpr->x3)
+      );
+#elif defined(__x86_64__)
+#if defined(_WIN32)
+      log_.inf(
+          "arguments (direct x64 windows)", redlog::field("rcx", "0x%lx", gpr->rcx),
+          redlog::field("rdx", "0x%lx", gpr->rdx), redlog::field("r8", "0x%lx", gpr->r8),
+          redlog::field("r9", "0x%lx", gpr->r9)
+      );
+#else
+      log_.inf(
+          "arguments (direct x64 sysv)", redlog::field("rdi", "0x%lx", gpr->rdi),
+          redlog::field("rsi", "0x%lx", gpr->rsi), redlog::field("rdx", "0x%lx", gpr->rdx),
+          redlog::field("rcx", "0x%lx", gpr->rcx)
+      );
 #endif
+#endif
+    }
 
     // print stack pointer and program counter
     QBDI::rword sp = QBDI_GPR_GET(gpr, QBDI::REG_SP);
@@ -213,90 +251,203 @@ private:
 
     // special handling for specific functions
     if (strcmp(func_name, "calculate_secret") == 0) {
-#if defined(__x86_64__)
-      int a = static_cast<int>(QBDI_GPR_GET(gpr, QBDI::REG_RDI));
-      int b = static_cast<int>(QBDI_GPR_GET(gpr, QBDI::REG_RSI));
-      log_.inf(
-          "calculate_secret params", redlog::field("a", a), redlog::field("b", b),
-          redlog::field("expected_result", 3 * a + 2 * b)
-      );
-#elif defined(__aarch64__)
-      int a = static_cast<int>(gpr->x0);
-      int b = static_cast<int>(gpr->x1);
-      log_.inf(
-          "calculate_secret params", redlog::field("a", a), redlog::field("b", b),
-          redlog::field("expected_result", 3 * a + 2 * b)
-      );
-#endif
-    } else if (strcmp(func_name, "format_message") == 0) {
-#if defined(__aarch64__)
-      QBDI::rword buffer_ptr = gpr->x0;
-      QBDI::rword name_ptr = gpr->x1;
-      int value = static_cast<int>(gpr->x2);
+      if (use_abi_ && cc) {
+        // extract arguments using calling convention
+        w1::abi::calling_convention_base::extraction_context ctx;
+        ctx.gpr = gpr;
+        ctx.fpr = fpr;
+        ctx.read_stack = [vm](uint64_t addr) -> uint64_t {
+          uint64_t value = 0;
+          // note: proper memory reading would need vm->readMemory() but simplified here
+          return value;
+        };
 
-      // safely read the name string
-      auto name_str = w1::util::safe_memory::read_string(vm, name_ptr, 256);
-      if (name_str) {
-        log_.inf(
-            "format_message params", redlog::field("buffer", "0x%lx", buffer_ptr),
-            redlog::field("name_ptr", "0x%lx", name_ptr), redlog::field("name", name_str->c_str()),
-            redlog::field("value", value)
-        );
+        auto args = cc->extract_integer_args(ctx, 2);
+        if (args.size() >= 2) {
+          int a = static_cast<int>(args[0]);
+          int b = static_cast<int>(args[1]);
+          log_.inf(
+              "calculate_secret params (abi)", redlog::field("a", a), redlog::field("b", b),
+              redlog::field("expected_result", 3 * a + 2 * b)
+          );
+        }
       } else {
+        // direct register access
+#if defined(__aarch64__)
+        int a = static_cast<int>(gpr->x0);
+        int b = static_cast<int>(gpr->x1);
+#elif defined(__x86_64__) && defined(_WIN32)
+        int a = static_cast<int>(gpr->rcx);
+        int b = static_cast<int>(gpr->rdx);
+#elif defined(__x86_64__)
+        int a = static_cast<int>(gpr->rdi);
+        int b = static_cast<int>(gpr->rsi);
+#endif
         log_.inf(
-            "format_message params", redlog::field("buffer", "0x%lx", buffer_ptr),
-            redlog::field("name_ptr", "0x%lx", name_ptr), redlog::field("name", "<read failed>"),
-            redlog::field("value", value)
+            "calculate_secret params (direct)", redlog::field("a", a), redlog::field("b", b),
+            redlog::field("expected_result", 3 * a + 2 * b)
         );
       }
-#endif
-    } else if (strcmp(func_name, "allocate_buffer") == 0) {
-#if defined(__aarch64__)
-      size_t size = static_cast<size_t>(gpr->x0);
-      log_.inf("allocate_buffer params", redlog::field("size", size));
-#endif
-    } else if (strcmp(func_name, "compare_strings") == 0) {
-#if defined(__aarch64__)
-      QBDI::rword str1_ptr = gpr->x0;
-      QBDI::rword str2_ptr = gpr->x1;
+    } else if (strcmp(func_name, "format_message") == 0) {
+      if (use_abi_ && cc) {
+        // extract arguments using calling convention
+        w1::abi::calling_convention_base::extraction_context ctx;
+        ctx.gpr = gpr;
+        ctx.fpr = fpr;
+        ctx.read_stack = [vm](uint64_t addr) -> uint64_t {
+          uint64_t value = 0;
+          // note: proper memory reading would need vm->readMemory() but simplified here
+          return value;
+        };
 
-      // safely read both strings
-      auto str1 = w1::util::safe_memory::read_string(vm, str1_ptr, 256);
-      auto str2 = w1::util::safe_memory::read_string(vm, str2_ptr, 256);
+        auto args = cc->extract_integer_args(ctx, 3);
+        if (args.size() >= 3) {
+          QBDI::rword buffer_ptr = args[0];
+          QBDI::rword name_ptr = args[1];
+          int value = static_cast<int>(args[2]);
 
-      if (str1 && str2) {
-        log_.inf(
-            "compare_strings params", redlog::field("str1_ptr", "0x%lx", str1_ptr),
-            redlog::field("str1", str1->c_str()), redlog::field("str2_ptr", "0x%lx", str2_ptr),
-            redlog::field("str2", str2->c_str())
-        );
+          auto name_str = w1::util::safe_memory::read_string(vm, name_ptr, 256);
+          log_.inf(
+              "format_message params (abi)", redlog::field("buffer", "0x%lx", buffer_ptr),
+              redlog::field("name_ptr", "0x%lx", name_ptr),
+              redlog::field("name", name_str ? name_str->c_str() : "<read failed>"), redlog::field("value", value)
+          );
+        }
       } else {
+        // direct register access
+#if defined(__aarch64__)
+        QBDI::rword buffer_ptr = gpr->x0;
+        QBDI::rword name_ptr = gpr->x1;
+        int value = static_cast<int>(gpr->x2);
+#elif defined(__x86_64__) && defined(_WIN32)
+        QBDI::rword buffer_ptr = gpr->rcx;
+        QBDI::rword name_ptr = gpr->rdx;
+        int value = static_cast<int>(gpr->r8);
+#elif defined(__x86_64__)
+        QBDI::rword buffer_ptr = gpr->rdi;
+        QBDI::rword name_ptr = gpr->rsi;
+        int value = static_cast<int>(gpr->rdx);
+#endif
+        auto name_str = w1::util::safe_memory::read_string(vm, name_ptr, 256);
         log_.inf(
-            "compare_strings params", redlog::field("str1_ptr", "0x%lx", str1_ptr),
+            "format_message params (direct)", redlog::field("buffer", "0x%lx", buffer_ptr),
+            redlog::field("name_ptr", "0x%lx", name_ptr),
+            redlog::field("name", name_str ? name_str->c_str() : "<read failed>"), redlog::field("value", value)
+        );
+      }
+    } else if (strcmp(func_name, "allocate_buffer") == 0) {
+      if (use_abi_ && cc) {
+        w1::abi::calling_convention_base::extraction_context ctx;
+        ctx.gpr = gpr;
+        ctx.fpr = fpr;
+        ctx.read_stack = [vm](uint64_t addr) -> uint64_t {
+          uint64_t value = 0;
+          // note: proper memory reading would need vm->readMemory() but simplified here
+          return value;
+        };
+
+        auto args = cc->extract_integer_args(ctx, 1);
+        if (!args.empty()) {
+          size_t size = static_cast<size_t>(args[0]);
+          log_.inf("allocate_buffer params (abi)", redlog::field("size", size));
+        }
+      } else {
+#if defined(__aarch64__)
+        size_t size = static_cast<size_t>(gpr->x0);
+#elif defined(__x86_64__) && defined(_WIN32)
+        size_t size = static_cast<size_t>(gpr->rcx);
+#elif defined(__x86_64__)
+        size_t size = static_cast<size_t>(gpr->rdi);
+#endif
+        log_.inf("allocate_buffer params (direct)", redlog::field("size", size));
+      }
+    } else if (strcmp(func_name, "compare_strings") == 0) {
+      if (use_abi_ && cc) {
+        w1::abi::calling_convention_base::extraction_context ctx;
+        ctx.gpr = gpr;
+        ctx.fpr = fpr;
+        ctx.read_stack = [vm](uint64_t addr) -> uint64_t {
+          uint64_t value = 0;
+          // note: proper memory reading would need vm->readMemory() but simplified here
+          return value;
+        };
+
+        auto args = cc->extract_integer_args(ctx, 2);
+        if (args.size() >= 2) {
+          QBDI::rword str1_ptr = args[0];
+          QBDI::rword str2_ptr = args[1];
+
+          auto str1 = w1::util::safe_memory::read_string(vm, str1_ptr, 256);
+          auto str2 = w1::util::safe_memory::read_string(vm, str2_ptr, 256);
+
+          log_.inf(
+              "compare_strings params (abi)", redlog::field("str1_ptr", "0x%lx", str1_ptr),
+              redlog::field("str1", str1 ? str1->c_str() : "<read failed>"),
+              redlog::field("str2_ptr", "0x%lx", str2_ptr),
+              redlog::field("str2", str2 ? str2->c_str() : "<read failed>")
+          );
+        }
+      } else {
+#if defined(__aarch64__)
+        QBDI::rword str1_ptr = gpr->x0;
+        QBDI::rword str2_ptr = gpr->x1;
+#elif defined(__x86_64__) && defined(_WIN32)
+        QBDI::rword str1_ptr = gpr->rcx;
+        QBDI::rword str2_ptr = gpr->rdx;
+#elif defined(__x86_64__)
+        QBDI::rword str1_ptr = gpr->rdi;
+        QBDI::rword str2_ptr = gpr->rsi;
+#endif
+        auto str1 = w1::util::safe_memory::read_string(vm, str1_ptr, 256);
+        auto str2 = w1::util::safe_memory::read_string(vm, str2_ptr, 256);
+
+        log_.inf(
+            "compare_strings params (direct)", redlog::field("str1_ptr", "0x%lx", str1_ptr),
             redlog::field("str1", str1 ? str1->c_str() : "<read failed>"), redlog::field("str2_ptr", "0x%lx", str2_ptr),
             redlog::field("str2", str2 ? str2->c_str() : "<read failed>")
         );
       }
-#endif
     } else if (strcmp(func_name, "unsafe_copy") == 0) {
-#if defined(__aarch64__)
-      QBDI::rword dst_ptr = gpr->x0;
-      QBDI::rword src_ptr = gpr->x1;
+      if (use_abi_ && cc) {
+        w1::abi::calling_convention_base::extraction_context ctx;
+        ctx.gpr = gpr;
+        ctx.fpr = fpr;
+        ctx.read_stack = [vm](uint64_t addr) -> uint64_t {
+          uint64_t value = 0;
+          // note: proper memory reading would need vm->readMemory() but simplified here
+          return value;
+        };
 
-      // try to read source string to see what's being copied
-      auto src_str = w1::util::safe_memory::read_string(vm, src_ptr, 256);
-      if (src_str) {
-        log_.wrn(
-            "unsafe_copy detected - security risk", redlog::field("dst", "0x%lx", dst_ptr),
-            redlog::field("src_ptr", "0x%lx", src_ptr), redlog::field("src_content", src_str->c_str())
-        );
+        auto args = cc->extract_integer_args(ctx, 2);
+        if (args.size() >= 2) {
+          QBDI::rword dst_ptr = args[0];
+          QBDI::rword src_ptr = args[1];
+
+          auto src_str = w1::util::safe_memory::read_string(vm, src_ptr, 256);
+          log_.wrn(
+              "unsafe_copy detected - security risk (abi)", redlog::field("dst", "0x%lx", dst_ptr),
+              redlog::field("src_ptr", "0x%lx", src_ptr),
+              redlog::field("src_content", src_str ? src_str->c_str() : "<read failed>")
+          );
+        }
       } else {
+#if defined(__aarch64__)
+        QBDI::rword dst_ptr = gpr->x0;
+        QBDI::rword src_ptr = gpr->x1;
+#elif defined(__x86_64__) && defined(_WIN32)
+        QBDI::rword dst_ptr = gpr->rcx;
+        QBDI::rword src_ptr = gpr->rdx;
+#elif defined(__x86_64__)
+        QBDI::rword dst_ptr = gpr->rdi;
+        QBDI::rword src_ptr = gpr->rsi;
+#endif
+        auto src_str = w1::util::safe_memory::read_string(vm, src_ptr, 256);
         log_.wrn(
-            "unsafe_copy detected - security risk", redlog::field("dst", "0x%lx", dst_ptr),
-            redlog::field("src_ptr", "0x%lx", src_ptr), redlog::field("src_content", "<read failed>")
+            "unsafe_copy detected - security risk (direct)", redlog::field("dst", "0x%lx", dst_ptr),
+            redlog::field("src_ptr", "0x%lx", src_ptr),
+            redlog::field("src_content", src_str ? src_str->c_str() : "<read failed>")
         );
       }
-#endif
     }
 
     return QBDI::VMAction::CONTINUE;
@@ -309,6 +460,8 @@ private:
   std::unique_ptr<w1::hooking::hook_manager> hook_manager_;
   uint32_t range_hook_id_ = 0;
   int hook_count_ = 0;
+  bool use_abi_ = false;
+  bool cc_logged_ = false;
 };
 
 // globals
@@ -344,6 +497,9 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
   // get config
   w1::util::env_config config_loader("HOOKTEST_");
   int verbose = config_loader.get<int>("VERBOSE", 0);
+  bool use_abi = config_loader.get<bool>("USE_ABI", false);
+
+  log.inf("hooktest configuration", redlog::field("verbose", verbose), redlog::field("use_abi", use_abi));
 
   // set log level based on verbosity
   if (verbose >= 4) {
@@ -376,7 +532,7 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
 
   // create tracer
   log.inf("creating hooktest tracer");
-  g_tracer = std::make_unique<hooktest_tracer>();
+  g_tracer = std::make_unique<hooktest_tracer>(use_abi);
 
   // create engine
   log.inf("creating tracer engine");
