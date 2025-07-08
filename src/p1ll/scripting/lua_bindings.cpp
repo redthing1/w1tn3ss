@@ -1,5 +1,5 @@
 #include "lua_bindings.hpp"
-#include "../p1ll.hpp"
+#include "p1ll.hpp"
 #include <redlog.hpp>
 
 namespace p1ll::scripting {

@@ -100,10 +100,19 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
 
   // get config
   w1::util::env_config config_loader("MINTRACE_");
-  bool verbose = config_loader.get<bool>("VERBOSE", false);
+  int verbose = config_loader.get<int>("VERBOSE", 0);
 
-  if (verbose) {
+  // set log level based on debug level
+  if (verbose >= 4) {
+    redlog::set_level(redlog::level::pedantic);
+  } else if (verbose >= 3) {
     redlog::set_level(redlog::level::debug);
+  } else if (verbose >= 2) {
+    redlog::set_level(redlog::level::trace);
+  } else if (verbose >= 1) {
+    redlog::set_level(redlog::level::verbose);
+  } else {
+    redlog::set_level(redlog::level::info);
   }
 
   // initialize signal handling for emergency shutdown

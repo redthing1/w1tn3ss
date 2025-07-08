@@ -4,7 +4,7 @@
 #include <unordered_set>
 #include <cstdint>
 #include <string>
-#include <common/ext/jsonstruct.hpp>
+#include <w1common/ext/jsonstruct.hpp>
 
 namespace w1inst {
 

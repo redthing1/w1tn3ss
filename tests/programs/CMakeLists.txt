@@ -43,6 +43,14 @@ set_target_properties(simple_demo PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs
 )
 
+# hook test target program for testing signature-based hooking
+add_executable(hook_test_target hook_test_target.c)
+apply_common_compile_options(hook_test_target)
+apply_windows_definitions(hook_test_target)
+set_target_properties(hook_test_target PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs
+)
+
 # linux-specific target programs
 if(UNIX AND NOT APPLE)
     # linux injection target with linux-specific features

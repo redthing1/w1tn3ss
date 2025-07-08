@@ -1,9 +1,23 @@
 #pragma once
 
-#include "../../api_knowledge_db.hpp"
+#include "abi/api_knowledge_db.hpp"
 #include <vector>
 
 namespace w1::abi::apis::macos {
+
+// determine macOS calling convention based on architecture
+#if defined(__x86_64__)
+#define MACOS_API_CONVENTION calling_convention_id::X86_64_SYSTEM_V
+#elif defined(__aarch64__)
+#define MACOS_API_CONVENTION calling_convention_id::AARCH64_AAPCS
+#elif defined(__arm__)
+#define MACOS_API_CONVENTION calling_convention_id::ARM32_AAPCS
+#elif defined(__i386__)
+#define MACOS_API_CONVENTION calling_convention_id::X86_CDECL
+#else
+#warning "Unknown macOS architecture, using UNKNOWN calling convention"
+#define MACOS_API_CONVENTION calling_convention_id::UNKNOWN
+#endif
 
 // macOS system library APIs with correct library names and signatures
 static const std::vector<api_info> macos_system_apis = {
@@ -12,6 +26,7 @@ static const std::vector<api_info> macos_system_apis = {
      .module = "libsystem_c.dylib",
      .api_category = api_info::category::STDIO,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "s", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}},
      .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
@@ -21,6 +36,7 @@ static const std::vector<api_info> macos_system_apis = {
      .module = "libsystem_c.dylib",
      .api_category = api_info::category::STDIO,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {
              {.name = "format", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}
@@ -33,6 +49,7 @@ static const std::vector<api_info> macos_system_apis = {
      .module = "libsystem_c.dylib",
      .api_category = api_info::category::STDIO,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "stream", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
           {.name = "format", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}},
@@ -44,6 +61,7 @@ static const std::vector<api_info> macos_system_apis = {
      .api_category = api_info::category::FILE_IO,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO) |
               static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "pathname", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN},
           {.name = "mode", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}},
@@ -56,6 +74,7 @@ static const std::vector<api_info> macos_system_apis = {
      .api_category = api_info::category::FILE_IO,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO) |
               static_cast<uint32_t>(api_info::behavior_flags::CLOSES_HANDLE),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "stream", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN}},
      .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
@@ -66,6 +85,7 @@ static const std::vector<api_info> macos_system_apis = {
      .api_category = api_info::category::FILE_IO,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO) |
               static_cast<uint32_t>(api_info::behavior_flags::BLOCKING),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "ptr", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::OUT},
           {.name = "size", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN},
@@ -79,6 +99,7 @@ static const std::vector<api_info> macos_system_apis = {
      .api_category = api_info::category::FILE_IO,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO) |
               static_cast<uint32_t>(api_info::behavior_flags::BLOCKING),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "ptr", .param_type = param_info::type::BUFFER, .param_direction = param_info::direction::IN},
           {.name = "size", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN},
@@ -91,6 +112,7 @@ static const std::vector<api_info> macos_system_apis = {
      .module = "libsystem_c.dylib",
      .api_category = api_info::category::FILE_IO,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "stream", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
           {.name = "offset", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
@@ -102,6 +124,7 @@ static const std::vector<api_info> macos_system_apis = {
      .module = "libsystem_c.dylib",
      .api_category = api_info::category::FILE_IO,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "stream", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN}},
      .return_value = {.name = "position", .param_type = param_info::type::INTEGER},
@@ -112,6 +135,7 @@ static const std::vector<api_info> macos_system_apis = {
      .api_category = api_info::category::FILE_IO,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO) |
               static_cast<uint32_t>(api_info::behavior_flags::BLOCKING),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "stream", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN}},
      .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
@@ -121,6 +145,7 @@ static const std::vector<api_info> macos_system_apis = {
      .module = "libsystem_c.dylib",
      .api_category = api_info::category::FILE_IO,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "stream", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN}},
      .return_value = {.name = "eof", .param_type = param_info::type::BOOLEAN},
@@ -130,6 +155,7 @@ static const std::vector<api_info> macos_system_apis = {
      .module = "libsystem_c.dylib",
      .api_category = api_info::category::FILE_IO,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "stream", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN}},
      .return_value = {.name = "error", .param_type = param_info::type::BOOLEAN},
@@ -139,6 +165,7 @@ static const std::vector<api_info> macos_system_apis = {
      .module = "libsystem_c.dylib",
      .api_category = api_info::category::FILE_IO,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "stream", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN}},
      .return_value = {.name = "void", .param_type = param_info::type::VOID},
@@ -150,6 +177,7 @@ static const std::vector<api_info> macos_system_apis = {
      .module = "libsystem_c.dylib",
      .api_category = api_info::category::STRING_MANIPULATION,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "dest", .param_type = param_info::type::STRING, .param_direction = param_info::direction::OUT},
           {.name = "src", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}},
@@ -161,6 +189,7 @@ static const std::vector<api_info> macos_system_apis = {
      .module = "libsystem_c.dylib",
      .api_category = api_info::category::STRING_MANIPULATION,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "dest", .param_type = param_info::type::STRING, .param_direction = param_info::direction::OUT},
           {.name = "src", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
@@ -172,6 +201,7 @@ static const std::vector<api_info> macos_system_apis = {
      .module = "libsystem_c.dylib",
      .api_category = api_info::category::STRING_MANIPULATION,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "dest", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN_OUT},
           {.name = "src", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}},
@@ -183,6 +213,7 @@ static const std::vector<api_info> macos_system_apis = {
      .module = "libsystem_c.dylib",
      .api_category = api_info::category::STRING_MANIPULATION,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "dest", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN_OUT},
           {.name = "src", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
@@ -194,6 +225,7 @@ static const std::vector<api_info> macos_system_apis = {
      .module = "libsystem_c.dylib",
      .api_category = api_info::category::STRING_MANIPULATION,
      .flags = 0,
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "s", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}},
      .return_value = {.name = "length", .param_type = param_info::type::SIZE},
@@ -203,6 +235,7 @@ static const std::vector<api_info> macos_system_apis = {
      .module = "libsystem_c.dylib",
      .api_category = api_info::category::STRING_MANIPULATION,
      .flags = 0,
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "s1", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
           {.name = "s2", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}},
@@ -213,6 +246,7 @@ static const std::vector<api_info> macos_system_apis = {
      .module = "libsystem_c.dylib",
      .api_category = api_info::category::STRING_MANIPULATION,
      .flags = 0,
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "s1", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
           {.name = "s2", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
@@ -224,6 +258,7 @@ static const std::vector<api_info> macos_system_apis = {
      .module = "libsystem_c.dylib",
      .api_category = api_info::category::STRING_MANIPULATION,
      .flags = 0,
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "s", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
           {.name = "c", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}},
@@ -234,6 +269,7 @@ static const std::vector<api_info> macos_system_apis = {
      .module = "libsystem_c.dylib",
      .api_category = api_info::category::STRING_MANIPULATION,
      .flags = 0,
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "haystack", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN},
           {.name = "needle", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}},
@@ -244,6 +280,7 @@ static const std::vector<api_info> macos_system_apis = {
      .module = "libsystem_c.dylib",
      .api_category = api_info::category::STRING_MANIPULATION,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::SECURITY_SENSITIVE),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "dest",
            .param_type = param_info::type::BUFFER,
@@ -262,6 +299,7 @@ static const std::vector<api_info> macos_system_apis = {
      .module = "libsystem_c.dylib",
      .api_category = api_info::category::STRING_MANIPULATION,
      .flags = 0,
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "s",
            .param_type = param_info::type::BUFFER,
@@ -276,6 +314,7 @@ static const std::vector<api_info> macos_system_apis = {
      .module = "libsystem_c.dylib",
      .api_category = api_info::category::STRING_MANIPULATION,
      .flags = 0,
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "s1",
            .param_type = param_info::type::BUFFER,
@@ -295,6 +334,7 @@ static const std::vector<api_info> macos_system_apis = {
      .module = "libsystem_malloc.dylib",
      .api_category = api_info::category::HEAP_MANAGEMENT,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::ALLOCATES_MEMORY),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "size", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN}},
      .return_value = {.name = "ptr", .param_type = param_info::type::POINTER},
@@ -305,6 +345,7 @@ static const std::vector<api_info> macos_system_apis = {
      .module = "libsystem_malloc.dylib",
      .api_category = api_info::category::HEAP_MANAGEMENT,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::FREES_MEMORY),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "ptr", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN}},
      .return_value = {.name = "void", .param_type = param_info::type::VOID},
@@ -314,6 +355,7 @@ static const std::vector<api_info> macos_system_apis = {
      .module = "libsystem_malloc.dylib",
      .api_category = api_info::category::HEAP_MANAGEMENT,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::ALLOCATES_MEMORY),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "nmemb", .param_type = param_info::type::COUNT, .param_direction = param_info::direction::IN},
           {.name = "size", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN}},
@@ -326,6 +368,7 @@ static const std::vector<api_info> macos_system_apis = {
      .api_category = api_info::category::HEAP_MANAGEMENT,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::ALLOCATES_MEMORY) |
               static_cast<uint32_t>(api_info::behavior_flags::FREES_MEMORY),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "ptr", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
           {.name = "size", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN}},
@@ -339,6 +382,7 @@ static const std::vector<api_info> macos_system_apis = {
      .api_category = api_info::category::FILE_IO,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE) |
               static_cast<uint32_t>(api_info::behavior_flags::FILE_IO),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "pathname", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN},
           {.name = "flags", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
@@ -354,6 +398,7 @@ static const std::vector<api_info> macos_system_apis = {
      .module = "libsystem_kernel.dylib",
      .api_category = api_info::category::FILE_IO,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::CLOSES_HANDLE),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "fd",
            .param_type = param_info::type::FILE_DESCRIPTOR,
@@ -366,6 +411,7 @@ static const std::vector<api_info> macos_system_apis = {
      .api_category = api_info::category::FILE_IO,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO) |
               static_cast<uint32_t>(api_info::behavior_flags::BLOCKING),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "fd", .param_type = param_info::type::FILE_DESCRIPTOR, .param_direction = param_info::direction::IN},
           {.name = "buf",
@@ -381,6 +427,7 @@ static const std::vector<api_info> macos_system_apis = {
      .api_category = api_info::category::FILE_IO,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO) |
               static_cast<uint32_t>(api_info::behavior_flags::BLOCKING),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "fd", .param_type = param_info::type::FILE_DESCRIPTOR, .param_direction = param_info::direction::IN},
           {.name = "buf",
@@ -398,6 +445,7 @@ static const std::vector<api_info> macos_system_apis = {
      .api_category = api_info::category::MEMORY_MANAGEMENT,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::ALLOCATES_MEMORY) |
               static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "target", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
           {.name = "address",
@@ -415,6 +463,7 @@ static const std::vector<api_info> macos_system_apis = {
      .module = "libsystem_pthread.dylib",
      .api_category = api_info::category::THREADING,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "thread", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
           {.name = "attr",
@@ -434,6 +483,7 @@ static const std::vector<api_info> macos_system_apis = {
      .module = "libsystem_kernel.dylib",
      .api_category = api_info::category::PROCESS_CONTROL,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
+     .convention = MACOS_API_CONVENTION,
      .parameters = {},
      .return_value = {.name = "pid", .param_type = param_info::type::PROCESS_ID},
      .description = "create child process",
@@ -443,6 +493,7 @@ static const std::vector<api_info> macos_system_apis = {
      .module = "libsystem_kernel.dylib",
      .api_category = api_info::category::PROCESS_CONTROL,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "pathname", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN},
           {.name = "argv", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
@@ -455,6 +506,7 @@ static const std::vector<api_info> macos_system_apis = {
      .module = "libsystem_kernel.dylib",
      .api_category = api_info::category::PROCESS_CONTROL,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::BLOCKING),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "pid", .param_type = param_info::type::PROCESS_ID, .param_direction = param_info::direction::IN},
           {.name = "status", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::OUT},
@@ -467,6 +519,7 @@ static const std::vector<api_info> macos_system_apis = {
      .module = "libsystem_kernel.dylib",
      .api_category = api_info::category::PROCESS_CONTROL,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "pid", .param_type = param_info::type::PROCESS_ID, .param_direction = param_info::direction::IN},
           {.name = "sig", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}},
@@ -478,6 +531,7 @@ static const std::vector<api_info> macos_system_apis = {
      .module = "libsystem_kernel.dylib",
      .api_category = api_info::category::PROCESS_CONTROL,
      .flags = 0,
+     .convention = MACOS_API_CONVENTION,
      .parameters = {},
      .return_value = {.name = "pid", .param_type = param_info::type::PROCESS_ID},
      .description = "get process ID",
@@ -487,6 +541,7 @@ static const std::vector<api_info> macos_system_apis = {
      .module = "libsystem_kernel.dylib",
      .api_category = api_info::category::PROCESS_CONTROL,
      .flags = 0,
+     .convention = MACOS_API_CONVENTION,
      .parameters = {},
      .return_value = {.name = "ppid", .param_type = param_info::type::PROCESS_ID},
      .description = "get parent process ID",
@@ -496,6 +551,7 @@ static const std::vector<api_info> macos_system_apis = {
      .module = "libsystem_kernel.dylib",
      .api_category = api_info::category::PROCESS_CONTROL,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "status", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}},
      .return_value = {.name = "void", .param_type = param_info::type::VOID},
@@ -507,6 +563,7 @@ static const std::vector<api_info> macos_system_apis = {
      .module = "libsystem_kernel.dylib",
      .api_category = api_info::category::FILE_MANAGEMENT,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "pathname", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN},
           {.name = "statbuf", .param_type = param_info::type::STRUCT, .param_direction = param_info::direction::OUT}},
@@ -519,6 +576,7 @@ static const std::vector<api_info> macos_system_apis = {
      .api_category = api_info::category::FILE_MANAGEMENT,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO) |
               static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "pathname", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN}},
      .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
@@ -530,6 +588,7 @@ static const std::vector<api_info> macos_system_apis = {
      .api_category = api_info::category::FILE_MANAGEMENT,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO) |
               static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "pathname", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN},
           {.name = "mode", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN}},
@@ -541,6 +600,7 @@ static const std::vector<api_info> macos_system_apis = {
      .module = "libsystem_kernel.dylib",
      .api_category = api_info::category::FILE_MANAGEMENT,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "pathname", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN},
           {.name = "mode", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN}},
@@ -553,6 +613,7 @@ static const std::vector<api_info> macos_system_apis = {
      .api_category = api_info::category::FILE_MANAGEMENT,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO) |
               static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "old", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN},
           {.name = "new", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN}},
@@ -565,6 +626,7 @@ static const std::vector<api_info> macos_system_apis = {
      .api_category = api_info::category::FILE_MANAGEMENT,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO) |
               static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "pathname", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN},
           {.name = "mode", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN}},
@@ -577,6 +639,7 @@ static const std::vector<api_info> macos_system_apis = {
      .module = "libsystem_kernel.dylib",
      .api_category = api_info::category::NETWORK_SOCKET,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "domain", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
           {.name = "type", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
@@ -591,6 +654,7 @@ static const std::vector<api_info> macos_system_apis = {
      .api_category = api_info::category::NETWORK_SOCKET,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::NETWORK_IO) |
               static_cast<uint32_t>(api_info::behavior_flags::BLOCKING),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "sockfd",
            .param_type = param_info::type::FILE_DESCRIPTOR,
@@ -605,6 +669,7 @@ static const std::vector<api_info> macos_system_apis = {
      .module = "libsystem_kernel.dylib",
      .api_category = api_info::category::NETWORK_SOCKET,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::NETWORK_IO),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "sockfd",
            .param_type = param_info::type::FILE_DESCRIPTOR,
@@ -620,6 +685,7 @@ static const std::vector<api_info> macos_system_apis = {
      .api_category = api_info::category::NETWORK_SOCKET,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::NETWORK_IO) |
               static_cast<uint32_t>(api_info::behavior_flags::BLOCKING),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "sockfd",
            .param_type = param_info::type::FILE_DESCRIPTOR,
@@ -639,6 +705,7 @@ static const std::vector<api_info> macos_system_apis = {
      .api_category = api_info::category::NETWORK_SOCKET,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::NETWORK_IO) |
               static_cast<uint32_t>(api_info::behavior_flags::BLOCKING),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "sockfd",
            .param_type = param_info::type::FILE_DESCRIPTOR,
@@ -659,6 +726,7 @@ static const std::vector<api_info> macos_system_apis = {
      .api_category = api_info::category::LIBRARY_LOADING,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE) |
               static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "filename", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN},
           {.name = "flags", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN}},
@@ -671,6 +739,7 @@ static const std::vector<api_info> macos_system_apis = {
      .module = "libdyld.dylib",
      .api_category = api_info::category::LIBRARY_LOADING,
      .flags = 0,
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "handle", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN},
           {.name = "symbol", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}},
@@ -683,6 +752,7 @@ static const std::vector<api_info> macos_system_apis = {
      .api_category = api_info::category::LIBRARY_LOADING,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::CLOSES_HANDLE) |
               static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "handle", .param_type = param_info::type::HANDLE, .param_direction = param_info::direction::IN}},
      .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
@@ -695,6 +765,7 @@ static const std::vector<api_info> macos_system_apis = {
      .api_category = api_info::category::MEMORY_MANAGEMENT,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::ALLOCATES_MEMORY) |
               static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "addr", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
           {.name = "length", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN},
@@ -712,6 +783,7 @@ static const std::vector<api_info> macos_system_apis = {
      .api_category = api_info::category::MEMORY_MANAGEMENT,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::FREES_MEMORY) |
               static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "addr", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
           {.name = "length", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN}},
@@ -723,6 +795,7 @@ static const std::vector<api_info> macos_system_apis = {
      .module = "libsystem_kernel.dylib",
      .api_category = api_info::category::MEMORY_MANAGEMENT,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "addr", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
           {.name = "length", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN},
@@ -736,6 +809,7 @@ static const std::vector<api_info> macos_system_apis = {
      .module = "libsystem_kernel.dylib",
      .api_category = api_info::category::SYSTEM_INFO,
      .flags = 0,
+     .convention = MACOS_API_CONVENTION,
      .parameters = {},
      .return_value = {.name = "uid", .param_type = param_info::type::INTEGER},
      .description = "get user ID",
@@ -745,6 +819,7 @@ static const std::vector<api_info> macos_system_apis = {
      .module = "libsystem_kernel.dylib",
      .api_category = api_info::category::SYSTEM_INFO,
      .flags = 0,
+     .convention = MACOS_API_CONVENTION,
      .parameters = {},
      .return_value = {.name = "euid", .param_type = param_info::type::INTEGER},
      .description = "get effective user ID",
@@ -754,6 +829,7 @@ static const std::vector<api_info> macos_system_apis = {
      .module = "libsystem_kernel.dylib",
      .api_category = api_info::category::SYSTEM_INFO,
      .flags = 0,
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "name", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
           {.name = "namelen", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
@@ -771,6 +847,7 @@ static const std::vector<api_info> macos_system_apis = {
      .module = "libsystem_kernel.dylib",
      .api_category = api_info::category::TIME,
      .flags = 0,
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "tv", .param_type = param_info::type::STRUCT, .param_direction = param_info::direction::OUT},
           {.name = "tz",
@@ -786,6 +863,7 @@ static const std::vector<api_info> macos_system_apis = {
      .module = "libsystem_c.dylib",
      .api_category = api_info::category::TIME,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::BLOCKING),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "seconds", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}},
      .return_value = {.name = "remaining", .param_type = param_info::type::INTEGER},
@@ -796,6 +874,7 @@ static const std::vector<api_info> macos_system_apis = {
      .module = "libsystem_c.dylib",
      .api_category = api_info::category::TIME,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::BLOCKING),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "usec", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN}},
      .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
@@ -806,6 +885,7 @@ static const std::vector<api_info> macos_system_apis = {
      .module = "libsystem_c.dylib",
      .api_category = api_info::category::TIME,
      .flags = static_cast<uint32_t>(api_info::behavior_flags::BLOCKING),
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "req", .param_type = param_info::type::STRUCT, .param_direction = param_info::direction::IN},
           {.name = "rem",
@@ -820,6 +900,7 @@ static const std::vector<api_info> macos_system_apis = {
      .module = "libsystem_c.dylib",
      .api_category = api_info::category::TIME,
      .flags = 0,
+     .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "tloc",
            .param_type = param_info::type::POINTER,

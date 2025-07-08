@@ -2,11 +2,11 @@
 
 /**
  * @brief Clean Windows headers without macro pollution
- * 
+ *
  * This header provides access to Windows APIs while preventing
  * the numerous macro definitions that pollute the global namespace
  * and conflict with modern C++ code.
- * 
+ *
  * Usage: Include this instead of <windows.h> directly.
  */
 

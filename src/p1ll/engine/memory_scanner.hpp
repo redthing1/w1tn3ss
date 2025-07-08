@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../core/types.hpp"
+#include "core/types.hpp"
 #include "pattern_matcher.hpp"
 #include <vector>
 #include <string>

@@ -1,7 +1,7 @@
 #include "commands/cure.hpp"
 #include "commands/patch.hpp"
 #include "commands/poison.hpp"
-#include <common/ext/args.hpp>
+#include <w1common/ext/args.hpp>
 #include <redlog.hpp>
 #include <string>
 

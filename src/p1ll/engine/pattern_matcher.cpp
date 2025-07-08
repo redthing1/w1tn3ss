@@ -1,5 +1,5 @@
 #include "pattern_matcher.hpp"
-#include "../utils/pretty_hexdump.hpp"
+#include "utils/pretty_hexdump.hpp"
 #include <redlog.hpp>
 #include <algorithm>
 

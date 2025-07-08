@@ -1,7 +1,7 @@
 #pragma once
 
 #include <sol/sol.hpp>
-#include "../core/types.hpp"
+#include "core/types.hpp"
 
 namespace p1ll::scripting {
 

@@ -1,32 +1,8 @@
 #include "register_capture.hpp"
+#include "register_access.hpp"
 #include <algorithm>
 
 namespace w1::util {
-
-// common register name mappings across architectures
-const std::unordered_map<std::string, std::string> register_state::common_mappings_ = {
-    // stack pointer mappings
-    {"sp", "rsp"}, // x86_64
-    {"sp", "sp"},  // aarch64/arm32
-    {"sp", "esp"}, // x86
-
-    // instruction pointer mappings
-    {"ip", "rip"}, // x86_64
-    {"ip", "pc"},  // aarch64/arm32
-    {"ip", "eip"}, // x86
-
-    // frame/base pointer mappings
-    {"fp", "rbp"}, // x86_64
-    {"fp", "x29"}, // aarch64
-    {"fp", "r11"}, // arm32
-    {"fp", "ebp"}, // x86
-
-    // return value register
-    {"retval", "rax"}, // x86_64
-    {"retval", "x0"},  // aarch64
-    {"retval", "r0"},  // arm32
-    {"retval", "eax"}, // x86
-};
 
 bool register_state::get_register(const std::string& name, uint64_t& value) const {
   auto it = registers_.find(name);
@@ -38,100 +14,45 @@ bool register_state::get_register(const std::string& name, uint64_t& value) cons
 }
 
 uint64_t register_state::get_stack_pointer() const {
-  switch (arch_) {
-  case architecture::X86_64:
-    return registers_.at("rsp");
-  case architecture::AARCH64:
-  case architecture::ARM32:
-    return registers_.at("sp");
-  case architecture::X86:
-    return registers_.at("esp");
-  default:
-    return 0;
-  }
+  // use architectural names based on platform
+#if defined(QBDI_ARCH_X86_64)
+  return registers_.at("rsp");
+#elif defined(QBDI_ARCH_AARCH64) || defined(QBDI_ARCH_ARM)
+  return registers_.at("sp");
+#elif defined(QBDI_ARCH_X86)
+  return registers_.at("esp");
+#else
+  return 0;
+#endif
 }
 
 uint64_t register_state::get_instruction_pointer() const {
-  switch (arch_) {
-  case architecture::X86_64:
-    return registers_.at("rip");
-  case architecture::AARCH64:
-  case architecture::ARM32:
-    return registers_.at("pc");
-  case architecture::X86:
-    return registers_.at("eip");
-  default:
-    return 0;
-  }
+  // use architectural names based on platform
+#if defined(QBDI_ARCH_X86_64)
+  return registers_.at("rip");
+#elif defined(QBDI_ARCH_AARCH64) || defined(QBDI_ARCH_ARM)
+  return registers_.at("pc");
+#elif defined(QBDI_ARCH_X86)
+  return registers_.at("eip");
+#else
+  return 0;
+#endif
 }
 
+// returns the architectural register commonly used as frame pointer
+// note: actual frame pointer usage and semantics are abi-specific
 uint64_t register_state::get_frame_pointer() const {
-  switch (arch_) {
-  case architecture::X86_64:
-    return registers_.at("rbp");
-  case architecture::AARCH64:
-    return registers_.at("x29");
-  case architecture::ARM32:
-    return registers_.at("r11");
-  case architecture::X86:
-    return registers_.at("ebp");
-  default:
-    return 0;
-  }
-}
-
-uint64_t register_state::get_return_value() const {
-  switch (arch_) {
-  case architecture::X86_64:
-    return registers_.at("rax");
-  case architecture::AARCH64:
-    return registers_.at("x0");
-  case architecture::ARM32:
-    return registers_.at("r0");
-  case architecture::X86:
-    return registers_.at("eax");
-  default:
-    return 0;
-  }
-}
-
-std::vector<uint64_t> register_state::get_argument_registers(size_t count) const {
-  std::vector<uint64_t> args;
-  args.reserve(count);
-
-  switch (arch_) {
-  case architecture::X86_64: {
-    // system v abi: rdi, rsi, rdx, rcx, r8, r9
-    const char* arg_regs[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
-    for (size_t i = 0; i < std::min(count, size_t(6)); ++i) {
-      args.push_back(registers_.at(arg_regs[i]));
-    }
-    break;
-  }
-  case architecture::AARCH64: {
-    // aarch64: x0-x7
-    for (size_t i = 0; i < std::min(count, size_t(8)); ++i) {
-      args.push_back(registers_.at("x" + std::to_string(i)));
-    }
-    break;
-  }
-  case architecture::ARM32: {
-    // arm32: r0-r3
-    for (size_t i = 0; i < std::min(count, size_t(4)); ++i) {
-      args.push_back(registers_.at("r" + std::to_string(i)));
-    }
-    break;
-  }
-  case architecture::X86: {
-    // x86 cdecl: all on stack, but we can get first few for fastcall
-    // this is simplified - real implementation would check calling convention
-    break;
-  }
-  default:
-    break;
-  }
-
-  return args;
+#if defined(QBDI_ARCH_X86_64)
+  return registers_.at("rbp");
+#elif defined(QBDI_ARCH_AARCH64)
+  return registers_.at("x29");
+#elif defined(QBDI_ARCH_ARM)
+  return registers_.at("r11"); // could also be r7 on some abis
+#elif defined(QBDI_ARCH_X86)
+  return registers_.at("ebp");
+#else
+  return 0;
+#endif
 }
 
 std::vector<std::string> register_state::get_register_names() const {

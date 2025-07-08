@@ -1,10 +1,10 @@
 #include "auto_cure.hpp"
-#include "../core/platform.hpp"
-#include "../core/context.hpp"
-#include "../core/signature.hpp"
-#include "../utils/hex_utils.hpp"
-#include "../utils/file_utils.hpp"
-#include "../utils/pretty_hexdump.hpp"
+#include "core/platform.hpp"
+#include "core/context.hpp"
+#include "core/signature.hpp"
+#include "utils/hex_utils.hpp"
+#include "utils/file_utils.hpp"
+#include "utils/pretty_hexdump.hpp"
 #include "pattern_matcher.hpp"
 #include <redlog.hpp>
 #include <algorithm>

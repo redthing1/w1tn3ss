@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../../calling_convention_base.hpp"
-#include "../../fpr_utils.hpp"
+#include "abi/calling_convention_base.hpp"
+#include "abi/fpr_utils.hpp"
 #include <array>
 
 namespace w1::abi::conventions {
@@ -92,12 +92,8 @@ public:
   std::vector<double> extract_float_args(const extraction_context& ctx, size_t count) const override;
 
 private:
-  // integer argument registers: rdi, rsi, rdx, rcx, r8, r9
-  static constexpr std::array<size_t, 6> int_arg_regs = {
-      offsetof(QBDI::GPRState, rdi) / sizeof(QBDI::rword), offsetof(QBDI::GPRState, rsi) / sizeof(QBDI::rword),
-      offsetof(QBDI::GPRState, rdx) / sizeof(QBDI::rword), offsetof(QBDI::GPRState, rcx) / sizeof(QBDI::rword),
-      offsetof(QBDI::GPRState, r8) / sizeof(QBDI::rword),  offsetof(QBDI::GPRState, r9) / sizeof(QBDI::rword)
-  };
+  // integer argument registers: rdi, rsi, rdx, rcx, r8, r9 (accessed directly)
+  static constexpr size_t max_int_reg_args = 6;
 
   // floating point argument registers: xmm0-xmm7
   static constexpr size_t max_float_reg_args = 8;

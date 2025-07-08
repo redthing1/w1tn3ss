@@ -9,19 +9,44 @@ std::vector<uint64_t> aarch64_aapcs::extract_integer_args(const extraction_conte
   args.reserve(count);
 
   // extract register arguments (x0-x7)
-  size_t reg_args = std::min(count, int_arg_regs.size());
+  size_t reg_args = std::min(count, size_t(8));
   for (size_t i = 0; i < reg_args; i++) {
-    args.push_back(reinterpret_cast<const QBDI::rword*>(ctx.gpr)[int_arg_regs[i]]);
+    switch (i) {
+    case 0:
+      args.push_back(ctx.gpr->x0);
+      break;
+    case 1:
+      args.push_back(ctx.gpr->x1);
+      break;
+    case 2:
+      args.push_back(ctx.gpr->x2);
+      break;
+    case 3:
+      args.push_back(ctx.gpr->x3);
+      break;
+    case 4:
+      args.push_back(ctx.gpr->x4);
+      break;
+    case 5:
+      args.push_back(ctx.gpr->x5);
+      break;
+    case 6:
+      args.push_back(ctx.gpr->x6);
+      break;
+    case 7:
+      args.push_back(ctx.gpr->x7);
+      break;
+    }
   }
 
   // extract stack arguments if needed
-  if (count > int_arg_regs.size()) {
+  if (count > 8) {
     // stack arguments start immediately at sp (no return address on stack)
     const uint64_t stack_base = ctx.gpr->sp;
 
-    for (size_t i = int_arg_regs.size(); i < count; i++) {
+    for (size_t i = 8; i < count; i++) {
       // each argument takes 8 bytes on stack
-      uint64_t stack_offset = (i - int_arg_regs.size()) * 8;
+      uint64_t stack_offset = (i - 8) * 8;
       args.push_back(ctx.read_stack(stack_base + stack_offset));
     }
   }
@@ -47,9 +72,34 @@ std::vector<aarch64_aapcs::typed_arg> aarch64_aapcs::extract_typed_args(
     switch (types[i]) {
     case arg_type::INTEGER:
     case arg_type::POINTER:
-      if (int_reg_idx < int_arg_regs.size()) {
+      if (int_reg_idx < 8) {
         // from register
-        arg.value.integer = reinterpret_cast<const QBDI::rword*>(ctx.gpr)[int_arg_regs[int_reg_idx]];
+        switch (int_reg_idx) {
+        case 0:
+          arg.value.integer = ctx.gpr->x0;
+          break;
+        case 1:
+          arg.value.integer = ctx.gpr->x1;
+          break;
+        case 2:
+          arg.value.integer = ctx.gpr->x2;
+          break;
+        case 3:
+          arg.value.integer = ctx.gpr->x3;
+          break;
+        case 4:
+          arg.value.integer = ctx.gpr->x4;
+          break;
+        case 5:
+          arg.value.integer = ctx.gpr->x5;
+          break;
+        case 6:
+          arg.value.integer = ctx.gpr->x6;
+          break;
+        case 7:
+          arg.value.integer = ctx.gpr->x7;
+          break;
+        }
         arg.from_stack = false;
         int_reg_idx++;
       } else {
@@ -121,8 +171,33 @@ std::vector<aarch64_aapcs::typed_arg> aarch64_aapcs::extract_typed_args(
       // small structs may be passed in registers
       // larger structs are passed on stack
       // this is simplified - real implementation would need size info
-      if (int_reg_idx < int_arg_regs.size()) {
-        arg.value.struct_data.data[0] = reinterpret_cast<const QBDI::rword*>(ctx.gpr)[int_arg_regs[int_reg_idx]];
+      if (int_reg_idx < 8) {
+        switch (int_reg_idx) {
+        case 0:
+          arg.value.struct_data.data[0] = ctx.gpr->x0;
+          break;
+        case 1:
+          arg.value.struct_data.data[0] = ctx.gpr->x1;
+          break;
+        case 2:
+          arg.value.struct_data.data[0] = ctx.gpr->x2;
+          break;
+        case 3:
+          arg.value.struct_data.data[0] = ctx.gpr->x3;
+          break;
+        case 4:
+          arg.value.struct_data.data[0] = ctx.gpr->x4;
+          break;
+        case 5:
+          arg.value.struct_data.data[0] = ctx.gpr->x5;
+          break;
+        case 6:
+          arg.value.struct_data.data[0] = ctx.gpr->x6;
+          break;
+        case 7:
+          arg.value.struct_data.data[0] = ctx.gpr->x7;
+          break;
+        }
         arg.value.struct_data.size = 8;
         arg.from_stack = false;
         int_reg_idx++;
@@ -137,8 +212,33 @@ std::vector<aarch64_aapcs::typed_arg> aarch64_aapcs::extract_typed_args(
 
     case arg_type::STRUCT_BY_REF:
       // passed as pointer
-      if (int_reg_idx < int_arg_regs.size()) {
-        arg.value.integer = reinterpret_cast<const QBDI::rword*>(ctx.gpr)[int_arg_regs[int_reg_idx]];
+      if (int_reg_idx < 8) {
+        switch (int_reg_idx) {
+        case 0:
+          arg.value.integer = ctx.gpr->x0;
+          break;
+        case 1:
+          arg.value.integer = ctx.gpr->x1;
+          break;
+        case 2:
+          arg.value.integer = ctx.gpr->x2;
+          break;
+        case 3:
+          arg.value.integer = ctx.gpr->x3;
+          break;
+        case 4:
+          arg.value.integer = ctx.gpr->x4;
+          break;
+        case 5:
+          arg.value.integer = ctx.gpr->x5;
+          break;
+        case 6:
+          arg.value.integer = ctx.gpr->x6;
+          break;
+        case 7:
+          arg.value.integer = ctx.gpr->x7;
+          break;
+        }
         arg.from_stack = false;
         int_reg_idx++;
       } else {

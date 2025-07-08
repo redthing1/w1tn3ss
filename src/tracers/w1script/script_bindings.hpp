@@ -2,16 +2,25 @@
 
 #include <sol/sol.hpp>
 #include <QBDI.h>
+#include <memory>
 
 // include all binding modules
 #include "bindings/core_types.hpp"
 #include "bindings/register_access.hpp"
 #include "bindings/vm_control.hpp"
+#include "bindings/memory_access.hpp"
 #include "bindings/memory_analysis.hpp"
 #include "bindings/module_analysis.hpp"
 #include "bindings/utilities.hpp"
 #include "bindings/callback_system.hpp"
 #include "bindings/api_analysis.hpp"
+#include "bindings/hooking.hpp"
+#include "bindings/signature_scanning.hpp"
+#include "bindings/calling_convention.hpp"
+
+namespace w1::hooking {
+class hook_manager;
+}
 
 namespace w1::tracers::script {
 
@@ -39,9 +48,8 @@ namespace w1::tracers::script {
  * @param api_manager the api analysis manager (optional)
  */
 void setup_qbdi_bindings(
-    sol::state& lua, 
-    sol::table& tracer_table,
-    std::shared_ptr<bindings::api_analysis_manager>& api_manager
+    sol::state& lua, sol::table& tracer_table, std::shared_ptr<bindings::api_analysis_manager>& api_manager,
+    std::shared_ptr<w1::hooking::hook_manager>& hook_manager
 );
 
 } // namespace w1::tracers::script

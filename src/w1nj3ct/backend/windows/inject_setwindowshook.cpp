@@ -111,7 +111,9 @@ static BOOL inject_dll_set_windows_hook_ex_impl(HANDLE h_process, DWORD process_
 }
 
 // clean wrapper for the public api
-bool w1::inject::windows::inject_dll_set_windows_hook_ex(process_handle h_process, process_id pid, const std::wstring& dll_path) {
+bool w1::inject::windows::inject_dll_set_windows_hook_ex(
+    process_handle h_process, process_id pid, const std::wstring& dll_path
+) {
   HANDLE win_handle = static_cast<HANDLE>(h_process);
   DWORD win_pid = static_cast<DWORD>(pid);
   BOOL result = inject_dll_set_windows_hook_ex_impl(win_handle, win_pid, dll_path);

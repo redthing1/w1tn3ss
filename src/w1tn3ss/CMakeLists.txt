@@ -4,6 +4,7 @@ include(${CMAKE_SOURCE_DIR}/cmake/CommonConfig.cmake)
 
 add_library(w1tn3ss STATIC
     util/env_config.cpp
+    util/env_enumerator.cpp
     util/module_scanner.cpp
     util/module_range_index.cpp
     util/memory_range_index.cpp
@@ -20,6 +21,8 @@ add_library(w1tn3ss STATIC
     abi/argument_extractor.cpp
     abi/api_analyzer.cpp
     abi/api_listener.cpp
+    # hooking system
+    hooking/hook_manager.cpp
 )
 
 # Add platform-specific calling convention implementations
@@ -51,12 +54,20 @@ endif()
 if(WITNESS_LIEF)
     target_sources(w1tn3ss PRIVATE
         lief/lief_symbol_resolver.cpp
+        lief/symbol_resolver.cpp
     )
     
     # Add macOS-specific dyld resolver
     if(APPLE)
         target_sources(w1tn3ss PRIVATE
             lief/macos_dyld_resolver.cpp
+        )
+    endif()
+    
+    # Add Windows-specific system resolver
+    if(WIN32)
+        target_sources(w1tn3ss PRIVATE
+            lief/windows_system_resolver.cpp
         )
     endif()
 endif()

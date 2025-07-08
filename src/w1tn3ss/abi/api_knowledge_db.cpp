@@ -3,7 +3,7 @@
 #include <unordered_set>
 #include <algorithm>
 #include <fstream>
-#include <common/ext/jsonstruct.hpp>
+#include <w1common/ext/jsonstruct.hpp>
 
 // platform-specific api definitions
 #ifdef __APPLE__

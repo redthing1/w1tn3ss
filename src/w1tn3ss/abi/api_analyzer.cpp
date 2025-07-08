@@ -13,10 +13,10 @@ public:
 
 #ifdef WITNESS_LIEF_ENABLED
     if (config_.resolve_symbols) {
-      lief::lief_symbol_resolver::config lief_cfg;
+      lief::symbol_resolver::config lief_cfg;
       lief_cfg.max_cache_size = 50;
       lief_cfg.prepopulate_exports = true;
-      symbol_resolver_ = std::make_unique<lief::lief_symbol_resolver>(lief_cfg);
+      symbol_resolver_ = std::make_unique<lief::symbol_resolver>(lief_cfg);
     }
 #endif
   }
@@ -450,7 +450,7 @@ private:
   argument_extractor argument_extractor_;
 
 #ifdef WITNESS_LIEF_ENABLED
-  std::unique_ptr<lief::lief_symbol_resolver> symbol_resolver_;
+  std::unique_ptr<lief::symbol_resolver> symbol_resolver_;
 #endif
 
   mutable stats stats_;

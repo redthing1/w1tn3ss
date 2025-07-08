@@ -109,9 +109,9 @@ module_info module_scanner::build_module_info(const QBDI::MemoryMap& map) {
   }
 
   log_.trc(
-      "built module info", redlog::field("name", info.name), redlog::field("base_address", "0x%08x", info.base_address),
-      redlog::field("size", "0x%08x", info.size), redlog::field("type", static_cast<int>(info.type)),
-      redlog::field("is_system", info.is_system_library)
+      "built module info", redlog::field("name", info.name), redlog::field("path", info.path),
+      redlog::field("base_address", "0x%08x", info.base_address), redlog::field("size", "0x%08x", info.size),
+      redlog::field("type", static_cast<int>(info.type)), redlog::field("is_system", info.is_system_library)
   );
 
   return info;

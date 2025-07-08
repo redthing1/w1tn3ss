@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../util/module_range_index.hpp"
+#include "util/module_range_index.hpp"
 #include <atomic>
 #include <list>
 #include <memory>
@@ -16,6 +16,7 @@
 #endif
 
 #include <redlog.hpp>
+#include "symbol_info.hpp"
 
 #ifdef __APPLE__
 #include "macos_dyld_resolver.hpp"
@@ -24,24 +25,6 @@
 namespace w1::lief {
 
 #ifdef WITNESS_LIEF_ENABLED
-
-// Symbol information
-struct symbol_info {
-  std::string name;
-  std::string demangled_name;
-  uint64_t offset; // Offset within module
-  uint64_t size;   // Symbol size
-
-  enum type { FUNCTION, OBJECT, UNKNOWN } symbol_type;
-
-  enum binding { LOCAL, GLOBAL, WEAK } symbol_binding;
-
-  std::string version; // Symbol version (Linux)
-  std::string section; // Section name
-
-  bool is_exported;
-  bool is_imported;
-};
 
 class lief_binary_cache;
 

@@ -1,5 +1,6 @@
 #include "transfer_tracer.hpp"
 
+#include <w1tn3ss/util/register_access.hpp>
 #include <fstream>
 
 namespace w1xfer {
@@ -54,15 +55,8 @@ QBDI::VMAction transfer_tracer::on_exec_transfer_call(
   // extract call information from vm state
   uint64_t source_addr = state->sequenceStart;
 
-  // get target address from instruction pointer (architecture-specific)
-  uint64_t target_addr = 0;
-#if defined(QBDI_ARCH_X86_64)
-  target_addr = gpr->rip;
-#elif defined(QBDI_ARCH_AARCH64) || defined(QBDI_ARCH_ARM)
-  target_addr = gpr->pc;
-#elif defined(QBDI_ARCH_X86)
-  target_addr = gpr->eip;
-#endif
+  // get target address from instruction pointer
+  uint64_t target_addr = w1::registers::get_pc(gpr);
 
   if (config_.verbose) {
     std::string source_module = "unknown";
@@ -92,15 +86,8 @@ QBDI::VMAction transfer_tracer::on_exec_transfer_return(
   // extract return information from vm state
   uint64_t source_addr = state->sequenceStart;
 
-  // get target address from instruction pointer (architecture-specific)
-  uint64_t target_addr = 0;
-#if defined(QBDI_ARCH_X86_64)
-  target_addr = gpr->rip;
-#elif defined(QBDI_ARCH_AARCH64) || defined(QBDI_ARCH_ARM)
-  target_addr = gpr->pc;
-#elif defined(QBDI_ARCH_X86)
-  target_addr = gpr->eip;
-#endif
+  // get target address from instruction pointer
+  uint64_t target_addr = w1::registers::get_pc(gpr);
 
   if (config_.verbose) {
     std::string source_module = "unknown";
