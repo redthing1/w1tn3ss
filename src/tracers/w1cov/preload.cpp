@@ -90,7 +90,7 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
 
   // create engine
   log.inf("creating tracer engine");
-  g_engine = std::make_unique<w1::tracer_engine<w1cov::coverage_tracer>>(vm, *g_tracer);
+  g_engine = std::make_unique<w1::tracer_engine<w1cov::coverage_tracer>>(vm, *g_tracer, g_config);
 
   // initialize tracer
   g_tracer->initialize(*g_engine);

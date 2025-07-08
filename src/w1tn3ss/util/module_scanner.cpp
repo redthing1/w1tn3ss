@@ -149,7 +149,20 @@ bool module_scanner::is_system_library(const std::string& path) const {
   }
 
 #ifdef __APPLE__
-  return (path.find("/usr/lib/") == 0 || path.find("/System/Library/") == 0 || path.find("/Library/") == 0);
+  // check for full paths
+  if (path.find("/usr/lib/") == 0 || path.find("/System/Library/") == 0 || path.find("/Library/") == 0) {
+    return true;
+  }
+  // check for system library names (when loaded from dyld shared cache)
+  if (path.find("libsystem") == 0 || path.find("libc++") == 0 || path.find("libobjc") == 0 ||
+      path.find("libdispatch") == 0 || path.find("libxpc") == 0 || path.find("libcorecrypto") == 0 ||
+      path.find("libcompiler_rt") == 0 || path.find("libdyld") == 0 || path.find("dyld") == 0 ||
+      path.find("libquarantine") == 0 || path.find("libmacho") == 0 || path.find("libcommonCrypto") == 0 ||
+      path.find("libunwind") == 0 || path.find("libcopyfile") == 0 || path.find("libremovefile") == 0 ||
+      path.find("libkeymgr") == 0 || path.find("libcache") == 0 || path.find("libSystem") == 0) {
+    return true;
+  }
+  return false;
 #elif defined(__linux__)
   return (
       path.find("/lib/") == 0 || path.find("/usr/lib/") == 0 || path.find("/lib64/") == 0 ||

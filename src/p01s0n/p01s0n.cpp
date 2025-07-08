@@ -16,7 +16,7 @@ namespace p01s0n {
 int p01s0n_run() {
   // get config from environment
   p01s0n_config config = p01s0n_config::from_environment();
-  
+
   // set log level based on verbose setting
   if (config.verbose >= 4) {
     redlog::set_level(redlog::level::pedantic);

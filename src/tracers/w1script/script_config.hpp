@@ -2,12 +2,13 @@
 
 #include <w1tn3ss/util/env_config.hpp>
 #include <w1tn3ss/util/env_enumerator.hpp>
+#include <w1tn3ss/engine/tracer_config_base.hpp>
 #include <string>
 #include <unordered_map>
 
 namespace w1::tracers::script {
 
-struct config {
+struct config : public w1::tracer_config_base {
   std::string script_path;
   bool verbose = false;
 
@@ -18,6 +19,7 @@ struct config {
     w1::util::env_config loader("W1SCRIPT_");
 
     config cfg;
+    cfg.include_system_modules = loader.get<bool>("INCLUDE_SYSTEM", false);
     cfg.script_path = loader.get<std::string>("SCRIPT", "");
     cfg.verbose = loader.get<bool>("VERBOSE", false);
 

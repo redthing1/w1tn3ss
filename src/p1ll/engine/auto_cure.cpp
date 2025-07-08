@@ -561,11 +561,9 @@ bool auto_cure_engine::apply_patch_static(
   size_t patch_size = compiled_patch.data.size();
   size_t aligned_start = patch_offset & ~0xF;
   size_t aligned_end = std::min(file_data.size(), ((patch_offset + patch_size + 15) & ~0xF));
-  
+
   // backup original context (aligned)
-  std::vector<uint8_t> original_context(
-      file_data.begin() + aligned_start, file_data.begin() + aligned_end
-  );
+  std::vector<uint8_t> original_context(file_data.begin() + aligned_start, file_data.begin() + aligned_end);
 
   // apply patch bytes (respecting mask)
   size_t bytes_patched = 0;
@@ -577,9 +575,7 @@ bool auto_cure_engine::apply_patch_static(
   }
 
   // get modified context (aligned)
-  std::vector<uint8_t> patched_context(
-      file_data.begin() + aligned_start, file_data.begin() + aligned_end
-  );
+  std::vector<uint8_t> patched_context(file_data.begin() + aligned_start, file_data.begin() + aligned_end);
 
   log.trc(
       "applying static patch", redlog::field("signature", patch.signature),
@@ -745,7 +741,7 @@ bool auto_cure_engine::apply_single_patch_to_address(
   auto context_result = scanner_->read_memory(aligned_start, context_size);
   std::vector<uint8_t> original_context;
   bool has_context = false;
-  
+
   if (context_result) {
     original_context = *context_result;
     has_context = true;
@@ -780,7 +776,8 @@ bool auto_cure_engine::apply_single_patch_to_address(
             auto modified_context_result = scanner_->read_memory(aligned_start, context_size);
             if (modified_context_result) {
               auto modified_context = *modified_context_result;
-              std::string patch_hexdump = utils::format_patch_hexdump(original_context, modified_context, aligned_start);
+              std::string patch_hexdump =
+                  utils::format_patch_hexdump(original_context, modified_context, aligned_start);
               log.dbg(
                   "dynamic patch hexdump", redlog::field("address", utils::format_address(patch_address)),
                   redlog::field("size", patch_bytes.size())

@@ -2,10 +2,11 @@
 
 #include <string>
 #include <w1tn3ss/util/env_config.hpp>
+#include <w1tn3ss/engine/tracer_config_base.hpp>
 
 namespace w1xfer {
 
-struct transfer_config {
+struct transfer_config : public w1::tracer_config_base {
   int verbose = 0;
   std::string output_file = "";
   uint64_t max_entries = 1000000;
@@ -18,6 +19,7 @@ struct transfer_config {
     w1::util::env_config loader("W1XFER_");
 
     transfer_config config;
+    config.include_system_modules = loader.get<bool>("INCLUDE_SYSTEM", false);
     config.verbose = loader.get<int>("VERBOSE", 0);
     config.output_file = loader.get<std::string>("OUTPUT", "");
     config.max_entries = loader.get<uint64_t>("MAX_ENTRIES", 1000000);

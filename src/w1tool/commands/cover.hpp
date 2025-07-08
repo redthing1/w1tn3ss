@@ -12,7 +12,7 @@ namespace w1tool::commands {
  * @param pid_flag process id to attach to for runtime tracing
  * @param name_flag process name to attach to for runtime tracing
  * @param output_flag output file path for coverage data (optional)
- * @param exclude_system_flag exclude system libraries from coverage (optional)
+ * @param include_system_flag include system libraries in coverage (optional)
  * @param track_hitcounts_flag track hit counts in coverage data (optional)
  * @param module_filter_flag comma-separated list of modules to filter (optional)
  * @param debug_level_flag debug level override - defaults to passthrough verbosity (optional)
@@ -24,7 +24,7 @@ namespace w1tool::commands {
  */
 int cover(
     args::ValueFlag<std::string>& library_flag, args::Flag& spawn_flag, args::ValueFlag<int>& pid_flag,
-    args::ValueFlag<std::string>& name_flag, args::ValueFlag<std::string>& output_flag, args::Flag& exclude_system_flag,
+    args::ValueFlag<std::string>& name_flag, args::ValueFlag<std::string>& output_flag, args::Flag& include_system_flag,
     args::Flag& track_hitcounts_flag, args::ValueFlag<std::string>& module_filter_flag,
     args::ValueFlag<int>& debug_level_flag, args::ValueFlag<std::string>& format_flag, args::Flag& suspended_flag,
     args::PositionalList<std::string>& args_list, const std::string& executable_path

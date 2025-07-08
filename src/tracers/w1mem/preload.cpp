@@ -13,6 +13,7 @@
 // globals
 static std::unique_ptr<w1mem::memory_tracer> g_tracer;
 static std::unique_ptr<w1::tracer_engine<w1mem::memory_tracer>> g_engine;
+static w1mem::memory_config g_config;
 
 namespace {
 
@@ -44,16 +45,16 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
   log.inf("w1mem preload starting");
 
   // get config from environment
-  w1mem::memory_config config = w1mem::memory_config::from_environment();
+  g_config = w1mem::memory_config::from_environment();
 
   // set log level based on debug level
-  if (config.verbose >= 4) {
+  if (g_config.verbose >= 4) {
     redlog::set_level(redlog::level::pedantic);
-  } else if (config.verbose >= 3) {
+  } else if (g_config.verbose >= 3) {
     redlog::set_level(redlog::level::debug);
-  } else if (config.verbose >= 2) {
+  } else if (g_config.verbose >= 2) {
     redlog::set_level(redlog::level::trace);
-  } else if (config.verbose >= 1) {
+  } else if (g_config.verbose >= 1) {
     redlog::set_level(redlog::level::verbose);
   } else {
     redlog::set_level(redlog::level::info);
@@ -62,7 +63,7 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
   // initialize signal handling for emergency shutdown
   w1::tn3ss::signal_handler::config siconfig;
   siconfig.context_name = "w1mem";
-  siconfig.log_signals = config.verbose;
+  siconfig.log_signals = g_config.verbose;
 
   if (w1::tn3ss::signal_handler::initialize(siconfig)) {
     w1::tn3ss::signal_handler::register_cleanup(
@@ -77,11 +78,11 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
 
   // create tracer
   log.inf("creating memory tracer");
-  g_tracer = std::make_unique<w1mem::memory_tracer>(config);
+  g_tracer = std::make_unique<w1mem::memory_tracer>(g_config);
 
   // create engine
   log.inf("creating tracer engine");
-  g_engine = std::make_unique<w1::tracer_engine<w1mem::memory_tracer>>(vm, *g_tracer);
+  g_engine = std::make_unique<w1::tracer_engine<w1mem::memory_tracer>>(vm, *g_tracer, g_config);
 
   // initialize tracer
   if (!g_tracer->initialize(*g_engine)) {

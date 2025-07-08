@@ -124,7 +124,7 @@ std::string format_hexdump(const uint8_t* data, size_t size, uint64_t base_offse
   // calculate 16-byte aligned boundaries
   uint64_t aligned_start = base_offset & ~0xF;
   uint64_t aligned_end = (base_offset + size + 15) & ~0xF;
-  
+
   // calculate padding at start and end
   size_t start_padding = base_offset - aligned_start;
   size_t total_aligned_size = aligned_end - aligned_start;
@@ -207,7 +207,7 @@ std::string format_patch_hexdump(
 
     // before line
     result << format_offset(display_offset) << "  ";
-    
+
     // format hex bytes for this line
     for (size_t i = 0; i < opts.bytes_per_line; ++i) {
       if (i > 0) {
@@ -247,7 +247,7 @@ std::string format_patch_hexdump(
 
     // after line - same offset, no label for clean alignment
     result << format_offset(display_offset) << "  ";
-    
+
     // format hex bytes for this line
     for (size_t i = 0; i < opts.bytes_per_line; ++i) {
       if (i > 0) {
@@ -302,11 +302,11 @@ std::string format_signature_match_hexdump(
   // calculate context boundaries with alignment
   size_t context_start = (match_offset >= opts.context_bytes) ? match_offset - opts.context_bytes : 0;
   size_t context_end = std::min(data_size, match_offset + pattern_size + opts.context_bytes);
-  
+
   // align context boundaries to 16-byte boundaries
   size_t aligned_start = context_start & ~0xF;
   size_t aligned_end = (context_end + 15) & ~0xF;
-  
+
   // ensure we don't go past data boundaries
   if (aligned_end > data_size) {
     aligned_end = data_size;

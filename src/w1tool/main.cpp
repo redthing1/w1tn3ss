@@ -70,7 +70,7 @@ void cmd_cover(args::Subparser& parser) {
   args::ValueFlag<int> pid(parser, "pid", "process ID to attach to", {'p', "pid"});
   args::ValueFlag<std::string> name(parser, "name", "process name to attach to", {'n', "name"});
   args::ValueFlag<std::string> output(parser, "path", "output file path", {'o', "output"});
-  args::Flag exclude_system(parser, "exclude-system", "exclude system libraries", {"exclude-system"});
+  args::Flag include_system(parser, "include-system", "include system libraries", {"include-system"});
   args::Flag track_hitcounts(parser, "track-hitcounts", "track hit counts in coverage data", {"track-hitcounts"});
   args::ValueFlag<std::string> module_filter(
       parser, "modules", "comma-separated list of modules to filter", {'m', "module-filter"}
@@ -82,7 +82,7 @@ void cmd_cover(args::Subparser& parser) {
   parser.Parse();
 
   w1tool::commands::cover(
-      library, spawn, pid, name, output, exclude_system, track_hitcounts, module_filter, debug_level, format, suspended,
+      library, spawn, pid, name, output, include_system, track_hitcounts, module_filter, debug_level, format, suspended,
       args, g_executable_path
   );
 }

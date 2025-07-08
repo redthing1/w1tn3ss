@@ -65,12 +65,12 @@ bool coverage_module_tracker::should_trace_module(const w1::util::module_info& m
     return false; // not in filter list
   }
 
-  // exclude system modules if configured
-  if (config_.exclude_system_modules && mod.is_system_library) {
+  // include system modules only if configured
+  if (mod.is_system_library && !config_.include_system_modules) {
     return false;
   }
 
-  // default: trace all non-system modules
+  // default: trace all modules except system modules (unless include_system_modules is true)
   return true;
 }
 

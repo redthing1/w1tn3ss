@@ -8,7 +8,7 @@
 namespace w1cov {
 
 session::session() : initialized_(false) {
-  config_.exclude_system_modules = true;
+  config_.include_system_modules = false;
   config_.track_hitcounts = true;
 }
 

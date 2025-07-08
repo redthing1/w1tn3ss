@@ -7,6 +7,9 @@
 #include <QBDI.h>
 #include <redlog.hpp>
 
+#include "tracer_config_base.hpp"
+#include <w1tn3ss/util/module_scanner.hpp>
+
 namespace w1 {
 
 template <typename TTracer> class tracer_engine {
@@ -17,6 +20,15 @@ public:
         "tracer engine created with existing QBDI::VM instance", redlog::field("tracer", tracer.get_name()),
         redlog::field("vm", static_cast<void*>(vm_))
     );
+  }
+
+  tracer_engine(QBDI::VMInstanceRef vm, TTracer& tracer, const tracer_config_base& config)
+      : vm_(static_cast<QBDI::VM*>(vm)), tracer_(tracer), config_(config), owns_vm_(false) {
+    log_.inf(
+        "tracer engine created with config", redlog::field("tracer", tracer.get_name()),
+        redlog::field("vm", static_cast<void*>(vm_)), redlog::field("include_system", config.include_system_modules)
+    );
+    apply_module_filtering();
   }
 
   tracer_engine(TTracer& tracer) : tracer_(tracer), owns_vm_(true) {
@@ -361,7 +373,36 @@ private:
   QBDI::VM* vm_;
   TTracer& tracer_;
   bool owns_vm_;
+  tracer_config_base config_;
   redlog::logger log_{"w1.tracer_engine"};
+
+  void apply_module_filtering() {
+    if (config_.include_system_modules) {
+      log_.dbg("including system modules in instrumentation");
+      return;
+    }
+
+    log_.dbg("applying system module filtering");
+    util::module_scanner scanner;
+    auto modules = scanner.scan_executable_modules();
+
+    size_t excluded_count = 0;
+    for (const auto& mod : modules) {
+      if (mod.is_system_library) {
+        vm_->removeInstrumentedModuleFromAddr(mod.base_address);
+        log_.dbg(
+            "excluded system module", redlog::field("module", mod.name),
+            redlog::field("base", "0x%08x", mod.base_address)
+        );
+        excluded_count++;
+      }
+    }
+
+    log_.dbg(
+        "module filtering complete", redlog::field("total_modules", modules.size()),
+        redlog::field("excluded", excluded_count), redlog::field("remaining", modules.size() - excluded_count)
+    );
+  }
 
   // - SFINAE detection for callback methods (C++17)
 
