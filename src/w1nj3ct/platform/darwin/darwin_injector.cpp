@@ -292,13 +292,13 @@ result inject_preload(const config& cfg) {
   // build environment
   std::vector<std::string> env_strings;
   std::vector<const char*> envp;
-  
+
   // first pass: populate all strings to avoid reallocation
   env_strings.reserve(env.size());
   for (const auto& [key, value] : env) {
     env_strings.push_back(key + "=" + value);
   }
-  
+
   // second pass: collect pointers after all strings are in place
   envp.reserve(env.size() + 1);
   for (const auto& env_str : env_strings) {
