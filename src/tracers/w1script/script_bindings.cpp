@@ -40,13 +40,13 @@ void setup_qbdi_bindings(
 
   logger.dbg("setting up memory access");
   bindings::setup_memory_access(lua, w1_module);
-  
+
   logger.dbg("setting up hooking functions");
   bindings::setup_hooking(lua, w1_module, hook_manager);
-  
+
   logger.dbg("setting up signature scanning");
   bindings::setup_signature_scanning(lua, w1_module);
-  
+
   // store hook manager pointer in w1 module for signature scanning
   w1_module["_hook_manager"] = static_cast<void*>(hook_manager.get());
 

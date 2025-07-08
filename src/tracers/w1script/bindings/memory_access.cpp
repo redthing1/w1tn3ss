@@ -12,27 +12,27 @@ void setup_memory_access(sol::state& lua, sol::table& w1_module) {
   // safe memory read
   w1_module.set_function("read_mem", [&lua](void* vm_ptr, uint64_t address, size_t size) -> sol::optional<sol::table> {
     QBDI::VMInstanceRef vm = static_cast<QBDI::VMInstanceRef>(vm_ptr);
-    
+
     auto result = w1::util::safe_memory::read_buffer(vm, address, size, size);
     if (!result) {
       return sol::nullopt;
     }
-    
+
     // convert to lua table
     sol::state_view lua_view = lua.lua_state();
     sol::table data_table = lua_view.create_table();
-    
+
     for (size_t i = 0; i < result->data.size(); i++) {
-      data_table[i + 1] = result->data[i];  // lua arrays start at 1
+      data_table[i + 1] = result->data[i]; // lua arrays start at 1
     }
-    
+
     return data_table;
   });
 
   // safe memory write
   w1_module.set_function("write_mem", [](void* vm_ptr, uint64_t address, sol::table data) -> bool {
     QBDI::VMInstanceRef vm = static_cast<QBDI::VMInstanceRef>(vm_ptr);
-    
+
     // convert lua table to vector
     std::vector<uint8_t> bytes;
     for (size_t i = 1; i <= data.size(); i++) {
@@ -41,88 +41,97 @@ void setup_memory_access(sol::state& lua, sol::table& w1_module) {
         bytes.push_back(*byte);
       }
     }
-    
+
     // check if memory is writable
     if (!w1::util::safe_memory::memory_validator().check_access(
-        address, bytes.size(), w1::util::memory_range_index::WRITE)) {
+            address, bytes.size(), w1::util::memory_range_index::WRITE
+        )) {
       return false;
     }
-    
+
     // perform write
     std::memcpy(reinterpret_cast<void*>(address), bytes.data(), bytes.size());
     return true;
   });
 
   // safe string read
-  w1_module.set_function("read_string", [](void* vm_ptr, uint64_t address, sol::optional<size_t> max_length) -> sol::optional<std::string> {
-    QBDI::VMInstanceRef vm = static_cast<QBDI::VMInstanceRef>(vm_ptr);
-    size_t max_len = max_length.value_or(256);
-    
-    auto result = w1::util::safe_memory::read_string(vm, address, max_len);
-    if (!result) {
-      return sol::nullopt;
-    }
-    
-    return *result;
-  });
+  w1_module.set_function(
+      "read_string",
+      [](void* vm_ptr, uint64_t address, sol::optional<size_t> max_length) -> sol::optional<std::string> {
+        QBDI::VMInstanceRef vm = static_cast<QBDI::VMInstanceRef>(vm_ptr);
+        size_t max_len = max_length.value_or(256);
+
+        auto result = w1::util::safe_memory::read_string(vm, address, max_len);
+        if (!result) {
+          return sol::nullopt;
+        }
+
+        return *result;
+      }
+  );
 
   // safe wide string read
-  w1_module.set_function("read_wstring", [](void* vm_ptr, uint64_t address, sol::optional<size_t> max_length) -> sol::optional<std::string> {
-    QBDI::VMInstanceRef vm = static_cast<QBDI::VMInstanceRef>(vm_ptr);
-    size_t max_len = max_length.value_or(256);
-    
-    auto result = w1::util::safe_memory::read_wstring(vm, address, max_len);
-    if (!result) {
-      return sol::nullopt;
-    }
-    
-    // convert wstring to string for Lua
-    std::string str;
-    for (wchar_t wc : *result) {
-      if (wc <= 0x7F) {
-        str += static_cast<char>(wc);
-      } else {
-        str += '?';  // simple fallback for non-ASCII
+  w1_module.set_function(
+      "read_wstring",
+      [](void* vm_ptr, uint64_t address, sol::optional<size_t> max_length) -> sol::optional<std::string> {
+        QBDI::VMInstanceRef vm = static_cast<QBDI::VMInstanceRef>(vm_ptr);
+        size_t max_len = max_length.value_or(256);
+
+        auto result = w1::util::safe_memory::read_wstring(vm, address, max_len);
+        if (!result) {
+          return sol::nullopt;
+        }
+
+        // convert wstring to string for Lua
+        std::string str;
+        for (wchar_t wc : *result) {
+          if (wc <= 0x7F) {
+            str += static_cast<char>(wc);
+          } else {
+            str += '?'; // simple fallback for non-ASCII
+          }
+        }
+
+        return str;
       }
-    }
-    
-    return str;
-  });
+  );
 
   // convenience function to read memory as hex string
-  w1_module.set_function("read_mem_hex", [&lua](void* vm_ptr, uint64_t address, size_t size) -> sol::optional<std::string> {
-    QBDI::VMInstanceRef vm = static_cast<QBDI::VMInstanceRef>(vm_ptr);
-    
-    auto result = w1::util::safe_memory::read_buffer(vm, address, size, size);
-    if (!result) {
-      return sol::nullopt;
-    }
-    
-    // convert to hex string
-    std::string hex;
-    hex.reserve(result->data.size() * 2);
-    const char* hex_chars = "0123456789abcdef";
-    
-    for (uint8_t byte : result->data) {
-      hex += hex_chars[byte >> 4];
-      hex += hex_chars[byte & 0xF];
-    }
-    
-    return hex;
-  });
+  w1_module.set_function(
+      "read_mem_hex", [&lua](void* vm_ptr, uint64_t address, size_t size) -> sol::optional<std::string> {
+        QBDI::VMInstanceRef vm = static_cast<QBDI::VMInstanceRef>(vm_ptr);
+
+        auto result = w1::util::safe_memory::read_buffer(vm, address, size, size);
+        if (!result) {
+          return sol::nullopt;
+        }
+
+        // convert to hex string
+        std::string hex;
+        hex.reserve(result->data.size() * 2);
+        const char* hex_chars = "0123456789abcdef";
+
+        for (uint8_t byte : result->data) {
+          hex += hex_chars[byte >> 4];
+          hex += hex_chars[byte & 0xF];
+        }
+
+        return hex;
+      }
+  );
 
   // convenience function to write memory from hex string
   w1_module.set_function("write_mem_hex", [](void* vm_ptr, uint64_t address, const std::string& hex_data) -> bool {
     QBDI::VMInstanceRef vm = static_cast<QBDI::VMInstanceRef>(vm_ptr);
-    
+
     if (hex_data.length() % 2 != 0) {
       return false;
     }
-    
+
     // convert hex string to bytes
     std::vector<uint8_t> bytes;
     bytes.reserve(hex_data.length() / 2);
-    
+
     for (size_t i = 0; i < hex_data.length(); i += 2) {
       std::string byte_str = hex_data.substr(i, 2);
       try {
@@ -131,13 +140,14 @@ void setup_memory_access(sol::state& lua, sol::table& w1_module) {
         return false;
       }
     }
-    
+
     // check if memory is writable
     if (!w1::util::safe_memory::memory_validator().check_access(
-        address, bytes.size(), w1::util::memory_range_index::WRITE)) {
+            address, bytes.size(), w1::util::memory_range_index::WRITE
+        )) {
       return false;
     }
-    
+
     // perform write
     std::memcpy(reinterpret_cast<void*>(address), bytes.data(), bytes.size());
     return true;

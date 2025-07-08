@@ -126,11 +126,11 @@ void setup_utilities(sol::state& lua, sol::table& w1_module) {
 
   // === Platform Detection Functions ===
   // get platform and architecture information
-  
+
   w1_module.set_function("get_platform", []() -> std::string {
     return w1::common::platform_utils::get_platform_name();
   });
-  
+
   w1_module.set_function("get_architecture", []() -> std::string {
 #if defined(QBDI_ARCH_X86_64)
     return "x86_64";
@@ -144,12 +144,12 @@ void setup_utilities(sol::state& lua, sol::table& w1_module) {
     return "unknown";
 #endif
   });
-  
+
   w1_module.set_function("get_platform_info", [&lua]() -> sol::table {
     sol::table info = lua.create_table();
-    
+
     info["os"] = w1::common::platform_utils::get_platform_name();
-    
+
 #if defined(QBDI_ARCH_X86_64)
     info["arch"] = "x86_64";
     info["bits"] = 64;
@@ -166,7 +166,7 @@ void setup_utilities(sol::state& lua, sol::table& w1_module) {
     info["arch"] = "unknown";
     info["bits"] = 0;
 #endif
-    
+
     return info;
   });
 

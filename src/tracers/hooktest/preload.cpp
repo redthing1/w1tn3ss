@@ -20,14 +20,14 @@ public:
   explicit hooktest_tracer() { log_.inf("hooktest tracer created"); }
 
   bool initialize(w1::tracer_engine<hooktest_tracer>& engine) {
-    log_.inf("initialize called");
+    log_.inf("initializing hooktest tracer");
 
     // scan and index modules
     log_.inf("scanning modules");
     auto modules = scanner_.scan_executable_modules();
     index_.rebuild_from_modules(std::move(modules));
 
-    log_.inf("module indexing complete", redlog::field("modules", index_.size()));
+    log_.inf("module scan complete", redlog::field("modules", index_.size()));
 
     // create hook manager
     hook_manager_ = std::make_unique<w1::hooking::hook_manager>(engine.get_vm());
@@ -39,15 +39,16 @@ public:
         target_module = &mod;
       }
     });
-    
+
     if (!target_module) {
       log_.err("could not find hook_test_target module");
       return false;
     }
 
-    log_.inf("found hook_test_target", 
-             redlog::field("base", "0x%lx", target_module->base_address),
-             redlog::field("size", "0x%lx", target_module->size));
+    log_.inf(
+        "found target module", redlog::field("base", "0x%lx", target_module->base_address),
+        redlog::field("size", "0x%lx", target_module->size)
+    );
 
     // hook the functions by offset
     setup_hooks(target_module->base_address);
@@ -55,8 +56,8 @@ public:
     return true;
   }
 
-  void shutdown() { 
-    log_.inf("shutdown called");
+  void shutdown() {
+    log_.inf("shutting down hooktest tracer");
     if (hook_manager_) {
       hook_manager_->remove_all_hooks();
     }
@@ -66,142 +67,140 @@ public:
 
 private:
   void setup_hooks(QBDI::rword base_addr) {
-    // known offsets from nm output (subtract 0x100000000 base)
+    // known offsets from nm output
     struct hook_target {
       const char* name;
       QBDI::rword offset;
     };
 
     hook_target targets[] = {
-      {"calculate_secret", 0x840},
-      {"format_message", 0x88c},
-      {"allocate_buffer", 0x8e4},
-      {"compare_strings", 0x940},
-      {"unsafe_copy", 0x98c}
+        {"calculate_secret", 0x840},
+        {"format_message", 0x88c},
+        {"allocate_buffer", 0x8e4},
+        {"compare_strings", 0x940},
+        {"unsafe_copy", 0x98c}
     };
 
+    // hook each function by address
     for (const auto& target : targets) {
       QBDI::rword addr = base_addr + target.offset;
-      
+
       std::string func_name = target.name;
-      auto hook_id = hook_manager_->hook_addr(addr, 
-        [this, func_name](QBDI::VMInstanceRef vm, QBDI::GPRState* gpr, 
-                          QBDI::FPRState* fpr, QBDI::rword address) {
-          return on_function_hook(vm, gpr, fpr, address, func_name.c_str());
-        });
+      auto hook_id = hook_manager_->hook_addr(
+          addr,
+          [this, func_name](QBDI::VMInstanceRef vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr, QBDI::rword address) {
+            return on_function_hook(vm, gpr, fpr, address, func_name.c_str());
+          }
+      );
 
       if (hook_id > 0) {
-        log_.inf("hooked function", 
-                 redlog::field("name", target.name),
-                 redlog::field("address", "0x%lx", addr),
-                 redlog::field("hook_id", hook_id));
+        log_.inf(
+            "hooked function", redlog::field("name", target.name), redlog::field("address", "0x%lx", addr),
+            redlog::field("hook_id", hook_id)
+        );
       } else {
-        log_.err("failed to hook function", 
-                 redlog::field("name", target.name),
-                 redlog::field("address", "0x%lx", addr));
+        log_.err(
+            "failed to hook function", redlog::field("name", target.name), redlog::field("address", "0x%lx", addr)
+        );
       }
     }
-    
-    // Test hook_module function
-    auto module_hook_id = hook_manager_->hook_module("hook_test_target", 0x840,
-      [this](QBDI::VMInstanceRef vm, QBDI::GPRState* gpr, 
-             QBDI::FPRState* fpr, QBDI::rword address) {
-        log_.inf("module+offset hook triggered", 
-                 redlog::field("address", "0x%lx", address));
-        return QBDI::VMAction::CONTINUE;
-      });
-    
-    if (module_hook_id > 0) {
-      log_.inf("hooked via module+offset",
-               redlog::field("module", "hook_test_target"),
-               redlog::field("offset", "0x840"),
-               redlog::field("hook_id", module_hook_id));
-    }
-    
-    // Demonstrate hook_range - hook the entire text section
-    QBDI::rword text_start = base_addr;
-    QBDI::rword text_end = base_addr + 0x1000; // first 4KB
-    
-    auto range_hook_id = hook_manager_->hook_range(text_start, text_end,
-      [this, text_start](QBDI::VMInstanceRef vm, QBDI::GPRState* gpr, 
-                         QBDI::FPRState* fpr, QBDI::rword address) {
-        // Only log every 100th instruction to avoid spam
-        static int count = 0;
-        if (++count % 100 == 0) {
-          log_.inf("range hook triggered",
-                   redlog::field("address", "0x%lx", address),
-                   redlog::field("offset", "0x%lx", address - text_start),
-                   redlog::field("count", count));
+
+    // demonstrate module+offset hooking
+    auto module_hook_id = hook_manager_->hook_module(
+        "hook_test_target", 0x840,
+        [this](QBDI::VMInstanceRef vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr, QBDI::rword address) {
+          log_.dbg("module+offset hook triggered", redlog::field("address", "0x%lx", address));
+          return QBDI::VMAction::CONTINUE;
         }
-        return QBDI::VMAction::CONTINUE;
-      });
-    
+    );
+
+    if (module_hook_id > 0) {
+      log_.inf(
+          "hooked via module+offset", redlog::field("module", "hook_test_target"), redlog::field("offset", "0x840"),
+          redlog::field("hook_id", module_hook_id)
+      );
+    }
+
+    // demonstrate range hooking
+    QBDI::rword text_start = base_addr;
+    QBDI::rword text_end = base_addr + 0x1000; // first 4kb
+
+    auto range_hook_id = hook_manager_->hook_range(
+        text_start, text_end,
+        [this, text_start](QBDI::VMInstanceRef vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr, QBDI::rword address) {
+          // only log every 100th instruction to avoid spam
+          static int count = 0;
+          if (++count % 100 == 0) {
+            log_.dbg(
+                "range hook", redlog::field("address", "0x%lx", address),
+                redlog::field("offset", "0x%lx", address - text_start), redlog::field("count", count)
+            );
+          }
+          return QBDI::VMAction::CONTINUE;
+        }
+    );
+
     if (range_hook_id > 0) {
-      log_.inf("hooked range",
-               redlog::field("start", "0x%lx", text_start),
-               redlog::field("end", "0x%lx", text_end),
-               redlog::field("hook_id", range_hook_id));
-      
-      // Store for later removal demo
+      log_.inf(
+          "hooked range", redlog::field("start", "0x%lx", text_start), redlog::field("end", "0x%lx", text_end),
+          redlog::field("hook_id", range_hook_id)
+      );
+
+      // store for later removal demo
       range_hook_id_ = range_hook_id;
     }
   }
 
-  QBDI::VMAction on_function_hook(QBDI::VMInstanceRef vm, QBDI::GPRState* gpr, 
-                                   QBDI::FPRState* fpr, QBDI::rword address,
-                                   const char* func_name) {
+  QBDI::VMAction on_function_hook(
+      QBDI::VMInstanceRef vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr, QBDI::rword address, const char* func_name
+  ) {
     // log the function call
-    log_.inf("=== HOOK TRIGGERED ===",
-             redlog::field("function", func_name),
-             redlog::field("address", "0x%lx", address));
+    log_.inf("hook triggered", redlog::field("function", func_name), redlog::field("address", "0x%lx", address));
 
     // get instruction analysis
     try {
       const QBDI::InstAnalysis* inst = vm->getInstAnalysis();
       if (inst) {
-        log_.inf("instruction",
-                 redlog::field("disasm", inst->disassembly),
-                 redlog::field("mnemonic", inst->mnemonic),
-                 redlog::field("size", inst->instSize));
-      } else {
-        log_.wrn("no instruction analysis available at", redlog::field("address", "0x%lx", address));
+        log_.dbg(
+            "instruction info", redlog::field("disasm", inst->disassembly), redlog::field("mnemonic", inst->mnemonic),
+            redlog::field("size", inst->instSize)
+        );
       }
     } catch (...) {
-      log_.wrn("exception getting instruction analysis");
+      log_.dbg("exception getting instruction analysis");
     }
 
     // dump first few arguments (platform specific)
 #if defined(__x86_64__)
-    // x86_64 calling convention: RDI, RSI, RDX, RCX, R8, R9
-    log_.inf("arguments (x86_64)",
-             redlog::field("rdi", "0x%lx", QBDI_GPR_GET(gpr, QBDI::REG_RDI)),
-             redlog::field("rsi", "0x%lx", QBDI_GPR_GET(gpr, QBDI::REG_RSI)),
-             redlog::field("rdx", "0x%lx", QBDI_GPR_GET(gpr, QBDI::REG_RDX)),
-             redlog::field("rcx", "0x%lx", QBDI_GPR_GET(gpr, QBDI::REG_RCX)));
+    // x86_64 calling convention: rdi, rsi, rdx, rcx, r8, r9
+    log_.inf(
+        "arguments (x86_64)", redlog::field("rdi", "0x%lx", QBDI_GPR_GET(gpr, QBDI::REG_RDI)),
+        redlog::field("rsi", "0x%lx", QBDI_GPR_GET(gpr, QBDI::REG_RSI)),
+        redlog::field("rdx", "0x%lx", QBDI_GPR_GET(gpr, QBDI::REG_RDX)),
+        redlog::field("rcx", "0x%lx", QBDI_GPR_GET(gpr, QBDI::REG_RCX))
+    );
 #elif defined(__aarch64__)
-    // ARM64 calling convention: X0-X7
-    log_.inf("arguments (arm64)",
-             redlog::field("x0", "0x%lx", gpr->x0),
-             redlog::field("x1", "0x%lx", gpr->x1),
-             redlog::field("x2", "0x%lx", gpr->x2),
-             redlog::field("x3", "0x%lx", gpr->x3));
-    
-    // also show w0-w3 (32-bit views) for debugging
-    log_.dbg("arguments (32-bit view)",
-             redlog::field("w0", "0x%x", static_cast<uint32_t>(gpr->x0)),
-             redlog::field("w1", "0x%x", static_cast<uint32_t>(gpr->x1)),
-             redlog::field("w2", "0x%x", static_cast<uint32_t>(gpr->x2)),
-             redlog::field("w3", "0x%x", static_cast<uint32_t>(gpr->x3)));
+    // arm64 calling convention: x0-x7
+    log_.inf(
+        "arguments (arm64)", redlog::field("x0", "0x%lx", gpr->x0), redlog::field("x1", "0x%lx", gpr->x1),
+        redlog::field("x2", "0x%lx", gpr->x2), redlog::field("x3", "0x%lx", gpr->x3)
+    );
+
+    // also show 32-bit views for debugging
+    log_.dbg(
+        "arguments (32-bit view)", redlog::field("w0", "0x%x", static_cast<uint32_t>(gpr->x0)),
+        redlog::field("w1", "0x%x", static_cast<uint32_t>(gpr->x1)),
+        redlog::field("w2", "0x%x", static_cast<uint32_t>(gpr->x2)),
+        redlog::field("w3", "0x%x", static_cast<uint32_t>(gpr->x3))
+    );
 #endif
 
-    // print stack pointer and return address
+    // print stack pointer and program counter
     QBDI::rword sp = QBDI_GPR_GET(gpr, QBDI::REG_SP);
     QBDI::rword pc = QBDI_GPR_GET(gpr, QBDI::REG_PC);
-    log_.inf("stack info",
-             redlog::field("sp", "0x%lx", sp),
-             redlog::field("pc", "0x%lx", pc));
+    log_.dbg("context", redlog::field("sp", "0x%lx", sp), redlog::field("pc", "0x%lx", pc));
 
-    // Demonstrate hook removal after a few calls
+    // demonstrate hook removal after a few calls
     hook_count_++;
     if (hook_count_ == 10 && range_hook_id_ > 0) {
       log_.inf("removing range hook after 10 function calls");
@@ -216,44 +215,45 @@ private:
 #if defined(__x86_64__)
       int a = static_cast<int>(QBDI_GPR_GET(gpr, QBDI::REG_RDI));
       int b = static_cast<int>(QBDI_GPR_GET(gpr, QBDI::REG_RSI));
-      log_.inf("calculate_secret params", 
-               redlog::field("a", a), 
-               redlog::field("b", b),
-               redlog::field("expected_result", 3 * a + 2 * b));
+      log_.inf(
+          "calculate_secret params", redlog::field("a", a), redlog::field("b", b),
+          redlog::field("expected_result", 3 * a + 2 * b)
+      );
 #elif defined(__aarch64__)
       int a = static_cast<int>(gpr->x0);
       int b = static_cast<int>(gpr->x1);
-      log_.inf("calculate_secret params", 
-               redlog::field("a", a), 
-               redlog::field("b", b),
-               redlog::field("expected_result", 3 * a + 2 * b));
+      log_.inf(
+          "calculate_secret params", redlog::field("a", a), redlog::field("b", b),
+          redlog::field("expected_result", 3 * a + 2 * b)
+      );
 #endif
     } else if (strcmp(func_name, "format_message") == 0) {
 #if defined(__aarch64__)
-      log_.inf("format_message params",
-               redlog::field("buffer", "0x%lx", gpr->x0),
-               redlog::field("name_ptr", "0x%lx", gpr->x1),
-               redlog::field("value", static_cast<int>(gpr->x2)));
+      log_.inf(
+          "format_message params", redlog::field("buffer", "0x%lx", gpr->x0),
+          redlog::field("name_ptr", "0x%lx", gpr->x1), redlog::field("value", static_cast<int>(gpr->x2))
+      );
 #endif
     } else if (strcmp(func_name, "allocate_buffer") == 0) {
 #if defined(__aarch64__)
       size_t size = static_cast<size_t>(gpr->x0);
-      log_.inf("allocate_buffer params",
-               redlog::field("size", size));
+      log_.inf("allocate_buffer params", redlog::field("size", size));
 #endif
     } else if (strcmp(func_name, "compare_strings") == 0) {
 #if defined(__aarch64__)
       QBDI::rword str1_ptr = gpr->x0;
       QBDI::rword str2_ptr = gpr->x1;
-      log_.inf("compare_strings params",
-               redlog::field("str1_ptr", "0x%lx", str1_ptr),
-               redlog::field("str2_ptr", "0x%lx", str2_ptr));
+      log_.inf(
+          "compare_strings params", redlog::field("str1_ptr", "0x%lx", str1_ptr),
+          redlog::field("str2_ptr", "0x%lx", str2_ptr)
+      );
 #endif
     } else if (strcmp(func_name, "unsafe_copy") == 0) {
 #if defined(__aarch64__)
-      log_.inf("unsafe_copy params",
-               redlog::field("dst", "0x%lx", gpr->x0),
-               redlog::field("src_ptr", "0x%lx", gpr->x1));
+      log_.wrn(
+          "unsafe_copy detected - security risk", redlog::field("dst", "0x%lx", gpr->x0),
+          redlog::field("src_ptr", "0x%lx", gpr->x1)
+      );
 #endif
     }
 
@@ -303,7 +303,7 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
   w1::util::env_config config_loader("HOOKTEST_");
   int verbose = config_loader.get<int>("VERBOSE", 0);
 
-  // set log level based on debug level
+  // set log level based on verbosity
   if (verbose >= 4) {
     redlog::set_level(redlog::level::pedantic);
   } else if (verbose >= 3) {
@@ -333,7 +333,7 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
   }
 
   // create tracer
-  log.inf("creating tracer");
+  log.inf("creating hooktest tracer");
   g_tracer = std::make_unique<hooktest_tracer>();
 
   // create engine

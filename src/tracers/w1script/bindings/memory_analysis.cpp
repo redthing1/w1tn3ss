@@ -273,51 +273,53 @@ void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
   );
 
   // unsafe memory writing (deprecated - use write_mem instead)
-  w1_module.set_function("writeMemoryUnsafe", [](void* vm_ptr, QBDI::rword address, const std::string& hexData) -> bool {
-    auto log = redlog::get_logger("w1.script_bindings");
+  w1_module.set_function(
+      "writeMemoryUnsafe", [](void* vm_ptr, QBDI::rword address, const std::string& hexData) -> bool {
+        auto log = redlog::get_logger("w1.script_bindings");
 
-    try {
-      // validate hex string length
-      if (hexData.length() % 2 != 0) {
-        log.warn("invalid hex data length: " + std::to_string(hexData.length()) + " (must be even)");
-        return false;
+        try {
+          // validate hex string length
+          if (hexData.length() % 2 != 0) {
+            log.warn("invalid hex data length: " + std::to_string(hexData.length()) + " (must be even)");
+            return false;
+          }
+
+          size_t size = hexData.length() / 2;
+          if (size == 0) {
+            log.warn("attempted to write 0 bytes to address 0x" + std::to_string(address));
+            return false;
+          }
+
+          if (size > 0x10000) { // Limit writes to 64KB for safety
+            log.warn(
+                "attempted to write " + std::to_string(size) + " bytes to address 0x" + std::to_string(address) +
+                " - size too large"
+            );
+            return false;
+          }
+
+          // convert hex string to bytes
+          std::vector<uint8_t> buffer(size);
+          for (size_t i = 0; i < size; i++) {
+            std::string byteStr = hexData.substr(i * 2, 2);
+            buffer[i] = static_cast<uint8_t>(std::stoul(byteStr, nullptr, 16));
+          }
+
+          // write memory using memcpy - this can still crash if address is invalid
+          std::memcpy(reinterpret_cast<void*>(address), buffer.data(), size);
+
+          log.dbg("successfully wrote " + std::to_string(size) + " bytes to address 0x" + std::to_string(address));
+          return true;
+
+        } catch (const std::exception& e) {
+          log.err("exception writing memory at address 0x" + std::to_string(address) + ": " + std::string(e.what()));
+          return false;
+        } catch (...) {
+          log.err("unknown exception writing memory at address 0x" + std::to_string(address));
+          return false;
+        }
       }
-
-      size_t size = hexData.length() / 2;
-      if (size == 0) {
-        log.warn("attempted to write 0 bytes to address 0x" + std::to_string(address));
-        return false;
-      }
-
-      if (size > 0x10000) { // Limit writes to 64KB for safety
-        log.warn(
-            "attempted to write " + std::to_string(size) + " bytes to address 0x" + std::to_string(address) +
-            " - size too large"
-        );
-        return false;
-      }
-
-      // convert hex string to bytes
-      std::vector<uint8_t> buffer(size);
-      for (size_t i = 0; i < size; i++) {
-        std::string byteStr = hexData.substr(i * 2, 2);
-        buffer[i] = static_cast<uint8_t>(std::stoul(byteStr, nullptr, 16));
-      }
-
-      // write memory using memcpy - this can still crash if address is invalid
-      std::memcpy(reinterpret_cast<void*>(address), buffer.data(), size);
-
-      log.dbg("successfully wrote " + std::to_string(size) + " bytes to address 0x" + std::to_string(address));
-      return true;
-
-    } catch (const std::exception& e) {
-      log.err("exception writing memory at address 0x" + std::to_string(address) + ": " + std::string(e.what()));
-      return false;
-    } catch (...) {
-      log.err("unknown exception writing memory at address 0x" + std::to_string(address));
-      return false;
-    }
-  });
+  );
 
   // basic address validity check (heuristic-based)
   w1_module.set_function("isAddressValid", [](void* vm_ptr, QBDI::rword address) -> bool {

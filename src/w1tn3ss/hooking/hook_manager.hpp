@@ -32,8 +32,8 @@ private:
     uint32_t id;
     hook_handler handler;
     uint32_t qbdi_id = QBDI::INVALID_EVENTID;
-    QBDI::rword address = 0;  // for single address hooks
-    std::pair<QBDI::rword, QBDI::rword> range = {0, 0};  // for range hooks
+    QBDI::rword address = 0;                            // for single address hooks
+    std::pair<QBDI::rword, QBDI::rword> range = {0, 0}; // for range hooks
   };
 
   QBDI::VM* vm_;

@@ -194,6 +194,21 @@ void setup_core_types(sol::state& lua, sol::table& w1_module) {
       "lastSignal", &QBDI::VMState::lastSignal            // Last signal (not implemented)
   );
 
+  // Register GPRState as a usertype so Sol2 can properly handle pointers to it
+  // This is critical for hooks to work correctly
+  lua.new_usertype<QBDI::GPRState>(
+      "GPRState"
+      // GPRState is platform-specific and has different members on each architecture
+      // We don't expose the members directly, instead using w1.get_reg() functions
+  );
+
+  // Register FPRState as well for completeness
+  lua.new_usertype<QBDI::FPRState>(
+      "FPRState"
+      // FPRState is also platform-specific
+      // Access through w1.get_fpr() functions if needed
+  );
+
   logger.dbg("core types registered successfully");
 }
 
