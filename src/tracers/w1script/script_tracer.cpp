@@ -27,6 +27,14 @@ bool script_tracer::initialize(w1::tracer_engine<script_tracer>& engine) {
   logger_.inf("initializing with lua support");
   logger_.inf("script path", redlog::field("path", cfg_.script_path));
 
+  // get VM and create hook manager early
+  QBDI::VM* vm = engine.get_vm();
+  if (vm) {
+    // create hook manager before loading script
+    hook_manager_ = std::make_shared<w1::hooking::hook_manager>(vm);
+    logger_.inf("hook manager created");
+  }
+
   if (!load_script()) {
     logger_.err("failed to load script");
     return false;
@@ -35,12 +43,7 @@ bool script_tracer::initialize(w1::tracer_engine<script_tracer>& engine) {
   setup_callbacks();
 
   // register callbacks dynamically based on script requirements
-  QBDI::VM* vm = engine.get_vm();
   if (vm) {
-    // create hook manager
-    hook_manager_ = std::make_shared<w1::hooking::hook_manager>(vm);
-    logger_.inf("hook manager created");
-    
     register_callbacks_dynamically(vm);
 
     // enable memory recording if memory callbacks are used
