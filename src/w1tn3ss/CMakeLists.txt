@@ -27,24 +27,24 @@ add_library(w1tn3ss STATIC
 )
 
 # Add platform-specific calling convention implementations
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
+# Use QBDI_ARCH which is properly set based on target architecture
+if(QBDI_ARCH STREQUAL "X86_64")
     target_sources(w1tn3ss PRIVATE
         abi/conventions/x86_64/system_v.cpp
         abi/conventions/x86_64/microsoft.cpp
     )
-elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "i[3-6]86|x86")
+elseif(QBDI_ARCH STREQUAL "X86")
     target_sources(w1tn3ss PRIVATE
         abi/conventions/x86/cdecl.cpp
-        # TODO: add when implemented
         # abi/conventions/x86/stdcall.cpp
         # abi/conventions/x86/fastcall.cpp
         # abi/conventions/x86/thiscall.cpp
     )
-elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|ARM64")
+elseif(QBDI_ARCH STREQUAL "AARCH64")
     target_sources(w1tn3ss PRIVATE
         abi/conventions/arm/aarch64_aapcs.cpp
     )
-elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "arm|ARM")
+elseif(QBDI_ARCH STREQUAL "ARM")
     # TODO: add ARM32 conventions when implemented
     # target_sources(w1tn3ss PRIVATE
     #     abi/conventions/arm/arm32_aapcs.cpp
