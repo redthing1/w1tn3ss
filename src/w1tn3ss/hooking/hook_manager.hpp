@@ -11,7 +11,7 @@
 namespace w1::util {
 class module_range_index;
 struct module_info;
-}
+} // namespace w1::util
 
 namespace w1::hooking {
 

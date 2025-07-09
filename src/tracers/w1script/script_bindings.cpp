@@ -50,9 +50,6 @@ void setup_qbdi_bindings(
   logger.dbg("setting up calling convention");
   bindings::setup_calling_convention(lua, w1_module);
 
-  // store hook manager pointer in w1 module for signature scanning
-  w1_module["_hook_manager"] = static_cast<void*>(hook_manager.get());
-
   // register the w1 module with the lua state
   lua["w1"] = w1_module;
 
