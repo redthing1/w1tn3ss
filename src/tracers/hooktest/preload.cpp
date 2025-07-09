@@ -273,15 +273,17 @@ private:
         }
       } else {
         // direct register access
+        int a = 0;
+        int b = 0;
 #if defined(__aarch64__)
-        int a = static_cast<int>(gpr->x0);
-        int b = static_cast<int>(gpr->x1);
+        a = static_cast<int>(gpr->x0);
+        b = static_cast<int>(gpr->x1);
 #elif defined(__x86_64__) && defined(_WIN32)
-        int a = static_cast<int>(gpr->rcx);
-        int b = static_cast<int>(gpr->rdx);
+        a = static_cast<int>(gpr->rcx);
+        b = static_cast<int>(gpr->rdx);
 #elif defined(__x86_64__)
-        int a = static_cast<int>(gpr->rdi);
-        int b = static_cast<int>(gpr->rsi);
+        a = static_cast<int>(gpr->rdi);
+        b = static_cast<int>(gpr->rsi);
 #endif
         log_.inf(
             "calculate_secret params (direct)", redlog::field("a", a), redlog::field("b", b),
@@ -315,18 +317,21 @@ private:
         }
       } else {
         // direct register access
+        QBDI::rword buffer_ptr = 0;
+        QBDI::rword name_ptr = 0;
+        int value = 0;
 #if defined(__aarch64__)
-        QBDI::rword buffer_ptr = gpr->x0;
-        QBDI::rword name_ptr = gpr->x1;
-        int value = static_cast<int>(gpr->x2);
+        buffer_ptr = gpr->x0;
+        name_ptr = gpr->x1;
+        value = static_cast<int>(gpr->x2);
 #elif defined(__x86_64__) && defined(_WIN32)
-        QBDI::rword buffer_ptr = gpr->rcx;
-        QBDI::rword name_ptr = gpr->rdx;
-        int value = static_cast<int>(gpr->r8);
+        buffer_ptr = gpr->rcx;
+        name_ptr = gpr->rdx;
+        value = static_cast<int>(gpr->r8);
 #elif defined(__x86_64__)
-        QBDI::rword buffer_ptr = gpr->rdi;
-        QBDI::rword name_ptr = gpr->rsi;
-        int value = static_cast<int>(gpr->rdx);
+        buffer_ptr = gpr->rdi;
+        name_ptr = gpr->rsi;
+        value = static_cast<int>(gpr->rdx);
 #endif
         auto name_str = w1::util::safe_memory::read_string(vm, name_ptr, 256);
         log_.inf(
@@ -352,12 +357,13 @@ private:
           log_.inf("allocate_buffer params (abi)", redlog::field("size", size));
         }
       } else {
+        size_t size = 0;
 #if defined(__aarch64__)
-        size_t size = static_cast<size_t>(gpr->x0);
+        size = static_cast<size_t>(gpr->x0);
 #elif defined(__x86_64__) && defined(_WIN32)
-        size_t size = static_cast<size_t>(gpr->rcx);
+        size = static_cast<size_t>(gpr->rcx);
 #elif defined(__x86_64__)
-        size_t size = static_cast<size_t>(gpr->rdi);
+        size = static_cast<size_t>(gpr->rdi);
 #endif
         log_.inf("allocate_buffer params (direct)", redlog::field("size", size));
       }
@@ -388,15 +394,17 @@ private:
           );
         }
       } else {
+        QBDI::rword str1_ptr = 0;
+        QBDI::rword str2_ptr = 0;
 #if defined(__aarch64__)
-        QBDI::rword str1_ptr = gpr->x0;
-        QBDI::rword str2_ptr = gpr->x1;
+        str1_ptr = gpr->x0;
+        str2_ptr = gpr->x1;
 #elif defined(__x86_64__) && defined(_WIN32)
-        QBDI::rword str1_ptr = gpr->rcx;
-        QBDI::rword str2_ptr = gpr->rdx;
+        str1_ptr = gpr->rcx;
+        str2_ptr = gpr->rdx;
 #elif defined(__x86_64__)
-        QBDI::rword str1_ptr = gpr->rdi;
-        QBDI::rword str2_ptr = gpr->rsi;
+        str1_ptr = gpr->rdi;
+        str2_ptr = gpr->rsi;
 #endif
         auto str1 = w1::util::safe_memory::read_string(vm, str1_ptr, 256);
         auto str2 = w1::util::safe_memory::read_string(vm, str2_ptr, 256);
@@ -431,15 +439,17 @@ private:
           );
         }
       } else {
+        QBDI::rword dst_ptr = 0;
+        QBDI::rword src_ptr = 0;
 #if defined(__aarch64__)
-        QBDI::rword dst_ptr = gpr->x0;
-        QBDI::rword src_ptr = gpr->x1;
+        dst_ptr = gpr->x0;
+        src_ptr = gpr->x1;
 #elif defined(__x86_64__) && defined(_WIN32)
-        QBDI::rword dst_ptr = gpr->rcx;
-        QBDI::rword src_ptr = gpr->rdx;
+        dst_ptr = gpr->rcx;
+        src_ptr = gpr->rdx;
 #elif defined(__x86_64__)
-        QBDI::rword dst_ptr = gpr->rdi;
-        QBDI::rword src_ptr = gpr->rsi;
+        dst_ptr = gpr->rdi;
+        src_ptr = gpr->rsi;
 #endif
         auto src_str = w1::util::safe_memory::read_string(vm, src_ptr, 256);
         log_.wrn(
