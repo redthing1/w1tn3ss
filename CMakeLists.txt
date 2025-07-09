@@ -57,8 +57,10 @@ foreach(target ${QBDI_TARGETS})
 endforeach()
 
 # configure redlog
-set(REDLOG_BUILD_TESTS OFF)
-add_subdirectory(src/third_party/redlog_cpp)
+if(NOT TARGET redlog::redlog)
+    set(REDLOG_BUILD_TESTS OFF)
+    add_subdirectory(src/third_party/redlog_cpp)
+endif()
 
 # add lief if enabled
 if(WITNESS_LIEF)
