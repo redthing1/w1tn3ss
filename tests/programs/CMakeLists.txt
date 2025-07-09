@@ -21,7 +21,7 @@ set_target_properties(control_flow_1 PROPERTIES
 add_executable(test_standalone_coverage test_standalone_coverage.cpp)
 apply_common_compile_options(test_standalone_coverage)
 apply_windows_definitions(test_standalone_coverage)
-target_include_directories(test_standalone_coverage PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_include_directories(test_standalone_coverage PRIVATE ${WITNESS_SOURCE_DIR}/src)
 target_link_libraries(test_standalone_coverage PRIVATE w1cov_static w1tn3ss QBDI_static redlog::redlog)
 set_target_properties(test_standalone_coverage PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs
@@ -123,7 +123,7 @@ if(WITNESS_SCRIPT)
     add_executable(test_p1ll_pattern_matching test_p1ll_pattern_matching.cpp)
     apply_common_compile_options(test_p1ll_pattern_matching)
     apply_windows_definitions(test_p1ll_pattern_matching)
-    target_include_directories(test_p1ll_pattern_matching PRIVATE ${CMAKE_SOURCE_DIR}/src)
+    target_include_directories(test_p1ll_pattern_matching PRIVATE ${WITNESS_SOURCE_DIR}/src)
     target_link_libraries(test_p1ll_pattern_matching PRIVATE p1ll redlog::redlog)
     set_target_properties(test_p1ll_pattern_matching PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs

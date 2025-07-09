@@ -6,7 +6,7 @@ option(WITNESS_LIEF "enable lief binary analysis support" OFF)
 
 # validate lief submodule availability
 function(validate_lief_submodule)
-    set(LIEF_DIR "${CMAKE_SOURCE_DIR}/src/third_party/lief")
+    set(LIEF_DIR "${WITNESS_SOURCE_DIR}/src/third_party/lief")
     if(NOT EXISTS "${LIEF_DIR}/CMakeLists.txt")
         message(FATAL_ERROR "lief submodule not found at ${LIEF_DIR}. run: git submodule update --init --recursive")
     endif()

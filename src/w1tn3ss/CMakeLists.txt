@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-include(${CMAKE_SOURCE_DIR}/cmake/CommonConfig.cmake)
+include(${WITNESS_SOURCE_DIR}/cmake/CommonConfig.cmake)
 
 add_library(w1tn3ss STATIC
     util/env_config.cpp
@@ -79,7 +79,7 @@ endif()
 
 target_include_directories(w1tn3ss PUBLIC 
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_SOURCE_DIR}/src
+    ${WITNESS_SOURCE_DIR}/src
 )
 
 target_link_libraries(w1tn3ss PUBLIC

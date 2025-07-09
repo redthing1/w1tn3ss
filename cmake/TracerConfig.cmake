@@ -1,7 +1,7 @@
 # tracer library configuration
 include_guard()
 
-include(${CMAKE_SOURCE_DIR}/cmake/CommonConfig.cmake)
+include(${WITNESS_SOURCE_DIR}/cmake/CommonConfig.cmake)
 
 # create tracer library targets (shared and static)
 function(create_tracer_targets tracer_name source_files)
@@ -19,8 +19,8 @@ endfunction()
 # configure individual tracer target
 function(configure_tracer_target target_name tracer_name)
     target_include_directories(${target_name} PRIVATE
-        ${CMAKE_SOURCE_DIR}/src
-        ${CMAKE_SOURCE_DIR}/src/third_party/qbdi/tools/QBDIPreload/include
+        ${WITNESS_SOURCE_DIR}/src
+        ${WITNESS_SOURCE_DIR}/src/third_party/qbdi/tools/QBDIPreload/include
     )
 
     target_link_libraries(${target_name} PRIVATE

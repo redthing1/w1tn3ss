@@ -1,7 +1,7 @@
 # p1llx static binary patcher tool
 
 # check if lua scripting is enabled (required for p1ll)
-include(${CMAKE_SOURCE_DIR}/cmake/LuaConfig.cmake)
+include(${WITNESS_SOURCE_DIR}/cmake/LuaConfig.cmake)
 
 if(WITNESS_SCRIPT)
     # p1llx executable sources

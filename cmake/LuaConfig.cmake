@@ -4,11 +4,11 @@
 # global scripting configuration
 option(WITNESS_SCRIPT "enable lua scripting support with sol2" OFF)
 
-include(${CMAKE_SOURCE_DIR}/cmake/LuaJITBuild.cmake)
+include(${WITNESS_SOURCE_DIR}/cmake/LuaJITBuild.cmake)
 
 # validate sol2 submodule availability
 function(validate_sol2_submodule)
-    set(SOL2_DIR "${CMAKE_SOURCE_DIR}/src/third_party/sol2")
+    set(SOL2_DIR "${WITNESS_SOURCE_DIR}/src/third_party/sol2")
     if(NOT EXISTS "${SOL2_DIR}/include/sol/sol.hpp")
         message(FATAL_ERROR "sol2 submodule not found at ${SOL2_DIR}. run: git submodule update --init --recursive")
     endif()

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-include(${CMAKE_SOURCE_DIR}/cmake/CommonConfig.cmake)
+include(${WITNESS_SOURCE_DIR}/cmake/CommonConfig.cmake)
 
 add_executable(w1tool
     main.cpp
@@ -16,7 +16,7 @@ set_target_properties(w1tool PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_
 
 target_include_directories(w1tool PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_SOURCE_DIR}/src
+    ${WITNESS_SOURCE_DIR}/src
 )
 
 target_link_libraries(w1tool PRIVATE

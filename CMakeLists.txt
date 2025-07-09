@@ -6,17 +6,22 @@ project(w1tn3ss
     LANGUAGES C CXX ASM
 )
 
+# Set witness source directory for both standalone and subdirectory builds
+if(NOT DEFINED WITNESS_SOURCE_DIR)
+    set(WITNESS_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+endif()
+
 # build options
 option(WITNESS_BUILD_STATIC "Build static libraries" ON)
 option(WITNESS_BUILD_SHARED "Build shared libraries" ON)
 option(WITNESS_QBDI_EXTRAS "Build QBDI with examples, tests and additional tools" OFF)
 
 # load configuration modules
-include(${CMAKE_SOURCE_DIR}/cmake/CommonConfig.cmake)
-include(${CMAKE_SOURCE_DIR}/cmake/PlatformConfig.cmake)
-include(${CMAKE_SOURCE_DIR}/cmake/LuaConfig.cmake)
-include(${CMAKE_SOURCE_DIR}/cmake/LIEFConfig.cmake)
-include(${CMAKE_SOURCE_DIR}/cmake/WindowsSymbolConfig.cmake)
+include(${WITNESS_SOURCE_DIR}/cmake/CommonConfig.cmake)
+include(${WITNESS_SOURCE_DIR}/cmake/PlatformConfig.cmake)
+include(${WITNESS_SOURCE_DIR}/cmake/LuaConfig.cmake)
+include(${WITNESS_SOURCE_DIR}/cmake/LIEFConfig.cmake)
+include(${WITNESS_SOURCE_DIR}/cmake/WindowsSymbolConfig.cmake)
 
 # configure platform and architecture
 detect_qbdi_platform()
@@ -90,7 +95,7 @@ add_subdirectory(src/p01s0n)
 
 # setup global include directories for clean project-based includes
 # this allows includes like <w1common/platform_utils.hpp> instead of ../common/platform_utils.hpp
-include_directories(${CMAKE_SOURCE_DIR}/src)
+include_directories(${WITNESS_SOURCE_DIR}/src)
 
 # add tests (optional)
 option(BUILD_TESTS "Build test programs and libraries" ON)
@@ -113,27 +118,27 @@ if(CLANG_FORMAT_EXECUTABLE)
     message(STATUS "clang-format found: ${CLANG_FORMAT_EXECUTABLE}")
     
     file(GLOB_RECURSE ALL_SOURCE_FILES
-        "${CMAKE_SOURCE_DIR}/src/w1tn3ss/*.cpp" "${CMAKE_SOURCE_DIR}/src/w1tn3ss/*.hpp"
-        "${CMAKE_SOURCE_DIR}/src/w1nj3ct/*.cpp" "${CMAKE_SOURCE_DIR}/src/w1nj3ct/*.hpp"
-        "${CMAKE_SOURCE_DIR}/src/w1tool/*.cpp" "${CMAKE_SOURCE_DIR}/src/w1tool/*.hpp"
-        "${CMAKE_SOURCE_DIR}/src/tracers/*.cpp" "${CMAKE_SOURCE_DIR}/src/tracers/*.hpp"
-        "${CMAKE_SOURCE_DIR}/src/w1common/*.cpp" "${CMAKE_SOURCE_DIR}/src/w1common/*.hpp"
-        "${CMAKE_SOURCE_DIR}/src/p1ll/*.cpp" "${CMAKE_SOURCE_DIR}/src/p1ll/*.hpp"
-        "${CMAKE_SOURCE_DIR}/src/p1llx/*.cpp" "${CMAKE_SOURCE_DIR}/src/p1llx/*.hpp"
-        "${CMAKE_SOURCE_DIR}/src/p01s0n/*.cpp" "${CMAKE_SOURCE_DIR}/src/p01s0n/*.hpp"
-        "${CMAKE_SOURCE_DIR}/tests/*.cpp" "${CMAKE_SOURCE_DIR}/tests/*.hpp"
+        "${WITNESS_SOURCE_DIR}/src/w1tn3ss/*.cpp" "${WITNESS_SOURCE_DIR}/src/w1tn3ss/*.hpp"
+        "${WITNESS_SOURCE_DIR}/src/w1nj3ct/*.cpp" "${WITNESS_SOURCE_DIR}/src/w1nj3ct/*.hpp"
+        "${WITNESS_SOURCE_DIR}/src/w1tool/*.cpp" "${WITNESS_SOURCE_DIR}/src/w1tool/*.hpp"
+        "${WITNESS_SOURCE_DIR}/src/tracers/*.cpp" "${WITNESS_SOURCE_DIR}/src/tracers/*.hpp"
+        "${WITNESS_SOURCE_DIR}/src/w1common/*.cpp" "${WITNESS_SOURCE_DIR}/src/w1common/*.hpp"
+        "${WITNESS_SOURCE_DIR}/src/p1ll/*.cpp" "${WITNESS_SOURCE_DIR}/src/p1ll/*.hpp"
+        "${WITNESS_SOURCE_DIR}/src/p1llx/*.cpp" "${WITNESS_SOURCE_DIR}/src/p1llx/*.hpp"
+        "${WITNESS_SOURCE_DIR}/src/p01s0n/*.cpp" "${WITNESS_SOURCE_DIR}/src/p01s0n/*.hpp"
+        "${WITNESS_SOURCE_DIR}/tests/*.cpp" "${WITNESS_SOURCE_DIR}/tests/*.hpp"
     )
     
     add_custom_target(w1-format
         COMMAND ${CLANG_FORMAT_EXECUTABLE} -i -style=file ${ALL_SOURCE_FILES}
-        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        WORKING_DIRECTORY ${WITNESS_SOURCE_DIR}
         COMMENT "formatting w1tn3ss code"
         VERBATIM
     )
     
     add_custom_target(w1-format-check
         COMMAND ${CLANG_FORMAT_EXECUTABLE} --dry-run --Werror -style=file ${ALL_SOURCE_FILES}
-        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        WORKING_DIRECTORY ${WITNESS_SOURCE_DIR}
         COMMENT "checking w1tn3ss code formatting"
         VERBATIM
     )

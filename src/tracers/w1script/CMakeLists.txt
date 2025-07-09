@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 
-include(${CMAKE_SOURCE_DIR}/cmake/TracerConfig.cmake)
-include(${CMAKE_SOURCE_DIR}/cmake/LuaConfig.cmake)
-include(${CMAKE_SOURCE_DIR}/cmake/LIEFConfig.cmake)
+include(${WITNESS_SOURCE_DIR}/cmake/TracerConfig.cmake)
+include(${WITNESS_SOURCE_DIR}/cmake/LuaConfig.cmake)
+include(${WITNESS_SOURCE_DIR}/cmake/LIEFConfig.cmake)
 
 if(WITNESS_SCRIPT)
     message(STATUS "building w1script tracer with lua support")

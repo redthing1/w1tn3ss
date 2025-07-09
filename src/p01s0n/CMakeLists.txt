@@ -4,10 +4,10 @@
 cmake_minimum_required(VERSION 3.18)
 
 # check if lua scripting is enabled (required for p01s0n)
-include(${CMAKE_SOURCE_DIR}/cmake/LuaConfig.cmake)
+include(${WITNESS_SOURCE_DIR}/cmake/LuaConfig.cmake)
 
 if(WITNESS_SCRIPT)
-    include(${CMAKE_SOURCE_DIR}/cmake/CommonConfig.cmake)
+    include(${WITNESS_SOURCE_DIR}/cmake/CommonConfig.cmake)
 
     # build as shared library for injection
     add_library(p01s0n SHARED
@@ -27,7 +27,7 @@ if(WITNESS_SCRIPT)
     # include directories
     target_include_directories(p01s0n PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}
-        ${CMAKE_SOURCE_DIR}/src
+        ${WITNESS_SOURCE_DIR}/src
     )
 
     # apply common configuration like other w1 libraries

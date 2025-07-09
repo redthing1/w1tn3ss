@@ -1,7 +1,7 @@
 # p1ll binary patching library
 
 # check if lua scripting is enabled
-include(${CMAKE_SOURCE_DIR}/cmake/LuaConfig.cmake)
+include(${WITNESS_SOURCE_DIR}/cmake/LuaConfig.cmake)
 
 if(WITNESS_SCRIPT)
     

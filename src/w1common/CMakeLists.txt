@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-include(${CMAKE_SOURCE_DIR}/cmake/CommonConfig.cmake)
+include(${WITNESS_SOURCE_DIR}/cmake/CommonConfig.cmake)
 
 add_library(common INTERFACE)
 
