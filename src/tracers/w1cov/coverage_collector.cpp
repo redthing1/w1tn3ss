@@ -65,7 +65,7 @@ drcov::coverage_data coverage_collector::build_drcov_data() const {
   size_t valid_modules = 0;
   size_t invalid_modules = 0;
 
-  log.dbg("adding modules to drcov data");
+  log.trc("adding modules to drcov data");
 
   for (size_t i = 0; i < modules_.size(); ++i) {
     const auto& mod = modules_[i];
@@ -93,7 +93,7 @@ drcov::coverage_data coverage_collector::build_drcov_data() const {
       builder.add_module(module_path, mod.base_address, mod.base_address + mod.size, mod.base_address);
       valid_modules++;
 
-      log.trc(
+      log.dbg(
           "added module to drcov", redlog::field("id", i), redlog::field("name", mod.name),
           redlog::field("base", "0x%08x", mod.base_address), redlog::field("size", mod.size)
       );
@@ -116,13 +116,13 @@ drcov::coverage_data coverage_collector::build_drcov_data() const {
   size_t invalid_blocks = 0;
   size_t orphaned_blocks = 0;
 
-  log.dbg("adding basic blocks to drcov data");
+  log.trc("adding basic blocks to drcov data");
 
   for (const auto& bb : basic_blocks_) {
     try {
       // validate module id
       if (bb.module_id >= modules_.size()) {
-        log.trc(
+        log.wrn(
             "basic block references unknown module", redlog::field("module_id", bb.module_id),
             redlog::field("address", "0x%08x", bb.address)
         );
@@ -192,7 +192,7 @@ drcov::coverage_data coverage_collector::build_drcov_data() const {
   try {
     auto result = builder.build();
 
-    log.dbg(
+    log.trc(
         "drcov data export completed successfully", redlog::field("modules", valid_modules),
         redlog::field("blocks", valid_blocks)
     );
