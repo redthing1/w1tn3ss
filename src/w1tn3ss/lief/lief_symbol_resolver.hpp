@@ -124,24 +124,7 @@ private:
 
 #else // !WITNESS_LIEF_ENABLED
 
-// Stub implementation when LIEF is disabled
-struct symbol_info {
-  std::string name = "unknown";
-  std::string demangled_name = "unknown";
-  uint64_t offset = 0;
-  uint64_t size = 0;
-
-  enum type { FUNCTION, OBJECT, UNKNOWN } symbol_type = UNKNOWN;
-
-  enum binding { LOCAL, GLOBAL, WEAK } symbol_binding = LOCAL;
-
-  std::string version;
-  std::string section;
-
-  bool is_exported = false;
-  bool is_imported = false;
-};
-
+// stub implementation when lief is disabled
 class lief_symbol_resolver {
 public:
   struct config {

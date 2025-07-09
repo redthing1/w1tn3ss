@@ -51,11 +51,15 @@ elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "arm|ARM")
     # )
 endif()
 
+# Always compile the unified symbol resolver (it has conditional logic)
+target_sources(w1tn3ss PRIVATE
+    lief/symbol_resolver.cpp
+)
+
 # Add LIEF components when enabled
 if(WITNESS_LIEF)
     target_sources(w1tn3ss PRIVATE
         lief/lief_symbol_resolver.cpp
-        lief/symbol_resolver.cpp
     )
     
     # Add macOS-specific dyld resolver

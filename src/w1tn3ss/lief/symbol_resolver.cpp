@@ -1,5 +1,5 @@
 #include "symbol_resolver.hpp"
-#include "lief_symbol_resolver.hpp" // For symbol_info definition
+#include "symbol_info.hpp"
 #include <redlog.hpp>
 
 namespace w1::lief {
