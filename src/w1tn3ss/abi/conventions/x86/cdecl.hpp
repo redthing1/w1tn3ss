@@ -37,7 +37,7 @@ public:
   // return values
   uint64_t get_integer_return(const QBDI::GPRState* gpr) const override {
     // return value in eax
-    return gpr->rax & 0xFFFFFFFF;
+    return gpr->eax & 0xFFFFFFFF;
   }
 
   double get_float_return(const QBDI::FPRState* fpr) const override {
@@ -49,11 +49,11 @@ public:
 
   // stack management
   uint64_t get_stack_pointer(const QBDI::GPRState* gpr) const override {
-    return gpr->rsp & 0xFFFFFFFF; // esp
+    return gpr->esp & 0xFFFFFFFF; // esp
   }
 
   uint64_t get_frame_pointer(const QBDI::GPRState* gpr) const override {
-    return gpr->rbp & 0xFFFFFFFF; // ebp
+    return gpr->ebp & 0xFFFFFFFF; // ebp
   }
 
   size_t get_stack_alignment() const override {
@@ -62,7 +62,7 @@ public:
 
   uint64_t get_return_address_location(const QBDI::GPRState* gpr) const override {
     // return address is at [esp]
-    return gpr->rsp & 0xFFFFFFFF;
+    return gpr->esp & 0xFFFFFFFF;
   }
 
   // variadic support

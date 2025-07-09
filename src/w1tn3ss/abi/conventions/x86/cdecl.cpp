@@ -8,7 +8,7 @@ std::vector<uint64_t> x86_cdecl::extract_integer_args(const extraction_context& 
   args.reserve(count);
 
   // all arguments on stack, right after return address
-  uint32_t esp = static_cast<uint32_t>(ctx.gpr->rsp);
+  uint32_t esp = static_cast<uint32_t>(ctx.gpr->esp);
 
   // skip return address (4 bytes)
   for (size_t i = 0; i < count; ++i) {
@@ -27,7 +27,7 @@ std::vector<x86_cdecl::typed_arg> x86_cdecl::extract_typed_args(
   std::vector<typed_arg> args;
   args.reserve(types.size());
 
-  uint32_t esp = static_cast<uint32_t>(ctx.gpr->rsp);
+  uint32_t esp = static_cast<uint32_t>(ctx.gpr->esp);
   size_t stack_offset = 4; // skip return address
 
   for (const auto& type : types) {
@@ -96,7 +96,7 @@ x86_cdecl::typed_arg x86_cdecl::get_typed_return(
   case arg_type::INTEGER:
   case arg_type::POINTER:
   case arg_type::STRUCT_BY_REF:
-    ret.value.integer = gpr->rax & 0xFFFFFFFF; // eax
+    ret.value.integer = gpr->eax & 0xFFFFFFFF; // eax
     break;
 
   case arg_type::FLOAT:
@@ -107,8 +107,8 @@ x86_cdecl::typed_arg x86_cdecl::get_typed_return(
 
   case arg_type::STRUCT_BY_VALUE:
     // small structs in eax:edx
-    ret.value.struct_data.data[0] = gpr->rax & 0xFFFFFFFF;
-    ret.value.struct_data.data[1] = gpr->rdx & 0xFFFFFFFF;
+    ret.value.struct_data.data[0] = gpr->eax & 0xFFFFFFFF;
+    ret.value.struct_data.data[1] = gpr->edx & 0xFFFFFFFF;
     ret.value.struct_data.size = 8;
     break;
 
@@ -129,7 +129,7 @@ std::optional<x86_cdecl::variadic_info> x86_cdecl::get_variadic_info(
   info.fixed_args = fixed_arg_count;
   info.gp_offset = 0;
   info.fp_offset = 0;
-  info.overflow_arg_area = (ctx.gpr->rsp & 0xFFFFFFFF) + 4 + fixed_arg_count * 4;
+  info.overflow_arg_area = (ctx.gpr->esp & 0xFFFFFFFF) + 4 + fixed_arg_count * 4;
   info.reg_save_area = 0;
 
   return info;
@@ -151,7 +151,7 @@ std::vector<double> x86_cdecl::extract_float_args(const extraction_context& ctx,
   std::vector<double> args;
   args.reserve(count);
 
-  uint32_t esp = static_cast<uint32_t>(ctx.gpr->rsp);
+  uint32_t esp = static_cast<uint32_t>(ctx.gpr->esp);
   size_t stack_offset = 4; // skip return address
 
   for (size_t i = 0; i < count; ++i) {
