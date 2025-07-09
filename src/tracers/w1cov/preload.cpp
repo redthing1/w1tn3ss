@@ -11,6 +11,10 @@
 #include <w1tn3ss/util/stderr_write.hpp>
 #include <w1tn3ss/formats/drcov.hpp>
 
+#if defined(_WIN32) || defined(WIN32)
+#include <w1common/windows_console.hpp>
+#endif
+
 #include "coverage_config.hpp"
 #include "coverage_tracer.hpp"
 
@@ -148,16 +152,7 @@ QBDI_EXPORT int qbdipreload_on_exit(int status) {
 QBDI_EXPORT int qbdipreload_on_start(void* main) {
 #if defined(_WIN32) || defined(WIN32)
   // on windows, allow logging to show for gui targets
-  if (AllocConsole()) {
-    FILE* pCout;
-    FILE* pCerr;
-    freopen_s(&pCout, "CONOUT$", "w", stdout);
-    freopen_s(&pCerr, "CONOUT$", "w", stderr);
-
-    // ensure streams are unbuffered for immediate output
-    setvbuf(stdout, NULL, _IONBF, 0);
-    setvbuf(stderr, NULL, _IONBF, 0);
-  }
+  w1::common::allocate_windows_console();
 #endif
   return QBDIPRELOAD_NOT_HANDLED;
 }
