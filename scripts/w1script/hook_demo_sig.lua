@@ -114,11 +114,11 @@ local function get_signatures(plat_info)
             local msvc_base = "48b8 bebafecaefbeadde" -- mov rax, 0xdeadbeefcafebabe
 
             -- distinguish functions by their unique operations after the prologue
-            signatures.calculate_secret = msvc_base .. wildcards(1) .. " 8bfa" -- mov edi, edx
-            signatures.format_message = msvc_base .. wildcards(2) .. " ba00010000" -- mov edx, 0x100
-            signatures.allocate_buffer = msvc_base .. wildcards(11) .. " ff15" -- call [malloc]
-            signatures.compare_strings = msvc_base .. wildcards(15) .. " e9" -- jmp strcmp
-            signatures.unsafe_copy = msvc_base .. wildcards(15) .. " e8" -- call strcpy
+            signatures.calculate_secret = "48895c2408 57 4883ec20 48b8bebafecaefbeadde 8bfa 4889442440"
+            signatures.format_message = "4053 4883ec40 48b8bebafecaefbeadde 488bd9 4889442468 48b8efbeaddebebafeca"
+            signatures.allocate_buffer = "48895c2408 57 4883ec20 48b8bebafecaefbeadde 488bf9 4889442438"
+            signatures.compare_strings = "48895c2408 57 4883ec20 48b8bebafecaefbeadde 488bda 4889442440"
+            signatures.unsafe_copy = "4053 4883ec20 48b8bebafecaefbeadde 488bd9 4889442440"
 
             w1.log_info("using msvc x64 signatures")
         else
