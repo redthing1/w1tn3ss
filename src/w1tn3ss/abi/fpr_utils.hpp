@@ -5,69 +5,42 @@
 
 namespace w1::abi {
 
-// Platform-agnostic utilities for accessing FPR state
-// QBDI has different FPRState structures on different platforms
+// platform-agnostic utilities for accessing FPR state
+// qbdi has different FPRState structures on different platforms
 
 #ifdef _WIN32
-// On Windows x64, QBDI defines XMM registers as individual char[16] arrays
-// We need to cast them to access as float/double values
+// on windows, qbdi defines xmm registers as individual char[16] arrays
+// we need to cast them to access as float/double values
+
+// helper to get xmm register pointer by index
+inline const char* get_xmm_ptr(const QBDI::FPRState* fpr, size_t reg_idx) {
+  switch (reg_idx) {
+  case 0: return fpr->xmm0;
+  case 1: return fpr->xmm1;
+  case 2: return fpr->xmm2;
+  case 3: return fpr->xmm3;
+  case 4: return fpr->xmm4;
+  case 5: return fpr->xmm5;
+  case 6: return fpr->xmm6;
+  case 7: return fpr->xmm7;
+#if defined(_M_X64) || defined(__x86_64__)
+  // x86_64 has additional xmm8-xmm15 registers
+  case 8:  return fpr->xmm8;
+  case 9:  return fpr->xmm9;
+  case 10: return fpr->xmm10;
+  case 11: return fpr->xmm11;
+  case 12: return fpr->xmm12;
+  case 13: return fpr->xmm13;
+  case 14: return fpr->xmm14;
+  case 15: return fpr->xmm15;
+#endif
+  default: return nullptr;
+  }
+}
 
 inline float get_xmm_float(const QBDI::FPRState* fpr, size_t reg_idx) {
-  if (reg_idx >= 16) {
-    return 0.0f;
-  }
-
-  const char* xmm_ptr = nullptr;
-  switch (reg_idx) {
-  case 0:
-    xmm_ptr = fpr->xmm0;
-    break;
-  case 1:
-    xmm_ptr = fpr->xmm1;
-    break;
-  case 2:
-    xmm_ptr = fpr->xmm2;
-    break;
-  case 3:
-    xmm_ptr = fpr->xmm3;
-    break;
-  case 4:
-    xmm_ptr = fpr->xmm4;
-    break;
-  case 5:
-    xmm_ptr = fpr->xmm5;
-    break;
-  case 6:
-    xmm_ptr = fpr->xmm6;
-    break;
-  case 7:
-    xmm_ptr = fpr->xmm7;
-    break;
-  case 8:
-    xmm_ptr = fpr->xmm8;
-    break;
-  case 9:
-    xmm_ptr = fpr->xmm9;
-    break;
-  case 10:
-    xmm_ptr = fpr->xmm10;
-    break;
-  case 11:
-    xmm_ptr = fpr->xmm11;
-    break;
-  case 12:
-    xmm_ptr = fpr->xmm12;
-    break;
-  case 13:
-    xmm_ptr = fpr->xmm13;
-    break;
-  case 14:
-    xmm_ptr = fpr->xmm14;
-    break;
-  case 15:
-    xmm_ptr = fpr->xmm15;
-    break;
-  default:
+  const char* xmm_ptr = get_xmm_ptr(fpr, reg_idx);
+  if (!xmm_ptr) {
     return 0.0f;
   }
 
@@ -77,61 +50,8 @@ inline float get_xmm_float(const QBDI::FPRState* fpr, size_t reg_idx) {
 }
 
 inline double get_xmm_double(const QBDI::FPRState* fpr, size_t reg_idx) {
-  if (reg_idx >= 16) {
-    return 0.0;
-  }
-
-  const char* xmm_ptr = nullptr;
-  switch (reg_idx) {
-  case 0:
-    xmm_ptr = fpr->xmm0;
-    break;
-  case 1:
-    xmm_ptr = fpr->xmm1;
-    break;
-  case 2:
-    xmm_ptr = fpr->xmm2;
-    break;
-  case 3:
-    xmm_ptr = fpr->xmm3;
-    break;
-  case 4:
-    xmm_ptr = fpr->xmm4;
-    break;
-  case 5:
-    xmm_ptr = fpr->xmm5;
-    break;
-  case 6:
-    xmm_ptr = fpr->xmm6;
-    break;
-  case 7:
-    xmm_ptr = fpr->xmm7;
-    break;
-  case 8:
-    xmm_ptr = fpr->xmm8;
-    break;
-  case 9:
-    xmm_ptr = fpr->xmm9;
-    break;
-  case 10:
-    xmm_ptr = fpr->xmm10;
-    break;
-  case 11:
-    xmm_ptr = fpr->xmm11;
-    break;
-  case 12:
-    xmm_ptr = fpr->xmm12;
-    break;
-  case 13:
-    xmm_ptr = fpr->xmm13;
-    break;
-  case 14:
-    xmm_ptr = fpr->xmm14;
-    break;
-  case 15:
-    xmm_ptr = fpr->xmm15;
-    break;
-  default:
+  const char* xmm_ptr = get_xmm_ptr(fpr, reg_idx);
+  if (!xmm_ptr) {
     return 0.0;
   }
 
@@ -141,62 +61,8 @@ inline double get_xmm_double(const QBDI::FPRState* fpr, size_t reg_idx) {
 }
 
 inline void get_xmm_bytes(const QBDI::FPRState* fpr, size_t reg_idx, void* dest) {
-  if (reg_idx >= 16) {
-    std::memset(dest, 0, 16);
-    return;
-  }
-
-  const char* xmm_ptr = nullptr;
-  switch (reg_idx) {
-  case 0:
-    xmm_ptr = fpr->xmm0;
-    break;
-  case 1:
-    xmm_ptr = fpr->xmm1;
-    break;
-  case 2:
-    xmm_ptr = fpr->xmm2;
-    break;
-  case 3:
-    xmm_ptr = fpr->xmm3;
-    break;
-  case 4:
-    xmm_ptr = fpr->xmm4;
-    break;
-  case 5:
-    xmm_ptr = fpr->xmm5;
-    break;
-  case 6:
-    xmm_ptr = fpr->xmm6;
-    break;
-  case 7:
-    xmm_ptr = fpr->xmm7;
-    break;
-  case 8:
-    xmm_ptr = fpr->xmm8;
-    break;
-  case 9:
-    xmm_ptr = fpr->xmm9;
-    break;
-  case 10:
-    xmm_ptr = fpr->xmm10;
-    break;
-  case 11:
-    xmm_ptr = fpr->xmm11;
-    break;
-  case 12:
-    xmm_ptr = fpr->xmm12;
-    break;
-  case 13:
-    xmm_ptr = fpr->xmm13;
-    break;
-  case 14:
-    xmm_ptr = fpr->xmm14;
-    break;
-  case 15:
-    xmm_ptr = fpr->xmm15;
-    break;
-  default:
+  const char* xmm_ptr = get_xmm_ptr(fpr, reg_idx);
+  if (!xmm_ptr) {
     std::memset(dest, 0, 16);
     return;
   }
