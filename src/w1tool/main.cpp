@@ -72,6 +72,7 @@ void cmd_cover(args::Subparser& parser) {
   args::ValueFlag<std::string> output(parser, "path", "output file path", {'o', "output"});
   args::Flag include_system(parser, "include-system", "include system libraries", {"include-system"});
   args::Flag track_hitcounts(parser, "track-hitcounts", "track hit counts in coverage data", {"track-hitcounts"});
+  args::Flag inst_trace(parser, "inst-trace", "enable instruction-level tracing (default: basic block)", {"inst"});
   args::ValueFlag<std::string> module_filter(
       parser, "modules", "comma-separated list of modules to filter", {'m', "module-filter"}
   );
@@ -82,8 +83,8 @@ void cmd_cover(args::Subparser& parser) {
   parser.Parse();
 
   w1tool::commands::cover(
-      library, spawn, pid, name, output, include_system, track_hitcounts, module_filter, debug_level, format, suspended,
-      args, g_executable_path
+      library, spawn, pid, name, output, include_system, track_hitcounts, inst_trace, module_filter, debug_level,
+      format, suspended, args, g_executable_path
   );
 }
 

@@ -16,7 +16,7 @@ namespace w1tool::commands {
 int cover(
     args::ValueFlag<std::string>& library_flag, args::Flag& spawn_flag, args::ValueFlag<int>& pid_flag,
     args::ValueFlag<std::string>& name_flag, args::ValueFlag<std::string>& output_flag, args::Flag& include_system_flag,
-    args::Flag& track_hitcounts_flag, args::ValueFlag<std::string>& module_filter_flag,
+    args::Flag& track_hitcounts_flag, args::Flag& inst_trace_flag, args::ValueFlag<std::string>& module_filter_flag,
     args::ValueFlag<int>& debug_level_flag, args::ValueFlag<std::string>& format_flag, args::Flag& suspended_flag,
     args::PositionalList<std::string>& args_list, const std::string& executable_path
 ) {
@@ -95,6 +95,7 @@ int cover(
   // translate cover flags to w1cov config
   params.config_map["include_system"] = include_system_flag ? "true" : "false";
   params.config_map["track_hitcounts"] = track_hitcounts_flag ? "true" : "false";
+  params.config_map["inst_trace"] = inst_trace_flag ? "true" : "false";
   params.config_map["output"] = output_file;
 
   if (module_filter_flag) {
@@ -129,7 +130,7 @@ int cover(
       "coverage tracing configuration", redlog::field("output_file", output_file), redlog::field("format", format),
       redlog::field("include_system", include_system_flag ? "true" : "false"),
       redlog::field("track_hitcounts", track_hitcounts_flag ? "true" : "false"),
-      redlog::field("debug_level", params.debug_level)
+      redlog::field("inst_trace", inst_trace_flag ? "true" : "false"), redlog::field("debug_level", params.debug_level)
   );
 
   // execute w1cov tracing

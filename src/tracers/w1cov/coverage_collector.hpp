@@ -21,11 +21,11 @@ public:
 
   uint16_t add_module(const w1::util::module_info& mod);
 
-  void record_basic_block(QBDI::rword address, uint16_t size, uint16_t module_id);
+  void record_coverage_unit(QBDI::rword address, uint16_t size, uint16_t module_id);
 
   drcov::coverage_data build_drcov_data() const;
 
-  size_t get_basic_block_count() const;
+  size_t get_coverage_unit_count() const;
   size_t get_module_count() const;
   uint64_t get_total_hits() const;
   uint32_t get_hitcount(QBDI::rword address) const;

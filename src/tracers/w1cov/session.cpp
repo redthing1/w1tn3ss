@@ -108,7 +108,7 @@ bool session::trace_function(void* func_ptr, const std::vector<uint64_t>& args, 
   return true;
 }
 
-size_t session::get_basic_block_count() const { return tracer_ ? tracer_->get_basic_block_count() : 0; }
+size_t session::get_coverage_unit_count() const { return tracer_ ? tracer_->get_coverage_unit_count() : 0; }
 
 size_t session::get_module_count() const { return tracer_ ? tracer_->get_module_count() : 0; }
 
@@ -120,18 +120,18 @@ void session::print_statistics() const {
     return;
   }
 
-  size_t blocks = get_basic_block_count();
+  size_t units = get_coverage_unit_count();
   size_t modules = get_module_count();
   uint64_t hits = get_total_hits();
 
   std::cout << "coverage statistics:\n";
-  std::cout << "  basic blocks: " << blocks << "\n";
+  std::cout << "  coverage units: " << units << "\n";
   std::cout << "  modules: " << modules << "\n";
   std::cout << "  total hits: " << hits << "\n";
 
-  if (blocks > 0 && hits > 0) {
-    double avg = static_cast<double>(hits) / blocks;
-    std::cout << "  avg hits/block: " << std::fixed << std::setprecision(2) << avg << "\n";
+  if (units > 0 && hits > 0) {
+    double avg = static_cast<double>(hits) / units;
+    std::cout << "  avg hits/unit: " << std::fixed << std::setprecision(2) << avg << "\n";
   }
 }
 

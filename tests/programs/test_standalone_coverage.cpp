@@ -42,7 +42,7 @@ int main() {
   }
 
   std::cout << "Function results: " << result1 << ", " << result2 << "\n";
-  std::cout << "Unique blocks: " << session.get_basic_block_count() << "\n";
+  std::cout << "Unique blocks: " << session.get_coverage_unit_count() << "\n";
   std::cout << "Total hits: " << session.get_total_hits() << "\n";
 
   session.print_statistics();

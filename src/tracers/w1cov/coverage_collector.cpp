@@ -20,7 +20,7 @@ uint16_t coverage_collector::add_module(const w1::util::module_info& mod) {
   return static_cast<uint16_t>(modules_.size() - 1);
 }
 
-void coverage_collector::record_basic_block(QBDI::rword address, uint16_t size, uint16_t module_id) {
+void coverage_collector::record_coverage_unit(QBDI::rword address, uint16_t size, uint16_t module_id) {
   // increment hitcount for this address
   hitcounts_[address]++;
 
@@ -54,7 +54,7 @@ drcov::coverage_data coverage_collector::build_drcov_data() const {
 
   log.trc(
       "building drcov data", redlog::field("module_count", modules_.size()),
-      redlog::field("basic_block_count", basic_blocks_.size()), redlog::field("total_hits", get_total_hits())
+      redlog::field("coverage_unit_count", basic_blocks_.size()), redlog::field("total_hits", get_total_hits())
   );
 
   // create drcov builder with hitcount support enabled
@@ -111,35 +111,35 @@ drcov::coverage_data coverage_collector::build_drcov_data() const {
       "module processing completed", redlog::field("valid", valid_modules), redlog::field("invalid", invalid_modules)
   );
 
-  // pass 2: add basic blocks with hitcounts and validation
-  size_t valid_blocks = 0;
-  size_t invalid_blocks = 0;
-  size_t orphaned_blocks = 0;
+  // pass 2: add coverage units with hitcounts and validation
+  size_t valid_units = 0;
+  size_t invalid_units = 0;
+  size_t orphaned_units = 0;
 
-  log.trc("adding basic blocks to drcov data");
+  log.trc("adding coverage units to drcov data");
 
   for (const auto& bb : basic_blocks_) {
     try {
       // validate module id
       if (bb.module_id >= modules_.size()) {
         log.wrn(
-            "basic block references unknown module", redlog::field("module_id", bb.module_id),
+            "coverage unit references unknown module", redlog::field("module_id", bb.module_id),
             redlog::field("address", "0x%08x", bb.address)
         );
-        orphaned_blocks++;
+        orphaned_units++;
         continue;
       }
 
       const auto& module = modules_[bb.module_id];
 
-      // validate block is within module bounds
+      // validate unit is within module bounds
       if (bb.address < module.base_address || bb.address >= module.base_address + module.size) {
         log.wrn(
-            "basic block address outside module bounds", redlog::field("module_id", bb.module_id),
+            "coverage unit address outside module bounds", redlog::field("module_id", bb.module_id),
             redlog::field("address", "0x%08x", bb.address), redlog::field("base", "0x%08x", module.base_address),
             redlog::field("end", "0x%08x", module.base_address + module.size)
         );
-        invalid_blocks++;
+        invalid_units++;
         continue;
       }
 
@@ -152,7 +152,7 @@ drcov::coverage_data coverage_collector::build_drcov_data() const {
             "calculated offset exceeds module size", redlog::field("module_id", bb.module_id),
             redlog::field("offset", offset), redlog::field("module_size", module.size)
         );
-        invalid_blocks++;
+        invalid_units++;
         continue;
       }
 
@@ -169,24 +169,24 @@ drcov::coverage_data coverage_collector::build_drcov_data() const {
       }
 
       builder.add_coverage(bb.module_id, offset, bb.size, hitcount);
-      valid_blocks++;
+      valid_units++;
 
     } catch (const std::exception& e) {
       log.err(
-          "failed to add basic block to drcov builder", redlog::field("module_id", bb.module_id),
+          "failed to add coverage unit to drcov builder", redlog::field("module_id", bb.module_id),
           redlog::field("address", "0x%08x", bb.address), redlog::field("error", e.what())
       );
-      invalid_blocks++;
+      invalid_units++;
     }
   }
 
   log.dbg(
-      "basic block processing completed", redlog::field("valid", valid_blocks),
-      redlog::field("invalid", invalid_blocks), redlog::field("orphaned", orphaned_blocks)
+      "coverage unit processing completed", redlog::field("valid", valid_units),
+      redlog::field("invalid", invalid_units), redlog::field("orphaned", orphaned_units)
   );
 
-  if (valid_blocks == 0 && !basic_blocks_.empty()) {
-    log.wrn("no valid basic blocks were exported despite having collected data");
+  if (valid_units == 0 && !basic_blocks_.empty()) {
+    log.wrn("no valid coverage units were exported despite having collected data");
   }
 
   try {
@@ -194,7 +194,7 @@ drcov::coverage_data coverage_collector::build_drcov_data() const {
 
     log.trc(
         "drcov data export completed successfully", redlog::field("modules", valid_modules),
-        redlog::field("blocks", valid_blocks)
+        redlog::field("units", valid_units)
     );
 
     return result;
@@ -205,7 +205,7 @@ drcov::coverage_data coverage_collector::build_drcov_data() const {
   }
 }
 
-size_t coverage_collector::get_basic_block_count() const { return basic_blocks_.size(); }
+size_t coverage_collector::get_coverage_unit_count() const { return basic_blocks_.size(); }
 
 size_t coverage_collector::get_module_count() const { return modules_.size(); }
 
