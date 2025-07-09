@@ -315,7 +315,7 @@ QBDI::VMAction script_tracer::dispatch_simple_callback(
   }
 
   try {
-    auto result = it->second(static_cast<void*>(vm), static_cast<void*>(gpr), static_cast<void*>(fpr));
+    auto result = it->second(static_cast<void*>(vm), gpr, fpr);
     if (result.valid() && result.get_type() == sol::type::number) {
       return static_cast<QBDI::VMAction>(result.get<int>());
     }
@@ -394,7 +394,7 @@ QBDI::VMAction script_tracer::dispatch_vm_event_callback(
   }
 
   try {
-    auto result = it->second(static_cast<void*>(vm), *state, static_cast<void*>(gpr), static_cast<void*>(fpr));
+    auto result = it->second(static_cast<void*>(vm), *state, gpr, fpr);
     if (result.valid() && result.get_type() == sol::type::number) {
       return static_cast<QBDI::VMAction>(result.get<int>());
     }
