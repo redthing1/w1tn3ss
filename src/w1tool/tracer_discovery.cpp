@@ -18,7 +18,7 @@ std::string extract_tracer_name(const std::string& library_filename) {
   // find the suffix in the filename
   size_t suffix_pos = library_filename.find(suffix);
   if (suffix_pos == std::string::npos) {
-    log.debug(
+    log.dbg(
         "library filename does not match expected pattern", redlog::field("filename", library_filename),
         redlog::field("expected_pattern", "*_qbdipreload.*")
     );
@@ -29,11 +29,11 @@ std::string extract_tracer_name(const std::string& library_filename) {
   std::string tracer_name = library_filename.substr(0, suffix_pos);
 
   if (tracer_name.empty()) {
-    log.debug("extracted empty tracer name", redlog::field("filename", library_filename));
+    log.dbg("extracted empty tracer name", redlog::field("filename", library_filename));
     return "";
   }
 
-  log.debug(
+  log.dbg(
       "extracted tracer name", redlog::field("filename", library_filename), redlog::field("tracer_name", tracer_name)
   );
 
@@ -49,7 +49,7 @@ std::map<std::string, std::string> find_tracer_libraries(const std::string& exec
   try {
     exec_path = std::filesystem::canonical(executable_path);
   } catch (const std::exception& e) {
-    log.debug(
+    log.dbg(
         "failed to canonicalize executable path, using as-is", redlog::field("path", executable_path),
         redlog::field("error", e.what())
     );
@@ -59,7 +59,7 @@ std::map<std::string, std::string> find_tracer_libraries(const std::string& exec
   std::filesystem::path exec_dir = exec_path.parent_path();
   std::string lib_ext = w1::common::platform_utils::get_library_extension();
 
-  log.debug(
+  log.dbg(
       "searching for tracer libraries", redlog::field("exec_dir", exec_dir.string()), redlog::field("lib_ext", lib_ext)
   );
 
@@ -76,7 +76,7 @@ std::map<std::string, std::string> find_tracer_libraries(const std::string& exec
       continue;
     }
 
-    log.debug("scanning directory", redlog::field("dir", search_dir.string()));
+    log.dbg("scanning directory", redlog::field("dir", search_dir.string()));
 
     try {
       for (const auto& entry : std::filesystem::directory_iterator(search_dir)) {
@@ -101,17 +101,15 @@ std::map<std::string, std::string> find_tracer_libraries(const std::string& exec
           std::string canonical_path = std::filesystem::canonical(entry.path()).string();
           tracers[tracer_name] = canonical_path;
 
-          log.info("found tracer library", redlog::field("tracer", tracer_name), redlog::field("path", canonical_path));
+          log.dbg("found tracer library", redlog::field("tracer", tracer_name), redlog::field("path", canonical_path));
         }
       }
     } catch (const std::exception& e) {
-      log.debug(
-          "error scanning directory", redlog::field("dir", search_dir.string()), redlog::field("error", e.what())
-      );
+      log.dbg("error scanning directory", redlog::field("dir", search_dir.string()), redlog::field("error", e.what()));
     }
   }
 
-  log.info("tracer discovery complete", redlog::field("tracers_found", tracers.size()));
+  log.trc("tracer discovery complete", redlog::field("tracers_found", tracers.size()));
 
   return tracers;
 }
