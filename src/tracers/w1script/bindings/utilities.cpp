@@ -1,5 +1,6 @@
 #include "utilities.hpp"
 #include <w1common/platform_utils.hpp>
+#include <w1tn3ss/util/jsonl_writer.hpp>
 #include <redlog.hpp>
 #include <fstream>
 #include <chrono>
@@ -168,6 +169,173 @@ void setup_utilities(sol::state& lua, sol::table& w1_module) {
 #endif
 
     return info;
+  });
+
+  // === JSONL Writer Functions ===
+  // streaming JSONL output for high-performance data collection
+
+  // store the jsonl writer instance as a shared pointer in the lua state
+  // this allows us to manage its lifetime properly
+  static std::shared_ptr<w1::util::jsonl_writer> jsonl_writer_instance;
+
+  // define a function to load w1.output module after w1 is available
+  w1_module.set_function("_init_output_module", [&lua]() {
+    lua.script(R"lua(
+    -- w1.output module implemented in pure Lua
+    w1.output = {}
+    local _initialized = false
+    local _event_count = 0
+    
+    function w1.output.init(filename, metadata)
+      filename = filename or "trace.jsonl"
+      
+      if w1.jsonl_is_open() then
+        w1.jsonl_close()
+      end
+      
+      if not w1.jsonl_open(filename) then
+        w1.log_error("failed to initialize output file: " .. filename)
+        return false
+      end
+      
+      metadata = metadata or {}
+      metadata.type = "metadata"
+      metadata.version = metadata.version or "1.0"
+      metadata.timestamp = metadata.timestamp or w1.get_timestamp()
+      metadata.tracer = metadata.tracer or "w1script"
+      
+      if not w1.jsonl_write(metadata) then
+        w1.log_error("failed to write metadata")
+        w1.jsonl_close()
+        return false
+      end
+      
+      _initialized = true
+      _event_count = 0
+      w1.log_info("output initialized: " .. filename)
+      return true
+    end
+    
+    function w1.output.write_event(event)
+      if not _initialized then
+        w1.log_error("output not initialized - call w1.output.init() first")
+        return false
+      end
+      
+      if type(event) ~= "table" then
+        w1.log_error("event must be a table")
+        return false
+      end
+      
+      event.type = event.type or "event"
+      
+      local success = w1.jsonl_write(event)
+      if success then
+        _event_count = _event_count + 1
+        if _event_count % 10000 == 0 then
+          w1.jsonl_flush()
+        end
+      end
+      return success
+    end
+    
+    function w1.output.close()
+      if not _initialized then
+        return
+      end
+      
+      if _event_count > 0 then
+        w1.jsonl_write({
+          type = "summary",
+          event_count = _event_count,
+          end_timestamp = w1.get_timestamp()
+        })
+      end
+      
+      w1.jsonl_close()
+      _initialized = false
+      w1.log_info("output closed with " .. _event_count .. " events")
+    end
+    
+    function w1.output.ensure_shutdown_handler(tracer)
+      local original_shutdown = tracer.shutdown
+      tracer.shutdown = function()
+        if original_shutdown then
+          original_shutdown()
+        end
+        w1.output.close()
+      end
+    end
+  )lua");
+  });
+
+  w1_module.set_function("jsonl_open", [](const std::string& filename) -> bool {
+    try {
+      // close any existing writer
+      if (jsonl_writer_instance && jsonl_writer_instance->is_open()) {
+        jsonl_writer_instance->close();
+      }
+
+      // create new writer instance
+      jsonl_writer_instance = std::make_shared<w1::util::jsonl_writer>(filename);
+
+      if (!jsonl_writer_instance->is_open()) {
+        auto log = redlog::get_logger("w1.script_lua");
+        log.err("failed to open jsonl file: " + filename);
+        jsonl_writer_instance.reset();
+        return false;
+      }
+
+      return true;
+    } catch (const std::exception& e) {
+      auto log = redlog::get_logger("w1.script_lua");
+      log.err("jsonl_open error: " + std::string(e.what()));
+      return false;
+    }
+  });
+
+  w1_module.set_function("jsonl_write", [](const sol::object& data) -> bool {
+    if (!jsonl_writer_instance || !jsonl_writer_instance->is_open()) {
+      return false;
+    }
+
+    try {
+      std::string json_line;
+
+      // handle different input types
+      if (data.is<sol::table>()) {
+        json_line = lua_table_to_json(data.as<sol::table>());
+      } else if (data.is<std::string>()) {
+        // assume it's already json if it's a string
+        json_line = data.as<std::string>();
+      } else {
+        // try to serialize as a simple value
+        json_line = serialize_lua_value(data);
+      }
+
+      return jsonl_writer_instance->write_line(json_line);
+    } catch (const std::exception& e) {
+      auto log = redlog::get_logger("w1.script_lua");
+      log.err("jsonl_write error: " + std::string(e.what()));
+      return false;
+    }
+  });
+
+  w1_module.set_function("jsonl_close", []() {
+    if (jsonl_writer_instance && jsonl_writer_instance->is_open()) {
+      jsonl_writer_instance->close();
+    }
+    jsonl_writer_instance.reset();
+  });
+
+  w1_module.set_function("jsonl_is_open", []() -> bool {
+    return jsonl_writer_instance && jsonl_writer_instance->is_open();
+  });
+
+  w1_module.set_function("jsonl_flush", []() {
+    if (jsonl_writer_instance && jsonl_writer_instance->is_open()) {
+      jsonl_writer_instance->flush();
+    }
   });
 
   logger.dbg("utility functions setup complete");

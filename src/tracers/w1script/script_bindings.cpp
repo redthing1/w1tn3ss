@@ -53,6 +53,9 @@ void setup_qbdi_bindings(
   // register the w1 module with the lua state
   lua["w1"] = w1_module;
 
+  // initialize the w1.output module now that w1 is available
+  w1_module["_init_output_module"]();
+
   logger.inf("all qbdi bindings registered successfully");
   logger.dbg(
       "available modules: core_types, register_access, vm_control, memory_access, memory_analysis, module_analysis, "
