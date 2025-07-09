@@ -17,6 +17,10 @@
 #include <w1tn3ss/util/safe_memory.hpp>
 #include <w1tn3ss/abi/calling_convention_factory.hpp>
 
+#if defined(_WIN32) || defined(WIN32)
+#include <w1common/windows_console.hpp>
+#endif
+
 class hooktest_tracer {
 public:
   explicit hooktest_tracer(bool use_abi = false) : use_abi_(use_abi) {
@@ -575,7 +579,13 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
 
 QBDI_EXPORT int qbdipreload_on_exit(int status) { return QBDIPRELOAD_NO_ERROR; }
 
-QBDI_EXPORT int qbdipreload_on_start(void* main) { return QBDIPRELOAD_NOT_HANDLED; }
+QBDI_EXPORT int qbdipreload_on_start(void* main) {
+#if defined(_WIN32) || defined(WIN32)
+  // on windows, allow logging to show for gui targets
+  w1::common::allocate_windows_console();
+#endif
+  return QBDIPRELOAD_NOT_HANDLED;
+}
 
 QBDI_EXPORT int qbdipreload_on_premain(void* gprCtx, void* fpuCtx) { return QBDIPRELOAD_NOT_HANDLED; }
 

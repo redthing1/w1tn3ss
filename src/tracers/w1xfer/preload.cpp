@@ -7,6 +7,10 @@
 #include <w1tn3ss/util/signal_handler.hpp>
 #include <w1tn3ss/util/stderr_write.hpp>
 
+#if defined(_WIN32) || defined(WIN32)
+#include <w1common/windows_console.hpp>
+#endif
+
 #include "transfer_config.hpp"
 #include "transfer_tracer.hpp"
 
@@ -129,7 +133,13 @@ QBDI_EXPORT int qbdipreload_on_exit(int status) {
   return QBDIPRELOAD_NO_ERROR;
 }
 
-QBDI_EXPORT int qbdipreload_on_start(void* main) { return QBDIPRELOAD_NOT_HANDLED; }
+QBDI_EXPORT int qbdipreload_on_start(void* main) {
+#if defined(_WIN32) || defined(WIN32)
+  // on windows, allow logging to show for gui targets
+  w1::common::allocate_windows_console();
+#endif
+  return QBDIPRELOAD_NOT_HANDLED;
+}
 
 QBDI_EXPORT int qbdipreload_on_premain(void* gprCtx, void* fpuCtx) { return QBDIPRELOAD_NOT_HANDLED; }
 
