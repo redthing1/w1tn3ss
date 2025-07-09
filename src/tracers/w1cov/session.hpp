@@ -33,6 +33,16 @@ public:
 
   coverage_config& get_config();
 
+  // direct access for whole-program instrumentation
+  QBDI::VM* get_vm() const { return engine_ ? engine_->get_vm() : nullptr; }
+
+  w1::tracer_engine<coverage_tracer>* get_engine() const { return engine_.get(); }
+
+  // module management for whole-program instrumentation
+  bool add_instrumented_module(void* module_addr);
+  bool add_instrumented_range(void* start, void* end);
+  bool remove_all_instrumented_ranges();
+
 private:
   coverage_config config_;
   std::unique_ptr<coverage_tracer> tracer_;

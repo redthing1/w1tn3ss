@@ -171,4 +171,74 @@ void session::clear_coverage() {
 
 coverage_config& session::get_config() { return config_; }
 
+bool session::add_instrumented_module(void* module_addr) {
+  if (!initialized_ || !engine_) {
+    return false;
+  }
+
+  auto log = redlog::get_logger("w1cov.session");
+
+  QBDI::VM* vm = engine_->get_vm();
+  if (!vm) {
+    log.err("failed to get VM for module instrumentation");
+    return false;
+  }
+
+  QBDI::rword addr = reinterpret_cast<QBDI::rword>(module_addr);
+  bool success = vm->addInstrumentedModuleFromAddr(addr);
+
+  if (success) {
+    log.dbg("added module to instrumentation", redlog::field("address", "0x%08x", addr));
+  } else {
+    log.wrn("failed to add module to instrumentation", redlog::field("address", "0x%08x", addr));
+  }
+
+  return success;
+}
+
+bool session::add_instrumented_range(void* start, void* end) {
+  if (!initialized_ || !engine_) {
+    return false;
+  }
+
+  auto log = redlog::get_logger("w1cov.session");
+
+  QBDI::VM* vm = engine_->get_vm();
+  if (!vm) {
+    log.err("failed to get VM for range instrumentation");
+    return false;
+  }
+
+  QBDI::rword start_addr = reinterpret_cast<QBDI::rword>(start);
+  QBDI::rword end_addr = reinterpret_cast<QBDI::rword>(end);
+
+  vm->addInstrumentedRange(start_addr, end_addr);
+
+  log.dbg(
+      "added range to instrumentation", redlog::field("start", "0x%08x", start_addr),
+      redlog::field("end", "0x%08x", end_addr)
+  );
+
+  return true;
+}
+
+bool session::remove_all_instrumented_ranges() {
+  if (!initialized_ || !engine_) {
+    return false;
+  }
+
+  auto log = redlog::get_logger("w1cov.session");
+
+  QBDI::VM* vm = engine_->get_vm();
+  if (!vm) {
+    log.err("failed to get VM for removing instrumentation");
+    return false;
+  }
+
+  vm->removeAllInstrumentedRanges();
+  log.dbg("removed all instrumented ranges");
+
+  return true;
+}
+
 } // namespace w1cov
