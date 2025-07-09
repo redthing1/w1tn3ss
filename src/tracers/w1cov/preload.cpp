@@ -145,7 +145,15 @@ QBDI_EXPORT int qbdipreload_on_exit(int status) {
   return QBDIPRELOAD_NO_ERROR;
 }
 
-QBDI_EXPORT int qbdipreload_on_start(void* main) { return QBDIPRELOAD_NOT_HANDLED; }
+QBDI_EXPORT int qbdipreload_on_start(void* main) {
+#if defined(_WIN32) || defined(WIN32)
+  // on windows, allow logging to sho wfor gui targets
+  FILE* oldStream;
+  AllocConsole();
+  freopen_s(&oldStream, "CONOUT$", "w", stdout);
+#endif
+  return QBDIPRELOAD_NOT_HANDLED;
+}
 
 QBDI_EXPORT int qbdipreload_on_premain(void* gprCtx, void* fpuCtx) { return QBDIPRELOAD_NOT_HANDLED; }
 
