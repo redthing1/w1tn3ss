@@ -1,9 +1,14 @@
 #pragma once
 
-#include <vector>
 #include <unordered_set>
 #include <cstdint>
+#include <string>
+#include <memory>
 #include <w1common/ext/jsonstruct.hpp>
+#include <w1tn3ss/util/jsonl_writer.hpp>
+#include <w1tn3ss/util/module_scanner.hpp>
+#include <w1tn3ss/util/module_range_index.hpp>
+#include <redlog.hpp>
 
 namespace w1mem {
 
@@ -13,10 +18,12 @@ struct memory_access_entry {
   uint32_t size;
   uint8_t access_type; // 1=read, 2=write
   uint32_t instruction_count;
+  std::string instruction_module;
+  std::string memory_module;
 
   JS_OBJECT(
       JS_MEMBER(instruction_addr), JS_MEMBER(memory_addr), JS_MEMBER(size), JS_MEMBER(access_type),
-      JS_MEMBER(instruction_count)
+      JS_MEMBER(instruction_count), JS_MEMBER(instruction_module), JS_MEMBER(memory_module)
   );
 };
 
@@ -35,36 +42,39 @@ struct memory_stats {
   );
 };
 
-struct w1mem_report {
-  memory_stats stats;
-  std::vector<memory_access_entry> trace;
-
-  JS_OBJECT(JS_MEMBER(stats), JS_MEMBER(trace));
-};
-
 class memory_collector {
 public:
-  explicit memory_collector(size_t max_trace_entries, bool collect_trace);
+  explicit memory_collector(const std::string& output_file);
 
   void record_instruction();
   void record_memory_access(uint64_t instruction_addr, uint64_t memory_addr, uint32_t size, uint8_t access_type);
 
-  w1mem_report build_report() const;
-
   const memory_stats& get_stats() const { return stats_; }
-  size_t get_trace_size() const { return trace_.size(); }
   uint32_t get_instruction_count() const { return instruction_count_; }
 
 private:
   memory_stats stats_;
-  std::vector<memory_access_entry> trace_;
   std::unordered_set<uint64_t> unique_read_addrs_;
   std::unordered_set<uint64_t> unique_write_addrs_;
 
-  size_t max_trace_entries_;
-  bool collect_trace_;
   uint32_t instruction_count_;
-  bool trace_overflow_;
+
+  // jsonl output
+  std::unique_ptr<w1::util::jsonl_writer> jsonl_writer_;
+  bool metadata_written_;
+
+  // module tracking
+  w1::util::module_scanner scanner_;
+  w1::util::module_range_index index_;
+  bool modules_initialized_;
+
+  redlog::logger log_ = redlog::get_logger("w1.mem.collector");
+
+  void ensure_metadata_written();
+  void write_metadata();
+  void write_event(const memory_access_entry& entry);
+  void initialize_module_tracking();
+  std::string get_module_name(uint64_t address) const;
 };
 
 } // namespace w1mem

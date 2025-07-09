@@ -13,7 +13,6 @@ struct instruction_config : public w1::tracer_config_base {
   std::string output_file = "";
   std::string target_mnemonics;           // comma-separated list
   std::vector<std::string> mnemonic_list; // parsed list
-  uint64_t max_entries = 1000000000;      // 1b default
   int verbose = 0;
 
   static instruction_config from_environment() {
@@ -27,7 +26,6 @@ struct instruction_config : public w1::tracer_config_base {
     if (config.target_mnemonics.empty()) {
       throw std::runtime_error("w1inst_mnemonics environment variable is required (comma-separated list)");
     }
-    config.max_entries = loader.get<uint64_t>("MAX_ENTRIES", 1000000000);
     config.verbose = loader.get<int>("VERBOSE", 0);
 
     // parse comma-separated mnemonics

@@ -22,8 +22,6 @@ public:
 
   // statistics access
   const mnemonic_stats& get_stats() const;
-  size_t get_trace_size() const;
-  void export_report() const;
 
 private:
   instruction_config config_;

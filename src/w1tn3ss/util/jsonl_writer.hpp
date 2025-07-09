@@ -13,9 +13,9 @@ namespace w1::util {
 // designed for high-performance streaming of json lines format
 class jsonl_writer {
 public:
-  // sensible defaults: 64KB buffer, flush every 1000 events
-  static constexpr size_t DEFAULT_BUFFER_SIZE = 64 * 1024;
-  static constexpr size_t DEFAULT_FLUSH_EVENT_COUNT = 1000;
+  // sensible defaults
+  static constexpr size_t DEFAULT_BUFFER_SIZE = 64 * 1024 * 1024;
+  static constexpr size_t DEFAULT_FLUSH_EVENT_COUNT = 1000000;
 
   // constructor opens file immediately if path is provided
   explicit jsonl_writer(const std::string& path = "");

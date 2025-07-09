@@ -4,14 +4,10 @@
 namespace w1mem {
 
 memory_tracer::memory_tracer(const memory_config& config)
-    : config_(config), collector_(config.max_trace_entries, config.collect_trace && !config.output_path.empty()),
-      memory_recording_enabled_(false) {
+    : config_(config), collector_(config.output_path), memory_recording_enabled_(false) {
 
   if (config_.verbose) {
-    log_.inf(
-        "memory tracer created", redlog::field("output", config_.output_path),
-        redlog::field("max_trace", config_.max_trace_entries), redlog::field("collect_trace", config_.collect_trace)
-    );
+    log_.inf("memory tracer created", redlog::field("output", config_.output_path));
   }
 }
 
@@ -37,7 +33,7 @@ bool memory_tracer::initialize(w1::tracer_engine<memory_tracer>& engine) {
 
 void memory_tracer::shutdown() {
   log_.inf("shutting down memory tracer");
-  export_report();
+  // no export needed - streaming output handles everything
 }
 
 QBDI::VMAction memory_tracer::on_instruction_postinst(
@@ -74,39 +70,5 @@ QBDI::VMAction memory_tracer::on_instruction_postinst(
 }
 
 const memory_stats& memory_tracer::get_stats() const { return collector_.get_stats(); }
-
-size_t memory_tracer::get_trace_size() const { return collector_.get_trace_size(); }
-
-void memory_tracer::export_report() const {
-  if (config_.output_path.empty()) {
-    log_.inf("skipping export; no output file specified");
-    return;
-  }
-
-  log_.inf("exporting memory trace report", redlog::field("path", config_.output_path));
-
-  try {
-    w1mem_report report = collector_.build_report();
-
-    std::ofstream file(config_.output_path);
-    if (!file.is_open()) {
-      log_.error("failed to open output file", redlog::field("path", config_.output_path));
-      return;
-    }
-
-    std::string json = JS::serializeStruct(report);
-    file << json;
-    file.close();
-
-    log_.inf(
-        "memory trace report exported successfully", redlog::field("instructions", report.stats.total_instructions),
-        redlog::field("reads", report.stats.total_reads), redlog::field("writes", report.stats.total_writes),
-        redlog::field("trace_entries", report.trace.size())
-    );
-
-  } catch (const std::exception& e) {
-    log_.error("failed to export report", redlog::field("error", e.what()));
-  }
-}
 
 } // namespace w1mem

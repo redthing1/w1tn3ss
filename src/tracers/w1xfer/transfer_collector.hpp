@@ -101,7 +101,6 @@ struct transfer_entry {
   transfer_type type;
   uint64_t source_address;
   uint64_t target_address;
-  uint64_t timestamp;
   uint64_t instruction_count;
   register_state registers;
   stack_info stack;
@@ -114,9 +113,9 @@ struct transfer_entry {
   api_analysis api_info;
 
   JS_OBJECT(
-      JS_MEMBER(type), JS_MEMBER(source_address), JS_MEMBER(target_address), JS_MEMBER(timestamp),
-      JS_MEMBER(instruction_count), JS_MEMBER(registers), JS_MEMBER(stack), JS_MEMBER(source_module),
-      JS_MEMBER(target_module), JS_MEMBER(source_symbol), JS_MEMBER(target_symbol), JS_MEMBER(api_info)
+      JS_MEMBER(type), JS_MEMBER(source_address), JS_MEMBER(target_address), JS_MEMBER(instruction_count),
+      JS_MEMBER(registers), JS_MEMBER(stack), JS_MEMBER(source_module), JS_MEMBER(target_module),
+      JS_MEMBER(source_symbol), JS_MEMBER(target_symbol), JS_MEMBER(api_info)
   );
 };
 
@@ -181,7 +180,6 @@ private:
   std::unordered_set<uint64_t> unique_call_targets_;
   std::unordered_set<uint64_t> unique_return_sources_;
 
-  uint64_t get_timestamp() const;
   void update_call_depth(transfer_type type);
   symbol_info enrich_symbol(uint64_t address) const;
 

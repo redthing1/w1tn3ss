@@ -80,7 +80,6 @@ void transfer_collector::record_call(
     ctx.gpr_state = gpr;
     ctx.fpr_state = fpr;
     ctx.module_index = &index_;
-    ctx.timestamp = entry.timestamp;
 
     // directly analyze the call
     if (auto api_event = api_listener_->analyze_call(ctx)) {
@@ -126,7 +125,6 @@ void transfer_collector::record_return(
     ctx.gpr_state = gpr;
     ctx.fpr_state = fpr;
     ctx.module_index = &index_;
-    ctx.timestamp = entry.timestamp;
 
     // directly analyze the return
     if (auto api_event = api_listener_->analyze_return(ctx)) {
@@ -209,11 +207,6 @@ std::string transfer_collector::get_module_name(uint64_t address) const {
   return "unknown";
 }
 
-uint64_t transfer_collector::get_timestamp() const {
-  auto now = std::chrono::steady_clock::now();
-  return std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count();
-}
-
 void transfer_collector::update_call_depth(transfer_type type) {
   if (type == transfer_type::CALL) {
     stats_.current_call_depth++;
@@ -250,7 +243,6 @@ transfer_entry transfer_collector::create_base_entry(
   entry.type = type;
   entry.source_address = source_addr;
   entry.target_address = target_addr;
-  entry.timestamp = get_timestamp();
   entry.instruction_count = instruction_count_;
   return entry;
 }
@@ -341,7 +333,7 @@ void transfer_collector::write_metadata() {
 
   // create metadata object
   std::stringstream json;
-  json << "{\"type\":\"metadata\",\"version\":1,\"tracer\":\"w1xfer\",\"timestamp\":" << get_timestamp();
+  json << "{\"type\":\"metadata\",\"version\":1,\"tracer\":\"w1xfer\"";
 
   // add module information
   json << ",\"modules\":[";
@@ -376,7 +368,7 @@ void transfer_collector::write_event(const transfer_entry& entry) {
 
   // wrap in event envelope
   std::stringstream wrapped;
-  wrapped << "{\"type\":\"event\",\"timestamp\":" << get_timestamp() << ",\"data\":" << json << "}";
+  wrapped << "{\"type\":\"event\",\"data\":" << json << "}";
 
   jsonl_writer_->write_line(wrapped.str());
 }

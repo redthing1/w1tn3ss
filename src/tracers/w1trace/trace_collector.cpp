@@ -50,6 +50,12 @@ void trace_collector::flush_buffer() {
     return; // Nothing to flush
   }
 
+  // Skip flush if no output file configured
+  if (output_file_.empty()) {
+    buffer_pos_ = 0; // Reset buffer position
+    return;
+  }
+
   ensure_output_file();
 
   if (output_stream_.is_open()) {
