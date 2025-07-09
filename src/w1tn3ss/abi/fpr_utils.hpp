@@ -15,26 +15,43 @@ namespace w1::abi {
 // helper to get xmm register pointer by index
 inline const char* get_xmm_ptr(const QBDI::FPRState* fpr, size_t reg_idx) {
   switch (reg_idx) {
-  case 0: return fpr->xmm0;
-  case 1: return fpr->xmm1;
-  case 2: return fpr->xmm2;
-  case 3: return fpr->xmm3;
-  case 4: return fpr->xmm4;
-  case 5: return fpr->xmm5;
-  case 6: return fpr->xmm6;
-  case 7: return fpr->xmm7;
+  case 0:
+    return fpr->xmm0;
+  case 1:
+    return fpr->xmm1;
+  case 2:
+    return fpr->xmm2;
+  case 3:
+    return fpr->xmm3;
+  case 4:
+    return fpr->xmm4;
+  case 5:
+    return fpr->xmm5;
+  case 6:
+    return fpr->xmm6;
+  case 7:
+    return fpr->xmm7;
 #if defined(_M_X64) || defined(__x86_64__)
   // x86_64 has additional xmm8-xmm15 registers
-  case 8:  return fpr->xmm8;
-  case 9:  return fpr->xmm9;
-  case 10: return fpr->xmm10;
-  case 11: return fpr->xmm11;
-  case 12: return fpr->xmm12;
-  case 13: return fpr->xmm13;
-  case 14: return fpr->xmm14;
-  case 15: return fpr->xmm15;
+  case 8:
+    return fpr->xmm8;
+  case 9:
+    return fpr->xmm9;
+  case 10:
+    return fpr->xmm10;
+  case 11:
+    return fpr->xmm11;
+  case 12:
+    return fpr->xmm12;
+  case 13:
+    return fpr->xmm13;
+  case 14:
+    return fpr->xmm14;
+  case 15:
+    return fpr->xmm15;
 #endif
-  default: return nullptr;
+  default:
+    return nullptr;
   }
 }
 
