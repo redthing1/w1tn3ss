@@ -147,10 +147,17 @@ QBDI_EXPORT int qbdipreload_on_exit(int status) {
 
 QBDI_EXPORT int qbdipreload_on_start(void* main) {
 #if defined(_WIN32) || defined(WIN32)
-  // on windows, allow logging to sho wfor gui targets
-  FILE* oldStream;
-  AllocConsole();
-  freopen_s(&oldStream, "CONOUT$", "w", stdout);
+  // on windows, allow logging to show for gui targets
+  if (AllocConsole()) {
+    FILE* pCout;
+    FILE* pCerr;
+    freopen_s(&pCout, "CONOUT$", "w", stdout);
+    freopen_s(&pCerr, "CONOUT$", "w", stderr);
+
+    // ensure streams are unbuffered for immediate output
+    setvbuf(stdout, NULL, _IONBF, 0);
+    setvbuf(stderr, NULL, _IONBF, 0);
+  }
 #endif
   return QBDIPRELOAD_NOT_HANDLED;
 }
