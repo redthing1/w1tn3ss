@@ -52,7 +52,8 @@ void setup_hooking(sol::state& lua, sol::table& w1_module, std::shared_ptr<w1::h
           return sol::nullopt;
         }
 
-        logger.dbg("registered address hook", redlog::field("id", id), redlog::field("address", "0x%lx", address));
+        auto logger = redlog::get_logger("w1.script_bindings");
+        logger.trc("set address hook", redlog::field("id", id), redlog::field("address", "0x%lx", address));
         return id;
       }
   );
@@ -101,8 +102,9 @@ void setup_hooking(sol::state& lua, sol::table& w1_module, std::shared_ptr<w1::h
           return sol::nullopt;
         }
 
-        logger.dbg(
-            "registered module hook", redlog::field("id", id), redlog::field("module", module_name),
+        auto logger = redlog::get_logger("w1.script_bindings");
+        logger.trc(
+            "set module hook", redlog::field("id", id), redlog::field("module", module_name),
             redlog::field("offset", "0x%lx", offset)
         );
         return id;
@@ -153,8 +155,9 @@ void setup_hooking(sol::state& lua, sol::table& w1_module, std::shared_ptr<w1::h
           return sol::nullopt;
         }
 
-        logger.dbg(
-            "registered range hook", redlog::field("id", id), redlog::field("start", "0x%lx", start),
+        auto logger = redlog::get_logger("w1.script_bindings");
+        logger.trc(
+            "set range hook", redlog::field("id", id), redlog::field("start", "0x%lx", start),
             redlog::field("end", "0x%lx", end)
         );
         return id;
