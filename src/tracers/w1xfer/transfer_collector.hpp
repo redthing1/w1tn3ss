@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include <QBDI.h>
@@ -13,6 +14,7 @@
 #include <w1tn3ss/util/register_capture.hpp>
 #include <w1tn3ss/util/stack_capture.hpp>
 #include <w1tn3ss/util/value_formatter.hpp>
+#include <w1tn3ss/util/jsonl_writer.hpp>
 #include <w1tn3ss/abi/api_listener.hpp>
 #include "symbol_enricher.hpp"
 
@@ -132,18 +134,13 @@ struct transfer_stats {
   );
 };
 
-struct w1xfer_report {
-  transfer_stats stats;
-  std::vector<transfer_entry> trace;
-
-  JS_OBJECT(JS_MEMBER(stats), JS_MEMBER(trace));
-};
+// removed w1xfer_report - we now stream directly
 
 class transfer_collector {
 public:
   explicit transfer_collector(
-      uint64_t max_entries, bool log_registers, bool log_stack_info, bool log_call_targets, bool analyze_apis = false,
-      bool collect_trace = true
+      const std::string& output_file, bool log_registers, bool log_stack_info, bool log_call_targets,
+      bool analyze_apis = false
   );
 
   void initialize_module_tracking();
@@ -157,25 +154,18 @@ public:
       QBDI::GPRState* gpr, QBDI::FPRState* fpr
   );
 
-  w1xfer_report build_report() const;
-
   const transfer_stats& get_stats() const { return stats_; }
-  size_t get_trace_size() const { return trace_.size(); }
   uint64_t get_instruction_count() const { return instruction_count_; }
 
   std::string get_module_name(uint64_t address) const;
 
 private:
   transfer_stats stats_;
-  std::vector<transfer_entry> trace_;
-  uint64_t max_entries_;
   uint64_t instruction_count_;
   bool log_registers_;
   bool log_stack_info_;
   bool log_call_targets_;
   bool analyze_apis_;
-  bool collect_trace_;
-  bool trace_overflow_;
   w1::util::module_scanner scanner_;
   w1::util::module_range_index index_;
   bool modules_initialized_;
@@ -183,12 +173,19 @@ private:
   std::unique_ptr<w1::abi::api_listener> api_listener_;
   redlog::logger log_ = redlog::get_logger("w1.transfer_collector");
 
+  // output handling
+  std::unique_ptr<w1::util::jsonl_writer> jsonl_writer_;
+  bool metadata_written_ = false;
+
+  // unique target tracking for stats
+  std::unordered_set<uint64_t> unique_call_targets_;
+  std::unordered_set<uint64_t> unique_return_sources_;
+
   uint64_t get_timestamp() const;
   void update_call_depth(transfer_type type);
   symbol_info enrich_symbol(uint64_t address) const;
 
   // helper methods to reduce code duplication
-  bool should_collect_trace() const;
   transfer_entry create_base_entry(transfer_type type, uint64_t source_addr, uint64_t target_addr) const;
   void populate_entry_details(
       transfer_entry& entry, uint64_t source_addr, uint64_t target_addr, QBDI::VMInstanceRef vm, QBDI::GPRState* gpr
@@ -196,6 +193,11 @@ private:
 
   // api event handlers
   void on_api_event(const w1::abi::api_event& event, transfer_entry& entry);
+
+  // output helpers
+  void ensure_metadata_written();
+  void write_metadata();
+  void write_event(const transfer_entry& entry);
 };
 
 } // namespace w1xfer

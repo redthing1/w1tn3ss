@@ -5,6 +5,7 @@ CLAUDE.md
 
 /*.drcov
 /*.json
+/*.jsonl
 /*.txt
 /*.bin
 

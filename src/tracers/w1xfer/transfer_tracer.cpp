@@ -6,16 +6,15 @@
 namespace w1xfer {
 
 transfer_tracer::transfer_tracer(const transfer_config& config)
-    : config_(config), collector_(
-                           config.max_entries, config.log_registers, config.log_stack_info, config.log_call_targets,
-                           config.analyze_apis, !config.output_file.empty()
-                       ) {
+    : config_(config),
+      collector_(
+          config.output_file, config.log_registers, config.log_stack_info, config.log_call_targets, config.analyze_apis
+      ) {
 
   if (config_.verbose) {
     log_.inf(
         "transfer tracer created", redlog::field("output", config_.output_file),
-        redlog::field("max_entries", config_.max_entries), redlog::field("log_registers", config_.log_registers),
-        redlog::field("log_stack_info", config_.log_stack_info),
+        redlog::field("log_registers", config_.log_registers), redlog::field("log_stack_info", config_.log_stack_info),
         redlog::field("log_call_targets", config_.log_call_targets), redlog::field("analyze_apis", config_.analyze_apis)
     );
   }
@@ -37,6 +36,8 @@ bool transfer_tracer::initialize(w1::tracer_engine<transfer_tracer>& engine) {
     log_.inf("module tracking initialized");
   }
 
+  // output will stream automatically if output_file was provided
+
   if (config_.verbose) {
     log_.inf("transfer tracer initialized successfully");
   }
@@ -46,7 +47,7 @@ bool transfer_tracer::initialize(w1::tracer_engine<transfer_tracer>& engine) {
 
 void transfer_tracer::shutdown() {
   log_.inf("shutting down transfer tracer");
-  export_report();
+  // no need to export - data is already streamed
 }
 
 QBDI::VMAction transfer_tracer::on_exec_transfer_call(
@@ -113,40 +114,6 @@ QBDI::VMAction transfer_tracer::on_exec_transfer_return(
 
 const transfer_stats& transfer_tracer::get_stats() const { return collector_.get_stats(); }
 
-size_t transfer_tracer::get_trace_size() const { return collector_.get_trace_size(); }
-
-void transfer_tracer::export_report() const {
-  if (config_.output_file.empty()) {
-    log_.inf("skipping export; no output file specified");
-    return;
-  }
-
-  log_.inf("exporting transfer trace report", redlog::field("path", config_.output_file));
-
-  try {
-    w1xfer_report report = collector_.build_report();
-
-    std::ofstream file(config_.output_file);
-    if (!file.is_open()) {
-      log_.err("failed to open output file", redlog::field("path", config_.output_file));
-      return;
-    }
-
-    std::string json = JS::serializeStruct(report);
-    file << json;
-    file.close();
-
-    log_.inf(
-        "transfer trace report exported successfully", redlog::field("total_calls", report.stats.total_calls),
-        redlog::field("total_returns", report.stats.total_returns),
-        redlog::field("unique_call_targets", report.stats.unique_call_targets),
-        redlog::field("max_call_depth", report.stats.max_call_depth),
-        redlog::field("trace_entries", report.trace.size())
-    );
-
-  } catch (const std::exception& e) {
-    log_.err("failed to export report", redlog::field("error", e.what()));
-  }
-}
+// removed get_trace_size and export_report - data now streams directly
 
 } // namespace w1xfer

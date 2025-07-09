@@ -27,8 +27,6 @@ public:
 
   // statistics access
   const transfer_stats& get_stats() const;
-  size_t get_trace_size() const;
-  void export_report() const;
 
 private:
   transfer_config config_;

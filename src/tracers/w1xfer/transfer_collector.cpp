@@ -2,20 +2,24 @@
 
 #include <algorithm>
 #include <chrono>
-#include <unordered_set>
+#include <sstream>
 
 namespace w1xfer {
 
 transfer_collector::transfer_collector(
-    uint64_t max_entries, bool log_registers, bool log_stack_info, bool log_call_targets, bool analyze_apis,
-    bool collect_trace
+    const std::string& output_file, bool log_registers, bool log_stack_info, bool log_call_targets, bool analyze_apis
 )
-    : max_entries_(max_entries), instruction_count_(0), log_registers_(log_registers), log_stack_info_(log_stack_info),
-      log_call_targets_(log_call_targets), analyze_apis_(analyze_apis), collect_trace_(collect_trace),
-      trace_overflow_(false), modules_initialized_(false) {
+    : instruction_count_(0), log_registers_(log_registers), log_stack_info_(log_stack_info),
+      log_call_targets_(log_call_targets), analyze_apis_(analyze_apis), modules_initialized_(false),
+      metadata_written_(false) {
 
-  if (collect_trace_) {
-    trace_.reserve(std::min(max_entries_, static_cast<uint64_t>(10000)));
+  // initialize output if file specified
+  if (!output_file.empty()) {
+    jsonl_writer_ = std::make_unique<w1::util::jsonl_writer>(output_file);
+    if (!jsonl_writer_->is_open()) {
+      log_.err("failed to open output file", redlog::field("path", output_file));
+      jsonl_writer_.reset();
+    }
   }
 
   // initialize stats
@@ -48,11 +52,16 @@ void transfer_collector::record_call(
   stats_.total_calls++;
   update_call_depth(transfer_type::CALL);
 
-  // check if we should skip trace collection (but still do analysis)
-  bool should_collect = should_collect_trace();
-  if (collect_trace_ && !should_collect) {
-    trace_overflow_ = true;
+  // track unique targets
+  unique_call_targets_.insert(target_addr);
+  stats_.unique_call_targets = unique_call_targets_.size();
+
+  // skip if no output configured
+  if (!jsonl_writer_) {
+    return;
   }
+
+  ensure_metadata_written();
 
   transfer_entry entry = create_base_entry(transfer_type::CALL, source_addr, target_addr);
   entry.instruction_count = instruction_count_++;
@@ -79,10 +88,7 @@ void transfer_collector::record_call(
     }
   }
 
-  // only add to trace if collection is enabled and we haven't overflowed
-  if (should_collect) {
-    trace_.push_back(entry);
-  }
+  write_event(entry);
 }
 
 void transfer_collector::record_return(
@@ -92,11 +98,16 @@ void transfer_collector::record_return(
   stats_.total_returns++;
   update_call_depth(transfer_type::RETURN);
 
-  // check if we should skip trace collection (but still do analysis)
-  bool should_collect = should_collect_trace();
-  if (collect_trace_ && !should_collect) {
-    trace_overflow_ = true;
+  // track unique sources
+  unique_return_sources_.insert(source_addr);
+  stats_.unique_return_sources = unique_return_sources_.size();
+
+  // skip if no output configured
+  if (!jsonl_writer_) {
+    return;
   }
+
+  ensure_metadata_written();
 
   transfer_entry entry = create_base_entry(transfer_type::RETURN, source_addr, target_addr);
   entry.instruction_count = instruction_count_++;
@@ -123,36 +134,10 @@ void transfer_collector::record_return(
     }
   }
 
-  // only add to trace if collection is enabled and we haven't overflowed
-  if (should_collect) {
-    trace_.push_back(entry);
-  }
+  write_event(entry);
 }
 
-w1xfer_report transfer_collector::build_report() const {
-  w1xfer_report report;
-  report.stats = stats_;
-  if (collect_trace_) {
-    report.trace = trace_;
-  }
-
-  // calculate unique targets and sources
-  std::unordered_set<uint64_t> unique_call_targets;
-  std::unordered_set<uint64_t> unique_return_sources;
-
-  for (const auto& entry : trace_) {
-    if (entry.type == transfer_type::CALL) {
-      unique_call_targets.insert(entry.target_address);
-    } else {
-      unique_return_sources.insert(entry.source_address);
-    }
-  }
-
-  report.stats.unique_call_targets = unique_call_targets.size();
-  report.stats.unique_return_sources = unique_return_sources.size();
-
-  return report;
-}
+// removed build_report - we now stream directly
 
 // helper function to convert our utility register_state to w1xfer register_state for JSON
 static register_state convert_register_state(const w1::util::register_state& util_regs) {
@@ -258,10 +243,6 @@ symbol_info transfer_collector::enrich_symbol(uint64_t address) const {
   return info;
 }
 
-bool transfer_collector::should_collect_trace() const {
-  return collect_trace_ && !trace_overflow_ && trace_.size() < max_entries_;
-}
-
 transfer_entry transfer_collector::create_base_entry(
     transfer_type type, uint64_t source_addr, uint64_t target_addr
 ) const {
@@ -335,6 +316,69 @@ void transfer_collector::on_api_event(const w1::abi::api_event& event, transfer_
   } else {
     entry.api_info.has_return_value = false;
   }
+}
+
+// removed enable_streaming - output is now configured in constructor
+
+void transfer_collector::ensure_metadata_written() {
+  if (!jsonl_writer_ || metadata_written_) {
+    return;
+  }
+
+  // ensure modules are initialized
+  if (!modules_initialized_) {
+    initialize_module_tracking();
+  }
+
+  write_metadata();
+  metadata_written_ = true;
+}
+
+void transfer_collector::write_metadata() {
+  if (!jsonl_writer_ || !jsonl_writer_->is_open()) {
+    return;
+  }
+
+  // create metadata object
+  std::stringstream json;
+  json << "{\"type\":\"metadata\",\"version\":1,\"tracer\":\"w1xfer\",\"timestamp\":" << get_timestamp();
+
+  // add module information
+  json << ",\"modules\":[";
+
+  bool first = true;
+  size_t module_id = 0;
+  index_.visit_all([&](const w1::util::module_info& mod) {
+    if (!first) {
+      json << ",";
+    }
+    first = false;
+
+    json << "{\"id\":" << module_id++ << ",\"name\":\"" << mod.name << "\""
+         << ",\"path\":\"" << mod.path << "\""
+         << ",\"base\":" << mod.base_address << ",\"size\":" << mod.size << ",\"type\":\""
+         << (mod.type == w1::util::module_type::MAIN_EXECUTABLE ? "main" : "library") << "\""
+         << ",\"is_system\":" << (mod.is_system_library ? "true" : "false") << "}";
+  });
+
+  json << "]}";
+
+  jsonl_writer_->write_line(json.str());
+}
+
+void transfer_collector::write_event(const transfer_entry& entry) {
+  if (!jsonl_writer_ || !jsonl_writer_->is_open()) {
+    return;
+  }
+
+  // serialize the entry to json with compact formatting
+  std::string json = JS::serializeStruct(entry, JS::SerializerOptions(JS::SerializerOptions::Compact));
+
+  // wrap in event envelope
+  std::stringstream wrapped;
+  wrapped << "{\"type\":\"event\",\"timestamp\":" << get_timestamp() << ",\"data\":" << json << "}";
+
+  jsonl_writer_->write_line(wrapped.str());
 }
 
 } // namespace w1xfer
