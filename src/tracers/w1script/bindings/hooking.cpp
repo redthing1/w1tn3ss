@@ -52,8 +52,6 @@ void setup_hooking(sol::state& lua, sol::table& w1_module, std::shared_ptr<w1::h
           return sol::nullopt;
         }
 
-        auto logger = redlog::get_logger("w1.script_bindings");
-        logger.trc("set address hook", redlog::field("id", id), redlog::field("address", "0x%lx", address));
         return id;
       }
   );
@@ -102,11 +100,6 @@ void setup_hooking(sol::state& lua, sol::table& w1_module, std::shared_ptr<w1::h
           return sol::nullopt;
         }
 
-        auto logger = redlog::get_logger("w1.script_bindings");
-        logger.trc(
-            "set module hook", redlog::field("id", id), redlog::field("module", module_name),
-            redlog::field("offset", "0x%lx", offset)
-        );
         return id;
       }
   );
@@ -155,11 +148,6 @@ void setup_hooking(sol::state& lua, sol::table& w1_module, std::shared_ptr<w1::h
           return sol::nullopt;
         }
 
-        auto logger = redlog::get_logger("w1.script_bindings");
-        logger.trc(
-            "set range hook", redlog::field("id", id), redlog::field("start", "0x%lx", start),
-            redlog::field("end", "0x%lx", end)
-        );
         return id;
       }
   );
@@ -167,10 +155,11 @@ void setup_hooking(sol::state& lua, sol::table& w1_module, std::shared_ptr<w1::h
   // remove specific hook
   w1_module.set_function("remove_hook", [hook_mgr, &logger](uint32_t hook_id) -> bool {
     bool result = hook_mgr->remove_hook(hook_id);
+    auto logger = redlog::get_logger("w1.script_bindings");
     if (result) {
       logger.dbg("removed hook", redlog::field("id", hook_id));
     } else {
-      logger.warn("failed to remove hook", redlog::field("id", hook_id));
+      logger.wrn("failed to remove hook", redlog::field("id", hook_id));
     }
     return result;
   });
