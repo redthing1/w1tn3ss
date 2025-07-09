@@ -27,7 +27,7 @@ uint32_t hook_manager::hook_addr(QBDI::rword address, hook_handler handler) {
   }
 
   hooks_[hook_id] = std::move(info);
-  log_.dbg("registered address hook", redlog::field("id", hook_id), redlog::field("address", "0x%lx", address));
+  log_.vrb("registered address hook", redlog::field("id", hook_id), redlog::field("address", "0x%lx", address));
 
   return hook_id;
 }
@@ -55,7 +55,7 @@ uint32_t hook_manager::hook_module(const std::string& module_name, QBDI::rword o
     return 0;
   }
 
-  log_.dbg(
+  log_.trc(
       "hooking module+offset", redlog::field("module", module_name), redlog::field("offset", "0x%lx", offset),
       redlog::field("address", "0x%lx", target_address)
   );
@@ -90,7 +90,7 @@ uint32_t hook_manager::hook_range(QBDI::rword start, QBDI::rword end, hook_handl
   }
 
   hooks_[hook_id] = std::move(info);
-  log_.dbg(
+  log_.vrb(
       "registered range hook", redlog::field("id", hook_id), redlog::field("start", "0x%lx", start),
       redlog::field("end", "0x%lx", end)
   );
