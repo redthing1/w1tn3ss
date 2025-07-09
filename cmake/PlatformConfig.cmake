@@ -49,13 +49,6 @@ function(detect_architecture)
         endif()
         message(STATUS "User-specified architecture: ${WITNESS_ARCH}")
     endif()
-
-    # configure windows 32-bit builds
-    if(WIN32 AND WITNESS_ARCH STREQUAL "x86")
-        set(CMAKE_GENERATOR_PLATFORM "Win32" CACHE STRING "Platform for 32-bit builds" FORCE)
-        set(CMAKE_SIZEOF_VOID_P 4)
-        message(STATUS "Configured for Windows 32-bit build")
-    endif()
     
     message(STATUS "WITNESS Architecture: ${WITNESS_ARCH}")
     message(STATUS "QBDI Architecture: ${QBDI_ARCH}")
