@@ -38,7 +38,7 @@ uint32_t hook_manager::hook_module(const std::string& module_name, QBDI::rword o
   auto modules = scanner.scan_executable_modules();
   util::module_range_index module_index(std::move(modules));
 
-  auto module = module_index.find_by_name(module_name);
+  auto module = find_module_with_extensions(module_index, module_name);
   if (!module) {
     log_.err("module not found", redlog::field("module", module_name));
     return 0;
@@ -142,6 +142,75 @@ QBDI::VMAction hook_manager::hook_callback_wrapper(
     log.err("exception in hook handler", redlog::field("error", e.what()));
     return QBDI::VMAction::CONTINUE;
   }
+}
+
+const w1::util::module_info* hook_manager::find_module_with_extensions(
+    const w1::util::module_range_index& module_index, const std::string& module_name
+) const {
+  // first try exact match
+  auto module = module_index.find_by_name(module_name);
+  if (module) {
+    return module;
+  }
+
+  // if name already contains a dot, don't try extensions
+  if (module_name.find('.') != std::string::npos) {
+    return nullptr;
+  }
+
+  log_.dbg(
+      "module not found with exact name, trying platform-specific extensions", redlog::field("module", module_name)
+  );
+
+  // try platform-specific extensions
+  std::vector<std::string> extensions;
+
+#ifdef _WIN32
+  extensions = {".exe", ".dll"};
+#elif defined(__linux__)
+  extensions = {".so"};
+#elif defined(__APPLE__)
+  extensions = {".dylib"};
+#endif
+
+  // try base extensions first
+  for (const auto& ext : extensions) {
+    module = module_index.find_by_name(module_name + ext);
+    if (module) {
+      log_.dbg(
+          "module found with extension", redlog::field("requested", module_name), redlog::field("found", module->name)
+      );
+      return module;
+    }
+  }
+
+  // for shared libraries, try to find versioned extensions by enumerating all modules
+  if (!extensions.empty()) {
+    std::string base_ext = extensions[0]; // .so or .dylib
+
+    // enumerate all modules and find ones that start with our name + base extension
+    module_index.visit_all([&](const w1::util::module_info& mod) {
+      if (module) {
+        return; // already found
+      }
+
+      std::string prefix = module_name + base_ext;
+      if (mod.name.size() > prefix.size() && mod.name.substr(0, prefix.size()) == prefix) {
+
+        // check if the remaining part looks like a version (starts with . followed by digits)
+        std::string suffix = mod.name.substr(prefix.size());
+        if (suffix.size() >= 2 && suffix[0] == '.' && std::isdigit(suffix[1])) {
+          log_.dbg(
+              "module found with versioned extension", redlog::field("requested", module_name),
+              redlog::field("found", mod.name)
+          );
+          module = &mod;
+        }
+      }
+    });
+  }
+
+  return module;
 }
 
 } // namespace w1::hooking

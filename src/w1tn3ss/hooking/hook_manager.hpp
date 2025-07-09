@@ -8,6 +8,11 @@
 #include <string>
 #include <redlog.hpp>
 
+namespace w1::util {
+class module_range_index;
+struct module_info;
+}
+
 namespace w1::hooking {
 
 // hook handler type - receives raw QBDI objects
@@ -40,6 +45,11 @@ private:
   uint32_t next_hook_id_ = 1;
   std::unordered_map<uint32_t, hook_info> hooks_;
   redlog::logger log_{"w1.hook_manager"};
+
+  // helper methods
+  const w1::util::module_info* find_module_with_extensions(
+      const w1::util::module_range_index& module_index, const std::string& module_name
+  ) const;
 
   // QBDI callback wrapper
   static QBDI::VMAction hook_callback_wrapper(
