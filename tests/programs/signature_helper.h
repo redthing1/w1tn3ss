@@ -21,6 +21,7 @@
  * that can be used to locate functions in memory.
  *
  * Supported Platforms:
+ * - MSVC x86
  * - MSVC x64
  * - MSVC ARM64
  * - Clang x64
@@ -64,75 +65,99 @@
  * to work with all optimization levels or future compiler versions. Always test
  * thoroughly with your specific build configuration.
  */
-#if defined(_MSC_VER) && defined(_M_X64)
+#if defined(_MSC_VER) && defined(_M_IX86)
+// MSVC for x86 (32-bit)
+#define ASM_SIGNATURE_HELPER()                                 \
+  do                                                           \
+  {                                                            \
+    volatile uint32_t dummy1_low = 0xCAFEBABE;                 \
+    volatile uint32_t dummy1_high = 0xDEADBEEF;                \
+    volatile uint32_t dummy2_low = 0xDEADBEEF;                 \
+    volatile uint32_t dummy2_high = 0xCAFEBABE;                \
+    volatile uint32_t result_low, result_high;                 \
+    result_low = dummy1_low ^ dummy2_low;                      \
+    result_high = dummy1_high ^ dummy2_high;                   \
+    dummy1_low = result_low;                                   \
+    dummy1_high = result_high;                                 \
+    _ReadWriteBarrier();                                       \
+    (void)dummy1_low; /* Prevent 'unused variable' warnings */ \
+    (void)dummy1_high;                                         \
+    (void)dummy2_low;                                          \
+    (void)dummy2_high;                                         \
+  } while (0)
+#elif defined(_MSC_VER) && defined(_M_X64)
 // MSVC for x64
-#define ASM_SIGNATURE_HELPER()                                                  \
-    do {                                                                        \
-        volatile uint64_t dummy1 = 0xDEADBEEFCAFEBABE;                          \
-        volatile uint64_t dummy2 = 0xCAFEBABEDEADBEEF;                          \
-        volatile uint64_t result;                                               \
-        result = dummy1 ^ dummy2;                                               \
-        dummy1 = result;                                                        \
-        _ReadWriteBarrier();                                                    \
-        _mm_mfence();                                                           \
-        (void)dummy1; /* Prevent 'unused variable' warnings */                  \
-        (void)dummy2;                                                           \
-    } while (0)
+#define ASM_SIGNATURE_HELPER()                             \
+  do                                                       \
+  {                                                        \
+    volatile uint64_t dummy1 = 0xDEADBEEFCAFEBABE;         \
+    volatile uint64_t dummy2 = 0xCAFEBABEDEADBEEF;         \
+    volatile uint64_t result;                              \
+    result = dummy1 ^ dummy2;                              \
+    dummy1 = result;                                       \
+    _ReadWriteBarrier();                                   \
+    _mm_mfence();                                          \
+    (void)dummy1; /* Prevent 'unused variable' warnings */ \
+    (void)dummy2;                                          \
+  } while (0)
 #elif defined(_MSC_VER) && defined(_M_ARM64)
 // MSVC for ARM64
 #define ASM_SIGNATURE_HELPER()                                                  \
-    do {                                                                        \
-        volatile uint64_t dummy1 = 0xDEADBEEFCAFEBABE;                          \
-        volatile uint64_t dummy2 = 0xCAFEBABEDEADBEEF;                          \
-        volatile uint64_t result;                                               \
-        result = dummy1 ^ dummy2;                                               \
-        dummy1 = result;                                                        \
-        __dmb(_ARM64_BARRIER_ISH);  /* Data Memory Barrier */                   \
-        __iso_volatile_load64(&dummy1);  /* Volatile read to prevent optimization */ \
-        (void)dummy2;                                                           \
-    } while (0)
+  do                                                                            \
+  {                                                                             \
+    volatile uint64_t dummy1 = 0xDEADBEEFCAFEBABE;                              \
+    volatile uint64_t dummy2 = 0xCAFEBABEDEADBEEF;                              \
+    volatile uint64_t result;                                                   \
+    result = dummy1 ^ dummy2;                                                   \
+    dummy1 = result;                                                            \
+    __dmb(_ARM64_BARRIER_ISH);      /* Data Memory Barrier */                   \
+    __iso_volatile_load64(&dummy1); /* Volatile read to prevent optimization */ \
+    (void)dummy2;                                                               \
+  } while (0)
 #elif defined(__clang__)
 #if defined(__x86_64__)
 // Clang for x64
-#define ASM_SIGNATURE_HELPER()                                                                                         \
-  do {                                                                                                                 \
-    uint64_t dummy;                                                                                                    \
-    __asm__ volatile("nop\n\t"                                                                                         \
-                     "movabs $0xDEADBEEFCAFEBABE, %%rax\n\t"                                                           \
-                     "movabs $0xCAFEBABEDEADBEEF, %%rbx\n\t"                                                           \
-                     "xorq %%rbx, %%rax\n\t"                                                                           \
-                     "movq %%rax, %0\n\t"                                                                              \
-                     "nop\n\t"                                                                                         \
-                     : "=r"(dummy)                                                                                     \
-                     :                                                                                                 \
-                     : "rax", "rbx", "memory");                                                                        \
-    __asm__ volatile("" : : : "memory");                                                                               \
-    (void) dummy;                                                                                                      \
+#define ASM_SIGNATURE_HELPER()                               \
+  do                                                         \
+  {                                                          \
+    uint64_t dummy;                                          \
+    __asm__ volatile("nop\n\t"                               \
+                     "movabs $0xDEADBEEFCAFEBABE, %%rax\n\t" \
+                     "movabs $0xCAFEBABEDEADBEEF, %%rbx\n\t" \
+                     "xorq %%rbx, %%rax\n\t"                 \
+                     "movq %%rax, %0\n\t"                    \
+                     "nop\n\t"                               \
+                     : "=r"(dummy)                           \
+                     :                                       \
+                     : "rax", "rbx", "memory");              \
+    __asm__ volatile("" : : : "memory");                     \
+    (void)dummy;                                             \
   } while (0)
 #elif defined(__aarch64__)
 // Clang for ARM64
-#define ASM_SIGNATURE_HELPER()                                                                                         \
-  do {                                                                                                                 \
-    uint64_t dummy;                                                                                                    \
-    __asm__ volatile("nop\n\t"                                                                                         \
-                     "mov x0, #0xDEAD\n\t"                                                                             \
-                     "movk x0, #0xBEEF, lsl #16\n\t"                                                                   \
-                     "movk x0, #0xCAFE, lsl #32\n\t"                                                                   \
-                     "movk x0, #0xBABE, lsl #48\n\t"                                                                   \
-                     "mov x1, #0xCAFE\n\t"                                                                             \
-                     "movk x1, #0xBABE, lsl #16\n\t"                                                                   \
-                     "movk x1, #0xDEAD, lsl #32\n\t"                                                                   \
-                     "movk x1, #0xBEEF, lsl #48\n\t"                                                                   \
-                     "eor x0, x0, x1\n\t"                                                                              \
-                     "str x0, [sp, #-16]!\n\t"                                                                         \
-                     "ldr x0, [sp], #16\n\t"                                                                           \
-                     "mov %0, x0\n\t"                                                                                  \
-                     "nop\n\t"                                                                                         \
-                     : "=r"(dummy)                                                                                     \
-                     :                                                                                                 \
-                     : "x0", "x1", "memory");                                                                          \
-    __asm__ volatile("" : : : "memory");                                                                               \
-    (void) dummy;                                                                                                      \
+#define ASM_SIGNATURE_HELPER()                       \
+  do                                                 \
+  {                                                  \
+    uint64_t dummy;                                  \
+    __asm__ volatile("nop\n\t"                       \
+                     "mov x0, #0xDEAD\n\t"           \
+                     "movk x0, #0xBEEF, lsl #16\n\t" \
+                     "movk x0, #0xCAFE, lsl #32\n\t" \
+                     "movk x0, #0xBABE, lsl #48\n\t" \
+                     "mov x1, #0xCAFE\n\t"           \
+                     "movk x1, #0xBABE, lsl #16\n\t" \
+                     "movk x1, #0xDEAD, lsl #32\n\t" \
+                     "movk x1, #0xBEEF, lsl #48\n\t" \
+                     "eor x0, x0, x1\n\t"            \
+                     "str x0, [sp, #-16]!\n\t"       \
+                     "ldr x0, [sp], #16\n\t"         \
+                     "mov %0, x0\n\t"                \
+                     "nop\n\t"                       \
+                     : "=r"(dummy)                   \
+                     :                               \
+                     : "x0", "x1", "memory");        \
+    __asm__ volatile("" : : : "memory");             \
+    (void)dummy;                                     \
   } while (0)
 #else
 #error "Unsupported architecture for ASM_SIGNATURE_HELPER"
@@ -140,45 +165,47 @@
 #elif defined(__GNUC__)
 #if defined(__x86_64__)
 // GCC for x64
-#define ASM_SIGNATURE_HELPER()                                                                                         \
-  do {                                                                                                                 \
-    uint64_t dummy;                                                                                                    \
-    __asm__ volatile("nop\n\t"                                                                                         \
-                     "movabs $0xDEADBEEFCAFEBABE, %%rax\n\t"                                                           \
-                     "movabs $0xCAFEBABEDEADBEEF, %%rbx\n\t"                                                           \
-                     "xorq %%rbx, %%rax\n\t"                                                                           \
-                     "movq %%rax, %0\n\t"                                                                              \
-                     "nop\n\t"                                                                                         \
-                     : "=r"(dummy)                                                                                     \
-                     :                                                                                                 \
-                     : "rax", "rbx", "memory");                                                                        \
-    __asm__ volatile("" : : : "memory");                                                                               \
-    (void) dummy;                                                                                                      \
+#define ASM_SIGNATURE_HELPER()                               \
+  do                                                         \
+  {                                                          \
+    uint64_t dummy;                                          \
+    __asm__ volatile("nop\n\t"                               \
+                     "movabs $0xDEADBEEFCAFEBABE, %%rax\n\t" \
+                     "movabs $0xCAFEBABEDEADBEEF, %%rbx\n\t" \
+                     "xorq %%rbx, %%rax\n\t"                 \
+                     "movq %%rax, %0\n\t"                    \
+                     "nop\n\t"                               \
+                     : "=r"(dummy)                           \
+                     :                                       \
+                     : "rax", "rbx", "memory");              \
+    __asm__ volatile("" : : : "memory");                     \
+    (void)dummy;                                             \
   } while (0)
 #elif defined(__aarch64__)
 // GCC for ARM64
-#define ASM_SIGNATURE_HELPER()                                                                                         \
-  do {                                                                                                                 \
-    uint64_t dummy;                                                                                                    \
-    __asm__ volatile("nop\n\t"                                                                                         \
-                     "mov x0, #0xDEAD\n\t"                                                                             \
-                     "movk x0, #0xBEEF, lsl #16\n\t"                                                                   \
-                     "movk x0, #0xCAFE, lsl #32\n\t"                                                                   \
-                     "movk x0, #0xBABE, lsl #48\n\t"                                                                   \
-                     "mov x1, #0xCAFE\n\t"                                                                             \
-                     "movk x1, #0xBABE, lsl #16\n\t"                                                                   \
-                     "movk x1, #0xDEAD, lsl #32\n\t"                                                                   \
-                     "movk x1, #0xBEEF, lsl #48\n\t"                                                                   \
-                     "eor x0, x0, x1\n\t"                                                                              \
-                     "str x0, [sp, #-16]!\n\t"                                                                         \
-                     "ldr x0, [sp], #16\n\t"                                                                           \
-                     "mov %0, x0\n\t"                                                                                  \
-                     "nop\n\t"                                                                                         \
-                     : "=r"(dummy)                                                                                     \
-                     :                                                                                                 \
-                     : "x0", "x1", "memory");                                                                          \
-    __asm__ volatile("" : : : "memory");                                                                               \
-    (void) dummy;                                                                                                      \
+#define ASM_SIGNATURE_HELPER()                       \
+  do                                                 \
+  {                                                  \
+    uint64_t dummy;                                  \
+    __asm__ volatile("nop\n\t"                       \
+                     "mov x0, #0xDEAD\n\t"           \
+                     "movk x0, #0xBEEF, lsl #16\n\t" \
+                     "movk x0, #0xCAFE, lsl #32\n\t" \
+                     "movk x0, #0xBABE, lsl #48\n\t" \
+                     "mov x1, #0xCAFE\n\t"           \
+                     "movk x1, #0xBABE, lsl #16\n\t" \
+                     "movk x1, #0xDEAD, lsl #32\n\t" \
+                     "movk x1, #0xBEEF, lsl #48\n\t" \
+                     "eor x0, x0, x1\n\t"            \
+                     "str x0, [sp, #-16]!\n\t"       \
+                     "ldr x0, [sp], #16\n\t"         \
+                     "mov %0, x0\n\t"                \
+                     "nop\n\t"                       \
+                     : "=r"(dummy)                   \
+                     :                               \
+                     : "x0", "x1", "memory");        \
+    __asm__ volatile("" : : : "memory");             \
+    (void)dummy;                                     \
   } while (0)
 #else
 #error "Unsupported architecture for ASM_SIGNATURE_HELPER"
