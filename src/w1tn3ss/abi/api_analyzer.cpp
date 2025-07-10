@@ -2,6 +2,7 @@
 #include <redlog.hpp>
 #include <sstream>
 #include <iomanip>
+#include <w1tn3ss/util/value_formatter.hpp>
 
 namespace w1::abi {
 
@@ -118,7 +119,11 @@ public:
             if (preview.length() > 50) {
               preview = preview.substr(0, 47) + "...";
             }
-            arg_summary << "\"" << preview << "\"";
+            // use format_string which handles escaping internally
+            util::value_formatter::format_options opts;
+            opts.quote_strings = false; // we add quotes manually
+            opts.max_string_length = 50;
+            arg_summary << "\"" << util::value_formatter::format_string(preview, opts) << "\"";
           } else if (arg.is_null_pointer) {
             arg_summary << "NULL";
           } else if (arg.param_type == param_info::type::POINTER) {
@@ -265,7 +270,9 @@ public:
 
           // format return value based on type for display
           if (!result.return_value.string_preview.empty()) {
-            return_str = "\"" + result.return_value.string_preview + "\"";
+            util::value_formatter::format_options opts;
+            opts.quote_strings = false; // we add quotes manually
+            return_str = "\"" + util::value_formatter::format_string(result.return_value.string_preview, opts) + "\"";
           } else if (result.return_value.is_null_pointer) {
             return_str = "NULL";
           } else if (result.return_value.param_type == param_info::type::BOOLEAN) {
@@ -419,7 +426,9 @@ private:
         switch (arg.param_type) {
         case param_info::type::STRING:
           if (!arg.string_preview.empty()) {
-            ss << "\"" << arg.string_preview << "\"";
+            util::value_formatter::format_options opts;
+            opts.quote_strings = false; // we add quotes manually
+            ss << "\"" << util::value_formatter::format_string(arg.string_preview, opts) << "\"";
           } else if (arg.is_null_pointer) {
             ss << "NULL";
           } else {
@@ -429,7 +438,9 @@ private:
 
         case param_info::type::PATH:
           if (!arg.string_preview.empty()) {
-            ss << "\"" << arg.string_preview << "\"";
+            util::value_formatter::format_options opts;
+            opts.quote_strings = false; // we add quotes manually
+            ss << "\"" << util::value_formatter::format_string(arg.string_preview, opts) << "\"";
           } else if (arg.is_null_pointer) {
             ss << "NULL";
           } else {

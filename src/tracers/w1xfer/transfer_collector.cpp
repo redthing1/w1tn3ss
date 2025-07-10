@@ -377,9 +377,18 @@ void transfer_collector::write_event(const transfer_entry& entry) {
 
   // conditionally include registers if enabled and present
   if (log_registers_ && !entry.registers.registers.empty()) {
-    append_field(
-        "\"registers\":" + JS::serializeStruct(entry.registers, JS::SerializerOptions(JS::SerializerOptions::Compact))
-    );
+    std::stringstream reg_json;
+    reg_json << "{";
+    bool first_reg = true;
+    for (const auto& [name, value] : entry.registers.registers) {
+      if (!first_reg) {
+        reg_json << ",";
+      }
+      reg_json << "\"" << name << "\":" << value;
+      first_reg = false;
+    }
+    reg_json << "}";
+    append_field("\"registers\":" + reg_json.str());
   }
 
   // conditionally include stack info if enabled
@@ -400,24 +409,62 @@ void transfer_collector::write_event(const transfer_entry& entry) {
 
     // include symbol info only if meaningful data exists
     if (!entry.source_symbol.symbol_name.empty()) {
-      append_field(
-          "\"source_symbol\":" +
-          JS::serializeStruct(entry.source_symbol, JS::SerializerOptions(JS::SerializerOptions::Compact))
-      );
+      std::stringstream sym_json;
+      sym_json << "{\"symbol_name\":\""
+               << w1::util::value_formatter::escape_json_string(entry.source_symbol.symbol_name)
+               << "\",\"symbol_offset\":" << entry.source_symbol.symbol_offset
+               << ",\"module_offset\":" << entry.source_symbol.module_offset << "}";
+      append_field("\"source_symbol\":" + sym_json.str());
     }
     if (!entry.target_symbol.symbol_name.empty()) {
-      append_field(
-          "\"target_symbol\":" +
-          JS::serializeStruct(entry.target_symbol, JS::SerializerOptions(JS::SerializerOptions::Compact))
-      );
+      std::stringstream sym_json;
+      sym_json << "{\"symbol_name\":\""
+               << w1::util::value_formatter::escape_json_string(entry.target_symbol.symbol_name)
+               << "\",\"symbol_offset\":" << entry.target_symbol.symbol_offset
+               << ",\"module_offset\":" << entry.target_symbol.module_offset << "}";
+      append_field("\"target_symbol\":" + sym_json.str());
     }
   }
 
   // conditionally include API analysis if enabled and has meaningful data
   if (analyze_apis_ && entry.api_info.analysis_complete && !entry.api_info.api_category.empty()) {
-    append_field(
-        "\"api_info\":" + JS::serializeStruct(entry.api_info, JS::SerializerOptions(JS::SerializerOptions::Compact))
-    );
+    std::stringstream api_json;
+    api_json << "{\"api_category\":\"" << entry.api_info.api_category << "\"";
+
+    // include arguments if present
+    if (!entry.api_info.arguments.empty()) {
+      api_json << ",\"arguments\":[";
+      for (size_t i = 0; i < entry.api_info.arguments.size(); ++i) {
+        if (i > 0) {
+          api_json << ",";
+        }
+        const auto& arg = entry.api_info.arguments[i];
+        api_json << "{\"raw_value\":" << arg.raw_value << ",\"param_name\":\""
+                 << w1::util::value_formatter::escape_json_string(arg.param_name) << "\""
+                 << ",\"param_type\":\"" << arg.param_type << "\""
+                 << ",\"interpreted_value\":\"" << w1::util::value_formatter::escape_json_string(arg.interpreted_value)
+                 << "\""
+                 << ",\"is_pointer\":" << (arg.is_pointer ? "true" : "false") << "}";
+      }
+      api_json << "]";
+    }
+
+    // include return value if present
+    if (entry.api_info.has_return_value) {
+      api_json << ",\"return_value\":{\"raw_value\":" << entry.api_info.return_value.raw_value << ",\"param_type\":\""
+               << entry.api_info.return_value.param_type << "\""
+               << ",\"interpreted_value\":\""
+               << w1::util::value_formatter::escape_json_string(entry.api_info.return_value.interpreted_value) << "\""
+               << ",\"is_pointer\":" << (entry.api_info.return_value.is_pointer ? "true" : "false")
+               << ",\"is_null\":" << (entry.api_info.return_value.is_null ? "true" : "false") << "}";
+    }
+
+    api_json << ",\"formatted_call\":\"" << w1::util::value_formatter::escape_json_string(entry.api_info.formatted_call)
+             << "\""
+             << ",\"analysis_complete\":" << (entry.api_info.analysis_complete ? "true" : "false")
+             << ",\"has_return_value\":" << (entry.api_info.has_return_value ? "true" : "false") << "}";
+
+    append_field("\"api_info\":" + api_json.str());
   }
 
   json << "}}";
