@@ -23,9 +23,9 @@ function(configure_target_with_lua target_name)
     endif()
     
     if(TARGET ${target_name})
-        target_include_directories(${target_name} PRIVATE ${SOL2_DIR}/include)
+        target_include_directories(${target_name} PUBLIC ${SOL2_DIR}/include)
         target_link_libraries(${target_name} PRIVATE ${LUAJIT_LIBRARIES} luajit::header)
-        target_compile_definitions(${target_name} PRIVATE WITNESS_SCRIPT_ENABLED=1)
+        target_compile_definitions(${target_name} PUBLIC WITNESS_SCRIPT_ENABLED=1)
     endif()
 endfunction()
 
