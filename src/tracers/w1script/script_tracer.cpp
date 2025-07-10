@@ -6,7 +6,7 @@
 #include <w1tn3ss/util/module_scanner.hpp>
 #include <w1tn3ss/util/module_range_index.hpp>
 #include <w1tn3ss/util/register_access.hpp>
-#include <w1tn3ss/lief/symbol_resolver.hpp>
+#include <w1tn3ss/symbols/symbol_resolver.hpp>
 #include <w1tn3ss/hooking/hook_manager.hpp>
 #include <fstream>
 #include <stdexcept>
@@ -76,7 +76,7 @@ bool script_tracer::initialize(w1::tracer_engine<script_tracer>& engine) {
 
   // create symbol resolver if lief is enabled
 #ifdef WITNESS_LIEF_ENABLED
-  symbol_resolver_ = std::make_unique<w1::lief::symbol_resolver>();
+  symbol_resolver_ = std::make_unique<w1::symbols::symbol_resolver>();
   logger_.inf("symbol resolver created");
 #endif
 
@@ -364,7 +364,7 @@ QBDI::VMAction script_tracer::dispatch_vm_event_callback(
         // resolve symbol if we have a resolver
 #ifdef WITNESS_LIEF_ENABLED
         if (symbol_resolver_) {
-          if (auto sym_info = symbol_resolver_->resolve(ctx.target_address, *module_index_)) {
+          if (auto sym_info = symbol_resolver_->resolve_address(ctx.target_address, *module_index_)) {
             ctx.symbol_name = sym_info->name;
           }
         }
@@ -388,7 +388,7 @@ QBDI::VMAction script_tracer::dispatch_vm_event_callback(
         // resolve symbol if we have a resolver
 #ifdef WITNESS_LIEF_ENABLED
         if (symbol_resolver_) {
-          if (auto sym_info = symbol_resolver_->resolve(ctx.target_address, *module_index_)) {
+          if (auto sym_info = symbol_resolver_->resolve_address(ctx.target_address, *module_index_)) {
             ctx.symbol_name = sym_info->name;
           }
         }

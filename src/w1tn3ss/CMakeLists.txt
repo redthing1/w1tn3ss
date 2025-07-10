@@ -51,30 +51,34 @@ elseif(QBDI_ARCH STREQUAL "ARM")
     # )
 endif()
 
-# Always compile the unified symbol resolver (it has conditional logic)
+# Symbol resolution system
 target_sources(w1tn3ss PRIVATE
-    lief/symbol_resolver.cpp
+    symbols/symbol_resolver.cpp
 )
 
-# Add LIEF components when enabled
-if(WITNESS_LIEF)
+# Platform-specific symbol backends
+if(WIN32)
     target_sources(w1tn3ss PRIVATE
-        lief/lief_symbol_resolver.cpp
+        symbols/windows_symbol_backend.cpp
+        symbols/windows_path_resolver.cpp
+    )
+else()
+    target_sources(w1tn3ss PRIVATE
+        symbols/posix_symbol_backend.cpp
     )
     
-    # Add macOS-specific dyld resolver
     if(APPLE)
         target_sources(w1tn3ss PRIVATE
-            lief/macos_dyld_resolver.cpp
+            symbols/macos_dyld_resolver.cpp
         )
     endif()
-    
-    # Add Windows-specific system resolver
-    if(WIN32)
-        target_sources(w1tn3ss PRIVATE
-            lief/windows_system_resolver.cpp
-        )
-    endif()
+endif()
+
+# LIEF symbol backend when enabled
+if(WITNESS_LIEF)
+    target_sources(w1tn3ss PRIVATE
+        symbols/lief_symbol_backend.cpp
+    )
 endif()
 
 target_include_directories(w1tn3ss PUBLIC 

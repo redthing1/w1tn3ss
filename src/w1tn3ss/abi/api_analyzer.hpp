@@ -3,7 +3,7 @@
 #include "argument_extractor.hpp"
 #include "api_knowledge_db.hpp"
 #include "calling_convention_detector.hpp"
-#include "lief/symbol_resolver.hpp"
+#include "symbols/symbol_resolver.hpp"
 #include "util/safe_memory.hpp"
 #include "util/module_range_index.hpp"
 #include <QBDI.h>

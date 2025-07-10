@@ -7,12 +7,12 @@ symbol_enricher::symbol_enricher() {
 #ifdef WITNESS_LIEF_ENABLED
   log_.inf("creating unified symbol resolver with enhanced config");
 
-  w1::lief::symbol_resolver::config cfg;
+  w1::symbols::symbol_resolver::config cfg;
   cfg.max_cache_size = 100; // cache more binaries for transfer analysis
   cfg.prepopulate_exports = true;
   cfg.resolve_imports = true;
 
-  resolver_ = std::make_unique<w1::lief::symbol_resolver>(cfg);
+  resolver_ = std::make_unique<w1::symbols::symbol_resolver>(cfg);
 #else
   log_.wrn("lief support not enabled, symbol resolution will be limited");
 #endif
@@ -123,7 +123,7 @@ std::vector<std::optional<symbol_enricher::symbol_context>> symbol_enricher::enr
   }
 
   // use batch resolution for efficiency
-  auto symbols = resolver_->resolve_batch(addresses, *module_index_);
+  auto symbols = resolver_->resolve_addresses(addresses, *module_index_);
 
   std::vector<std::optional<symbol_context>> results;
   results.reserve(addresses.size());
@@ -183,7 +183,7 @@ symbol_enricher::cache_stats symbol_enricher::get_cache_stats() const {
 }
 
 symbol_enricher::symbol_context symbol_enricher::to_context(
-    uint64_t address, const w1::util::module_info& module, const w1::lief::symbol_info& symbol
+    uint64_t address, const w1::util::module_info& module, const w1::symbols::symbol_info& symbol
 ) const {
 
   symbol_context ctx;

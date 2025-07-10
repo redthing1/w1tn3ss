@@ -5,7 +5,7 @@
 #include <filesystem>
 #include <algorithm>
 
-namespace w1::lief {
+namespace w1::symbols {
 
 namespace fs = std::filesystem;
 
@@ -332,6 +332,20 @@ void macos_dyld_resolver::populate_library_cache() {
   log_.trc("dyld library cache populated", redlog::field("total_libraries", total_libraries));
 }
 
-} // namespace w1::lief
+std::optional<std::string> macos_dyld_resolver::resolve_library_path(const std::string& library_name) const {
+  return resolve_extracted_path(library_name);
+}
+
+std::vector<std::string> macos_dyld_resolver::get_system_directories() const {
+  std::vector<std::string> dirs;
+  if (!dump_dir_.empty()) {
+    dirs.push_back(dump_dir_);
+  }
+  return dirs;
+}
+
+bool macos_dyld_resolver::is_system_library(const std::string& path) const { return is_dyld_cached_library(path); }
+
+} // namespace w1::symbols
 
 #endif // __APPLE__

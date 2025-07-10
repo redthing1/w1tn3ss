@@ -13,7 +13,7 @@
 #include <redlog.hpp>
 
 namespace w1 {
-namespace lief {
+namespace symbols {
 class symbol_resolver;
 }
 namespace hooking {
@@ -48,7 +48,7 @@ private:
   std::unique_ptr<w1::util::module_range_index> module_index_;
 
   // symbol resolver for api analysis
-  std::unique_ptr<w1::lief::symbol_resolver> symbol_resolver_;
+  std::unique_ptr<w1::symbols::symbol_resolver> symbol_resolver_;
 
   // hook manager for dynamic hooking
   std::shared_ptr<w1::hooking::hook_manager> hook_manager_;

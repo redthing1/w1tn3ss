@@ -7,7 +7,7 @@
 #include <unordered_map>
 #include <mutex>
 #include <redlog.hpp>
-#include <w1tn3ss/lief/symbol_resolver.hpp>
+#include <w1tn3ss/symbols/symbol_resolver.hpp>
 #include <w1tn3ss/util/module_range_index.hpp>
 
 namespace w1xfer {
@@ -51,7 +51,7 @@ public:
   cache_stats get_cache_stats() const;
 
 private:
-  std::unique_ptr<w1::lief::symbol_resolver> resolver_;
+  std::unique_ptr<w1::symbols::symbol_resolver> resolver_;
   const w1::util::module_range_index* module_index_ = nullptr;
   redlog::logger log_ = redlog::get_logger("w1.symbol_enricher");
 
@@ -62,7 +62,7 @@ private:
 
   // convert internal symbol info to enriched context
   symbol_context to_context(
-      uint64_t address, const w1::util::module_info& module, const w1::lief::symbol_info& symbol
+      uint64_t address, const w1::util::module_info& module, const w1::symbols::symbol_info& symbol
   ) const;
 };
 

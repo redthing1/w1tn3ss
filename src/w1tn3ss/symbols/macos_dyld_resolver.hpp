@@ -2,18 +2,26 @@
 
 #ifdef __APPLE__
 
+#include "path_resolver.hpp"
 #include <string>
 #include <optional>
+#include <vector>
 #include <unordered_map>
 #include <mutex>
 #include <redlog.hpp>
 
-namespace w1::lief {
+namespace w1::symbols {
 
 // resolves system library paths to extracted dyld shared cache dump paths
-class macos_dyld_resolver {
+class macos_dyld_resolver : public path_resolver {
 public:
   macos_dyld_resolver();
+
+  // path_resolver interface
+  std::optional<std::string> resolve_library_path(const std::string& library_name) const override;
+  std::vector<std::string> get_system_directories() const override;
+  bool is_system_library(const std::string& path) const override;
+  std::string get_name() const override { return "macos_dyld"; }
 
   // resolve system library path to extracted dyld dump path
   // returns empty optional if resolution fails or not applicable
@@ -49,6 +57,6 @@ private:
   void populate_library_cache();
 };
 
-} // namespace w1::lief
+} // namespace w1::symbols
 
 #endif // __APPLE__

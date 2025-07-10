@@ -1,8 +1,9 @@
 #pragma once
 
 #include <string>
+#include <cstdint>
 
-namespace w1::lief {
+namespace w1::symbols {
 
 // cross-platform symbol information structure
 struct symbol_info {
@@ -11,8 +12,8 @@ struct symbol_info {
   uint64_t offset; // offset within module
   uint64_t size;   // symbol size
 
-  enum type { FUNCTION, OBJECT, UNKNOWN } symbol_type;
-  enum binding { LOCAL, GLOBAL, WEAK } symbol_binding;
+  enum type { FUNCTION, OBJECT, DEBUG, UNKNOWN } symbol_type = UNKNOWN;
+  enum binding { LOCAL, GLOBAL, WEAK, UNKNOWN_BINDING } symbol_binding = UNKNOWN_BINDING;
 
   std::string version; // symbol version (Linux)
   std::string section; // section name
@@ -21,4 +22,4 @@ struct symbol_info {
   bool is_imported;
 };
 
-} // namespace w1::lief
+} // namespace w1::symbols
