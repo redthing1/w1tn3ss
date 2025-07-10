@@ -164,9 +164,12 @@ int test_w1xfer(int verbose_level = 0) {
 
   w1xfer::transfer_config config;
   config.output_file = "test_w1xfer.jsonl";
+
+  // enable all features for comprehensive tracing
   config.log_registers = true;
   config.log_stack_info = true;
   config.log_call_targets = true;
+  config.analyze_apis = true;
   config.verbose = verbose_level;
 
   w1xfer::session session(config);
