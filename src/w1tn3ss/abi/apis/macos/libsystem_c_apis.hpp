@@ -128,7 +128,7 @@ static const std::vector<api_info> macos_libsystem_c_apis = {
      .return_value = {.name = "chars_written", .param_type = param_info::type::INTEGER},
      .description = "formatted output to string with size limit using va_list",
      .headers = {"stdio.h"}},
-    
+
     // file operations
     {.name = "_fopen",
      .module = "libsystem_c.dylib",
@@ -245,7 +245,7 @@ static const std::vector<api_info> macos_libsystem_c_apis = {
      .return_value = {.name = "void", .param_type = param_info::type::VOID},
      .description = "rewind file stream to beginning",
      .headers = {"stdio.h"}},
-    
+
     // input functions
     {.name = "_scanf",
      .module = "libsystem_c.dylib",
@@ -279,7 +279,7 @@ static const std::vector<api_info> macos_libsystem_c_apis = {
      .return_value = {.name = "items_assigned", .param_type = param_info::type::INTEGER},
      .description = "formatted input from stream",
      .headers = {"stdio.h"}},
-    
+
     // character i/o
     {.name = "_fgetc",
      .module = "libsystem_c.dylib",
@@ -365,7 +365,7 @@ static const std::vector<api_info> macos_libsystem_c_apis = {
      .return_value = {.name = "character", .param_type = param_info::type::INTEGER},
      .description = "write character to stdout",
      .headers = {"stdio.h"}},
-    
+
     // error handling
     {.name = "_perror",
      .module = "libsystem_c.dylib",
@@ -377,7 +377,7 @@ static const std::vector<api_info> macos_libsystem_c_apis = {
      .return_value = {.name = "void", .param_type = param_info::type::VOID},
      .description = "print error message",
      .headers = {"stdio.h"}},
-    
+
     // file management
     {.name = "_remove",
      .module = "libsystem_c.dylib",
@@ -640,7 +640,7 @@ static const std::vector<api_info> macos_libsystem_c_apis = {
      .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
      .description = "case-insensitive string comparison with length limit",
      .headers = {"strings.h"}},
-    
+
     // memory functions
     {.name = "_memcpy",
      .module = "libsystem_c.dylib",

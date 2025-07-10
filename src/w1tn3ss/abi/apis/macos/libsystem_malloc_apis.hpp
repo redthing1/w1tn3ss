@@ -130,7 +130,7 @@ static const std::vector<api_info> macos_libsystem_malloc_apis = {
      .return_value = {.name = "good_size", .param_type = param_info::type::SIZE},
      .description = "round up to efficient allocation size",
      .headers = {"malloc/malloc.h"}},
-    
+
     // memory zone management
     {.name = "_malloc_zone_malloc",
      .module = "libsystem_malloc.dylib",

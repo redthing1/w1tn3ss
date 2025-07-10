@@ -113,7 +113,9 @@ static const std::vector<api_info> macos_libsystem_kernel_apis = {
      .flags = static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE),
      .convention = MACOS_API_CONVENTION,
      .parameters =
-         {{.name = "oldfd", .param_type = param_info::type::FILE_DESCRIPTOR, .param_direction = param_info::direction::IN}},
+         {{.name = "oldfd",
+           .param_type = param_info::type::FILE_DESCRIPTOR,
+           .param_direction = param_info::direction::IN}},
      .return_value = {.name = "newfd", .param_type = param_info::type::FILE_DESCRIPTOR},
      .description = "duplicate file descriptor",
      .cleanup_api = "_close",
@@ -125,8 +127,12 @@ static const std::vector<api_info> macos_libsystem_kernel_apis = {
               static_cast<uint32_t>(api_info::behavior_flags::CLOSES_HANDLE),
      .convention = MACOS_API_CONVENTION,
      .parameters =
-         {{.name = "oldfd", .param_type = param_info::type::FILE_DESCRIPTOR, .param_direction = param_info::direction::IN},
-          {.name = "newfd", .param_type = param_info::type::FILE_DESCRIPTOR, .param_direction = param_info::direction::IN}},
+         {{.name = "oldfd",
+           .param_type = param_info::type::FILE_DESCRIPTOR,
+           .param_direction = param_info::direction::IN},
+          {.name = "newfd",
+           .param_type = param_info::type::FILE_DESCRIPTOR,
+           .param_direction = param_info::direction::IN}},
      .return_value = {.name = "fd", .param_type = param_info::type::FILE_DESCRIPTOR},
      .description = "duplicate file descriptor to specific fd",
      .headers = {"unistd.h"}},
@@ -169,9 +175,15 @@ static const std::vector<api_info> macos_libsystem_kernel_apis = {
      .convention = MACOS_API_CONVENTION,
      .parameters =
          {{.name = "nfds", .param_type = param_info::type::INTEGER, .param_direction = param_info::direction::IN},
-          {.name = "readfds", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN_OUT},
-          {.name = "writefds", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN_OUT},
-          {.name = "exceptfds", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN_OUT},
+          {.name = "readfds",
+           .param_type = param_info::type::POINTER,
+           .param_direction = param_info::direction::IN_OUT},
+          {.name = "writefds",
+           .param_type = param_info::type::POINTER,
+           .param_direction = param_info::direction::IN_OUT},
+          {.name = "exceptfds",
+           .param_type = param_info::type::POINTER,
+           .param_direction = param_info::direction::IN_OUT},
           {.name = "timeout", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN}},
      .return_value = {.name = "ready", .param_type = param_info::type::INTEGER},
      .description = "synchronous i/o multiplexing",
@@ -305,7 +317,7 @@ static const std::vector<api_info> macos_libsystem_kernel_apis = {
      .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
      .description = "set memory protection",
      .headers = {"sys/mman.h"}},
-    
+
     // mach vm apis
     {.name = "_mach_vm_allocate",
      .module = "libsystem_kernel.dylib",

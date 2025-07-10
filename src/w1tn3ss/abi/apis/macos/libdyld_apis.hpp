@@ -104,7 +104,9 @@ static const std::vector<api_info> macos_libdyld_apis = {
      .parameters =
          {{.name = "path", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN},
           {.name = "mode", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
-          {.name = "addressInImageWhereSymbolIsBeingLookedUp", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN}},
+          {.name = "addressInImageWhereSymbolIsBeingLookedUp",
+           .param_type = param_info::type::POINTER,
+           .param_direction = param_info::direction::IN}},
      .return_value = {.name = "handle", .param_type = param_info::type::HANDLE},
      .description = "open library from specific context",
      .cleanup_api = "_dlclose",

@@ -47,8 +47,7 @@ static const std::vector<api_info> macos_libsystem_m_apis = {
      .api_category = api_info::category::MATH,
      .flags = 0,
      .convention = MACOS_API_CONVENTION,
-     .parameters =
-         {{.name = "x", .param_type = param_info::type::FLOAT, .param_direction = param_info::direction::IN}},
+     .parameters = {{.name = "x", .param_type = param_info::type::FLOAT, .param_direction = param_info::direction::IN}},
      .return_value = {.name = "result", .param_type = param_info::type::FLOAT},
      .description = "compute sine (float)",
      .headers = {"math.h"}},
@@ -67,8 +66,7 @@ static const std::vector<api_info> macos_libsystem_m_apis = {
      .api_category = api_info::category::MATH,
      .flags = 0,
      .convention = MACOS_API_CONVENTION,
-     .parameters =
-         {{.name = "x", .param_type = param_info::type::FLOAT, .param_direction = param_info::direction::IN}},
+     .parameters = {{.name = "x", .param_type = param_info::type::FLOAT, .param_direction = param_info::direction::IN}},
      .return_value = {.name = "result", .param_type = param_info::type::FLOAT},
      .description = "compute cosine (float)",
      .headers = {"math.h"}},
@@ -87,8 +85,7 @@ static const std::vector<api_info> macos_libsystem_m_apis = {
      .api_category = api_info::category::MATH,
      .flags = 0,
      .convention = MACOS_API_CONVENTION,
-     .parameters =
-         {{.name = "x", .param_type = param_info::type::FLOAT, .param_direction = param_info::direction::IN}},
+     .parameters = {{.name = "x", .param_type = param_info::type::FLOAT, .param_direction = param_info::direction::IN}},
      .return_value = {.name = "result", .param_type = param_info::type::FLOAT},
      .description = "compute tangent (float)",
      .headers = {"math.h"}},
@@ -182,8 +179,7 @@ static const std::vector<api_info> macos_libsystem_m_apis = {
      .api_category = api_info::category::MATH,
      .flags = 0,
      .convention = MACOS_API_CONVENTION,
-     .parameters =
-         {{.name = "x", .param_type = param_info::type::FLOAT, .param_direction = param_info::direction::IN}},
+     .parameters = {{.name = "x", .param_type = param_info::type::FLOAT, .param_direction = param_info::direction::IN}},
      .return_value = {.name = "result", .param_type = param_info::type::FLOAT},
      .description = "compute exponential function (float)",
      .headers = {"math.h"}},
@@ -222,8 +218,7 @@ static const std::vector<api_info> macos_libsystem_m_apis = {
      .api_category = api_info::category::MATH,
      .flags = 0,
      .convention = MACOS_API_CONVENTION,
-     .parameters =
-         {{.name = "x", .param_type = param_info::type::FLOAT, .param_direction = param_info::direction::IN}},
+     .parameters = {{.name = "x", .param_type = param_info::type::FLOAT, .param_direction = param_info::direction::IN}},
      .return_value = {.name = "result", .param_type = param_info::type::FLOAT},
      .description = "compute natural logarithm (float)",
      .headers = {"math.h"}},
@@ -296,8 +291,7 @@ static const std::vector<api_info> macos_libsystem_m_apis = {
      .api_category = api_info::category::MATH,
      .flags = 0,
      .convention = MACOS_API_CONVENTION,
-     .parameters =
-         {{.name = "x", .param_type = param_info::type::FLOAT, .param_direction = param_info::direction::IN}},
+     .parameters = {{.name = "x", .param_type = param_info::type::FLOAT, .param_direction = param_info::direction::IN}},
      .return_value = {.name = "result", .param_type = param_info::type::FLOAT},
      .description = "compute square root (float)",
      .headers = {"math.h"}},
@@ -339,8 +333,7 @@ static const std::vector<api_info> macos_libsystem_m_apis = {
      .api_category = api_info::category::MATH,
      .flags = 0,
      .convention = MACOS_API_CONVENTION,
-     .parameters =
-         {{.name = "x", .param_type = param_info::type::FLOAT, .param_direction = param_info::direction::IN}},
+     .parameters = {{.name = "x", .param_type = param_info::type::FLOAT, .param_direction = param_info::direction::IN}},
      .return_value = {.name = "result", .param_type = param_info::type::FLOAT},
      .description = "compute absolute value (float)",
      .headers = {"math.h"}},
@@ -359,8 +352,7 @@ static const std::vector<api_info> macos_libsystem_m_apis = {
      .api_category = api_info::category::MATH,
      .flags = 0,
      .convention = MACOS_API_CONVENTION,
-     .parameters =
-         {{.name = "x", .param_type = param_info::type::FLOAT, .param_direction = param_info::direction::IN}},
+     .parameters = {{.name = "x", .param_type = param_info::type::FLOAT, .param_direction = param_info::direction::IN}},
      .return_value = {.name = "result", .param_type = param_info::type::FLOAT},
      .description = "round up to nearest integer (float)",
      .headers = {"math.h"}},
@@ -379,8 +371,7 @@ static const std::vector<api_info> macos_libsystem_m_apis = {
      .api_category = api_info::category::MATH,
      .flags = 0,
      .convention = MACOS_API_CONVENTION,
-     .parameters =
-         {{.name = "x", .param_type = param_info::type::FLOAT, .param_direction = param_info::direction::IN}},
+     .parameters = {{.name = "x", .param_type = param_info::type::FLOAT, .param_direction = param_info::direction::IN}},
      .return_value = {.name = "result", .param_type = param_info::type::FLOAT},
      .description = "round down to nearest integer (float)",
      .headers = {"math.h"}},
