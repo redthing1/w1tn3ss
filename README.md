@@ -86,3 +86,43 @@ simple demo finished
 ```
 
 as seen above, this can successfully intercept calls to many common `libc` apis!
+
+### scripting
+
+w1tn3ss supports writing custom tracers in luajit through the `w1script` tracer.
+scripts can hook various callbacks and directly access vm state, registers, and memory.
+
+here's a simple instruction tracer:
+```lua
+local instruction_count = 0
+
+local tracer = {}
+tracer.callbacks = { "instruction_postinst" }
+
+function tracer.on_instruction_postinst(vm, gpr, fpr)
+    instruction_count = instruction_count + 1
+    
+    -- get program counter and disassembly
+    local pc = w1.get_reg_pc and w1.get_reg_pc(gpr) or 0
+    local disasm = w1.get_disassembly(vm)
+    
+    -- log instruction with address and disassembly
+    w1.log_info(w1.format_address(pc) .. ": " .. disasm)
+    
+    return w1.VMAction.CONTINUE
+end
+
+return tracer
+```
+
+run it:
+```sh
+# macos/linux
+./build-release/w1tool tracer -n w1script -c script=./scripts/w1script/instruction_tracer.lua -s ./build-release/tests/programs/simple_demo
+# windows
+.\build-release\w1tool.exe tracer -n w1script -c script=./scripts/w1script/instruction_tracer.lua -s .\build-release\tests\programs\simple_demo.exe
+```
+
+this will produce a trace of disassembled instructions as they are executed.
+
+see the [example scripts](./scripts/w1script/), which demonstrate memory tracing, function hooking, coverage collection, and api interception.
