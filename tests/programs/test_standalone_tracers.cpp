@@ -6,6 +6,11 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <unistd.h>
+#endif
 
 #include <redlog.hpp>
 
@@ -254,13 +259,20 @@ int test_w1script(int verbose_level = 0) {
   std::cout << "\n=== testing w1script tracer ===\n";
 
   // write script to temporary file
-  const char *script_path = "/tmp/test_minimal_script.lua";
+  std::string script_path;
+#ifdef _WIN32
+  char temp_path[MAX_PATH];
+  GetTempPathA(MAX_PATH, temp_path);
+  script_path = std::string(temp_path) + "test_minimal_script.lua";
+#else
+  script_path = "/tmp/test_minimal_script.lua";
+#endif
   std::ofstream script_file(script_path);
   script_file << minimal_script;
   script_file.close();
 
   w1::tracers::script::config config;
-  config.script_path = script_path;
+  config.script_path = script_path.c_str();
   config.verbose = (verbose_level > 0);
 
   w1::tracers::script::session session(config);
@@ -281,7 +293,7 @@ int test_w1script(int verbose_level = 0) {
   std::cout << "fibonacci(10) = " << result << "\n";
 
   // cleanup temp script
-  std::remove(script_path);
+  std::remove(script_path.c_str());
 
   std::cout << "w1script test completed\n";
   return 0;
