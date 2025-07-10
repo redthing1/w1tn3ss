@@ -1,6 +1,8 @@
 #pragma once
 
 #include "script_config.hpp"
+#include "callback_manager.hpp"
+#include "api_analysis_processor.hpp"
 #include <w1tn3ss/engine/tracer_engine.hpp>
 
 #include <sol/sol.hpp>
@@ -35,11 +37,9 @@ private:
 
   sol::state lua_;
   sol::table script_table_;
-  std::unordered_set<std::string> enabled_callbacks_;
-
-  // lua callback wrapper functions
-  std::unordered_map<std::string, sol::function> lua_callbacks_;
-  std::vector<uint32_t> registered_callback_ids_;
+  
+  // callback management
+  std::unique_ptr<callback_manager> callback_manager_;
 
   // api analysis manager
   std::shared_ptr<bindings::api_analysis_manager> api_manager_;
@@ -52,21 +52,9 @@ private:
 
   // hook manager for dynamic hooking
   std::shared_ptr<w1::hooking::hook_manager> hook_manager_;
-
-  bool load_script();
-  void setup_callbacks();
-  bool is_callback_enabled(const std::string& callback_name) const;
-  void register_callbacks_dynamically(QBDI::VM* vm);
-  QBDI::VMAction dispatch_simple_callback(
-      const std::string& callback_name, QBDI::VMInstanceRef vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr
-  );
-  QBDI::VMAction dispatch_vm_event_callback(
-      const std::string& callback_name, QBDI::VMInstanceRef vm, const QBDI::VMState* state, QBDI::GPRState* gpr,
-      QBDI::FPRState* fpr
-  );
-  std::vector<QBDI::InstrRuleDataCBK> dispatch_instr_rule_callback(
-      const std::string& callback_name, QBDI::VMInstanceRef vm, const QBDI::InstAnalysis* analysis, void* data
-  );
+  
+  // api analysis processor
+  std::unique_ptr<api_analysis_processor> api_processor_;
 
 public:
   script_tracer();                           // defined in cpp due to unique_ptr of incomplete type
@@ -77,8 +65,9 @@ public:
   void shutdown();
   const char* get_name() const { return "w1script"; }
 
-  // no callback method definitions to prevent sfinae detection
-  // callbacks are registered dynamically based on script requirements
+  // we intentionally don't define any on_* callback methods
+  // to prevent tracer_engine from registering callbacks via SFINAE
+  // all callbacks are registered manually by callback_manager
 
   // api manager access (for exec_transfer callbacks)
   std::shared_ptr<bindings::api_analysis_manager> get_api_manager() { return api_manager_; }

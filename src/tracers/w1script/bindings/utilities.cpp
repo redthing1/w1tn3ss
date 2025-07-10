@@ -172,102 +172,10 @@ void setup_utilities(sol::state& lua, sol::table& w1_module) {
   });
 
   // === JSONL Writer Functions ===
-  // streaming JSONL output for high-performance data collection
+  // low-level jsonl functions for compatibility
+  // note: prefer using w1.output module for high-level api
 
-  // store the jsonl writer instance as a shared pointer in the lua state
-  // this allows us to manage its lifetime properly
   static std::shared_ptr<w1::util::jsonl_writer> jsonl_writer_instance;
-
-  // define a function to load w1.output module after w1 is available
-  w1_module.set_function("_init_output_module", [&lua]() {
-    lua.script(R"lua(
-    -- w1.output module implemented in pure Lua
-    w1.output = {}
-    local _initialized = false
-    local _event_count = 0
-    
-    function w1.output.init(filename, metadata)
-      filename = filename or "trace.jsonl"
-      
-      if w1.jsonl_is_open() then
-        w1.jsonl_close()
-      end
-      
-      if not w1.jsonl_open(filename) then
-        w1.log_error("failed to initialize output file: " .. filename)
-        return false
-      end
-      
-      metadata = metadata or {}
-      metadata.type = "metadata"
-      metadata.version = metadata.version or "1.0"
-      metadata.timestamp = metadata.timestamp or w1.get_timestamp()
-      metadata.tracer = metadata.tracer or "w1script"
-      
-      if not w1.jsonl_write(metadata) then
-        w1.log_error("failed to write metadata")
-        w1.jsonl_close()
-        return false
-      end
-      
-      _initialized = true
-      _event_count = 0
-      w1.log_info("output initialized: " .. filename)
-      return true
-    end
-    
-    function w1.output.write_event(event)
-      if not _initialized then
-        w1.log_error("output not initialized - call w1.output.init() first")
-        return false
-      end
-      
-      if type(event) ~= "table" then
-        w1.log_error("event must be a table")
-        return false
-      end
-      
-      event.type = event.type or "event"
-      
-      local success = w1.jsonl_write(event)
-      if success then
-        _event_count = _event_count + 1
-        if _event_count % 10000 == 0 then
-          w1.jsonl_flush()
-        end
-      end
-      return success
-    end
-    
-    function w1.output.close()
-      if not _initialized then
-        return
-      end
-      
-      if _event_count > 0 then
-        w1.jsonl_write({
-          type = "summary",
-          event_count = _event_count,
-          end_timestamp = w1.get_timestamp()
-        })
-      end
-      
-      w1.jsonl_close()
-      _initialized = false
-      w1.log_info("output closed with " .. _event_count .. " events")
-    end
-    
-    function w1.output.ensure_shutdown_handler(tracer)
-      local original_shutdown = tracer.shutdown
-      tracer.shutdown = function()
-        if original_shutdown then
-          original_shutdown()
-        end
-        w1.output.close()
-      end
-    end
-  )lua");
-  });
 
   w1_module.set_function("jsonl_open", [](const std::string& filename) -> bool {
     try {

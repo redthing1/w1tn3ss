@@ -4,6 +4,9 @@
 
 local tracer = {}
 
+-- specify which QBDI callbacks we need
+tracer.callbacks = { "exec_transfer_call", "exec_transfer_return" }
+
 -- statistics tracking
 local stats = {
     total_calls = 0,
@@ -49,7 +52,7 @@ function tracer.init()
     
     -- monitor heap operations with allocation tracking
     local allocations = {}
-    tracer.register_api_category_callback(8, function(event) -- HEAP_MANAGEMENT
+    tracer.register_api_category_callback(w1.API_CATEGORY.HEAP_MANAGEMENT, function(event)
         if event.type == "call" then
             if event.symbol_name == "_malloc" then
                 local size = event.arguments[1] and event.arguments[1].raw_value or 0
@@ -73,7 +76,7 @@ function tracer.init()
     end)
     
     -- monitor file operations
-    tracer.register_api_category_callback(1, function(event) -- FILE_IO
+    tracer.register_api_category_callback(w1.API_CATEGORY.FILE_IO, function(event)
         if event.type == "call" then
             w1.log_info("[file] " .. event.formatted_call)
         end

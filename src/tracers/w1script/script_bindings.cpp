@@ -1,5 +1,6 @@
 #include "script_bindings.hpp"
 #include <redlog.hpp>
+#include "bindings/output.hpp"
 
 namespace w1::tracers::script {
 
@@ -35,8 +36,8 @@ void setup_qbdi_bindings(
   logger.dbg("setting up callback system");
   bindings::setup_callback_system(lua, w1_module);
 
-  logger.dbg("setting up api analysis");
-  bindings::setup_api_analysis(lua, w1_module, tracer_table, api_manager);
+  // NOTE: api analysis setup is deferred until after script is loaded
+  // because it needs to register methods on the script's tracer table
 
   logger.dbg("setting up memory access");
   bindings::setup_memory_access(lua, w1_module);
@@ -53,11 +54,11 @@ void setup_qbdi_bindings(
   logger.dbg("setting up symbol resolution");
   bindings::setup_symbol_resolution(lua, w1_module);
 
+  logger.dbg("setting up output module");
+  bindings::setup_output(lua, w1_module);
+
   // register the w1 module with the lua state
   lua["w1"] = w1_module;
-
-  // initialize the w1.output module now that w1 is available
-  w1_module["_init_output_module"]();
 
   logger.inf("all qbdi bindings registered successfully");
   logger.dbg(

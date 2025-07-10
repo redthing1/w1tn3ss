@@ -163,6 +163,45 @@ void setup_api_analysis(
                       {"MISC", abi::api_info::category::MISC}}
   );
   w1_module["ApiCategory"] = api_category;
+  
+  // also create a simple table for easier access
+  sol::table api_category_table = lua.create_table();
+  api_category_table["UNKNOWN"] = static_cast<int>(abi::api_info::category::UNKNOWN);
+  api_category_table["FILE_IO"] = static_cast<int>(abi::api_info::category::FILE_IO);
+  api_category_table["FILE_MANAGEMENT"] = static_cast<int>(abi::api_info::category::FILE_MANAGEMENT);
+  api_category_table["STDIO"] = static_cast<int>(abi::api_info::category::STDIO);
+  api_category_table["DEVICE_IO"] = static_cast<int>(abi::api_info::category::DEVICE_IO);
+  api_category_table["PROCESS_CONTROL"] = static_cast<int>(abi::api_info::category::PROCESS_CONTROL);
+  api_category_table["THREAD_CONTROL"] = static_cast<int>(abi::api_info::category::THREAD_CONTROL);
+  api_category_table["THREADING"] = static_cast<int>(abi::api_info::category::THREADING);
+  api_category_table["MEMORY_MANAGEMENT"] = static_cast<int>(abi::api_info::category::MEMORY_MANAGEMENT);
+  api_category_table["HEAP_MANAGEMENT"] = static_cast<int>(abi::api_info::category::HEAP_MANAGEMENT);
+  api_category_table["SYNCHRONIZATION"] = static_cast<int>(abi::api_info::category::SYNCHRONIZATION);
+  api_category_table["MUTEX"] = static_cast<int>(abi::api_info::category::MUTEX);
+  api_category_table["EVENT"] = static_cast<int>(abi::api_info::category::EVENT);
+  api_category_table["SEMAPHORE"] = static_cast<int>(abi::api_info::category::SEMAPHORE);
+  api_category_table["NETWORK_SOCKET"] = static_cast<int>(abi::api_info::category::NETWORK_SOCKET);
+  api_category_table["NETWORK_DNS"] = static_cast<int>(abi::api_info::category::NETWORK_DNS);
+  api_category_table["NETWORK_HTTP"] = static_cast<int>(abi::api_info::category::NETWORK_HTTP);
+  api_category_table["REGISTRY"] = static_cast<int>(abi::api_info::category::REGISTRY);
+  api_category_table["SECURITY"] = static_cast<int>(abi::api_info::category::SECURITY);
+  api_category_table["CRYPTO"] = static_cast<int>(abi::api_info::category::CRYPTO);
+  api_category_table["SYSTEM_INFO"] = static_cast<int>(abi::api_info::category::SYSTEM_INFO);
+  api_category_table["TIME"] = static_cast<int>(abi::api_info::category::TIME);
+  api_category_table["ENVIRONMENT"] = static_cast<int>(abi::api_info::category::ENVIRONMENT);
+  api_category_table["STRING_MANIPULATION"] = static_cast<int>(abi::api_info::category::STRING_MANIPULATION);
+  api_category_table["LOCALE"] = static_cast<int>(abi::api_info::category::LOCALE);
+  api_category_table["LIBRARY_LOADING"] = static_cast<int>(abi::api_info::category::LIBRARY_LOADING);
+  api_category_table["MATH"] = static_cast<int>(abi::api_info::category::MATH);
+  api_category_table["SORTING"] = static_cast<int>(abi::api_info::category::SORTING);
+  api_category_table["IPC"] = static_cast<int>(abi::api_info::category::IPC);
+  api_category_table["PIPE"] = static_cast<int>(abi::api_info::category::PIPE);
+  api_category_table["SHARED_MEMORY"] = static_cast<int>(abi::api_info::category::SHARED_MEMORY);
+  api_category_table["UI"] = static_cast<int>(abi::api_info::category::UI);
+  api_category_table["WINDOW"] = static_cast<int>(abi::api_info::category::WINDOW);
+  api_category_table["SYSTEM_HOOK"] = static_cast<int>(abi::api_info::category::SYSTEM_HOOK);
+  api_category_table["MISC"] = static_cast<int>(abi::api_info::category::MISC);
+  w1_module["API_CATEGORY"] = api_category_table;
 
   // add utility function to get category name strings
   w1_module["api_category_name"] = [](abi::api_info::category category) -> std::string {
@@ -245,7 +284,7 @@ void setup_api_analysis(
   // capture manager by value (shared_ptr) to ensure it outlives callbacks
   // note: we rely on the script_tracer to keep the lua state alive
 
-  // add registration functions to tracer table
+  // add registration functions to the tracer table
   tracer_table["register_api_symbol_callback"] = [manager](
                                                      sol::this_state ts, const std::string& module,
                                                      const std::string& symbol, sol::protected_function callback
