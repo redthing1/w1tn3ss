@@ -268,8 +268,6 @@ void transfer_collector::populate_entry_details(
   }
 }
 
-// format_interpreted_value is now replaced by w1::util::value_formatter
-
 void transfer_collector::on_api_event(const w1::abi::api_event& event, transfer_entry& entry) {
   // convert api_event data to transfer_entry api_analysis format
   entry.api_info.api_category =
