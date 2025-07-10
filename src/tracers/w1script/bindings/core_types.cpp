@@ -23,9 +23,9 @@ void setup_core_types(sol::state& lua, sol::table& w1_module) {
       "InstAnalysis",
 
       // basic instruction properties
-      "address", &QBDI::InstAnalysis::address,   // Instruction address
-      "instSize", &QBDI::InstAnalysis::instSize, // Instruction size in bytes
-      "mnemonic", &QBDI::InstAnalysis::mnemonic, // Instruction mnemonic
+      "address", &QBDI::InstAnalysis::address,         // Instruction address
+      "instSize", &QBDI::InstAnalysis::instSize,       // Instruction size in bytes
+      "mnemonic", &QBDI::InstAnalysis::mnemonic,       // Instruction mnemonic
       "disassembly", &QBDI::InstAnalysis::disassembly, // Full disassembly string
 
       // control flow analysis
