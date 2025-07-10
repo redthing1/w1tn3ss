@@ -21,7 +21,9 @@ cmake --build build-release --parallel
 
 to use a specific arch, configure `WITNESS_ARCH` (`x64`, `x86`, `arm64`)
 
-## cli guide
+## `w1tool` guide
+
+this is a brief guide to using `w1tool`, a ready-to-use command line for running tracers
 
 ### coverage & tracing
 
