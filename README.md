@@ -74,14 +74,6 @@ trace api calls in real time with `w1xfer`:
 output will resemble:
 ```
 [w1.calling_convention_factory] [inf] registered platform conventions     platform=aarch64 count=1
-[w1.api_analyzer] [vrb] analyzed api call                   call=puts(s="simple demo starting") category=I/O module=libsystem_c.dylib
-simple demo starting
-[w1.api_analyzer] [vrb] analyzed api return                 return=puts() = 10 raw_value=10 module=libsystem_c.dylib
-[w1.api_analyzer] [vrb] analyzed api call                   call=printf(format="add(10, 20) = %d\n") category=I/O module=libsystem_c.dylib
-add(10, 20) = 30
-[w1.api_analyzer] [vrb] analyzed api return                 return=printf() = 17 raw_value=17 module=libsystem_c.dylib
-[w1.api_analyzer] [vrb] analyzed api call                   call=printf(format="multiply(5, 6) = %d\n") category=I/O module=libsystem_c.dylib
-multiply(5, 6) = 30
 ...
 [w1.api_analyzer] [vrb] analyzed api call                   call=malloc(size=64) category=Heap module=libsystem_malloc.dylib
 [w1.api_analyzer] [vrb] analyzed api return                 return=malloc() = 0x600003b982c0 raw_value=105553178755776 module=libsystem_malloc.dylib
