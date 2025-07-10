@@ -15,10 +15,16 @@
 namespace w1::tracers::script {
 
 script_tracer::script_tracer() : logger_(redlog::get_logger("w1.script_tracer")) {}
+
+script_tracer::script_tracer(const config& cfg) : cfg_(cfg), logger_(redlog::get_logger("w1.script_tracer")) {}
+
 script_tracer::~script_tracer() = default;
 
 bool script_tracer::initialize(w1::tracer_engine<script_tracer>& engine) {
-  cfg_ = config::from_environment();
+  // if cfg_ not already set, get from environment
+  if (cfg_.script_path.empty()) {
+    cfg_ = config::from_environment();
+  }
 
   if (!cfg_.is_valid()) {
     logger_.err("invalid configuration. W1SCRIPT_SCRIPT must be specified.");

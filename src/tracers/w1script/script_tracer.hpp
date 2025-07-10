@@ -69,8 +69,9 @@ private:
   );
 
 public:
-  script_tracer();  // defined in cpp due to unique_ptr of incomplete type
-  ~script_tracer(); // defined in cpp due to unique_ptr of incomplete type
+  script_tracer();                           // defined in cpp due to unique_ptr of incomplete type
+  explicit script_tracer(const config& cfg); // constructor with config
+  ~script_tracer();                          // defined in cpp due to unique_ptr of incomplete type
 
   bool initialize(w1::tracer_engine<script_tracer>& engine);
   void shutdown();

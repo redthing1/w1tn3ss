@@ -2,6 +2,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -10,6 +11,9 @@
 
 #include "../../src/tracers/w1cov/session.hpp"
 #include "../../src/tracers/w1xfer/session.hpp"
+#ifdef WITNESS_SCRIPT_ENABLED
+#include "../../src/tracers/w1script/session.hpp"
+#endif
 
 // test function for w1cov - demonstrates control flow coverage
 extern "C" uint64_t test_coverage_control_flow(uint64_t value) {
@@ -195,12 +199,101 @@ int test_w1xfer(int verbose_level = 0) {
   return 0;
 }
 
+#ifdef WITNESS_SCRIPT_ENABLED
+// minimal lua script embedded as string - instruction tracer
+static const char *minimal_script = R"lua(
+-- instruction tracer with disassembly
+-- logs every instruction with address and assembly code
+
+local instruction_count = 0
+local max_instructions = 50  -- limit output for demo
+
+local tracer = {}
+tracer.callbacks = { "instruction_postinst" }
+
+function tracer.on_instruction_postinst(vm, gpr, fpr)
+    instruction_count = instruction_count + 1
+    
+    -- only log first N instructions to avoid spam
+    if instruction_count <= max_instructions then
+        -- get program counter and disassembly
+        local pc = w1.get_reg_pc and w1.get_reg_pc(gpr) or 0
+        local disasm = w1.get_disassembly(vm)
+        
+        -- log instruction with address and disassembly
+        w1.log_info(w1.format_address(pc) .. ": " .. disasm)
+    end
+
+    -- at truncation point say we're truncating
+    if instruction_count == max_instructions then
+        w1.log_info("... silencing further instruction logs ...")
+    end
+    
+    return w1.VMAction.CONTINUE
+end
+
+function tracer.shutdown()
+    w1.log_info("traced " .. instruction_count .. " instructions total")
+end
+
+return tracer
+)lua";
+
+// test function for w1script - demonstrates scripted tracing
+extern "C" int test_script_fibonacci(int n) {
+  if (n <= 1)
+    return n;
+  return test_script_fibonacci(n - 1) + test_script_fibonacci(n - 2);
+}
+
+// test w1script tracer
+int test_w1script(int verbose_level = 0) {
+  std::cout << "\n=== testing w1script tracer ===\n";
+
+  // write script to temporary file
+  const char *script_path = "/tmp/test_minimal_script.lua";
+  std::ofstream script_file(script_path);
+  script_file << minimal_script;
+  script_file.close();
+
+  w1::tracers::script::config config;
+  config.script_path = script_path;
+  config.verbose = (verbose_level > 0);
+
+  w1::tracers::script::session session(config);
+  session.add_target_module_pattern("test_standalone_tracers");
+
+  if (!session.initialize()) {
+    std::cout << "failed to initialize w1script tracer\n";
+    return 1;
+  }
+
+  // trace a recursive function to generate some basic blocks
+  uint64_t result;
+  if (!session.trace_function((void *)test_script_fibonacci, {10}, &result)) {
+    std::cout << "failed to trace function\n";
+    return 1;
+  }
+
+  std::cout << "fibonacci(10) = " << result << "\n";
+
+  // cleanup temp script
+  std::remove(script_path);
+
+  std::cout << "w1script test completed\n";
+  return 0;
+}
+#endif // WITNESS_SCRIPT_ENABLED
+
 void print_usage(const char *program_name) {
   std::cout << "usage: " << program_name << " [-v...] <tracer>\n";
   std::cout << "\navailable tracers:\n";
-  std::cout << "  w1cov   - coverage tracer\n";
-  std::cout << "  w1xfer  - transfer/call tracer\n";
-  std::cout << "  all     - test all tracers\n";
+  std::cout << "  w1cov    - coverage tracer\n";
+  std::cout << "  w1xfer   - transfer/call tracer\n";
+#ifdef WITNESS_SCRIPT_ENABLED
+  std::cout << "  w1script - scripted tracer\n";
+#endif
+  std::cout << "  all      - test all tracers\n";
   std::cout << "\noptions:\n";
   std::cout
       << "  -v      verbose output (can be repeated for more verbosity)\n";
@@ -254,10 +347,17 @@ int main(int argc, char *argv[]) {
     return test_w1cov(verbose);
   } else if (tracer_name == "w1xfer") {
     return test_w1xfer(verbose);
+#ifdef WITNESS_SCRIPT_ENABLED
+  } else if (tracer_name == "w1script") {
+    return test_w1script(verbose);
+#endif
   } else if (tracer_name == "all") {
     int result = 0;
     result |= test_w1cov(verbose);
     result |= test_w1xfer(verbose);
+#ifdef WITNESS_SCRIPT_ENABLED
+    result |= test_w1script(verbose);
+#endif
     return result;
   } else {
     std::cout << "unknown tracer: " << tracer_name << "\n";
