@@ -22,15 +22,9 @@ bool trace_tracer::initialize(w1::tracer_engine<trace_tracer>& engine) {
 }
 
 void trace_tracer::shutdown() {
-  log_.inf("shutting down trace tracer");
-
-  // Print final statistics
   print_statistics();
-
-  // Shutdown collector (will flush remaining data)
   collector_.shutdown();
-
-  log_.inf("trace tracer shutdown complete");
+  log_.inf("trace collection completed");
 }
 
 QBDI::VMAction trace_tracer::on_instruction_postinst(QBDI::VMInstanceRef vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr) {
@@ -56,8 +50,8 @@ size_t trace_tracer::get_buffer_usage() const { return collector_.get_buffer_usa
 
 void trace_tracer::print_statistics() const {
   log_.inf(
-      "trace statistics", redlog::field("instructions_traced", get_instruction_count()),
-      redlog::field("buffer_flushes", get_flush_count()), redlog::field("current_buffer_usage", get_buffer_usage())
+      "trace stats", redlog::field("instructions", get_instruction_count()),
+      redlog::field("flushes", get_flush_count()), redlog::field("buffer_usage", get_buffer_usage())
   );
 }
 

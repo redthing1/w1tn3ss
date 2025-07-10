@@ -35,8 +35,11 @@ bool instruction_tracer::initialize(w1::tracer_engine<instruction_tracer>& engin
 }
 
 void instruction_tracer::shutdown() {
-  log_.inf("shutting down mnemonic tracer");
-  // no export needed - streaming output handles everything
+  const auto& stats = collector_.get_stats();
+  log_.inf(
+      "instruction collection completed", redlog::field("total", stats.total_instructions),
+      redlog::field("matched", stats.matched_instructions), redlog::field("targets", stats.target_mnemonics.size())
+  );
 }
 
 QBDI::VMAction instruction_tracer::on_instruction_preinst(
@@ -59,5 +62,13 @@ QBDI::VMAction instruction_tracer::on_instruction_preinst(
 }
 
 const mnemonic_stats& instruction_tracer::get_stats() const { return collector_.get_stats(); }
+
+void instruction_tracer::print_statistics() const {
+  const auto& stats = collector_.get_stats();
+  log_.inf(
+      "instruction stats", redlog::field("total", stats.total_instructions),
+      redlog::field("matched", stats.matched_instructions), redlog::field("targets", stats.target_mnemonics.size())
+  );
+}
 
 } // namespace w1inst

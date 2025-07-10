@@ -22,6 +22,7 @@ public:
 
   // statistics access
   const mnemonic_stats& get_stats() const;
+  void print_statistics() const;
 
 private:
   instruction_config config_;
