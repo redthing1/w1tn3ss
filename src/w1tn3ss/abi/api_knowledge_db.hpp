@@ -23,6 +23,7 @@ struct param_info {
     BOOLEAN,
     FLOAT,
     DOUBLE,
+    FLOATING_POINT, // generic floating point (float or double)
     // special types
     HANDLE,
     FILE_DESCRIPTOR,
@@ -71,7 +72,8 @@ struct api_info {
     // file operations
     FILE_IO,
     FILE_MANAGEMENT,
-    STDIO, // standard i/o (printf, puts, etc)
+    STDIO,     // standard i/o (printf, puts, etc)
+    DEVICE_IO, // device control operations (ioctl, etc)
     // process/thread
     PROCESS_CONTROL,
     THREAD_CONTROL,
@@ -96,6 +98,7 @@ struct api_info {
     // system
     SYSTEM_INFO,
     TIME,
+    ENVIRONMENT, // environment variables
     // string/locale
     STRING_MANIPULATION,
     LOCALE,
@@ -110,6 +113,9 @@ struct api_info {
     WINDOW,
     // system hooks and monitoring
     SYSTEM_HOOK,
+    // math and utilities
+    MATH,    // mathematical operations
+    SORTING, // sorting and searching algorithms
     // other
     MISC
   };
