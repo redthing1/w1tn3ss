@@ -100,7 +100,7 @@ extern "C" void *test_xfer_library_calls(void *arg) {
 }
 
 // test w1cov tracer
-int test_w1cov() {
+int test_w1cov(int verbose_level = 0) {
   std::cout << "\n=== testing w1cov tracer ===\n";
 
   w1cov::session session;
@@ -155,7 +155,7 @@ int test_w1cov() {
 }
 
 // test w1xfer tracer
-int test_w1xfer() {
+int test_w1xfer(int verbose_level = 0) {
   std::cout << "\n=== testing w1xfer tracer ===\n";
 
   w1xfer::transfer_config config;
@@ -163,6 +163,7 @@ int test_w1xfer() {
   config.log_registers = true;
   config.log_stack_info = true;
   config.log_call_targets = true;
+  config.verbose = verbose_level;
 
   w1xfer::session session(config);
   session.add_target_module_pattern("test_standalone_tracers");
@@ -250,13 +251,13 @@ int main(int argc, char *argv[]) {
   }
 
   if (tracer_name == "w1cov") {
-    return test_w1cov();
+    return test_w1cov(verbose);
   } else if (tracer_name == "w1xfer") {
-    return test_w1xfer();
+    return test_w1xfer(verbose);
   } else if (tracer_name == "all") {
     int result = 0;
-    result |= test_w1cov();
-    result |= test_w1xfer();
+    result |= test_w1cov(verbose);
+    result |= test_w1xfer(verbose);
     return result;
   } else {
     std::cout << "unknown tracer: " << tracer_name << "\n";
