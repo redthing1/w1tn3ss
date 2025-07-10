@@ -22,7 +22,7 @@ add_executable(test_standalone_tracers test_standalone_tracers.cpp)
 apply_common_compile_options(test_standalone_tracers)
 apply_windows_definitions(test_standalone_tracers)
 target_include_directories(test_standalone_tracers PRIVATE ${WITNESS_SOURCE_DIR}/src)
-target_link_libraries(test_standalone_tracers PRIVATE w1cov_static w1xfer_static w1tn3ss QBDI_static redlog::redlog)
+target_link_libraries(test_standalone_tracers PRIVATE w1cov_static w1xfer_static w1tn3ss redlog::redlog)
 
 # conditionally link w1script if enabled
 if(WITNESS_SCRIPT)
@@ -31,7 +31,7 @@ if(WITNESS_SCRIPT)
     target_link_libraries(test_standalone_tracers PRIVATE w1script_static)
 endif()
 
-# apply windows symbol resolution for LIEF/QBDI conflicts
+# apply windows symbol resolution after all libraries are linked
 if(WIN32 AND MSVC)
     include(${WITNESS_SOURCE_DIR}/cmake/WindowsSymbolConfig.cmake)
     configure_windows_symbol_resolution(test_standalone_tracers)
