@@ -41,7 +41,7 @@ static const std::vector<api_info> macos_libsystem_kernel_apis = {
               static_cast<uint32_t>(api_info::behavior_flags::FILE_IO),
      .convention = MACOS_API_CONVENTION,
      .parameters =
-         {{.name = "pathname", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN},
+         {{.name = "path", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN},
           {.name = "flags", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
           {.name = "mode",
            .param_type = param_info::type::FLAGS,
@@ -217,7 +217,7 @@ static const std::vector<api_info> macos_libsystem_kernel_apis = {
      .flags = static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
      .convention = MACOS_API_CONVENTION,
      .parameters =
-         {{.name = "pathname", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN},
+         {{.name = "path", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN},
           {.name = "argv", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN},
           {.name = "envp", .param_type = param_info::type::POINTER, .param_direction = param_info::direction::IN}},
      .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
@@ -344,7 +344,7 @@ static const std::vector<api_info> macos_libsystem_kernel_apis = {
      .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO),
      .convention = MACOS_API_CONVENTION,
      .parameters =
-         {{.name = "pathname", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN},
+         {{.name = "path", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN},
           {.name = "statbuf", .param_type = param_info::type::STRUCT, .param_direction = param_info::direction::OUT}},
      .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
      .description = "get file status",
@@ -356,7 +356,7 @@ static const std::vector<api_info> macos_libsystem_kernel_apis = {
               static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
      .convention = MACOS_API_CONVENTION,
      .parameters =
-         {{.name = "pathname", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN}},
+         {{.name = "path", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN}},
      .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
      .description = "delete file",
      .headers = {"unistd.h"}},
@@ -367,7 +367,7 @@ static const std::vector<api_info> macos_libsystem_kernel_apis = {
               static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
      .convention = MACOS_API_CONVENTION,
      .parameters =
-         {{.name = "pathname", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN},
+         {{.name = "path", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN},
           {.name = "mode", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN}},
      .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
      .description = "change file permissions",
@@ -378,7 +378,7 @@ static const std::vector<api_info> macos_libsystem_kernel_apis = {
      .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO),
      .convention = MACOS_API_CONVENTION,
      .parameters =
-         {{.name = "pathname", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN},
+         {{.name = "path", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN},
           {.name = "mode", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN}},
      .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
      .description = "check file accessibility",
@@ -390,7 +390,7 @@ static const std::vector<api_info> macos_libsystem_kernel_apis = {
               static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
      .convention = MACOS_API_CONVENTION,
      .parameters =
-         {{.name = "pathname", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN},
+         {{.name = "path", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN},
           {.name = "mode", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN}},
      .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
      .description = "create directory",
@@ -402,7 +402,7 @@ static const std::vector<api_info> macos_libsystem_kernel_apis = {
               static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
      .convention = MACOS_API_CONVENTION,
      .parameters =
-         {{.name = "pathname", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN}},
+         {{.name = "path", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN}},
      .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
      .description = "remove empty directory",
      .headers = {"unistd.h"}},
@@ -446,7 +446,7 @@ static const std::vector<api_info> macos_libsystem_kernel_apis = {
      .flags = static_cast<uint32_t>(api_info::behavior_flags::FILE_IO),
      .convention = MACOS_API_CONVENTION,
      .parameters =
-         {{.name = "pathname", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN},
+         {{.name = "path", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN},
           {.name = "buf", .param_type = param_info::type::STRING, .param_direction = param_info::direction::OUT},
           {.name = "bufsiz", .param_type = param_info::type::SIZE, .param_direction = param_info::direction::IN}},
      .return_value = {.name = "bytes", .param_type = param_info::type::SIZE},

@@ -182,7 +182,7 @@ public:
 
     // check for null pointer
     if (param.param_type == param_info::type::POINTER || param.param_type == param_info::type::STRING ||
-        param.param_type == param_info::type::BUFFER) {
+        param.param_type == param_info::type::PATH || param.param_type == param_info::type::BUFFER) {
       arg.is_null_pointer = (raw_value == 0);
       arg.is_valid_pointer = arg_utils::is_valid_pointer(raw_value, memory);
     }
@@ -221,6 +221,17 @@ public:
         if (str) {
           arg.interpreted_value = *str;
           arg.string_preview = *str;
+        }
+      }
+      break;
+
+    case param_info::type::PATH:
+      if (!arg.is_null_pointer && config_.follow_pointers) {
+        auto str = arg_utils::read_string(raw_value, memory, config_.max_string_length);
+        if (str) {
+          arg.interpreted_value = *str;
+          arg.string_preview = *str;
+          // future: could add path validation/normalization here
         }
       }
       break;

@@ -107,7 +107,8 @@ public:
           }
 
           // format value based on type with truncation
-          if (arg.param_type == param_info::type::STRING && !arg.string_preview.empty()) {
+          if ((arg.param_type == param_info::type::STRING || arg.param_type == param_info::type::PATH) &&
+              !arg.string_preview.empty()) {
             // truncate long strings for display
             std::string preview = arg.string_preview;
             if (preview.length() > 50) {
@@ -413,6 +414,16 @@ private:
         // format value based on type
         switch (arg.param_type) {
         case param_info::type::STRING:
+          if (!arg.string_preview.empty()) {
+            ss << "\"" << arg.string_preview << "\"";
+          } else if (arg.is_null_pointer) {
+            ss << "NULL";
+          } else {
+            ss << "0x" << std::hex << arg.raw_value;
+          }
+          break;
+
+        case param_info::type::PATH:
           if (!arg.string_preview.empty()) {
             ss << "\"" << arg.string_preview << "\"";
           } else if (arg.is_null_pointer) {

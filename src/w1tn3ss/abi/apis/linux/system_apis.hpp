@@ -112,7 +112,7 @@ static const std::vector<api_info> linux_system_apis = {
               static_cast<uint32_t>(api_info::behavior_flags::FILE_IO),
      .convention = LINUX_API_CONVENTION,
      .parameters =
-         {{.name = "pathname", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN},
+         {{.name = "path", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN},
           {.name = "flags", .param_type = param_info::type::FLAGS, .param_direction = param_info::direction::IN},
           {.name = "mode",
            .param_type = param_info::type::FLAGS,

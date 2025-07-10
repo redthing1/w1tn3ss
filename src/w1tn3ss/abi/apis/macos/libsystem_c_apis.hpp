@@ -137,7 +137,7 @@ static const std::vector<api_info> macos_libsystem_c_apis = {
               static_cast<uint32_t>(api_info::behavior_flags::OPENS_HANDLE),
      .convention = MACOS_API_CONVENTION,
      .parameters =
-         {{.name = "pathname", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN},
+         {{.name = "path", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN},
           {.name = "mode", .param_type = param_info::type::STRING, .param_direction = param_info::direction::IN}},
      .return_value = {.name = "stream", .param_type = param_info::type::POINTER},
      .description = "open file stream",
@@ -386,7 +386,7 @@ static const std::vector<api_info> macos_libsystem_c_apis = {
               static_cast<uint32_t>(api_info::behavior_flags::MODIFIES_GLOBAL_STATE),
      .convention = MACOS_API_CONVENTION,
      .parameters =
-         {{.name = "pathname", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN}},
+         {{.name = "path", .param_type = param_info::type::PATH, .param_direction = param_info::direction::IN}},
      .return_value = {.name = "result", .param_type = param_info::type::INTEGER},
      .description = "remove file",
      .headers = {"stdio.h"}},
