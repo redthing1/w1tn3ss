@@ -363,14 +363,62 @@ void transfer_collector::write_event(const transfer_entry& entry) {
     return;
   }
 
-  // serialize the entry to json with compact formatting
-  std::string json = JS::serializeStruct(entry, JS::SerializerOptions(JS::SerializerOptions::Compact));
+  // build compact json manually to exclude empty/disabled fields
+  std::stringstream json;
+  json << "{\"type\":\"event\",\"data\":{";
 
-  // wrap in event envelope
-  std::stringstream wrapped;
-  wrapped << "{\"type\":\"event\",\"data\":" << json << "}";
+  // helper to append a field with proper comma handling
+  bool first = true;
+  auto append_field = [&json, &first](const std::string& field) {
+    if (!first) {
+      json << ",";
+    }
+    json << field;
+    first = false;
+  };
 
-  jsonl_writer_->write_line(wrapped.str());
+  // always include core fields
+  append_field("\"type\":\"" + std::string(entry.type == transfer_type::CALL ? "call" : "return") + "\"");
+  append_field("\"source_address\":" + std::to_string(entry.source_address));
+  append_field("\"target_address\":" + std::to_string(entry.target_address));
+  append_field("\"instruction_count\":" + std::to_string(entry.instruction_count));
+
+  // conditionally include registers if enabled and present
+  if (log_registers_ && !entry.registers.registers.empty()) {
+    append_field("\"registers\":" + JS::serializeStruct(entry.registers));
+  }
+
+  // conditionally include stack info if enabled
+  if (log_stack_info_) {
+    append_field("\"stack\":" + JS::serializeStruct(entry.stack));
+  }
+
+  // conditionally include module names if enabled and non-empty
+  if (log_call_targets_) {
+    if (!entry.source_module.empty() && entry.source_module != "unknown") {
+      append_field("\"source_module\":\"" + entry.source_module + "\"");
+    }
+    if (!entry.target_module.empty() && entry.target_module != "unknown") {
+      append_field("\"target_module\":\"" + entry.target_module + "\"");
+    }
+
+    // include symbol info only if meaningful data exists
+    if (!entry.source_symbol.symbol_name.empty()) {
+      append_field("\"source_symbol\":" + JS::serializeStruct(entry.source_symbol));
+    }
+    if (!entry.target_symbol.symbol_name.empty()) {
+      append_field("\"target_symbol\":" + JS::serializeStruct(entry.target_symbol));
+    }
+  }
+
+  // conditionally include API analysis if enabled and has meaningful data
+  if (analyze_apis_ && entry.api_info.analysis_complete && !entry.api_info.api_category.empty()) {
+    append_field("\"api_info\":" + JS::serializeStruct(entry.api_info));
+  }
+
+  json << "}}";
+
+  jsonl_writer_->write_line(json.str());
 }
 
 } // namespace w1xfer
