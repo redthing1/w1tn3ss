@@ -52,14 +52,7 @@ void mnemonic_collector::record_mnemonic(
   matched_count_++;
   stats_.matched_instructions++;
 
-  // skip if no output configured
-  if (!jsonl_writer_) {
-    return;
-  }
-
-  ensure_metadata_written();
-
-  // create and write event
+  // create event
   mnemonic_entry entry;
   entry.address = address;
   entry.mnemonic = mnemonic;
@@ -67,7 +60,11 @@ void mnemonic_collector::record_mnemonic(
   entry.instruction_count = instruction_count_;
   entry.module_name = get_module_name(address);
 
-  write_event(entry);
+  // write event if output configured
+  if (jsonl_writer_) {
+    ensure_metadata_written();
+    write_event(entry);
+  }
 }
 
 void mnemonic_collector::ensure_metadata_written() {

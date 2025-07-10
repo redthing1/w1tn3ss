@@ -56,13 +56,6 @@ void transfer_collector::record_call(
   unique_call_targets_.insert(target_addr);
   stats_.unique_call_targets = unique_call_targets_.size();
 
-  // skip if no output configured
-  if (!jsonl_writer_) {
-    return;
-  }
-
-  ensure_metadata_written();
-
   transfer_entry entry = create_base_entry(transfer_type::CALL, source_addr, target_addr);
   entry.instruction_count = instruction_count_++;
 
@@ -87,7 +80,11 @@ void transfer_collector::record_call(
     }
   }
 
-  write_event(entry);
+  // write event if output configured
+  if (jsonl_writer_) {
+    ensure_metadata_written();
+    write_event(entry);
+  }
 }
 
 void transfer_collector::record_return(
@@ -100,13 +97,6 @@ void transfer_collector::record_return(
   // track unique sources
   unique_return_sources_.insert(source_addr);
   stats_.unique_return_sources = unique_return_sources_.size();
-
-  // skip if no output configured
-  if (!jsonl_writer_) {
-    return;
-  }
-
-  ensure_metadata_written();
 
   transfer_entry entry = create_base_entry(transfer_type::RETURN, source_addr, target_addr);
   entry.instruction_count = instruction_count_++;
@@ -132,7 +122,11 @@ void transfer_collector::record_return(
     }
   }
 
-  write_event(entry);
+  // write event if output configured
+  if (jsonl_writer_) {
+    ensure_metadata_written();
+    write_event(entry);
+  }
 }
 
 // removed build_report - we now stream directly

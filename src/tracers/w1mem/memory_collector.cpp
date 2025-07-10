@@ -41,14 +41,7 @@ void memory_collector::record_memory_access(
     stats_.unique_write_addresses = unique_write_addrs_.size();
   }
 
-  // skip if no output configured
-  if (!jsonl_writer_) {
-    return;
-  }
-
-  ensure_metadata_written();
-
-  // create and write event
+  // create event
   memory_access_entry entry;
   entry.instruction_addr = instruction_addr;
   entry.memory_addr = memory_addr;
@@ -58,7 +51,11 @@ void memory_collector::record_memory_access(
   entry.instruction_module = get_module_name(instruction_addr);
   entry.memory_module = get_module_name(memory_addr);
 
-  write_event(entry);
+  // write event if output configured
+  if (jsonl_writer_) {
+    ensure_metadata_written();
+    write_event(entry);
+  }
 }
 
 void memory_collector::ensure_metadata_written() {
