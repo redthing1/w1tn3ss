@@ -171,7 +171,7 @@ void session::clear_coverage() {
 
 coverage_config& session::get_config() { return config_; }
 
-bool session::add_instrumented_module(void* module_addr) {
+bool session::add_instrumented_module_from_addr(void* module_addr) {
   if (!initialized_ || !engine_) {
     return false;
   }

@@ -39,7 +39,7 @@ public:
   w1::tracer_engine<coverage_tracer>* get_engine() const { return engine_.get(); }
 
   // module management for whole-program instrumentation
-  bool add_instrumented_module(void* module_addr);
+  bool add_instrumented_module_from_addr(void* module_addr);
   bool add_instrumented_range(void* start, void* end);
   bool remove_all_instrumented_ranges();
 
