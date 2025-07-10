@@ -34,7 +34,11 @@ public:
       // step 1: identify module containing the target address
       auto module = module_index_->find_containing(ctx.target_address);
       if (!module) {
-        result.error_message = "No module found for target address";
+        result.error_message = "no module found for target address";
+        log_.dbg(
+            "module not found for target address", redlog::field("address", ctx.target_address),
+            redlog::field("context", ctx.call_address)
+        );
         return result;
       }
 

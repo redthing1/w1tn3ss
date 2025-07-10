@@ -303,8 +303,6 @@ void transfer_collector::on_api_event(const w1::abi::api_event& event, transfer_
   }
 }
 
-// removed enable_streaming - output is now configured in constructor
-
 void transfer_collector::ensure_metadata_written() {
   if (!jsonl_writer_ || metadata_written_) {
     return;

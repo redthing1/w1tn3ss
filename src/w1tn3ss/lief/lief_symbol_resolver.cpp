@@ -98,7 +98,7 @@ LIEF::Binary* lief_binary_cache::get_or_load(const std::string& path) const {
               symbol_count = macho->symbols().size();
             }
 
-            log_.info(
+            log_.trc(
                 "loaded from dyld shared cache dump", redlog::field("library", path),
                 redlog::field("symbols", symbol_count), redlog::field("dump_path", *resolved_path)
             );
