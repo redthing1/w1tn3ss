@@ -130,6 +130,7 @@ void setup_api_analysis(
                       {"FILE_IO", abi::api_info::category::FILE_IO},
                       {"FILE_MANAGEMENT", abi::api_info::category::FILE_MANAGEMENT},
                       {"STDIO", abi::api_info::category::STDIO},
+                      {"DEVICE_IO", abi::api_info::category::DEVICE_IO},
                       {"PROCESS_CONTROL", abi::api_info::category::PROCESS_CONTROL},
                       {"THREAD_CONTROL", abi::api_info::category::THREAD_CONTROL},
                       {"THREADING", abi::api_info::category::THREADING},
@@ -147,10 +148,18 @@ void setup_api_analysis(
                       {"CRYPTO", abi::api_info::category::CRYPTO},
                       {"SYSTEM_INFO", abi::api_info::category::SYSTEM_INFO},
                       {"TIME", abi::api_info::category::TIME},
+                      {"ENVIRONMENT", abi::api_info::category::ENVIRONMENT},
                       {"STRING_MANIPULATION", abi::api_info::category::STRING_MANIPULATION},
                       {"LOCALE", abi::api_info::category::LOCALE},
                       {"LIBRARY_LOADING", abi::api_info::category::LIBRARY_LOADING},
+                      {"MATH", abi::api_info::category::MATH},
+                      {"SORTING", abi::api_info::category::SORTING},
                       {"IPC", abi::api_info::category::IPC},
+                      {"PIPE", abi::api_info::category::PIPE},
+                      {"SHARED_MEMORY", abi::api_info::category::SHARED_MEMORY},
+                      {"UI", abi::api_info::category::UI},
+                      {"WINDOW", abi::api_info::category::WINDOW},
+                      {"SYSTEM_HOOK", abi::api_info::category::SYSTEM_HOOK},
                       {"MISC", abi::api_info::category::MISC}}
   );
   w1_module["ApiCategory"] = api_category;
@@ -166,6 +175,8 @@ void setup_api_analysis(
       return "file_mgmt";
     case abi::api_info::category::STDIO:
       return "stdio";
+    case abi::api_info::category::DEVICE_IO:
+      return "device_io";
     case abi::api_info::category::PROCESS_CONTROL:
       return "process";
     case abi::api_info::category::THREAD_CONTROL:
@@ -200,14 +211,30 @@ void setup_api_analysis(
       return "system";
     case abi::api_info::category::TIME:
       return "time";
+    case abi::api_info::category::ENVIRONMENT:
+      return "environment";
     case abi::api_info::category::STRING_MANIPULATION:
       return "string";
     case abi::api_info::category::LOCALE:
       return "locale";
     case abi::api_info::category::LIBRARY_LOADING:
       return "library";
+    case abi::api_info::category::MATH:
+      return "math";
+    case abi::api_info::category::SORTING:
+      return "sorting";
     case abi::api_info::category::IPC:
       return "ipc";
+    case abi::api_info::category::PIPE:
+      return "pipe";
+    case abi::api_info::category::SHARED_MEMORY:
+      return "shared_memory";
+    case abi::api_info::category::UI:
+      return "ui";
+    case abi::api_info::category::WINDOW:
+      return "window";
+    case abi::api_info::category::SYSTEM_HOOK:
+      return "system_hook";
     case abi::api_info::category::MISC:
       return "misc";
     default:

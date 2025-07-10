@@ -142,6 +142,9 @@ public:
           case api_info::category::STDIO:
             category_name = "I/O";
             break;
+          case api_info::category::DEVICE_IO:
+            category_name = "Device";
+            break;
           case api_info::category::PROCESS_CONTROL:
             category_name = "Process";
             break;
@@ -181,6 +184,9 @@ public:
           case api_info::category::TIME:
             category_name = "Time";
             break;
+          case api_info::category::ENVIRONMENT:
+            category_name = "Environment";
+            break;
           case api_info::category::STRING_MANIPULATION:
             category_name = "String";
             break;
@@ -190,6 +196,12 @@ public:
           case api_info::category::LIBRARY_LOADING:
             category_name = "Library";
             break;
+          case api_info::category::MATH:
+            category_name = "Math";
+            break;
+          case api_info::category::SORTING:
+            category_name = "Sorting";
+            break;
           case api_info::category::IPC:
           case api_info::category::PIPE:
           case api_info::category::SHARED_MEMORY:
@@ -198,6 +210,9 @@ public:
           case api_info::category::UI:
           case api_info::category::WINDOW:
             category_name = "UI";
+            break;
+          case api_info::category::SYSTEM_HOOK:
+            category_name = "Hook";
             break;
           case api_info::category::MISC:
           default:
