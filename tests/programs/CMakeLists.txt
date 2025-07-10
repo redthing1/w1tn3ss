@@ -30,6 +30,13 @@ if(WITNESS_SCRIPT)
     configure_target_with_lua(test_standalone_tracers)
     target_link_libraries(test_standalone_tracers PRIVATE w1script_static)
 endif()
+
+# apply windows symbol resolution for LIEF/QBDI conflicts
+if(WIN32 AND MSVC)
+    include(${WITNESS_SOURCE_DIR}/cmake/WindowsSymbolConfig.cmake)
+    configure_windows_symbol_resolution(test_standalone_tracers)
+endif()
+
 set_target_properties(test_standalone_tracers PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs
 )
