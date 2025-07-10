@@ -7,7 +7,8 @@
 #include <redlog.hpp>
 #include <mutex>
 #include <unordered_map>
-#include <windows.h>
+#include <w1common/windows_clean.hpp>
+#include <dbghelp.h>
 
 namespace w1::symbols {
 
