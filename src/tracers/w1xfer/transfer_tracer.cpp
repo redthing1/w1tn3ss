@@ -47,7 +47,14 @@ bool transfer_tracer::initialize(w1::tracer_engine<transfer_tracer>& engine) {
 
 void transfer_tracer::shutdown() {
   log_.inf("shutting down transfer tracer");
-  // no need to export - data is already streamed
+
+  // log summary stats
+  const auto& stats = collector_.get_stats();
+  log_.inf(
+      "transfer collection completed", redlog::field("total_calls", stats.total_calls),
+      redlog::field("total_returns", stats.total_returns), redlog::field("unique_targets", stats.unique_call_targets),
+      redlog::field("max_depth", stats.max_call_depth)
+  );
 }
 
 QBDI::VMAction transfer_tracer::on_exec_transfer_call(
