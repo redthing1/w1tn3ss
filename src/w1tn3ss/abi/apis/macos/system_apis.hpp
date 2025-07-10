@@ -5,7 +5,9 @@
 #include "libsystem_malloc_apis.hpp"
 #include "libsystem_pthread_apis.hpp"
 #include "libsystem_m_apis.hpp"
+#include "libsystem_platform_apis.hpp"
 #include "libdyld_apis.hpp"
+#include "libcxx_apis.hpp"
 
 namespace w1::abi::apis::macos {
 
@@ -18,7 +20,9 @@ namespace w1::abi::apis::macos {
  * - libsystem_malloc.dylib (heap management)
  * - libsystem_pthread.dylib (threading)
  * - libsystem_m.dylib (math functions)
+ * - libsystem_platform.dylib (optimized platform functions)
  * - libdyld.dylib (dynamic linking)
+ * - libc++abi.dylib and libc++.1.dylib (c++ runtime and standard library)
  *
  * discover apis using (for example):
  * nm -gU /path/to/dyld_dmp/usr/lib/system/libsystem_c.dylib | grep printf
@@ -33,7 +37,9 @@ static std::vector<api_info> get_all_macos_system_apis() {
   all_apis.insert(all_apis.end(), macos_libsystem_malloc_apis.begin(), macos_libsystem_malloc_apis.end());
   all_apis.insert(all_apis.end(), macos_libsystem_pthread_apis.begin(), macos_libsystem_pthread_apis.end());
   all_apis.insert(all_apis.end(), macos_libsystem_m_apis.begin(), macos_libsystem_m_apis.end());
+  all_apis.insert(all_apis.end(), macos_libsystem_platform_apis.begin(), macos_libsystem_platform_apis.end());
   all_apis.insert(all_apis.end(), macos_libdyld_apis.begin(), macos_libdyld_apis.end());
+  all_apis.insert(all_apis.end(), macos_libcxx_apis.begin(), macos_libcxx_apis.end());
 
   return all_apis;
 }
