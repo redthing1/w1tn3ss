@@ -1,15 +1,16 @@
 # w1tn3ss
 
-a cross-platform dynamic binary analysis platform powered by [qbdi](https://github.com/QBDI/QBDI) and [lief](https://github.com/lief-project/LIEF).
+a cross-platform dynamic binary analysis and instrumentation framework powered by [qbdi](https://github.com/QBDI/QBDI) and [lief](https://github.com/lief-project/LIEF).
 
 ## features
 
-+ a framework for writing dynamic tracers
-+ built-in tracers: coverage, memory, instruction, etc.
-+ real-time shared library call tracing via abi analysis
-+ scriptable tracers with [luajit](https://luajit.org/)
-+ cross-platform library injection library
-+ a tool for easy tracer injection
++ framework for writing dynamic tracers (`w1tn3ss`)
++ built-in tracers: coverage (`w1cov`), call tracing (`w1xfer`), memory (`w1mem`), instructions (`w1inst`)
++ real-time library call interception with argument extraction (`api_analyzer`)
++ signature scanning and binary patching (`p1ll`/`p1llx`)
++ scriptable tracing and patching with with [luajit](https://luajit.org/)
++ cross-platform injection library with multiple techniques (`w1nj3ct`)
++ symbol resolution and calling convention modeling for intercepting arguments and return values
 
 ## build
 
