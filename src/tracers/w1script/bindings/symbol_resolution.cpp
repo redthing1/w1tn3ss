@@ -51,7 +51,8 @@ static sol::table symbol_info_to_lua(sol::state& lua, const w1::symbols::symbol_
 
   result["name"] = info.name;
   result["demangled_name"] = info.demangled_name;
-  result["offset"] = info.offset;
+  result["offset"] = info.offset_from_symbol;
+  result["module_offset"] = info.module_offset;
   result["size"] = info.size;
 
   // convert symbol type

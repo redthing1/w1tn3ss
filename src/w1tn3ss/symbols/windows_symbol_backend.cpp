@@ -160,7 +160,8 @@ std::optional<uint64_t> windows_symbol_backend::resolve_name(
     }
 
     log_.dbg(
-        "resolved symbol by name", redlog::field("name", name), redlog::field("address", "0x%llx", symbol_info.Address)
+        "resolved symbol by name", redlog::field("name", name),
+        redlog::field("address", "0x%016llx", symbol_info.Address)
     );
     return symbol_info.Address;
   }
@@ -172,7 +173,8 @@ std::optional<symbol_info> windows_symbol_backend::resolve_in_module(
     const std::string& module_path, uint64_t offset
 ) const {
   log_.trc(
-      "resolving symbol in module", redlog::field("module_path", module_path), redlog::field("offset", "0x%llx", offset)
+      "resolving symbol in module", redlog::field("module_path", module_path),
+      redlog::field("offset", "0x%016llx", offset)
   );
 
   // get module handle
@@ -198,8 +200,8 @@ std::optional<symbol_info> windows_symbol_backend::resolve_in_module(
   uint64_t absolute_address = module_base + offset;
 
   log_.trc(
-      "calculated absolute address", redlog::field("module_base", "0x%llx", module_base),
-      redlog::field("offset", "0x%llx", offset), redlog::field("absolute_address", "0x%llx", absolute_address)
+      "calculated absolute address", redlog::field("module_base", "0x%016llx", module_base),
+      redlog::field("offset", "0x%016llx", offset), redlog::field("absolute_address", "0x%016llx", absolute_address)
   );
 
   // now resolve the symbol at the absolute address
@@ -384,7 +386,7 @@ std::optional<windows_symbol_backend::windows_symbol_info> windows_symbol_backen
 
   DWORD64 displacement = 0;
 
-  log_.ped("calling SymFromAddr", redlog::field("address", "0x%llx", address));
+  log_.ped("calling SymFromAddr", redlog::field("address", "0x%016llx", address));
 
   if (SymFromAddr(process_handle, address, &displacement, symbol_info)) {
     windows_symbol_info result;
@@ -429,7 +431,7 @@ std::optional<windows_symbol_backend::windows_symbol_info> windows_symbol_backen
     }
 
     log_.ped(
-        "SymFromAddr success", redlog::field("address", "0x%llx", address), redlog::field("symbol", result.name),
+        "SymFromAddr success", redlog::field("address", "0x%016llx", address), redlog::field("symbol", result.name),
         redlog::field("demangled", result.demangled_name), redlog::field("displacement", displacement),
         redlog::field("size", result.size), redlog::field("module", result.module_name)
     );
@@ -437,7 +439,7 @@ std::optional<windows_symbol_backend::windows_symbol_info> windows_symbol_backen
     return result;
   } else {
     DWORD error = GetLastError();
-    log_.ped("SymFromAddr failed", redlog::field("address", "0x%llx", address), redlog::field("error", error));
+    log_.ped("SymFromAddr failed", redlog::field("address", "0x%016llx", address), redlog::field("error", error));
     return std::nullopt;
   }
 }
@@ -457,7 +459,8 @@ symbol_info windows_symbol_backend::convert_to_symbol_info(const windows_symbol_
 
   // handle numeric fields
   info.size = win_info.size;
-  info.offset = win_info.displacement;
+  info.offset_from_symbol = win_info.displacement;
+  info.module_offset = 0; // not available from Windows debug APIs
 
   // map symbol type
   info.symbol_type = win_info.is_function ? symbol_info::type::FUNCTION : symbol_info::type::OBJECT;

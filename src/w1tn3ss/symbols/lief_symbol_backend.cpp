@@ -154,7 +154,7 @@ void lief_symbol_backend::set_path_resolver(std::shared_ptr<path_resolver> resol
 std::optional<symbol_info> lief_symbol_backend::resolve_address(uint64_t address) const {
   // lief backend requires module context, cannot resolve raw addresses
   log_.trc(
-      "lief backend cannot resolve raw addresses without module context", redlog::field("address", "0x%llx", address)
+      "lief backend cannot resolve raw addresses without module context", redlog::field("address", "0x%016llx", address)
   );
   return std::nullopt;
 }
@@ -201,7 +201,7 @@ std::optional<uint64_t> lief_symbol_backend::resolve_name(
 std::optional<symbol_info> lief_symbol_backend::resolve_in_module(
     const std::string& module_path, uint64_t offset
 ) const {
-  log_.trc("resolve_in_module", redlog::field("module", module_path), redlog::field("offset", offset));
+  log_.trc("resolve_in_module", redlog::field("module", module_path), redlog::field("offset", "0x%016llx", offset));
 
   auto* binary = binary_cache_->get_or_load(module_path);
   if (!binary) {
@@ -319,14 +319,18 @@ std::optional<symbol_info> lief_symbol_backend::resolve_elf_symbol(LIEF::ELF::Bi
   // try dynamic symbols first (more likely for API calls)
   for (const auto& sym : elf->dynamic_symbols()) {
     if (sym.value() <= offset && offset < sym.value() + sym.size() && !sym.name().empty()) {
-      return elf_symbol_to_info(sym);
+      auto info = elf_symbol_to_info(sym);
+      info.module_offset = offset;
+      return info;
     }
   }
 
   // try static symbols
   for (const auto& sym : elf->symbols()) {
     if (sym.value() <= offset && offset < sym.value() + sym.size() && !sym.name().empty()) {
-      return elf_symbol_to_info(sym);
+      auto info = elf_symbol_to_info(sym);
+      info.module_offset = offset;
+      return info;
     }
   }
 
@@ -334,12 +338,12 @@ std::optional<symbol_info> lief_symbol_backend::resolve_elf_symbol(LIEF::ELF::Bi
 }
 
 std::optional<symbol_info> lief_symbol_backend::resolve_pe_symbol(LIEF::PE::Binary* pe, uint64_t offset) const {
-  log_.ped("entering PE symbol resolution", redlog::field("offset", "0x%llx", offset));
+  log_.ped("entering PE symbol resolution", redlog::field("offset", "0x%016llx", offset));
 
   // check exports for exact matches only
   if (pe->has_exports()) {
     log_.ped(
-        "PE has exports, searching for exact symbol match at offset", redlog::field("offset", "0x%llx", offset),
+        "PE has exports, searching for exact symbol match at offset", redlog::field("offset", "0x%016llx", offset),
         redlog::field("export_count", pe->get_export()->entries().size())
     );
 
@@ -348,9 +352,11 @@ std::optional<symbol_info> lief_symbol_backend::resolve_pe_symbol(LIEF::PE::Bina
       if (exp.address() == offset) {
         log_.ped(
             "found exact PE export match", redlog::field("name", exp.name()),
-            redlog::field("rva", "0x%llx", exp.address())
+            redlog::field("rva", "0x%016llx", exp.address())
         );
-        return pe_export_to_info(exp);
+        auto info = pe_export_to_info(exp);
+        info.module_offset = offset;
+        return info;
       }
     }
   }
@@ -362,7 +368,8 @@ std::optional<symbol_info> lief_symbol_backend::resolve_macho_symbol(
     LIEF::MachO::Binary* macho, uint64_t offset
 ) const {
   log_.dbg(
-      "resolve_macho_symbol", redlog::field("offset", offset), redlog::field("symbol_count", macho->symbols().size())
+      "resolve_macho_symbol", redlog::field("offset", "0x%016llx", offset),
+      redlog::field("symbol_count", macho->symbols().size())
   );
 
   // macho symbols don't have size information, so we can't do range checks
@@ -394,7 +401,8 @@ std::optional<symbol_info> lief_symbol_backend::resolve_macho_symbol(
     );
 
     auto info = macho_symbol_to_info(*best_match);
-    info.offset = best_distance; // store displacement from symbol start
+    info.offset_from_symbol = best_distance; // store displacement from symbol start
+    info.module_offset = offset;
     return info;
   }
 
@@ -533,7 +541,8 @@ symbol_info lief_symbol_backend::elf_symbol_to_info(const LIEF::ELF::Symbol& sym
   symbol_info info;
   info.name = sym.name();
   info.demangled_name = sym.demangled_name();
-  info.offset = 0; // will be calculated if needed
+  info.offset_from_symbol = 0; // will be calculated if needed
+  info.module_offset = 0;      // will be set in resolve_in_module if needed
   info.size = sym.size();
 
   // map symbol type
@@ -573,7 +582,8 @@ symbol_info lief_symbol_backend::pe_export_to_info(const LIEF::PE::ExportEntry& 
   symbol_info info;
   info.name = exp.name();
   info.demangled_name = exp.name(); // PE doesn't have demangling in LIEF
-  info.offset = 0;
+  info.offset_from_symbol = 0;
+  info.module_offset = 0;                   // will be set in resolve_in_module if needed
   info.size = 0;                            // PE exports don't have size
   info.symbol_type = symbol_info::FUNCTION; // assume function for exports
   info.symbol_binding = symbol_info::GLOBAL;
@@ -587,8 +597,9 @@ symbol_info lief_symbol_backend::macho_symbol_to_info(const LIEF::MachO::Symbol&
   symbol_info info;
   info.name = sym.name();
   info.demangled_name = sym.demangled_name();
-  info.offset = 0;
-  info.size = 0; // macho symbols don't have size
+  info.offset_from_symbol = 0;
+  info.module_offset = 0; // will be set in resolve_in_module if needed
+  info.size = 0;          // macho symbols don't have size
 
   // determine type from macho type flags
   // n_stab (0xe0) and n_ext (0x01) are macho-specific constants

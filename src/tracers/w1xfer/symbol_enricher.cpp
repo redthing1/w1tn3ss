@@ -45,30 +45,26 @@ std::optional<symbol_enricher::symbol_context> symbol_enricher::enrich_address(u
   // find which module contains this address
   auto module = module_index_->find_containing(address);
   if (!module) {
-    log_.dbg("no module found for address", redlog::field("address", address));
+    log_.dbg("no module found for address", redlog::field("address", "0x%016llx", address));
     return std::nullopt;
   }
 
   // calculate offset within module
   uint64_t module_offset = address - module->base_address;
   log_.trc(
-      "resolving symbol", redlog::field("address", address), redlog::field("module_name", module->name),
-      redlog::field("module_path", module->path), redlog::field("module_offset", module_offset)
+      "resolving symbol", redlog::field("address", "0x%016llx", address), redlog::field("module_name", module->name),
+      redlog::field("module_path", module->path), redlog::field("module_offset", "0x%016llx", module_offset)
   );
-
-  // for system libraries on macOS, module->path is often just the library name
-  // try with the path first (which might just be the name)
-  std::string search_path = module->path;
 
   log_.dbg(
-      "calling unified symbol resolver", redlog::field("search_path", search_path),
-      redlog::field("offset", module_offset)
+      "calling unified symbol resolver", redlog::field("address", "0x%016llx", address),
+      redlog::field("module", module->name)
   );
 
-  auto symbol = resolver_->resolve_in_module(search_path, module_offset);
+  auto symbol = resolver_->resolve_address(address, *module_index_);
 
   if (!symbol) {
-    log_.dbg("no symbol found", redlog::field("path", search_path), redlog::field("offset", module_offset));
+    log_.dbg("no symbol found", redlog::field("address", "0x%016llx", address), redlog::field("module", module->name));
 
     // return basic context with module info
     symbol_context ctx;
@@ -88,8 +84,9 @@ std::optional<symbol_enricher::symbol_context> symbol_enricher::enrich_address(u
   }
 
   log_.trc(
-      "symbol resolved", redlog::field("address", address), redlog::field("symbol_name", symbol->name),
-      redlog::field("demangled_name", symbol->demangled_name), redlog::field("symbol_offset", symbol->offset),
+      "symbol resolved", redlog::field("address", "0x%016llx", address), redlog::field("symbol_name", symbol->name),
+      redlog::field("demangled_name", symbol->demangled_name),
+      redlog::field("offset_from_symbol", "0x%016llx", symbol->offset_from_symbol),
       redlog::field("is_exported", symbol->is_exported)
   );
 
@@ -190,19 +187,11 @@ symbol_enricher::symbol_context symbol_enricher::to_context(
   ctx.module_name = module.name;
   ctx.symbol_name = symbol.name;
   ctx.demangled_name = symbol.demangled_name;
-  ctx.module_offset = address - module.base_address;
-  // calculate offset within the symbol
-  // if the symbol has size info, we can calculate the offset
-  // for MachO, symbol.offset is already module-relative
-  // we need to ensure the address is actually within the symbol bounds
-  if (symbol.size > 0 && ctx.module_offset >= symbol.offset) {
-    ctx.symbol_offset = ctx.module_offset - symbol.offset;
-  } else {
-    // for symbols without size or when module_offset < symbol.offset,
-    // just use 0 to indicate we're at the symbol start
-    // this can happen with symbols that have no size information
-    ctx.symbol_offset = 0;
-  }
+  // use module_offset from symbol if available, otherwise calculate it
+  ctx.module_offset = symbol.module_offset ? symbol.module_offset : (address - module.base_address);
+  // symbol_offset is the offset from the start of the symbol
+  // offset_from_symbol already contains this value from the resolver
+  ctx.symbol_offset = symbol.offset_from_symbol;
   ctx.is_exported = symbol.is_exported;
   ctx.is_imported = symbol.is_imported;
 

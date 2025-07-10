@@ -37,12 +37,12 @@ std::optional<symbol_info> posix_symbol_backend::resolve_address(uint64_t addres
   memset(&info, 0, sizeof(info));
 
   if (dladdr(reinterpret_cast<void*>(address), &info) == 0) {
-    log_.trc("dladdr failed for address", redlog::field("address", "0x%llx", address));
+    log_.trc("dladdr failed for address", redlog::field("address", "0x%016llx", address));
     return std::nullopt;
   }
 
   log_.dbg(
-      "dladdr success", redlog::field("address", "0x%llx", address),
+      "dladdr success", redlog::field("address", "0x%016llx", address),
       redlog::field("symbol", info.dli_sname ? info.dli_sname : "<null>"),
       redlog::field("module", info.dli_fname ? info.dli_fname : "<null>")
   );
@@ -74,7 +74,7 @@ std::optional<uint64_t> posix_symbol_backend::resolve_name(
   }
 
   uint64_t address = reinterpret_cast<uint64_t>(sym_addr);
-  log_.dbg("resolved symbol by name", redlog::field("name", name), redlog::field("address", "0x%llx", address));
+  log_.dbg("resolved symbol by name", redlog::field("name", name), redlog::field("address", "0x%016llx", address));
 
   return address;
 }
@@ -106,8 +106,8 @@ std::optional<symbol_info> posix_symbol_backend::resolve_in_module(
 
     log_.trc(
         "calculated absolute address from module base", redlog::field("module", module_path),
-        redlog::field("base", "0x%llx", base), redlog::field("offset", "0x%llx", offset),
-        redlog::field("absolute", "0x%llx", absolute_addr)
+        redlog::field("base", "0x%016llx", base), redlog::field("offset", "0x%016llx", offset),
+        redlog::field("absolute", "0x%016llx", absolute_addr)
     );
 
     return resolve_address(absolute_addr);
@@ -210,10 +210,13 @@ symbol_info posix_symbol_backend::dladdr_to_symbol_info(const void* addr_info, u
   // calculate offset from symbol start
   if (info->dli_saddr) {
     uint64_t sym_addr = reinterpret_cast<uint64_t>(info->dli_saddr);
-    sym.offset = query_address - sym_addr;
+    sym.offset_from_symbol = query_address - sym_addr;
   } else {
-    sym.offset = 0;
+    sym.offset_from_symbol = 0;
   }
+
+  // posix backend doesn't have module offset info from dladdr
+  sym.module_offset = 0;
 
   // dladdr doesn't provide size information
   sym.size = 0;
