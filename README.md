@@ -21,29 +21,74 @@ cmake --build build-release --parallel
 
 to use a specific arch, configure `WITNESS_ARCH` (`x64`, `x86`, `arm64`)
 
-## cli examples
+## cli guide
 
 ### coverage & tracing
 
+code coverage helps us learn what code in a program gets run and how often. the `w1cov` tracer is purpose built to collect detailed code coverage information, with only modest performance overhead.
+
+the drcov format is ideal for coverage tracing, as it includes metadata about loaded modules. `w1cov` also supports collecting data in a superset of the drcov format, which also records hit counts of coverage units. this can be useful to record the execution frequency of a block.
+
 collect coverage in drcov format using `w1cov`:
 ```sh
-./build-release/w1tool cover -s ./build-release/tests/programs/runtime_injection_target
+# macos/linux
+./build-release/w1tool cover -s ./build-release/tests/programs/simple_demo
+# windows
+.\build-release\w1tool.exe cover -s .\build-release\tests\programs\simple_demo.exe
 ```
 
-collect address trace using `w1trace`:
+output will resemble:
+```
+[w1cov.preload] [inf] coverage data export completed      output_file=simple_demo_coverage.drcov
+[w1cov.tracer] [inf] coverage collection completed       coverage_units=59 modules=50 total_hits=71
+```
+
+the default block tracing mode is significantly more efficient than per-instruction tracing as it requires less frequent callback interuptions. however, qbdi detects basic blocks dynamically, so recorded block boundaries may differ from those detected by static analysis tools. this usually isn't an issue, as you can script your disassembler to fix any discrepancies when marking basic block coverage.
+
+you can also trace coverage in the same drcov format by passing `--inst` to `cover`, which will use instruction callbacks.
+
+for a more primitive form of tracing which simply records the instruction pointer, use `w1trace`:
 ```sh
-./build-release/w1tool tracer -n w1trace -s ./build-release/tests/programs/runtime_injection_target
+# macos/linux
+./build-release/w1tool tracer -n w1trace -c output=simple_demo_trace.txt -s ./build-release/tests/programs/simple_dem
+# windows
+.\build-release\w1tool.exe tracer -n w1trace -c output=simple_demo_trace.txt -s .\build-release\tests\programs\simple_demo.exe
 ```
 
 ### real-time api call analysis
 
-on macos, dump your dyld cache:
+often it is valuable to learn what system library apis a program is called. for example, we can learn a lot about the behavior of a program by observing its calls to `libc`. the `w1xfer` tracer, powered by qbdi's [`ExecBroker`](https://qbdi.readthedocs.io/en/stable/tutorial_ExecBrokerEvent.html) mechanism, can intercept and observe calls from and returns back to instrumented code.
+
+in addition to detecting calls crossing the instrumentation boundary, `w1xfer` also contains an `api_analyzer` system, which resolves the symbols of these calls, and extracts function arguments based on platform-specific calling convention models. this allows for very rich interception and tracing of the arguments and return values of common library apis. this can be extended by adding to the `api_knowledge_db` component.
+
+trace api calls in real time with `w1xfer`:
 ```sh
-brew install keith/formulae/dyld-shared-cache-extractor
-dyld-shared-cache-extractor /System/Volumes/Preboot/Cryptexes/OS/System/Library/dyld/dyld_shared_cache_arm64e /tmp/libraries
+# macos/linux
+./build-release/w1tool -v tracer -n w1xfer -c analyze_apis=true -c output=test_transfers.jsonl -s ./build-release/tests/programs/simple_demo
+# windows
+.\build-release\w1tool.exe -v tracer -n w1xfer -c analyze_apis=true -c output=test_transfers.jsonl -s .\build-release\tests\programs\simple_demo.exe
 ```
 
-trace api calls in real time using:
-```sh
-DYLD_SHARED_CACHE_DUMP_DIR=/tmp/libraries ./build-release/w1tool tracer -n w1xfer --debug 1 -c analyze_apis=true -s ./build-release/tests/programs/runtime_injection_target
+output will resemble:
 ```
+[w1.calling_convention_factory] [inf] registered platform conventions     platform=aarch64 count=1
+[w1.api_analyzer] [vrb] analyzed api call                   call=puts(s="simple demo starting") category=I/O module=libsystem_c.dylib
+simple demo starting
+[w1.api_analyzer] [vrb] analyzed api return                 return=puts() = 10 raw_value=10 module=libsystem_c.dylib
+[w1.api_analyzer] [vrb] analyzed api call                   call=printf(format="add(10, 20) = %d\n") category=I/O module=libsystem_c.dylib
+add(10, 20) = 30
+[w1.api_analyzer] [vrb] analyzed api return                 return=printf() = 17 raw_value=17 module=libsystem_c.dylib
+[w1.api_analyzer] [vrb] analyzed api call                   call=printf(format="multiply(5, 6) = %d\n") category=I/O module=libsystem_c.dylib
+multiply(5, 6) = 30
+...
+[w1.api_analyzer] [vrb] analyzed api call                   call=malloc(size=64) category=Heap module=libsystem_malloc.dylib
+[w1.api_analyzer] [vrb] analyzed api return                 return=malloc() = 0x600003b982c0 raw_value=105553178755776 module=libsystem_malloc.dylib
+...
+[w1.api_analyzer] [vrb] analyzed api call                   call=puts(s="simple demo finished") category=I/O module=libsystem_c.dylib
+simple demo finished
+[w1.api_analyzer] [vrb] analyzed api return                 return=puts() = 10 raw_value=10 module=libsystem_c.dylib
+[w1.api_analyzer] [vrb] analyzed api call                   call=intercept_exit(?) category= module=w1xfer_qbdipreload.dylib
+[w1.preload] [inf] w1xfer preload exit                 status=0
+```
+
+as seen above, this can successfully intercept calls to many common `libc` apis!
