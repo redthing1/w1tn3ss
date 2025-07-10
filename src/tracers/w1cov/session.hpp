@@ -2,52 +2,74 @@
 
 #include "coverage_tracer.hpp"
 #include "coverage_config.hpp"
-#include <w1tn3ss/engine/tracer_engine.hpp>
-#include <QBDI.h>
-#include <memory>
-#include <vector>
+#include <w1tn3ss/engine/session_base.hpp>
+#include <w1tn3ss/formats/drcov.hpp>
+#include <redlog.hpp>
+#include <iostream>
+#include <iomanip>
 
 namespace w1cov {
 
-class session {
+class session : public w1::session_base<session, coverage_tracer, coverage_config> {
 public:
-  session();
-  explicit session(const coverage_config& config);
-  ~session();
+  session() = default;
+  explicit session(const coverage_config& config) : session_base(config) {}
 
-  bool initialize();
-  void shutdown();
-  bool is_initialized() const;
+  // coverage-specific metrics
+  size_t get_coverage_unit_count() const { return get_tracer() ? get_tracer()->get_coverage_unit_count() : 0; }
 
-  void add_target_module_pattern(const std::string& pattern);
+  size_t get_module_count() const { return get_tracer() ? get_tracer()->get_module_count() : 0; }
 
-  bool trace_function(void* func_ptr, const std::vector<uint64_t>& args = {}, uint64_t* result = nullptr);
+  uint64_t get_total_hits() const { return get_tracer() ? get_tracer()->get_total_hits() : 0; }
 
-  size_t get_coverage_unit_count() const;
-  size_t get_module_count() const;
-  uint64_t get_total_hits() const;
-  void print_statistics() const;
+  void print_statistics() const {
+    if (!get_tracer()) {
+      std::cout << "session not initialized\n";
+      return;
+    }
 
-  bool export_coverage(const std::string& output_path) const;
-  void clear_coverage();
+    size_t units = get_coverage_unit_count();
+    size_t modules = get_module_count();
+    uint64_t hits = get_total_hits();
 
-  coverage_config& get_config();
+    std::cout << "coverage statistics:\n";
+    std::cout << "  coverage units: " << units << "\n";
+    std::cout << "  modules: " << modules << "\n";
+    std::cout << "  total hits: " << hits << "\n";
 
-  // direct access for whole-program instrumentation
-  QBDI::VM* get_vm() const { return engine_ ? engine_->get_vm() : nullptr; }
+    if (units > 0 && hits > 0) {
+      double avg = static_cast<double>(hits) / units;
+      std::cout << "  avg hits/unit: " << std::fixed << std::setprecision(2) << avg << "\n";
+    }
+  }
 
-  w1::tracer_engine<coverage_tracer>* get_engine() const { return engine_.get(); }
+  bool export_coverage(const std::string& output_path) const {
+    if (!get_tracer()) {
+      return false;
+    }
 
-  // module management for whole-program instrumentation
-  bool add_instrumented_module_from_addr(void* module_addr);
-  bool add_instrumented_range(void* start, void* end);
-  bool remove_all_instrumented_ranges();
+    auto log = redlog::get_logger("w1cov.session");
 
-private:
-  coverage_config config_;
-  std::unique_ptr<coverage_tracer> tracer_;
-  std::unique_ptr<w1::tracer_engine<coverage_tracer>> engine_;
-  bool initialized_;
+    try {
+      const auto& collector = get_tracer()->get_collector();
+      auto data = collector.build_drcov_data();
+
+      if (data.basic_blocks.empty()) {
+        log.wrn("no coverage data to export");
+        return false;
+      }
+
+      drcov::write(output_path, data);
+      log.inf(
+          "coverage exported", redlog::field("file", output_path), redlog::field("blocks", data.basic_blocks.size())
+      );
+      return true;
+
+    } catch (const std::exception& e) {
+      log.err("export failed", redlog::field("error", e.what()));
+      return false;
+    }
+  }
 };
 
 } // namespace w1cov
