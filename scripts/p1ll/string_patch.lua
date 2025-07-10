@@ -17,8 +17,8 @@ local meta = {
     patches = {
         -- wildcard patches are used on all platforms
         ["*"] = { -- a patch declares a signature, an offset, a replacement, and optional parameters
-        p1.patch(SIG_DEMO_VERSION, 0, p1.str2hex("FULL VERSION")), 
-        p1.patch(SIG_TRIAL_VERSION, 0, p1.str2hex("LICENSED VER"))}
+        p1.patch(SIG_DEMO_VERSION, 0, p1.str2hex("OOPS VERSION")), 
+        p1.patch(SIG_TRIAL_VERSION, 0, p1.str2hex("SILLY VER"))}
     }
 }
 

@@ -127,3 +127,89 @@ run it:
 this will produce a trace of disassembled instructions as they are executed.
 
 see the [example scripts](./scripts/w1script/), which demonstrate memory tracing, function hooking, coverage collection, and api interception.
+
+## `p1ll` guide
+
+patching binaries is an essential part of a reversing or cracking workflow. `p1ll` is a portable signature scanning and patching library that can patch binaries statically on disk or dynamically in memory.
+`p1llx` provides a nifty command line to run and inspect patches.
+
+### static patching
+
+patch a binary on disk:
+```sh
+./build-release/p1llx -vv cure -c ./patch_script.lua -i ./target_binary -o ./patched_binary
+```
+
+on macos, statically patched binaries require codesigning:
+```sh
+codesign -fs - ./patched_binary
+```
+
+the `d0ct0r.py` script provides intelligent patch development features; it automatically backs up the input file, and handles permissions and codesigning.
+
+### dynamic patching
+
+patch a running process in memory:
+```sh
+# spawn new process
+./build-release/p1llx -vv poison -c ./patch_script.lua -s ./target_binary
+
+# attach to existing process
+./build-release/p1llx -vv poison -c ./patch_script.lua -n target_binary
+```
+
+### patch scripts
+
+`p1ll` uses scripts to define signatures and patching. this is designed to be used through the declarative `auto_cure` api, which can define platform-specific signatures and patches.
+
+example patch script:
+```lua
+-- validation signature
+local SIG_DEMO_NAME = p1.sig(p1.str2hex("Demo Program"))
+-- unique signature for this string
+local SIG_ANGERY = p1.sig(p1.str2hex("Angery"), {single = true})
+
+-- find a function by signature (optional module filter)
+local SIG_CHECK_LICENSE_WIN_X64 = p1.sig([[
+  4885c0          -- test rax, rax
+  74??            -- je <offset>
+  b001            -- mov al, 1
+]], {filter = "demo_program"})
+
+-- patch: fall through the check by nopping it
+local FIX_CHECK_LICENSE_WIN_X64 = [[
+  ??????
+  9090            -- nop nop
+  ????
+]]
+
+local meta = { -- declarative patch
+  name = "demo_program",
+  platforms = {"windows:x64"}, -- platforms supported by this patch
+  sigs = {
+    ["*"] = { -- wildcard signatures are checked on all platforms
+      SIG_DEMO_NAME,
+      SIG_ANGERY,
+    }
+  },
+  patches = {
+    ["windows:x64"] = { -- patch only on windows:x64
+        p1.patch(sig_check_license, 0, fix_check_license)
+    },
+    ["*"] = { -- wildcard patches are used on all platforms
+      p1.patch(SIG_ANGERY, 0, p1.str2hex("Happey"))
+    }
+  }
+}
+
+function cure()
+  return p1.auto_cure(meta)
+end
+```
+
+key concepts:
+- `p1.sig()`: define byte patterns (with `??` for wildcards)
+- `p1.patch()`: specify signature, offset, and replacement
+- `meta` table: organize sigs and patches by platform
+
+`p1ll` is an excellent and powerful tool for binary modification!
