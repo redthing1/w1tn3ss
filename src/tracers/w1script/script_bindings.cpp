@@ -50,6 +50,9 @@ void setup_qbdi_bindings(
   logger.dbg("setting up calling convention");
   bindings::setup_calling_convention(lua, w1_module);
 
+  logger.dbg("setting up symbol resolution");
+  bindings::setup_symbol_resolution(lua, w1_module);
+
   // register the w1 module with the lua state
   lua["w1"] = w1_module;
 
@@ -59,7 +62,7 @@ void setup_qbdi_bindings(
   logger.inf("all qbdi bindings registered successfully");
   logger.dbg(
       "available modules: core_types, register_access, vm_control, memory_access, memory_analysis, module_analysis, "
-      "utilities, callback_system, api_analysis, hooking, signature_scanning, calling_convention"
+      "utilities, callback_system, api_analysis, hooking, signature_scanning, calling_convention, symbol_resolution"
   );
 }
 
