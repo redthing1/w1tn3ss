@@ -2,8 +2,18 @@
 
 #include "windows_symbol_backend.hpp"
 #include "windows_path_resolver.hpp"
+
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
 #include <dbghelp.h>
 #include <psapi.h>
+#endif
 #include <algorithm>
 #include <cctype>
 
@@ -126,7 +136,7 @@ std::optional<uint64_t> windows_symbol_backend::resolve_name(
   // if module hint provided, get specific module base
   DWORD64 module_base = 0;
   if (!module_hint.empty()) {
-    HMODULE hmodule = get_module_handle_safe(module_hint);
+    ModuleHandle hmodule = get_module_handle_safe(module_hint);
     if (hmodule) {
       module_base = reinterpret_cast<DWORD64>(hmodule);
     }
@@ -166,7 +176,7 @@ std::optional<symbol_info> windows_symbol_backend::resolve_in_module(
   );
 
   // get module handle
-  HMODULE module_handle = get_module_handle_safe(module_path);
+  ModuleHandle module_handle = get_module_handle_safe(module_path);
   if (!module_handle) {
     log_.trc("module not loaded", redlog::field("module_path", module_path));
     return std::nullopt;
@@ -174,7 +184,9 @@ std::optional<symbol_info> windows_symbol_backend::resolve_in_module(
 
   // get module base address
   MODULEINFO module_info;
-  if (!GetModuleInformation(GetCurrentProcess(), module_handle, &module_info, sizeof(module_info))) {
+  if (!GetModuleInformation(
+          GetCurrentProcess(), static_cast<HMODULE>(module_handle), &module_info, sizeof(module_info)
+      )) {
     DWORD error = GetLastError();
     log_.trc(
         "failed to get module information", redlog::field("module_path", module_path), redlog::field("error", error)
@@ -304,7 +316,7 @@ std::vector<symbol_info> windows_symbol_backend::find_symbols(
 
   // if module hint provided, enumerate only that module
   if (!module_hint.empty()) {
-    HMODULE hmodule = get_module_handle_safe(module_hint);
+    ModuleHandle hmodule = get_module_handle_safe(module_hint);
     if (hmodule) {
       DWORD64 base = reinterpret_cast<DWORD64>(hmodule);
       SymEnumSymbols(process_handle, base, nullptr, enum_symbols_callback, &ctx);
@@ -463,7 +475,7 @@ symbol_info windows_symbol_backend::convert_to_symbol_info(const windows_symbol_
   return info;
 }
 
-HMODULE windows_symbol_backend::get_module_handle_safe(const std::string& module_name) const {
+ModuleHandle windows_symbol_backend::get_module_handle_safe(const std::string& module_name) const {
   // check cache first
   {
     std::lock_guard<std::mutex> lock(cache_mutex_);
@@ -487,12 +499,13 @@ HMODULE windows_symbol_backend::get_module_handle_safe(const std::string& module
   }
 
   // cache the result if found
-  if (handle) {
+  ModuleHandle result = static_cast<ModuleHandle>(handle);
+  if (result) {
     std::lock_guard<std::mutex> lock(cache_mutex_);
-    module_cache_[module_name] = handle;
+    module_cache_[module_name] = result;
   }
 
-  return handle;
+  return result;
 }
 
 } // namespace w1::symbols

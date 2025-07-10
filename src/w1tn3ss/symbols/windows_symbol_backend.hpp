@@ -7,7 +7,16 @@
 #include <redlog.hpp>
 #include <mutex>
 #include <unordered_map>
-#include <windows.h>
+// forward declarations to avoid including windows headers in header
+#ifdef _WIN32
+struct _SYMBOL_INFO;
+typedef _SYMBOL_INFO* PSYMBOL_INFO;
+typedef unsigned long ULONG;
+typedef void* PVOID;
+typedef int BOOL;
+// use void* for HMODULE to avoid windows.h dependency, we'll cast it later'
+typedef void* ModuleHandle;
+#endif
 
 namespace w1::symbols {
 
@@ -47,10 +56,10 @@ private:
   // helper methods
   std::optional<windows_symbol_info> resolve_symbol_info_native(uint64_t address) const;
   symbol_info convert_to_symbol_info(const windows_symbol_info& win_info) const;
-  HMODULE get_module_handle_safe(const std::string& module_name) const;
+  ModuleHandle get_module_handle_safe(const std::string& module_name) const;
 
-  // symbol enumeration callback
-  static BOOL CALLBACK enum_symbols_callback(PSYMBOL_INFO symbol_info, ULONG symbol_size, PVOID user_context);
+  // symbol enumeration callback (implementation in cpp)
+  static BOOL __stdcall enum_symbols_callback(PSYMBOL_INFO symbol_info, ULONG symbol_size, PVOID user_context);
 
   // logging
   mutable redlog::logger log_;
@@ -61,7 +70,7 @@ private:
 
   // cache for module handles
   mutable std::mutex cache_mutex_;
-  mutable std::unordered_map<std::string, HMODULE> module_cache_;
+  mutable std::unordered_map<std::string, ModuleHandle> module_cache_;
 };
 
 } // namespace w1::symbols
