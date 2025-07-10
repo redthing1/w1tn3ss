@@ -109,7 +109,7 @@ std::optional<symbol_enricher::symbol_context> symbol_enricher::enrich_address(u
 
   return result;
 #else
-  log_.trc("lief not enabled, no symbol resolution available");
+  // log_.trc("lief not enabled, no symbol resolution available");
   return std::nullopt;
 #endif
 }
