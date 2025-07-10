@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <sstream>
+#include <w1tn3ss/util/value_formatter.hpp>
 
 namespace w1xfer {
 
@@ -338,8 +339,9 @@ void transfer_collector::write_metadata() {
     }
     first = false;
 
-    json << "{\"id\":" << module_id++ << ",\"name\":\"" << mod.name << "\""
-         << ",\"path\":\"" << mod.path << "\""
+    json << "{\"id\":" << module_id++ << ",\"name\":\"" << w1::util::value_formatter::escape_json_string(mod.name)
+         << "\""
+         << ",\"path\":\"" << w1::util::value_formatter::escape_json_string(mod.path) << "\""
          << ",\"base\":" << mod.base_address << ",\"size\":" << mod.size << ",\"type\":\""
          << (mod.type == w1::util::module_type::MAIN_EXECUTABLE ? "main" : "library") << "\""
          << ",\"is_system\":" << (mod.is_system_library ? "true" : "false") << "}";
@@ -392,10 +394,10 @@ void transfer_collector::write_event(const transfer_entry& entry) {
   // conditionally include module names if enabled and non-empty
   if (log_call_targets_) {
     if (!entry.source_module.empty() && entry.source_module != "unknown") {
-      append_field("\"source_module\":\"" + entry.source_module + "\"");
+      append_field("\"source_module\":\"" + w1::util::value_formatter::escape_json_string(entry.source_module) + "\"");
     }
     if (!entry.target_module.empty() && entry.target_module != "unknown") {
-      append_field("\"target_module\":\"" + entry.target_module + "\"");
+      append_field("\"target_module\":\"" + w1::util::value_formatter::escape_json_string(entry.target_module) + "\"");
     }
 
     // include symbol info only if meaningful data exists

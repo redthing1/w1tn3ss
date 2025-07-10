@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstring>
+#include <w1common/ext/jsonstruct.hpp>
 
 namespace w1::util {
 
@@ -202,6 +203,13 @@ std::string value_formatter::format_typed_value(uint64_t raw_value, value_type t
     ss << "0x" << std::hex << raw_value;
     return ss.str();
   }
+}
+
+std::string value_formatter::escape_json_string(const std::string& str) {
+  // leverage the existing jsonstruct escaping logic for consistency
+  std::string buffer;
+  JS::DataRef ref = JS::Internal::handle_json_escapes_out(str, buffer);
+  return std::string(ref.data, ref.size);
 }
 
 std::string value_formatter::escape_string(const std::string& str) {

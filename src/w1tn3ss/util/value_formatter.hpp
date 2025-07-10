@@ -78,6 +78,9 @@ public:
 
   static std::string format_typed_value(uint64_t raw_value, value_type type, const format_options& opts = {});
 
+  // json-specific escaping for safe JSON string values
+  static std::string escape_json_string(const std::string& str);
+
 private:
   // helper to escape special characters in strings
   static std::string escape_string(const std::string& str);
