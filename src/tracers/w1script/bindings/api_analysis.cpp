@@ -163,7 +163,7 @@ void setup_api_analysis(
                       {"MISC", abi::api_info::category::MISC}}
   );
   w1_module["ApiCategory"] = api_category;
-  
+
   // also create a simple table for easier access
   sol::table api_category_table = lua.create_table();
   api_category_table["UNKNOWN"] = static_cast<int>(abi::api_info::category::UNKNOWN);

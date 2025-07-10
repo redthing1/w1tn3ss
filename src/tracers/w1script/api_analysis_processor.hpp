@@ -20,50 +20,42 @@ class api_analysis_manager;
  */
 class api_analysis_processor {
 private:
-    redlog::logger logger_;
-    
+  redlog::logger logger_;
+
 public:
-    api_analysis_processor();
-    
-    /**
-     * process exec_transfer_call event
-     * @param vm QBDI VM instance
-     * @param state VM state
-     * @param gpr GPR state
-     * @param fpr FPR state
-     * @param api_manager API analysis manager
-     * @param module_index Module index
-     * @param symbol_resolver Symbol resolver (optional)
-     */
-    void process_call(
-        QBDI::VM* vm,
-        const QBDI::VMState* state,
-        QBDI::GPRState* gpr,
-        QBDI::FPRState* fpr,
-        bindings::api_analysis_manager* api_manager,
-        util::module_range_index* module_index,
-        symbols::symbol_resolver* symbol_resolver = nullptr
-    );
-    
-    /**
-     * process exec_transfer_return event
-     * @param vm QBDI VM instance
-     * @param state VM state
-     * @param gpr GPR state
-     * @param fpr FPR state
-     * @param api_manager API analysis manager
-     * @param module_index Module index
-     * @param symbol_resolver Symbol resolver (optional)
-     */
-    void process_return(
-        QBDI::VM* vm,
-        const QBDI::VMState* state,
-        QBDI::GPRState* gpr,
-        QBDI::FPRState* fpr,
-        bindings::api_analysis_manager* api_manager,
-        util::module_range_index* module_index,
-        symbols::symbol_resolver* symbol_resolver = nullptr
-    );
+  api_analysis_processor();
+
+  /**
+   * process exec_transfer_call event
+   * @param vm QBDI VM instance
+   * @param state VM state
+   * @param gpr GPR state
+   * @param fpr FPR state
+   * @param api_manager API analysis manager
+   * @param module_index Module index
+   * @param symbol_resolver Symbol resolver (optional)
+   */
+  void process_call(
+      QBDI::VM* vm, const QBDI::VMState* state, QBDI::GPRState* gpr, QBDI::FPRState* fpr,
+      bindings::api_analysis_manager* api_manager, util::module_range_index* module_index,
+      symbols::symbol_resolver* symbol_resolver = nullptr
+  );
+
+  /**
+   * process exec_transfer_return event
+   * @param vm QBDI VM instance
+   * @param state VM state
+   * @param gpr GPR state
+   * @param fpr FPR state
+   * @param api_manager API analysis manager
+   * @param module_index Module index
+   * @param symbol_resolver Symbol resolver (optional)
+   */
+  void process_return(
+      QBDI::VM* vm, const QBDI::VMState* state, QBDI::GPRState* gpr, QBDI::FPRState* fpr,
+      bindings::api_analysis_manager* api_manager, util::module_range_index* module_index,
+      symbols::symbol_resolver* symbol_resolver = nullptr
+  );
 };
 
 } // namespace w1::tracers::script

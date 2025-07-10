@@ -596,9 +596,9 @@ symbol_info lief_symbol_backend::macho_symbol_to_info(const LIEF::MachO::Symbol&
 #ifndef _WIN32
   if (sym.raw_type() & N_STAB) {
     info.symbol_type = symbol_info::DEBUG;
-  } else 
+  } else
 #endif
-  if (sym.type() == LIEF::MachO::Symbol::TYPE::SECTION) {
+      if (sym.type() == LIEF::MachO::Symbol::TYPE::SECTION) {
     // could be function or data, default to function
     info.symbol_type = symbol_info::FUNCTION;
   } else {

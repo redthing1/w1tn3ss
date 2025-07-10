@@ -37,7 +37,7 @@ private:
 
   sol::state lua_;
   sol::table script_table_;
-  
+
   // callback management
   std::unique_ptr<callback_manager> callback_manager_;
 
@@ -52,7 +52,7 @@ private:
 
   // hook manager for dynamic hooking
   std::shared_ptr<w1::hooking::hook_manager> hook_manager_;
-  
+
   // api analysis processor
   std::unique_ptr<api_analysis_processor> api_processor_;
 

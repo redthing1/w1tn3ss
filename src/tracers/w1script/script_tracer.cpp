@@ -40,14 +40,14 @@ bool script_tracer::initialize(w1::tracer_engine<script_tracer>& engine) {
     logger_.err("vm instance is null");
     return false;
   }
-  
+
   // create hook manager before loading script
   hook_manager_ = std::make_shared<w1::hooking::hook_manager>(vm);
   logger_.inf("hook manager created");
-  
+
   // create api analysis processor
   api_processor_ = std::make_unique<api_analysis_processor>();
-  
+
   // create api analysis manager
   api_manager_ = std::make_shared<bindings::api_analysis_manager>();
 
@@ -66,7 +66,7 @@ bool script_tracer::initialize(w1::tracer_engine<script_tracer>& engine) {
     return false;
   }
   script_table_ = load_result.script_table;
-  
+
   // inject API analysis methods into the script table
   logger_.inf("setting up api analysis methods on script table");
   if (api_manager_) {
@@ -76,7 +76,7 @@ bool script_tracer::initialize(w1::tracer_engine<script_tracer>& engine) {
   } else {
     logger_.wrn("api_manager_ is null, skipping api analysis setup");
   }
-  
+
   // now call the script's init function
   sol::optional<sol::function> init_fn = script_table_["init"];
   if (init_fn) {
@@ -111,15 +111,12 @@ bool script_tracer::initialize(w1::tracer_engine<script_tracer>& engine) {
   // setup callbacks using the new manager
   callback_manager_ = std::make_unique<callback_manager>();
   callback_manager_->setup_callbacks(script_table_);
-  
+
   // pass api analysis components to callback manager
   callback_manager_->set_api_analysis_components(
-      api_processor_.get(), 
-      api_manager_.get(), 
-      module_index_.get(), 
-      symbol_resolver_.get()
+      api_processor_.get(), api_manager_.get(), module_index_.get(), symbol_resolver_.get()
   );
-  
+
   callback_manager_->register_callbacks(vm);
 
   // enable memory recording if memory callbacks are used
