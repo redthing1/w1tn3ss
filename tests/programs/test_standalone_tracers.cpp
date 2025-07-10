@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 #ifdef _WIN32
-#include <windows.h>
+#include <w1common/windows_clean.hpp>
 #else
 #include <unistd.h>
 #endif
