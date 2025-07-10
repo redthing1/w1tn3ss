@@ -377,12 +377,16 @@ void transfer_collector::write_event(const transfer_entry& entry) {
 
   // conditionally include registers if enabled and present
   if (log_registers_ && !entry.registers.registers.empty()) {
-    append_field("\"registers\":" + JS::serializeStruct(entry.registers));
+    append_field(
+        "\"registers\":" + JS::serializeStruct(entry.registers, JS::SerializerOptions(JS::SerializerOptions::Compact))
+    );
   }
 
   // conditionally include stack info if enabled
   if (log_stack_info_) {
-    append_field("\"stack\":" + JS::serializeStruct(entry.stack));
+    append_field(
+        "\"stack\":" + JS::serializeStruct(entry.stack, JS::SerializerOptions(JS::SerializerOptions::Compact))
+    );
   }
 
   // conditionally include module names if enabled and non-empty
@@ -396,16 +400,24 @@ void transfer_collector::write_event(const transfer_entry& entry) {
 
     // include symbol info only if meaningful data exists
     if (!entry.source_symbol.symbol_name.empty()) {
-      append_field("\"source_symbol\":" + JS::serializeStruct(entry.source_symbol));
+      append_field(
+          "\"source_symbol\":" +
+          JS::serializeStruct(entry.source_symbol, JS::SerializerOptions(JS::SerializerOptions::Compact))
+      );
     }
     if (!entry.target_symbol.symbol_name.empty()) {
-      append_field("\"target_symbol\":" + JS::serializeStruct(entry.target_symbol));
+      append_field(
+          "\"target_symbol\":" +
+          JS::serializeStruct(entry.target_symbol, JS::SerializerOptions(JS::SerializerOptions::Compact))
+      );
     }
   }
 
   // conditionally include API analysis if enabled and has meaningful data
   if (analyze_apis_ && entry.api_info.analysis_complete && !entry.api_info.api_category.empty()) {
-    append_field("\"api_info\":" + JS::serializeStruct(entry.api_info));
+    append_field(
+        "\"api_info\":" + JS::serializeStruct(entry.api_info, JS::SerializerOptions(JS::SerializerOptions::Compact))
+    );
   }
 
   json << "}}";
