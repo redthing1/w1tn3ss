@@ -146,7 +146,7 @@ public:
   }
 
   void add_api(const api_info& info) {
-    log_.info(
+    log_.dbg(
         "adding api to knowledge database", redlog::field("name", info.name), redlog::field("module", info.module),
         redlog::field("category", static_cast<int>(info.api_category))
     );
@@ -202,13 +202,13 @@ private:
   }
 
   void load_api_set(const std::vector<api_info>& api_set, const std::string& set_name) {
-    log_.dbg("loading api set", redlog::field("name", set_name));
+    log_.trc("loading api set", redlog::field("name", set_name));
 
     for (const auto& api : api_set) {
       add_api(api);
     }
 
-    log_.dbg("loaded api set", redlog::field("name", set_name), redlog::field("count", api_set.size()));
+    log_.trc("loaded api set", redlog::field("name", set_name), redlog::field("count", api_set.size()));
   }
 
   // string conversion helpers
