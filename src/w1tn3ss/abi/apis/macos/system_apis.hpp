@@ -19,6 +19,10 @@ namespace w1::abi::apis::macos {
  * - libsystem_pthread.dylib (threading)
  * - libsystem_m.dylib (math functions)
  * - libdyld.dylib (dynamic linking)
+ *
+ * discover apis using (for example):
+ * nm -gU /path/to/dyld_dmp/usr/lib/system/libsystem_c.dylib | grep printf
+ *
  */
 static std::vector<api_info> get_all_macos_system_apis() {
   std::vector<api_info> all_apis;
