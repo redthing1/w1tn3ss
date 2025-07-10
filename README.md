@@ -153,7 +153,6 @@ patch a running process in memory:
 ```sh
 # spawn new process
 ./build-release/p1llx -vv poison -c ./patch_script.lua -s ./target_binary
-
 # attach to existing process
 ./build-release/p1llx -vv poison -c ./patch_script.lua -n target_binary
 ```
