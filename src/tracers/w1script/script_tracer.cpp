@@ -131,6 +131,11 @@ bool script_tracer::load_script() {
     }
     lua_["config"] = config_table;
 
+    // first setup minimal bindings so w1 utilities are available during script execution
+    sol::table w1_module = lua_.create_table();
+    bindings::setup_utilities(lua_, w1_module);
+    lua_["w1"] = w1_module;
+
     // load the script
     sol::load_result script = lua_.load_file(cfg_.script_path);
     if (!script.valid()) {
@@ -155,7 +160,7 @@ bool script_tracer::load_script() {
 
     script_table_ = result;
 
-    // now setup qbdi bindings with the script table
+    // now setup full qbdi bindings with the actual script table
     setup_qbdi_bindings(lua_, script_table_, api_manager_, hook_manager_);
 
     // call init function if it exists
