@@ -231,8 +231,13 @@ std::optional<api_event> api_listener::analyze_call(const api_context& ctx) {
   // perform analysis
   auto analysis = pimpl_->analyzer_->analyze_call(ctx);
 
-  // if not an API, return empty
-  if (!analysis.analysis_complete || analysis.category == api_info::category::UNKNOWN) {
+  // if analysis failed completely, return empty
+  if (!analysis.analysis_complete) {
+    return std::nullopt;
+  }
+
+  // for unknown apis (not in knowledge db), still return event if we have a symbol name
+  if (analysis.category == api_info::category::UNKNOWN && analysis.symbol_name.empty()) {
     return std::nullopt;
   }
 

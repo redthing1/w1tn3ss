@@ -56,6 +56,9 @@ struct api_analysis_result {
   // formatted call string
   std::string formatted_call;
 
+  // tracking
+  bool found_in_knowledge_db = false;
+
   // error information
   bool analysis_complete = false;
   std::string error_message;

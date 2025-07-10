@@ -58,6 +58,7 @@ public:
           result.category = api_info->api_category;
           result.behavior_flags = api_info->flags;
           result.description = api_info->description;
+          result.found_in_knowledge_db = true;
           stats_.apis_identified++;
 
           log_.dbg(
@@ -79,6 +80,7 @@ public:
           }
         } else {
           log_.dbg("api not found in knowledge db", redlog::field("symbol", result.symbol_name));
+          result.found_in_knowledge_db = false;
         }
       }
 
@@ -369,69 +371,81 @@ private:
 
     ss << "(";
 
-    // format arguments with semantic information
-    for (size_t i = 0; i < result.arguments.size(); ++i) {
-      if (i > 0) {
-        ss << ", ";
-      }
-
-      const auto& arg = result.arguments[i];
-
-      // add parameter name if known
-      if (!arg.param_name.empty()) {
-        ss << arg.param_name << "=";
-      }
-
-      // format value based on type
-      switch (arg.param_type) {
-      case param_info::type::STRING:
-        if (!arg.string_preview.empty()) {
-          ss << "\"" << arg.string_preview << "\"";
-        } else if (arg.is_null_pointer) {
-          ss << "NULL";
-        } else {
-          ss << "0x" << std::hex << arg.raw_value;
+    // distinguish between:
+    // 1. api not found in knowledge db (unknown args) -> show "?"
+    // 2. api found with no parameters -> show "()"
+    // 3. api found with parameters -> show formatted args
+    if (!result.found_in_knowledge_db && !result.symbol_name.empty()) {
+      // api not in knowledge db - arguments unknown
+      ss << "?";
+    } else if (result.arguments.empty()) {
+      // either api has no parameters or we're not extracting args
+      // empty parentheses is correct here
+    } else {
+      // format arguments with semantic information
+      for (size_t i = 0; i < result.arguments.size(); ++i) {
+        if (i > 0) {
+          ss << ", ";
         }
-        break;
 
-      case param_info::type::POINTER:
-        if (arg.is_null_pointer) {
-          ss << "NULL";
-        } else {
-          ss << "0x" << std::hex << arg.raw_value;
+        const auto& arg = result.arguments[i];
+
+        // add parameter name if known
+        if (!arg.param_name.empty()) {
+          ss << arg.param_name << "=";
         }
-        break;
 
-      case param_info::type::BOOLEAN:
-        ss << (arg.raw_value ? "true" : "false");
-        break;
-
-      case param_info::type::FLAGS:
-        ss << "0x" << std::hex << arg.raw_value;
-        if (!arg.flag_names.empty()) {
-          ss << " [";
-          for (size_t j = 0; j < arg.flag_names.size(); ++j) {
-            if (j > 0) {
-              ss << "|";
-            }
-            ss << arg.flag_names[j];
+        // format value based on type
+        switch (arg.param_type) {
+        case param_info::type::STRING:
+          if (!arg.string_preview.empty()) {
+            ss << "\"" << arg.string_preview << "\"";
+          } else if (arg.is_null_pointer) {
+            ss << "NULL";
+          } else {
+            ss << "0x" << std::hex << arg.raw_value;
           }
-          ss << "]";
-        }
-        break;
+          break;
 
-      case param_info::type::SIZE:
-      case param_info::type::COUNT:
-        ss << std::dec << arg.raw_value;
-        break;
+        case param_info::type::POINTER:
+          if (arg.is_null_pointer) {
+            ss << "NULL";
+          } else {
+            ss << "0x" << std::hex << arg.raw_value;
+          }
+          break;
 
-      default:
-        if (arg.param_type == param_info::type::INTEGER || arg.raw_value < 1000) {
-          ss << std::dec << static_cast<int64_t>(arg.raw_value);
-        } else {
+        case param_info::type::BOOLEAN:
+          ss << (arg.raw_value ? "true" : "false");
+          break;
+
+        case param_info::type::FLAGS:
           ss << "0x" << std::hex << arg.raw_value;
+          if (!arg.flag_names.empty()) {
+            ss << " [";
+            for (size_t j = 0; j < arg.flag_names.size(); ++j) {
+              if (j > 0) {
+                ss << "|";
+              }
+              ss << arg.flag_names[j];
+            }
+            ss << "]";
+          }
+          break;
+
+        case param_info::type::SIZE:
+        case param_info::type::COUNT:
+          ss << std::dec << arg.raw_value;
+          break;
+
+        default:
+          if (arg.param_type == param_info::type::INTEGER || arg.raw_value < 1000) {
+            ss << std::dec << static_cast<int64_t>(arg.raw_value);
+          } else {
+            ss << "0x" << std::hex << arg.raw_value;
+          }
+          break;
         }
-        break;
       }
     }
 
