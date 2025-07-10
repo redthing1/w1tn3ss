@@ -211,9 +211,9 @@ int main(int argc, char* argv[]) {
   args::Command poison_cmd(parser, "poison", "inject p01s0n for dynamic patching");
   args::ValueFlag<std::string> poison_script_flag(poison_cmd, "script", "lua cure script path", {'c', "cure"});
   args::Flag poison_spawn_flag(poison_cmd, "spawn", "spawn target binary with p01s0n injection", {'s', "spawn"});
-  args::ValueFlag<int> poison_pid_flag(poison_cmd, "pid", "inject into existing process by pid", {"pid"});
+  args::ValueFlag<int> poison_pid_flag(poison_cmd, "pid", "inject into existing process by pid", {'p', "pid"});
   args::ValueFlag<std::string> poison_process_name_flag(
-      poison_cmd, "process-name", "inject into existing process by name", {"process-name"}
+      poison_cmd, "process-name", "inject into existing process by name", {'n', "process-name"}
   );
   args::Flag poison_suspended_flag(poison_cmd, "suspended", "start target in suspended mode", {"suspended"});
   args::PositionalList<std::string> poison_args_list(
