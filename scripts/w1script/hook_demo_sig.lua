@@ -11,7 +11,7 @@ local REGISTERS = {
         abi = "AAPCS64"
     },
     x86_64 = {
-        linux = {
+        linux = { -- x86_64: System V AMD64 ABI (Linux/macOS)
             args = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"},
             sp = "rsp",
             ret = "rax",
@@ -72,7 +72,6 @@ local function get_signatures(plat_info)
         end
     elseif plat_info.arch == "aarch64" then
         if plat_info.os == "macos" then
-            signatures.calculate_secret = "d2800000"
             signatures.calculate_secret = "202282d2 e0ddb7f2 a0d5dbf2"
             signatures.format_message = "404484d2 e0ddb7f2 a0d5dbf2"
             signatures.allocate_buffer = "606686d2 e0ddb7f2 a0d5dbf2"
@@ -163,7 +162,7 @@ end
 
 -- main initialization
 function tracer.init()
-    w1.log_info("=== hook demo ===")
+    w1.log_info("hook demo (manual register access)")
 
     -- detect platform
     local plat_info = w1.get_platform_info()
