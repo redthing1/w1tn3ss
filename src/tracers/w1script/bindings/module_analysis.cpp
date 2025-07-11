@@ -86,14 +86,23 @@ void setup_module_analysis(sol::state& lua, sol::table& w1_module) {
     return info;
   });
 
-  // === list all modules ===
-  w1_module.set_function("module_list_all", [&lua]() -> sol::table {
+  // === list modules with optional filter ===
+  w1_module.set_function("module_list", [&lua](sol::optional<std::string> filter) -> sol::table {
     ensure_modules_initialized();
 
     sol::table modules = lua.create_table();
-
     int index = 1;
+
     g_index->visit_all([&](const w1::util::module_info& module) {
+      // if filter provided, check if module matches
+      if (filter.has_value()) {
+        const std::string& search_str = filter.value();
+        if (module.name.find(search_str) == std::string::npos && module.path.find(search_str) == std::string::npos) {
+          return; // skip non-matching modules
+        }
+      }
+
+      // add module to results
       sol::table info = lua.create_table();
       info["name"] = module.name;
       info["path"] = module.path;
