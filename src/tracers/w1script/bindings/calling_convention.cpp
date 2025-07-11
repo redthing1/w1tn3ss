@@ -23,9 +23,8 @@ void setup_calling_convention(sol::state& lua, sol::table& w1_module) {
   // get function arguments using calling convention
   // this is the main function that extracts arguments based on platform abi
   w1_module.set_function(
-      "get_args", [&lua](void* vm_ptr, QBDI::GPRState* gpr, QBDI::FPRState* fpr, size_t count) -> sol::table {
+      "get_args", [&lua](QBDI::VM* vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr, size_t count) -> sol::table {
         auto log = redlog::get_logger("w1.script_bindings");
-        QBDI::VMInstanceRef vm = static_cast<QBDI::VMInstanceRef>(vm_ptr);
 
         // get default calling convention for platform
         auto cc = w1::abi::create_default_calling_convention();
@@ -73,9 +72,8 @@ void setup_calling_convention(sol::state& lua, sol::table& w1_module) {
   // get function arguments with types
   w1_module.set_function(
       "get_typed_args",
-      [&lua](void* vm_ptr, QBDI::GPRState* gpr, QBDI::FPRState* fpr, sol::table arg_types) -> sol::table {
+      [&lua](QBDI::VM* vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr, sol::table arg_types) -> sol::table {
         auto log = redlog::get_logger("w1.script_bindings");
-        QBDI::VMInstanceRef vm = static_cast<QBDI::VMInstanceRef>(vm_ptr);
 
         // get default calling convention
         auto cc = w1::abi::create_default_calling_convention();
@@ -250,7 +248,7 @@ void setup_calling_convention(sol::state& lua, sol::table& w1_module) {
 
   // convenience function for first few arguments
   w1_module.set_function(
-      "get_arg", [](void* vm_ptr, QBDI::GPRState* gpr, QBDI::FPRState* fpr, size_t index) -> sol::optional<uint64_t> {
+      "get_arg", [](QBDI::VM* vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr, size_t index) -> sol::optional<uint64_t> {
         auto cc = w1::abi::create_default_calling_convention();
         if (!cc) {
           return sol::nullopt;

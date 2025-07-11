@@ -185,18 +185,6 @@ void setup_output(sol::state& lua, sol::table& w1_module) {
 
   output_table["get_event_count"] = [output_instance]() -> size_t { return output_instance->get_event_count(); };
 
-  // helper to ensure shutdown handler
-  output_table["ensure_shutdown_handler"] = [output_instance](sol::table tracer) {
-    sol::function original_shutdown = tracer["shutdown"];
-
-    tracer["shutdown"] = [output_instance, original_shutdown]() {
-      if (original_shutdown.valid()) {
-        original_shutdown();
-      }
-      output_instance->close();
-    };
-  };
-
   // attach to w1 module
   w1_module["output"] = output_table;
 

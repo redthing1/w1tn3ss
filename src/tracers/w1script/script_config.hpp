@@ -5,6 +5,8 @@
 #include <w1tn3ss/engine/tracer_config_base.hpp>
 #include <string>
 #include <unordered_map>
+#include <algorithm>
+#include <cctype>
 
 namespace w1::tracers::script {
 
@@ -28,7 +30,12 @@ struct config : public w1::tracer_config_base {
     for (const auto& [key, value] : env_vars) {
       // skip the built-in ones
       if (key != "SCRIPT" && key != "VERBOSE") {
-        cfg.script_config[key] = value;
+        // convert key to lowercase for consistency
+        std::string lower_key = key;
+        std::transform(lower_key.begin(), lower_key.end(), lower_key.begin(), [](unsigned char c) {
+          return std::tolower(c);
+        });
+        cfg.script_config[lower_key] = value;
       }
     }
 

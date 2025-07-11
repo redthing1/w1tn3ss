@@ -108,21 +108,35 @@ bool script_tracer::initialize(w1::tracer_engine<script_tracer>& engine) {
     api_manager_->initialize(*module_index_);
   }
 
-  // setup callbacks using the new manager
-  callback_manager_ = std::make_unique<callback_manager>();
-  callback_manager_->setup_callbacks(script_table_);
+  // check if script has an instrument function for manual callback registration
+  sol::optional<sol::function> instrument_fn = script_table_["instrument"];
+  if (instrument_fn) {
+    try {
+      logger_.inf("calling script instrument function for manual callback registration");
+      instrument_fn.value()(vm);
+    } catch (const sol::error& e) {
+      logger_.err("error in script instrument function", redlog::field("error", e.what()));
+      return false;
+    }
+  } else {
+    // fallback to automatic callback registration based on tracer.callbacks
+    // setup callbacks using the new manager
+    callback_manager_ = std::make_unique<callback_manager>();
+    callback_manager_->setup_callbacks(script_table_);
 
-  // pass api analysis components to callback manager
-  callback_manager_->set_api_analysis_components(
-      api_processor_.get(), api_manager_.get(), module_index_.get(), symbol_resolver_.get()
-  );
+    // pass api analysis components to callback manager
+    callback_manager_->set_api_analysis_components(
+        api_processor_.get(), api_manager_.get(), module_index_.get(), symbol_resolver_.get()
+    );
 
-  callback_manager_->register_callbacks(vm);
+    callback_manager_->register_callbacks(vm);
+  }
 
-  // enable memory recording if memory callbacks are used
-  if (callback_manager_->is_callback_enabled(callback_manager::callback_type::memory_read) ||
-      callback_manager_->is_callback_enabled(callback_manager::callback_type::memory_write) ||
-      callback_manager_->is_callback_enabled(callback_manager::callback_type::memory_read_write)) {
+  // enable memory recording if memory callbacks are used (only applies to automatic registration)
+  if (callback_manager_ &&
+      (callback_manager_->is_callback_enabled(callback_manager::callback_type::memory_read) ||
+       callback_manager_->is_callback_enabled(callback_manager::callback_type::memory_write) ||
+       callback_manager_->is_callback_enabled(callback_manager::callback_type::memory_read_write))) {
     bool memory_recording_enabled = vm->recordMemoryAccess(QBDI::MEMORY_READ_WRITE);
     if (memory_recording_enabled) {
       logger_.inf("memory recording enabled for script");
@@ -152,9 +166,28 @@ void script_tracer::shutdown() {
     }
   }
 
+  // close output module if it's initialized
+  if (lua_["w1"]["output"].valid() && lua_["w1"]["output"]["close"].valid()) {
+    try {
+      lua_["w1"]["output"]["close"]();
+    } catch (const sol::error& e) {
+      logger_.err("error closing output module", redlog::field("error", e.what()));
+    }
+  }
+
   // shutdown api manager if it exists
   if (api_manager_) {
     api_manager_->shutdown();
+  }
+
+  // clear all VM callbacks to prevent use-after-free
+  // call the cleanup function if it exists in w1 module
+  if (lua_["w1"].valid() && lua_["w1"]["_cleanup_vm_callbacks"].valid()) {
+    try {
+      lua_["w1"]["_cleanup_vm_callbacks"]();
+    } catch (...) {
+      // ignore errors during cleanup
+    }
   }
 }
 

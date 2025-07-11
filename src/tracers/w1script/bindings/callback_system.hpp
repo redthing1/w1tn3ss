@@ -95,7 +95,6 @@ private:
 
 // helper functions
 uint32_t getNextCallbackId(LuaCallbackManager* mgr);
-QBDI::VM* get_vm_instance(void* vm_ptr);
 
 // C++ callback wrappers that call into Lua
 QBDI::VMAction luaInstCallbackWrapper(QBDI::VMInstanceRef vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr, void* data);

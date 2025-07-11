@@ -12,8 +12,13 @@ script_loader::load_result script_loader::load_script(sol::state& lua, const con
   try {
     // expose config to the script
     sol::table config_table = lua.create_table();
+    logger_.ped("creating config table for script");
     for (const auto& pair : cfg.script_config) {
       config_table[pair.first] = pair.second;
+      logger_.ped("  config[" + pair.first + "] = " + pair.second);
+    }
+    if (cfg.script_config.empty()) {
+      logger_.ped("  (config table is empty)");
     }
     lua["config"] = config_table;
 

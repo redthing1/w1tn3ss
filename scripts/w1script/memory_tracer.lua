@@ -5,7 +5,6 @@ local read_count = 0
 local write_count = 0
 
 local tracer = {}
-tracer.callbacks = { "instruction_postinst" }
 
 local function log_memory_access(access_type, count, pc, address, size, value, instruction)
     local msg = string.format("%s #%d @ %s [%s] size=%d value=%s inst: %s",

@@ -10,9 +10,7 @@ void setup_memory_access(sol::state& lua, sol::table& w1_module) {
   logger.dbg("setting up safe memory access functions");
 
   // safe memory read
-  w1_module.set_function("read_mem", [&lua](void* vm_ptr, uint64_t address, size_t size) -> sol::optional<sol::table> {
-    QBDI::VMInstanceRef vm = static_cast<QBDI::VMInstanceRef>(vm_ptr);
-
+  w1_module.set_function("read_mem", [&lua](QBDI::VM* vm, uint64_t address, size_t size) -> sol::optional<sol::table> {
     auto result = w1::util::safe_memory::read_buffer(vm, address, size, size);
     if (!result) {
       return sol::nullopt;
@@ -30,9 +28,7 @@ void setup_memory_access(sol::state& lua, sol::table& w1_module) {
   });
 
   // safe memory write
-  w1_module.set_function("write_mem", [](void* vm_ptr, uint64_t address, sol::table data) -> bool {
-    QBDI::VMInstanceRef vm = static_cast<QBDI::VMInstanceRef>(vm_ptr);
-
+  w1_module.set_function("write_mem", [](QBDI::VM* vm, uint64_t address, sol::table data) -> bool {
     // convert lua table to vector
     std::vector<uint8_t> bytes;
     for (size_t i = 1; i <= data.size(); i++) {
@@ -57,8 +53,7 @@ void setup_memory_access(sol::state& lua, sol::table& w1_module) {
   // safe string read
   w1_module.set_function(
       "read_string",
-      [](void* vm_ptr, uint64_t address, sol::optional<size_t> max_length) -> sol::optional<std::string> {
-        QBDI::VMInstanceRef vm = static_cast<QBDI::VMInstanceRef>(vm_ptr);
+      [](QBDI::VM* vm, uint64_t address, sol::optional<size_t> max_length) -> sol::optional<std::string> {
         size_t max_len = max_length.value_or(256);
 
         auto result = w1::util::safe_memory::read_string(vm, address, max_len);
@@ -73,8 +68,7 @@ void setup_memory_access(sol::state& lua, sol::table& w1_module) {
   // safe wide string read
   w1_module.set_function(
       "read_wstring",
-      [](void* vm_ptr, uint64_t address, sol::optional<size_t> max_length) -> sol::optional<std::string> {
-        QBDI::VMInstanceRef vm = static_cast<QBDI::VMInstanceRef>(vm_ptr);
+      [](QBDI::VM* vm, uint64_t address, sol::optional<size_t> max_length) -> sol::optional<std::string> {
         size_t max_len = max_length.value_or(256);
 
         auto result = w1::util::safe_memory::read_wstring(vm, address, max_len);
@@ -98,9 +92,7 @@ void setup_memory_access(sol::state& lua, sol::table& w1_module) {
 
   // convenience function to read memory as hex string
   w1_module.set_function(
-      "read_mem_hex", [&lua](void* vm_ptr, uint64_t address, size_t size) -> sol::optional<std::string> {
-        QBDI::VMInstanceRef vm = static_cast<QBDI::VMInstanceRef>(vm_ptr);
-
+      "read_mem_hex", [&lua](QBDI::VM* vm, uint64_t address, size_t size) -> sol::optional<std::string> {
         auto result = w1::util::safe_memory::read_buffer(vm, address, size, size);
         if (!result) {
           return sol::nullopt;
@@ -121,9 +113,7 @@ void setup_memory_access(sol::state& lua, sol::table& w1_module) {
   );
 
   // convenience function to write memory from hex string
-  w1_module.set_function("write_mem_hex", [](void* vm_ptr, uint64_t address, const std::string& hex_data) -> bool {
-    QBDI::VMInstanceRef vm = static_cast<QBDI::VMInstanceRef>(vm_ptr);
-
+  w1_module.set_function("write_mem_hex", [](QBDI::VM* vm, uint64_t address, const std::string& hex_data) -> bool {
     if (hex_data.length() % 2 != 0) {
       return false;
     }
@@ -154,8 +144,7 @@ void setup_memory_access(sol::state& lua, sol::table& w1_module) {
   });
 
   // read typed values
-  w1_module.set_function("read_u8", [](void* vm_ptr, uint64_t address) -> sol::optional<uint8_t> {
-    QBDI::VMInstanceRef vm = static_cast<QBDI::VMInstanceRef>(vm_ptr);
+  w1_module.set_function("read_u8", [](QBDI::VM* vm, uint64_t address) -> sol::optional<uint8_t> {
     auto result = w1::util::safe_memory::read<uint8_t>(vm, address);
     if (result) {
       return sol::optional<uint8_t>(*result);
@@ -163,8 +152,7 @@ void setup_memory_access(sol::state& lua, sol::table& w1_module) {
     return sol::nullopt;
   });
 
-  w1_module.set_function("read_u16", [](void* vm_ptr, uint64_t address) -> sol::optional<uint16_t> {
-    QBDI::VMInstanceRef vm = static_cast<QBDI::VMInstanceRef>(vm_ptr);
+  w1_module.set_function("read_u16", [](QBDI::VM* vm, uint64_t address) -> sol::optional<uint16_t> {
     auto result = w1::util::safe_memory::read<uint16_t>(vm, address);
     if (result) {
       return sol::optional<uint16_t>(*result);
@@ -172,8 +160,7 @@ void setup_memory_access(sol::state& lua, sol::table& w1_module) {
     return sol::nullopt;
   });
 
-  w1_module.set_function("read_u32", [](void* vm_ptr, uint64_t address) -> sol::optional<uint32_t> {
-    QBDI::VMInstanceRef vm = static_cast<QBDI::VMInstanceRef>(vm_ptr);
+  w1_module.set_function("read_u32", [](QBDI::VM* vm, uint64_t address) -> sol::optional<uint32_t> {
     auto result = w1::util::safe_memory::read<uint32_t>(vm, address);
     if (result) {
       return sol::optional<uint32_t>(*result);
@@ -181,8 +168,7 @@ void setup_memory_access(sol::state& lua, sol::table& w1_module) {
     return sol::nullopt;
   });
 
-  w1_module.set_function("read_u64", [](void* vm_ptr, uint64_t address) -> sol::optional<uint64_t> {
-    QBDI::VMInstanceRef vm = static_cast<QBDI::VMInstanceRef>(vm_ptr);
+  w1_module.set_function("read_u64", [](QBDI::VM* vm, uint64_t address) -> sol::optional<uint64_t> {
     auto result = w1::util::safe_memory::read<uint64_t>(vm, address);
     if (result) {
       return sol::optional<uint64_t>(*result);
@@ -190,8 +176,7 @@ void setup_memory_access(sol::state& lua, sol::table& w1_module) {
     return sol::nullopt;
   });
 
-  w1_module.set_function("read_ptr", [](void* vm_ptr, uint64_t address) -> sol::optional<QBDI::rword> {
-    QBDI::VMInstanceRef vm = static_cast<QBDI::VMInstanceRef>(vm_ptr);
+  w1_module.set_function("read_ptr", [](QBDI::VM* vm, uint64_t address) -> sol::optional<QBDI::rword> {
     auto result = w1::util::safe_memory::read<QBDI::rword>(vm, address);
     if (result) {
       return sol::optional<QBDI::rword>(*result);

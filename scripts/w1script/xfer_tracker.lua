@@ -12,7 +12,6 @@ local module_call_stats = {}
 local module_return_stats = {}
 
 local tracer = {}
-tracer.callbacks = { "exec_transfer_call", "exec_transfer_return" }
 
 function tracer.on_exec_transfer_call(vm, state, gpr, fpr)
     local pc = w1.get_reg_pc and w1.get_reg_pc(gpr) or 0

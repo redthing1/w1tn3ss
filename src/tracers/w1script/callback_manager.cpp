@@ -80,28 +80,13 @@ void callback_manager::setup_callbacks(const sol::table& script_table) {
     return;
   }
 
-  // get the callbacks list from the script
-  sol::optional<sol::table> callbacks_table = script_table["callbacks"];
-  if (callbacks_table) {
-    for (const auto& pair : callbacks_table.value()) {
-      if (pair.second.get_type() == sol::type::string) {
-        std::string callback_name = pair.second.as<std::string>();
-        auto callback_type = string_to_callback_type(callback_name);
-        if (callback_type) {
-          enabled_callbacks_.insert(callback_type.value());
-          logger_.dbg("found callback", redlog::field("name", callback_name));
-        } else {
-          logger_.wrn("unknown callback name", redlog::field("name", callback_name));
-        }
-      }
-    }
-  }
-
-  // get callback functions from the script
+  // auto-detect callback functions by checking for on_* functions
   for (const auto& [type, lua_name] : lua_function_names) {
     sol::function callback_fn = script_table[lua_name];
     if (callback_fn.valid()) {
       lua_callbacks_[type] = callback_fn;
+      enabled_callbacks_.insert(type);
+      logger_.dbg("detected callback function", redlog::field("name", lua_name));
     }
   }
 
@@ -116,6 +101,7 @@ void callback_manager::register_callbacks(QBDI::VM* vm) {
 
   // instruction callbacks (addCodeCB)
   if (is_callback_enabled(callback_type::instruction_preinst)) {
+    logger_.trc("script has instruction_preinst callback, registering with QBDI");
     uint32_t id = vm->addCodeCB(
         QBDI::PREINST, [this](QBDI::VMInstanceRef vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr) -> QBDI::VMAction {
           return this->dispatch_simple_callback(callback_type::instruction_preinst, vm, gpr, fpr);
@@ -125,9 +111,12 @@ void callback_manager::register_callbacks(QBDI::VM* vm) {
       registered_callback_ids_.push_back(id);
       logger_.inf("registered instruction_preinst callback", redlog::field("id", id));
     }
+  } else {
+    logger_.trc("script does not have instruction_preinst callback, skipping");
   }
 
   if (is_callback_enabled(callback_type::instruction_postinst)) {
+    logger_.trc("script has instruction_postinst callback, registering with QBDI");
     uint32_t id = vm->addCodeCB(
         QBDI::POSTINST, [this](QBDI::VMInstanceRef vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr) -> QBDI::VMAction {
           return this->dispatch_simple_callback(callback_type::instruction_postinst, vm, gpr, fpr);
@@ -137,6 +126,8 @@ void callback_manager::register_callbacks(QBDI::VM* vm) {
       registered_callback_ids_.push_back(id);
       logger_.inf("registered instruction_postinst callback", redlog::field("id", id));
     }
+  } else {
+    logger_.trc("script does not have instruction_postinst callback, skipping");
   }
 
   // vm event callbacks (addVMEventCB)
@@ -194,6 +185,13 @@ void callback_manager::register_callbacks(QBDI::VM* vm) {
   logger_.inf(
       "dynamic callback registration complete", redlog::field("total_callbacks", registered_callback_ids_.size())
   );
+
+  // Log summary at trace level
+  logger_.trc(
+      "callback registration summary", redlog::field("enabled_callbacks", enabled_callbacks_.size()),
+      redlog::field("lua_functions", lua_callbacks_.size()),
+      redlog::field("registered_with_qbdi", registered_callback_ids_.size())
+  );
 }
 
 QBDI::VMAction callback_manager::dispatch_simple_callback(
@@ -205,7 +203,7 @@ QBDI::VMAction callback_manager::dispatch_simple_callback(
   }
 
   try {
-    auto result = it->second(static_cast<void*>(vm), gpr, fpr);
+    auto result = it->second(vm, gpr, fpr);
     if (result.valid() && result.get_type() == sol::type::number) {
       return static_cast<QBDI::VMAction>(result.get<int>());
     }
@@ -234,7 +232,7 @@ QBDI::VMAction callback_manager::dispatch_vm_event_callback(
   }
 
   try {
-    auto result = it->second(static_cast<void*>(vm), *state, gpr, fpr);
+    auto result = it->second(vm, *state, gpr, fpr);
     if (result.valid() && result.get_type() == sol::type::number) {
       return static_cast<QBDI::VMAction>(result.get<int>());
     }
@@ -255,7 +253,7 @@ std::vector<QBDI::InstrRuleDataCBK> callback_manager::dispatch_instr_rule_callba
   }
 
   try {
-    auto result = it->second(static_cast<void*>(vm), static_cast<const void*>(analysis), data);
+    auto result = it->second(vm, analysis, data);
     // for now, return empty vector - instruction rules require more complex handling
     return {};
   } catch (const sol::error& e) {

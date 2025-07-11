@@ -8,6 +8,7 @@
 #include "bindings/core_types.hpp"
 #include "bindings/register_access.hpp"
 #include "bindings/vm_control.hpp"
+#include "bindings/vm_core.hpp"
 #include "bindings/memory_access.hpp"
 #include "bindings/memory_analysis.hpp"
 #include "bindings/module_analysis.hpp"

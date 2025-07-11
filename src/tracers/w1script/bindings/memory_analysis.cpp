@@ -13,39 +13,6 @@ void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
   auto logger = redlog::get_logger("w1.script_bindings");
   logger.dbg("setting up memory access and analysis functions");
 
-  // get memory accesses for the current instruction
-  // returns a Lua table containing detailed information about all memory accesses
-  // performed by the current instruction
-  w1_module.set_function("get_memory_accesses", [&lua](void* vm_ptr) -> sol::table {
-    QBDI::VMInstanceRef vm = static_cast<QBDI::VMInstanceRef>(vm_ptr);
-    std::vector<QBDI::MemoryAccess> accesses = vm->getInstMemoryAccess();
-
-    sol::state_view lua_view = lua.lua_state();
-    sol::table result = lua_view.create_table();
-
-    for (size_t i = 0; i < accesses.size(); i++) {
-      const auto& access = accesses[i];
-      sol::table access_table = lua_view.create_table();
-
-      // memory access details
-      access_table["address"] = access.accessAddress;    // Address being accessed
-      access_table["value"] = access.value;              // Value read/written
-      access_table["size"] = access.size;                // Size of access in bytes
-      access_table["inst_address"] = access.instAddress; // Address of instruction performing access
-
-      // access type flags
-      access_table["is_read"] = (access.type & QBDI::MEMORY_READ) != 0;
-      access_table["is_write"] = (access.type & QBDI::MEMORY_WRITE) != 0;
-
-      // additional access information
-      access_table["flags"] = access.flags; // Additional flags
-
-      result[i + 1] = access_table; // Lua arrays start at 1
-    }
-
-    return result;
-  });
-
   // format memory value as hex string with specified width
   // provides consistent formatting for memory values based on their size
   w1_module.set_function("format_memory_value", [](QBDI::rword value, int size) -> std::string {
@@ -70,70 +37,10 @@ void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
     return std::string(buffer);
   });
 
-  // memory access recording
-  // enable automatic memory logging for specified access types
-  w1_module.set_function("recordMemoryAccess", [](void* vm_ptr, QBDI::MemoryAccessType type) -> bool {
-    QBDI::VMInstanceRef vm = static_cast<QBDI::VMInstanceRef>(vm_ptr);
-    return vm->recordMemoryAccess(type);
-  });
-
-  // get current instruction memory accesses (alias for existing function)
-  w1_module.set_function("getInstMemoryAccess", [&lua](void* vm_ptr) -> sol::table {
-    QBDI::VMInstanceRef vm = static_cast<QBDI::VMInstanceRef>(vm_ptr);
-    std::vector<QBDI::MemoryAccess> accesses = vm->getInstMemoryAccess();
-
-    sol::state_view lua_view = lua.lua_state();
-    sol::table result = lua_view.create_table();
-
-    for (size_t i = 0; i < accesses.size(); i++) {
-      const auto& access = accesses[i];
-      sol::table access_table = lua_view.create_table();
-
-      access_table["address"] = access.accessAddress;
-      access_table["value"] = access.value;
-      access_table["size"] = access.size;
-      access_table["inst_address"] = access.instAddress;
-      access_table["is_read"] = (access.type & QBDI::MEMORY_READ) != 0;
-      access_table["is_write"] = (access.type & QBDI::MEMORY_WRITE) != 0;
-      access_table["flags"] = access.flags;
-
-      result[i + 1] = access_table;
-    }
-
-    return result;
-  });
-
-  // get basic block memory accesses
-  w1_module.set_function("getBBMemoryAccess", [&lua](void* vm_ptr) -> sol::table {
-    QBDI::VMInstanceRef vm = static_cast<QBDI::VMInstanceRef>(vm_ptr);
-    std::vector<QBDI::MemoryAccess> accesses = vm->getBBMemoryAccess();
-
-    sol::state_view lua_view = lua.lua_state();
-    sol::table result = lua_view.create_table();
-
-    for (size_t i = 0; i < accesses.size(); i++) {
-      const auto& access = accesses[i];
-      sol::table access_table = lua_view.create_table();
-
-      access_table["address"] = access.accessAddress;
-      access_table["value"] = access.value;
-      access_table["size"] = access.size;
-      access_table["inst_address"] = access.instAddress;
-      access_table["is_read"] = (access.type & QBDI::MEMORY_READ) != 0;
-      access_table["is_write"] = (access.type & QBDI::MEMORY_WRITE) != 0;
-      access_table["flags"] = access.flags;
-
-      result[i + 1] = access_table;
-    }
-
-    return result;
-  });
-
   // memory management
   // allocate managed virtual stack
-  w1_module.set_function("allocateVirtualStack", [](void* vm_ptr, uint32_t stackSize) -> sol::optional<QBDI::rword> {
+  w1_module.set_function("allocateVirtualStack", [](QBDI::VM* vm, uint32_t stackSize) -> sol::optional<QBDI::rword> {
     auto log = redlog::get_logger("w1.script_bindings");
-    QBDI::VMInstanceRef vm = static_cast<QBDI::VMInstanceRef>(vm_ptr);
 
     try {
       QBDI::GPRState* state = vm->getGPRState();
@@ -156,9 +63,8 @@ void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
   });
 
   // simulate function call with arguments
-  w1_module.set_function("simulateCall", [](void* vm_ptr, QBDI::rword returnAddress, sol::table args) -> bool {
+  w1_module.set_function("simulateCall", [](QBDI::VM* vm, QBDI::rword returnAddress, sol::table args) -> bool {
     auto log = redlog::get_logger("w1.script_bindings");
-    QBDI::VMInstanceRef vm = static_cast<QBDI::VMInstanceRef>(vm_ptr);
 
     try {
       QBDI::GPRState* state = vm->getGPRState();
@@ -226,7 +132,7 @@ void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
   // memory inspection
   // safe memory reading with error handling
   w1_module.set_function(
-      "readMemory", [](void* vm_ptr, QBDI::rword address, size_t size) -> sol::optional<std::string> {
+      "readMemory", [](QBDI::VM* vm, QBDI::rword address, size_t size) -> sol::optional<std::string> {
         auto log = redlog::get_logger("w1.script_bindings");
 
         try {
@@ -274,7 +180,7 @@ void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
 
   // unsafe memory writing (deprecated - use write_mem instead)
   w1_module.set_function(
-      "writeMemoryUnsafe", [](void* vm_ptr, QBDI::rword address, const std::string& hexData) -> bool {
+      "writeMemoryUnsafe", [](QBDI::VM* vm, QBDI::rword address, const std::string& hexData) -> bool {
         auto log = redlog::get_logger("w1.script_bindings");
 
         try {
@@ -322,7 +228,7 @@ void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
   );
 
   // basic address validity check (heuristic-based)
-  w1_module.set_function("isAddressValid", [](void* vm_ptr, QBDI::rword address) -> bool {
+  w1_module.set_function("isAddressValid", [](QBDI::VM* vm, QBDI::rword address) -> bool {
     auto log = redlog::get_logger("w1.script_bindings");
 
     try {
@@ -362,7 +268,7 @@ void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
 
   // memory mapping
   // get process memory layout
-  w1_module.set_function("getMemoryMaps", [&lua](void* vm_ptr) -> sol::table {
+  w1_module.set_function("getMemoryMaps", [&lua](QBDI::VM* vm) -> sol::table {
     auto log = redlog::get_logger("w1.script_bindings");
     sol::state_view lua_view = lua.lua_state();
     sol::table result = lua_view.create_table();
@@ -396,7 +302,7 @@ void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
   });
 
   // find memory map containing specific address
-  w1_module.set_function("findMemoryMap", [&lua](void* vm_ptr, QBDI::rword address) -> sol::optional<sol::table> {
+  w1_module.set_function("findMemoryMap", [&lua](QBDI::VM* vm, QBDI::rword address) -> sol::optional<sol::table> {
     auto log = redlog::get_logger("w1.script_bindings");
 
     try {
@@ -434,7 +340,7 @@ void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
   });
 
   // check if address is in executable memory region
-  w1_module.set_function("isExecutableAddress", [](void* vm_ptr, QBDI::rword address) -> bool {
+  w1_module.set_function("isExecutableAddress", [](QBDI::VM* vm, QBDI::rword address) -> bool {
     auto log = redlog::get_logger("w1.script_bindings");
 
     try {
@@ -465,7 +371,7 @@ void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
 
   // legacy read_memory function (improved implementation)
   w1_module.set_function(
-      "read_memory", [](void* vm_ptr, QBDI::rword address, size_t size) -> sol::optional<std::string> {
+      "read_memory", [](QBDI::VM* vm, QBDI::rword address, size_t size) -> sol::optional<std::string> {
         auto log = redlog::get_logger("w1.script_bindings");
 
         try {
@@ -524,32 +430,6 @@ void setup_memory_analysis(sol::state& lua, sol::table& w1_module) {
   // check if a memory access is a write operation
   w1_module.set_function("is_memory_write", [](QBDI::MemoryAccessType type) -> bool {
     return (type & QBDI::MEMORY_WRITE) != 0;
-  });
-
-  // get the number of memory accesses for the current instruction
-  w1_module.set_function("get_memory_access_count", [](void* vm_ptr) -> size_t {
-    QBDI::VMInstanceRef vm = static_cast<QBDI::VMInstanceRef>(vm_ptr);
-    std::vector<QBDI::MemoryAccess> accesses = vm->getInstMemoryAccess();
-    return accesses.size();
-  });
-
-  // check if the current instruction performs any memory accesses
-  w1_module.set_function("has_memory_access", [](void* vm_ptr) -> bool {
-    QBDI::VMInstanceRef vm = static_cast<QBDI::VMInstanceRef>(vm_ptr);
-    std::vector<QBDI::MemoryAccess> accesses = vm->getInstMemoryAccess();
-    return !accesses.empty();
-  });
-
-  // get the total size of all memory accesses for the current instruction
-  w1_module.set_function("get_total_memory_access_size", [](void* vm_ptr) -> size_t {
-    QBDI::VMInstanceRef vm = static_cast<QBDI::VMInstanceRef>(vm_ptr);
-    std::vector<QBDI::MemoryAccess> accesses = vm->getInstMemoryAccess();
-
-    size_t total_size = 0;
-    for (const auto& access : accesses) {
-      total_size += access.size;
-    }
-    return total_size;
   });
 
   logger.dbg("enhanced memory analysis functions setup complete with 16 functions");

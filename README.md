@@ -98,7 +98,6 @@ here's a simple instruction tracer:
 local instruction_count = 0
 
 local tracer = {}
-tracer.callbacks = { "instruction_postinst" }
 
 function tracer.on_instruction_postinst(vm, gpr, fpr)
     instruction_count = instruction_count + 1

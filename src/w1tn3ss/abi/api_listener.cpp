@@ -367,7 +367,9 @@ void api_listener::process_return(const api_context& ctx) {
   }
 
   // check if we have callbacks for this return
-  if (!pimpl_->has_callbacks_for(call_it->target_module, call_it->target_symbol_name, call_it->api_info_data.api_category)) {
+  if (!pimpl_->has_callbacks_for(
+          call_it->target_module, call_it->target_symbol_name, call_it->api_info_data.api_category
+      )) {
     pimpl_->stats_.calls_filtered_out++;
     return;
   }

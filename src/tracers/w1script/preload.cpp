@@ -132,6 +132,14 @@ QBDI_EXPORT int qbdipreload_on_exit(int status) {
 
   logger.inf("qbdipreload_on_exit called", redlog::field("status", status));
 
+  // IMPORTANT: destroy engine before tracer
+  // The engine holds references to the tracer and QBDI callbacks
+  if (g_engine) {
+    logger.inf("shutting down engine");
+    g_engine.reset();
+    logger.inf("engine shutdown completed");
+  }
+
   if (g_tracer) {
     logger.inf("shutting down script tracer");
 
@@ -140,10 +148,6 @@ QBDI_EXPORT int qbdipreload_on_exit(int status) {
     logger.inf("script tracer shutdown completed");
 
     g_tracer.reset();
-  }
-
-  if (g_engine) {
-    g_engine.reset();
   }
 
   logger.inf("qbdipreload_on_exit completed");

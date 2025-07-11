@@ -24,6 +24,9 @@ void setup_qbdi_bindings(
   logger.dbg("setting up vm control functions");
   bindings::setup_vm_control(lua, w1_module);
 
+  logger.dbg("setting up vm core functions");
+  bindings::setup_vm_core(lua, w1_module);
+
   logger.dbg("setting up memory analysis functions");
   bindings::setup_memory_analysis(lua, w1_module);
 

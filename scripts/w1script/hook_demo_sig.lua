@@ -317,6 +317,4 @@ function tracer.init()
     w1.log_info("ready to trace")
 end
 
-tracer.callbacks = {}
-
 return tracer
