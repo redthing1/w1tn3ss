@@ -192,7 +192,7 @@ local meta = { -- declarative patch
   },
   patches = {
     ["windows:x64"] = { -- patch only on windows:x64
-        p1.patch(sig_check_license, 0, fix_check_license)
+        p1.patch(SIG_CHECK_LICENSE_WIN_X64, 0, FIX_CHECK_LICENSE_WIN_X64)
     },
     ["*"] = { -- wildcard patches are used on all platforms
       p1.patch(SIG_ANGERY, 0, p1.str2hex("Happey"))
