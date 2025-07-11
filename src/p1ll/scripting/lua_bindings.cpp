@@ -1,7 +1,9 @@
 #include "lua_bindings.hpp"
 #include "p1ll.hpp"
 #include "core/context.hpp"
+#include "core/signature.hpp"
 #include "engine/auto_cure.hpp"
+#include "engine/memory_scanner.hpp"
 #include <redlog.hpp>
 
 namespace p1ll::scripting {
@@ -369,8 +371,26 @@ void setup_manual_api(sol::state& lua, sol::table& p1_module) {
         }
 
         // perform the search
-        // search_signature functionality moved to engine::memory_scanner
-        std::vector<search_result> results;
+        // compile the signature pattern
+        auto compiled_sig = compile_signature(pattern);
+        if (!compiled_sig) {
+          log.err("search_sig: failed to compile signature pattern", redlog::field("pattern", pattern));
+          return sol::nil;
+        }
+
+        // create memory scanner and perform search
+        engine::memory_scanner scanner;
+        signature_query query;
+        query.signature = *compiled_sig;
+        query.filter = filter;
+
+        auto search_results_opt = scanner.search(query);
+        if (!search_results_opt) {
+          log.err("search_sig: search failed", redlog::field("pattern", pattern));
+          return sol::nil;
+        }
+
+        std::vector<search_result> results = *search_results_opt;
 
         // handle single mode
         if (single) {
