@@ -19,15 +19,13 @@ if(WITNESS_SCRIPT)
         
         # utility implementation
         utils/hex_utils.cpp
+        utils/hex_pattern.cpp
         utils/file_utils.cpp
         utils/pretty_hexdump.cpp
         
         # scripting implementation
         scripting/lua_bindings.cpp
         scripting/lua_api.cpp
-        
-        # main library interface
-        p1ll.cpp
     )
     
     # create static library

@@ -7,7 +7,7 @@
 #include <iostream>
 #include <vector>
 
-using namespace p1ll::core;
+using namespace p1ll;
 using namespace p1ll::engine;
 using namespace p1ll::utils;
 
@@ -58,7 +58,13 @@ void test_wildcard_pattern_matching() {
         0xeb, 0x1d              // eb?? (wildcard)
     };
 
-    compiled_signature sig = compile_signature(pattern);
+    auto compiled_sig_opt = compile_signature(pattern);
+    if (!compiled_sig_opt) {
+      results.fail("Wildcard pattern matching - basic case",
+                   "failed to compile signature");
+      return;
+    }
+    auto sig = *compiled_sig_opt;
     pattern_matcher matcher(sig);
 
     auto matches = matcher.search(test_data, sizeof(test_data));
@@ -87,7 +93,13 @@ void test_wildcard_pattern_matching() {
         0xeb, 0xAB              // eb?? (different wildcard value)
     };
 
-    compiled_signature sig = compile_signature(pattern);
+    auto compiled_sig_opt = compile_signature(pattern);
+    if (!compiled_sig_opt) {
+      results.fail("Wildcard pattern matching - different wildcard values",
+                   "failed to compile signature");
+      return;
+    }
+    auto sig = *compiled_sig_opt;
     pattern_matcher matcher(sig);
 
     auto matches = matcher.search(test_data, sizeof(test_data));
@@ -116,7 +128,12 @@ void test_wildcard_pattern_matching() {
         0xeb, 0x1d              // eb?? (wildcard)
     };
 
-    compiled_signature sig = compile_signature(pattern);
+    auto compiled_sig_opt = compile_signature(pattern);
+    if (!compiled_sig_opt) {
+      results.fail("compile_signature failed", "failed to compile signature");
+      return;
+    }
+    auto sig = *compiled_sig_opt;
     pattern_matcher matcher(sig);
 
     auto matches = matcher.search(test_data, sizeof(test_data));
@@ -148,7 +165,12 @@ void test_wildcard_pattern_matching() {
 
     std::memcpy(buffer.data() + 50, test_data, sizeof(test_data));
 
-    compiled_signature sig = compile_signature(pattern);
+    auto compiled_sig_opt = compile_signature(pattern);
+    if (!compiled_sig_opt) {
+      results.fail("compile_signature failed", "failed to compile signature");
+      return;
+    }
+    auto sig = *compiled_sig_opt;
     pattern_matcher matcher(sig);
 
     auto matches = matcher.search(buffer.data(), buffer.size());
@@ -170,7 +192,12 @@ void test_exact_pattern_matching() {
     std::string pattern = "488b5158 488d4c24";
     uint8_t test_data[] = {0x48, 0x8b, 0x51, 0x58, 0x48, 0x8d, 0x4c, 0x24};
 
-    compiled_signature sig = compile_signature(pattern);
+    auto compiled_sig_opt = compile_signature(pattern);
+    if (!compiled_sig_opt) {
+      results.fail("compile_signature failed", "failed to compile signature");
+      return;
+    }
+    auto sig = *compiled_sig_opt;
     pattern_matcher matcher(sig);
 
     auto matches = matcher.search(test_data, sizeof(test_data));
@@ -189,7 +216,12 @@ void test_exact_pattern_matching() {
     uint8_t test_data[] = {0x48, 0x8b, 0x51, 0x58,
                            0x48, 0x8d, 0x4c, 0x25}; // Last byte wrong
 
-    compiled_signature sig = compile_signature(pattern);
+    auto compiled_sig_opt = compile_signature(pattern);
+    if (!compiled_sig_opt) {
+      results.fail("compile_signature failed", "failed to compile signature");
+      return;
+    }
+    auto sig = *compiled_sig_opt;
     pattern_matcher matcher(sig);
 
     auto matches = matcher.search(test_data, sizeof(test_data));
@@ -211,7 +243,12 @@ void test_edge_cases() {
     std::string pattern = "48";
     uint8_t test_data[] = {0x48};
 
-    compiled_signature sig = compile_signature(pattern);
+    auto compiled_sig_opt = compile_signature(pattern);
+    if (!compiled_sig_opt) {
+      results.fail("compile_signature failed", "failed to compile signature");
+      return;
+    }
+    auto sig = *compiled_sig_opt;
     pattern_matcher matcher(sig);
 
     auto matches = matcher.search(test_data, sizeof(test_data));
@@ -229,7 +266,12 @@ void test_edge_cases() {
     std::string pattern = "??";
     uint8_t test_data[] = {0x48};
 
-    compiled_signature sig = compile_signature(pattern);
+    auto compiled_sig_opt = compile_signature(pattern);
+    if (!compiled_sig_opt) {
+      results.fail("compile_signature failed", "failed to compile signature");
+      return;
+    }
+    auto sig = *compiled_sig_opt;
     pattern_matcher matcher(sig);
 
     auto matches = matcher.search(test_data, sizeof(test_data));
@@ -247,7 +289,12 @@ void test_edge_cases() {
     std::string pattern = "?? ?? ??";
     uint8_t test_data[] = {0x48, 0x8b, 0x51};
 
-    compiled_signature sig = compile_signature(pattern);
+    auto compiled_sig_opt = compile_signature(pattern);
+    if (!compiled_sig_opt) {
+      results.fail("compile_signature failed", "failed to compile signature");
+      return;
+    }
+    auto sig = *compiled_sig_opt;
     pattern_matcher matcher(sig);
 
     auto matches = matcher.search(test_data, sizeof(test_data));
@@ -265,7 +312,12 @@ void test_edge_cases() {
     std::string pattern = "48";
     uint8_t *test_data = nullptr;
 
-    compiled_signature sig = compile_signature(pattern);
+    auto compiled_sig_opt = compile_signature(pattern);
+    if (!compiled_sig_opt) {
+      results.fail("compile_signature failed", "failed to compile signature");
+      return;
+    }
+    auto sig = *compiled_sig_opt;
     pattern_matcher matcher(sig);
 
     auto matches = matcher.search(test_data, 0);
@@ -291,7 +343,12 @@ void test_performance_patterns() {
     test_data[500 + 10] = 0x48;
     test_data[500 + 11] = 0x8b;
 
-    compiled_signature sig = compile_signature(pattern);
+    auto compiled_sig_opt = compile_signature(pattern);
+    if (!compiled_sig_opt) {
+      results.fail("compile_signature failed", "failed to compile signature");
+      return;
+    }
+    auto sig = *compiled_sig_opt;
     pattern_matcher matcher(sig);
 
     auto matches = matcher.search(test_data.data(), test_data.size());

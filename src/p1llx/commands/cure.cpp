@@ -1,5 +1,6 @@
 #include "cure.hpp"
-#include <p1ll/p1ll.hpp>
+#include <p1ll/core/context.hpp>
+#include <p1ll/scripting/lua_api.hpp>
 #include <p1ll/core/platform.hpp>
 #include <redlog.hpp>
 #include <iostream>
@@ -46,13 +47,13 @@ int cure(
     log.dbg("loaded input file", redlog::field("size", buffer_data.size()));
 
     // execute static cure with buffer
-    p1ll::core::cure_result result;
+    std::unique_ptr<p1ll::context> context;
     if (!platform_override.empty()) {
       // parse platform override
       try {
-        auto platform_key = p1ll::core::parse_platform_key(platform_override);
+        auto platform_key = p1ll::platform_key::parse(platform_override);
         log.inf("using platform override", redlog::field("platform", platform_key.to_string()));
-        result = p1ll::execute_static_cure_with_platform(script_content, buffer_data, platform_key);
+        context = p1ll::context::create_static(platform_key);
       } catch (const std::exception& e) {
         log.err(
             "invalid platform override", redlog::field("platform", platform_override), redlog::field("error", e.what())
@@ -61,8 +62,11 @@ int cure(
         return 1;
       }
     } else {
-      result = p1ll::execute_static_cure(script_content, buffer_data);
+      context = p1ll::context::create_static();
     }
+
+    p1ll::scripting::lua_api lua_engine;
+    auto result = lua_engine.execute_script_content_with_buffer(*context, script_content, buffer_data);
 
     if (result.success) {
       // write modified buffer to output file

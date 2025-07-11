@@ -15,6 +15,9 @@ if(WITNESS_SCRIPT)
     # create executable
     add_executable(p1llx ${P1LLX_SOURCES})
     
+    # configure lua integration
+    configure_target_with_lua(p1llx)
+    
     # link with p1ll library and dependencies
     target_link_libraries(p1llx 
         PRIVATE 

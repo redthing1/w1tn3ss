@@ -118,8 +118,8 @@ int poison_spawn(
   cfg.suspended = suspended;
   cfg.wait_for_completion = true;
 
-  // set P1LL_CURE environment variable for p01s0n
-  cfg.env_vars["P1LL_CURE"] = abs_script_path;
+  // set POISON_CURE environment variable for p01s0n
+  cfg.env_vars["POISON_CURE"] = abs_script_path;
 
   // set POISON_VERBOSE environment variable for p01s0n verbosity
   if (verbosity_level > 0) {
@@ -190,8 +190,8 @@ int poison_pid(
   cfg.pid = target_pid;
   cfg.wait_for_completion = false; // don't wait for runtime injection
 
-  // set P1LL_CURE environment variable for p01s0n
-  cfg.env_vars["P1LL_CURE"] = abs_script_path;
+  // set POISON_CURE environment variable for p01s0n
+  cfg.env_vars["POISON_CURE"] = abs_script_path;
 
   // set POISON_VERBOSE environment variable for p01s0n verbosity
   if (verbosity_level > 0) {
@@ -262,8 +262,8 @@ int poison_process_name(
   cfg.process_name = process_name;
   cfg.wait_for_completion = false; // don't wait for runtime injection
 
-  // set P1LL_CURE environment variable for p01s0n
-  cfg.env_vars["P1LL_CURE"] = abs_script_path;
+  // set POISON_CURE environment variable for p01s0n
+  cfg.env_vars["POISON_CURE"] = abs_script_path;
 
   // set POISON_VERBOSE environment variable for p01s0n verbosity
   if (verbosity_level > 0) {

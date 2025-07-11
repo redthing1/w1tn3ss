@@ -9,9 +9,9 @@ namespace p1llx::commands {
  * @brief Inject p01s0n library into target process for dynamic patching (spawn method)
  *
  * Uses preload injection to load p01s0n.so/dylib/dll into the target process.
- * The P1LL_CURE environment variable specifies which cure script to apply.
+ * The POISON_CURE environment variable specifies which cure script to apply.
  *
- * @param script_path Path to lua cure script (sets P1LL_CURE env var)
+ * @param script_path Path to lua cure script (sets POISON_CURE env var)
  * @param binary_path Path to target binary to launch and inject
  * @param binary_args Arguments to pass to target binary
  * @param suspended Whether to start target in suspended mode
@@ -28,9 +28,9 @@ int poison_spawn(
  * @brief Inject p01s0n library into existing process by PID (runtime method)
  *
  * Uses runtime injection to load p01s0n.so/dylib/dll into an existing process.
- * The P1LL_CURE environment variable specifies which cure script to apply.
+ * The POISON_CURE environment variable specifies which cure script to apply.
  *
- * @param script_path Path to lua cure script (sets P1LL_CURE env var)
+ * @param script_path Path to lua cure script (sets POISON_CURE env var)
  * @param target_pid Process ID of target process
  * @param executable_path Path to p1llx executable for library discovery
  * @param verbosity_level Verbosity level to pass to p01s0n (0-3)
@@ -44,9 +44,9 @@ int poison_pid(
  * @brief Inject p01s0n library into existing process by name (runtime method)
  *
  * Uses runtime injection to load p01s0n.so/dylib/dll into an existing process.
- * The P1LL_CURE environment variable specifies which cure script to apply.
+ * The POISON_CURE environment variable specifies which cure script to apply.
  *
- * @param script_path Path to lua cure script (sets P1LL_CURE env var)
+ * @param script_path Path to lua cure script (sets POISON_CURE env var)
  * @param process_name Name of target process
  * @param executable_path Path to p1llx executable for library discovery
  * @param verbosity_level Verbosity level to pass to p01s0n (0-3)

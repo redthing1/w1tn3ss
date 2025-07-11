@@ -5,7 +5,7 @@
 
 namespace p1ll::engine {
 
-pattern_matcher::pattern_matcher(const core::compiled_signature& signature) : signature_(signature) {
+pattern_matcher::pattern_matcher(const compiled_signature& signature) : signature_(signature) {
 
   auto log = redlog::get_logger("p1ll.pattern_matcher");
 
@@ -105,10 +105,6 @@ std::vector<uint64_t> pattern_matcher::search(const uint8_t* data, size_t size) 
             "signature match found", redlog::field("match", results.size()), redlog::field("offset", i),
             redlog::field("pattern_size", pattern_len)
         );
-        // output the hexdump directly to stderr to preserve formatting
-        if (!match_hexdump.empty()) {
-          std::fprintf(stderr, "%s", match_hexdump.c_str());
-        }
       }
 
       i += 1; // move by 1 to find overlapping matches
@@ -144,7 +140,7 @@ uint64_t pattern_matcher::search_single(const uint8_t* data, size_t size) const 
   auto results = search(data, size);
 
   if (results.empty()) {
-    throw std::runtime_error("signature not found - expected exactly one match");
+    throw std::runtime_error("signature not found, expected exactly one match");
   }
 
   if (results.size() > 1) {
@@ -159,7 +155,7 @@ uint64_t pattern_matcher::search_single(const uint8_t* data, size_t size) const 
     }
 
     throw std::runtime_error(
-        "multiple matches found for single signature - expected exactly one match, found " +
+        "multiple matches found for single signature, expected exactly one match, found " +
         std::to_string(results.size())
     );
   }

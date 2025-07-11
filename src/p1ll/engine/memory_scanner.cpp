@@ -49,11 +49,11 @@ memory_scanner::memory_scanner() : log_(redlog::get_logger("p1ll.memory_scanner"
 }
 
 // --- High-Level Public API ---
-std::optional<std::vector<core::search_result>> memory_scanner::search(const core::signature_query& query) const {
+std::optional<std::vector<search_result>> memory_scanner::search(const signature_query& query) const {
   log_.dbg("starting memory search...");
   if (query.signature.empty()) {
     log_.wrn("search called with an empty signature");
-    return std::vector<core::search_result>{};
+    return std::vector<search_result>{};
   }
 
   auto regions_result = get_memory_regions(query.filter);
@@ -62,7 +62,7 @@ std::optional<std::vector<core::search_result>> memory_scanner::search(const cor
     return std::nullopt;
   }
 
-  std::vector<core::search_result> all_results;
+  std::vector<search_result> all_results;
   pattern_matcher matcher(query.signature);
 
   for (const auto& region : *regions_result) {
@@ -115,7 +115,7 @@ std::optional<size_t> memory_scanner::get_page_size() const {
 }
 
 std::optional<std::vector<memory_region>> memory_scanner::get_memory_regions(
-    const core::signature_query_filter& filter
+    const signature_query_filter& filter
 ) const {
   log_.dbg("enumerating memory regions", redlog::field("filter", filter.pattern));
 
@@ -533,7 +533,7 @@ bool memory_scanner::is_system_region(const memory_region& region) const {
   return false;
 }
 
-bool memory_scanner::matches_filter(const memory_region& region, const core::signature_query_filter& filter) const {
+bool memory_scanner::matches_filter(const memory_region& region, const signature_query_filter& filter) const {
   // if filter is empty, match all regions
   if (filter.is_empty()) {
     return true;

@@ -3,6 +3,10 @@
 #include <sol/sol.hpp>
 #include "core/types.hpp"
 
+namespace p1ll {
+class context;
+}
+
 namespace p1ll::scripting {
 
 /**
@@ -21,7 +25,19 @@ namespace p1ll::scripting {
  *
  * @param lua The Sol2 Lua state to register all bindings with
  */
-void setup_p1ll_bindings(sol::state& lua);
+void setup_p1ll_bindings(sol::state& lua, const context& ctx);
+
+/**
+ * @brief Setup comprehensive p1ll bindings for Lua scripting with explicit buffer
+ *
+ * This function sets up p1ll bindings for static buffer mode where the buffer
+ * is passed explicitly rather than being stored in the context.
+ *
+ * @param lua The Sol2 Lua state to register all bindings with
+ * @param ctx The context (execution mode and platform settings)
+ * @param buffer_data The buffer data to operate on
+ */
+void setup_p1ll_bindings_with_buffer(sol::state& lua, const context& ctx, std::vector<uint8_t>& buffer_data);
 
 namespace bindings {
 
@@ -51,7 +67,18 @@ void setup_patch_api(sol::state& lua, sol::table& p1_module);
  * @param lua The Sol2 Lua state to register bindings with
  * @param p1_module The p1 module table to add bindings to
  */
-void setup_auto_cure_api(sol::state& lua, sol::table& p1_module);
+void setup_auto_cure_api(sol::state& lua, sol::table& p1_module, const context& ctx);
+
+/**
+ * @brief Setup auto-cure API functions with explicit buffer
+ * @param lua The Sol2 Lua state to register bindings with
+ * @param p1_module The p1 module table to add bindings to
+ * @param ctx The context (execution mode and platform settings)
+ * @param buffer_data The buffer data to operate on
+ */
+void setup_auto_cure_api_with_buffer(
+    sol::state& lua, sol::table& p1_module, const context& ctx, std::vector<uint8_t>& buffer_data
+);
 
 /**
  * @brief Setup manual patching API for complex cases

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/types.hpp"
+#include "core/context.hpp"
 #include <sol/sol.hpp>
 #include <string>
 #include <memory>
@@ -13,15 +14,12 @@ public:
   lua_api();
   ~lua_api() = default;
 
-  // execute cure script from file
-  core::cure_result execute_cure_script(const std::string& script_path);
-
   // execute cure script from string content
-  core::cure_result execute_script_content(const std::string& script_content);
+  cure_result execute_script(const context& context, const std::string& script_content);
 
-  // execute static cure on file
-  core::cure_result execute_static_cure(
-      const std::string& script_path, const std::string& input_file, const std::string& output_file
+  // execute cure script with explicit buffer (for static mode)
+  cure_result execute_script_content_with_buffer(
+      const context& context, const std::string& script_content, std::vector<uint8_t>& buffer_data
   );
 
   // get lua state for advanced usage
@@ -34,7 +32,7 @@ private:
   void setup_logging_integration();
 
   // execute cure function from loaded script
-  core::cure_result call_cure_function();
+  cure_result call_cure_function();
 };
 
 } // namespace p1ll::scripting

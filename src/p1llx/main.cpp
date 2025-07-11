@@ -27,16 +27,16 @@ void apply_verbosity() {
     log_level = redlog::level::info;
     break; // default
   case 1:
-    log_level = redlog::level::info;
+    log_level = redlog::level::verbose;
     break; // -v: verbose
   case 2:
-    log_level = redlog::level::debug;
+    log_level = redlog::level::trace;
     break; // -vv: trace
   case 3:
     log_level = redlog::level::debug;
     break; // -vvv: debug
   default:
-    log_level = redlog::level::debug;
+    log_level = redlog::level::pedantic;
     break; // -vvvv+: pedantic
   }
 

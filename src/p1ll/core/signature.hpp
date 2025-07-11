@@ -1,15 +1,21 @@
 #pragma once
 
 #include "types.hpp"
-#include <string>
+#include "utils/hex_pattern.hpp"
 
-namespace p1ll::core {
+#include <string>
+#include <optional>
+
+namespace p1ll {
 
 // compile signature pattern from hex string with wildcards
-compiled_signature compile_signature(const signature_pattern& pattern);
+std::optional<compiled_signature> compile_signature(const signature_pattern& pattern);
+
+// pattern visualization
+std::string format_compiled_signature(const compiled_signature& sig);
 
 // compile patch pattern from hex string
-compiled_patch compile_patch(const patch_pattern& pattern);
+std::optional<compiled_patch> compile_patch(const patch_pattern& pattern);
 
 // validate signature pattern syntax
 bool validate_signature_pattern(const signature_pattern& pattern);
@@ -18,6 +24,8 @@ bool validate_signature_pattern(const signature_pattern& pattern);
 bool validate_patch_pattern(const patch_pattern& pattern);
 
 // utility to create signature queries
-signature_query create_signature_query(const signature_pattern& pattern, const signature_query_filter& filter = {});
+std::optional<signature_query> create_signature_query(
+    const signature_pattern& pattern, const signature_query_filter& filter = {}
+);
 
-} // namespace p1ll::core
+} // namespace p1ll
