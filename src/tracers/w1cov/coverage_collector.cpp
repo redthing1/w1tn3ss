@@ -2,6 +2,7 @@
 #include <w1tn3ss/formats/drcov.hpp>
 #include <redlog.hpp>
 #include <algorithm>
+#include <unordered_set>
 
 namespace w1cov {
 
@@ -57,17 +58,51 @@ drcov::coverage_data coverage_collector::build_drcov_data() const {
       redlog::field("coverage_unit_count", basic_blocks_.size()), redlog::field("total_hits", get_total_hits())
   );
 
+  // pass 1: identify modules that have coverage data
+  std::unordered_set<uint16_t> used_module_ids;
+  for (const auto& bb : basic_blocks_) {
+    if (bb.module_id < modules_.size()) {
+      used_module_ids.insert(bb.module_id);
+    }
+  }
+
+  log.dbg(
+      "identified modules with coverage", redlog::field("total_modules", modules_.size()),
+      redlog::field("used_modules", used_module_ids.size()),
+      redlog::field("unused_modules", modules_.size() - used_module_ids.size())
+  );
+
+  // pass 2: build module id remapping (old id -> new sequential id)
+  std::unordered_map<uint16_t, uint16_t> module_id_remap;
+  uint16_t new_id = 0;
+  for (uint16_t old_id = 0; old_id < modules_.size(); ++old_id) {
+    if (used_module_ids.count(old_id) > 0) {
+      module_id_remap[old_id] = new_id++;
+    }
+  }
+
   // create drcov builder with hitcount support enabled
   auto builder =
       drcov::builder().set_flavor("w1cov").enable_hitcounts().set_module_version(drcov::module_table_version::v2);
 
-  // pass 1: add modules with validation
+  // pass 3: add only modules that have coverage with validation
   size_t valid_modules = 0;
   size_t invalid_modules = 0;
+  size_t skipped_modules = 0;
 
-  log.trc("adding modules to drcov data");
+  log.trc("adding modules with coverage to drcov data");
 
   for (size_t i = 0; i < modules_.size(); ++i) {
+    // skip modules without coverage
+    if (used_module_ids.count(static_cast<uint16_t>(i)) == 0) {
+      log.ped(
+          "skipping module without coverage", redlog::field("id", i), redlog::field("name", modules_[i].name),
+          redlog::field("base", "0x%08x", modules_[i].base_address)
+      );
+      skipped_modules++;
+      continue;
+    }
+
     const auto& mod = modules_[i];
 
     try {
@@ -94,8 +129,9 @@ drcov::coverage_data coverage_collector::build_drcov_data() const {
       valid_modules++;
 
       log.dbg(
-          "added module to drcov", redlog::field("id", i), redlog::field("name", mod.name),
-          redlog::field("base", "0x%08x", mod.base_address), redlog::field("size", mod.size)
+          "added module to drcov", redlog::field("old_id", i), redlog::field("new_id", module_id_remap[i]),
+          redlog::field("name", mod.name), redlog::field("base", "0x%08x", mod.base_address),
+          redlog::field("size", mod.size)
       );
 
     } catch (const std::exception& e) {
@@ -107,11 +143,12 @@ drcov::coverage_data coverage_collector::build_drcov_data() const {
     }
   }
 
-  log.dbg(
-      "module processing completed", redlog::field("valid", valid_modules), redlog::field("invalid", invalid_modules)
+  log.inf(
+      "module processing completed", redlog::field("valid", valid_modules), redlog::field("invalid", invalid_modules),
+      redlog::field("skipped", skipped_modules)
   );
 
-  // pass 2: add coverage units with hitcounts and validation
+  // pass 4: add coverage units with remapped module ids and validation
   size_t valid_units = 0;
   size_t invalid_units = 0;
   size_t orphaned_units = 0;
@@ -130,7 +167,20 @@ drcov::coverage_data coverage_collector::build_drcov_data() const {
         continue;
       }
 
+      // check if module was included (has coverage)
+      auto remap_it = module_id_remap.find(bb.module_id);
+      if (remap_it == module_id_remap.end()) {
+        // this shouldn't happen since we built the remap from basic blocks
+        log.err(
+            "coverage unit references module not in remap", redlog::field("module_id", bb.module_id),
+            redlog::field("address", "0x%08x", bb.address)
+        );
+        invalid_units++;
+        continue;
+      }
+
       const auto& module = modules_[bb.module_id];
+      uint16_t new_module_id = remap_it->second;
 
       // validate unit is within module bounds
       if (bb.address < module.base_address || bb.address >= module.base_address + module.size) {
@@ -168,7 +218,7 @@ drcov::coverage_data coverage_collector::build_drcov_data() const {
         }
       }
 
-      builder.add_coverage(bb.module_id, offset, bb.size, hitcount);
+      builder.add_coverage(new_module_id, offset, bb.size, hitcount);
       valid_units++;
 
     } catch (const std::exception& e) {
