@@ -358,27 +358,67 @@ void setup_manual_api(sol::state& lua, sol::table& p1_module) {
     return p1ll::get_modules(filter);
   });
 
-  // p1.search_signature(pattern, filter) - search for signature
+  // p1.search_sig(pattern, opts) - search for signature with options
   p1_module.set_function(
-      "search_signature",
-      [](const std::string& pattern, sol::optional<sol::object> filter_opt) -> std::vector<core::search_result> {
-        core::signature_query_filter filter;
+      "search_sig", [&lua](const std::string& pattern, sol::optional<sol::object> opts_param) -> sol::object {
+        auto log = redlog::get_logger("p1ll.lua.search_sig");
 
-        if (filter_opt) {
-          if (filter_opt->is<std::string>()) {
-            // simple string filter
-            filter.pattern = filter_opt->as<std::string>();
-          } else if (filter_opt->is<sol::table>()) {
-            // table filter for backward compatibility
-            sol::table filter_table = filter_opt->as<sol::table>();
-            auto region_pattern = filter_table["pattern"];
-            if (region_pattern.valid() && region_pattern.is<std::string>()) {
-              filter.pattern = region_pattern;
+        core::signature_query_filter filter;
+        bool single = false;
+
+        // parse options - can be string (backward compat) or table
+        if (opts_param) {
+          if (opts_param->is<std::string>()) {
+            // backward compatibility: treat string as filter
+            filter.pattern = opts_param->as<std::string>();
+          } else if (opts_param->is<sol::table>()) {
+            // new style: options table
+            sol::table opts = opts_param->as<sol::table>();
+
+            // filter option
+            auto filter_opt = opts["filter"];
+            if (filter_opt.valid()) {
+              sol::object filter_obj = filter_opt;
+              if (filter_obj.is<std::string>()) {
+                filter.pattern = filter_obj.as<std::string>();
+              }
+            }
+
+            // single option
+            auto single_opt = opts["single"];
+            if (single_opt.valid()) {
+              sol::object single_obj = single_opt;
+              if (single_obj.is<bool>()) {
+                single = single_obj.as<bool>();
+              }
             }
           }
         }
 
-        return p1ll::search_signature(pattern, filter);
+        // perform the search
+        auto results = p1ll::search_signature(pattern, filter);
+
+        // handle single mode
+        if (single) {
+          if (results.empty()) {
+            log.err("search_sig: no matches found (expected exactly 1)", redlog::field("pattern", pattern));
+            return sol::nil;
+          } else if (results.size() > 1) {
+            log.err(
+                "search_sig: multiple matches found (expected exactly 1)", redlog::field("pattern", pattern),
+                redlog::field("count", results.size())
+            );
+            for (size_t i = 0; i < results.size(); ++i) {
+              log.inf(redlog::fmt("  match %zu: address=0x%llx", i, results[i].address));
+            }
+            return sol::nil;
+          }
+          // exactly one match - return the address directly
+          return sol::make_object(lua, results[0].address);
+        }
+
+        // normal mode - return array of results
+        return sol::make_object(lua, results);
       }
   );
 
