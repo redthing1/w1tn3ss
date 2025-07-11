@@ -4,26 +4,26 @@ local tracer = {}
 
 -- calling convention registers by architecture and OS
 local REGISTERS = {
-    aarch64 = { -- aarch64: AAPCS64 (ARM Procedure Call Standard)
+    arm64 = { -- arm64: AAPCS64 (ARM Procedure Call Standard)
         args = {"x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7"},
         sp = "sp",
         ret = "x0",
         abi = "AAPCS64"
     },
-    x86_64 = {
-        linux = { -- x86_64: System V AMD64 ABI (Linux/macOS)
+    x64 = {
+        linux = { -- x64: System V AMD64 ABI (Linux/macOS)
             args = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"},
             sp = "rsp",
             ret = "rax",
             abi = "System V AMD64"
         },
-        macos = { -- x86_64: System V AMD64 ABI (Linux/macOS)
+        darwin = { -- x64: System V AMD64 ABI (Linux/macOS)
             args = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"},
             sp = "rsp",
             ret = "rax",
             abi = "System V AMD64"
         },
-        windows = { -- x86_64: Microsoft x64 calling convention (Windows)
+        windows = { -- x64: Microsoft x64 calling convention (Windows)
             args = {"rcx", "rdx", "r8", "r9"},
             sp = "rsp",
             ret = "rax",
@@ -44,8 +44,8 @@ local function get_platform_regs(plat_info)
         return nil
     end
 
-    -- x86_64 differs by OS
-    if plat_info.arch == "x86_64" then
+    -- x64 differs by OS
+    if plat_info.arch == "x64" then
         return arch_regs[plat_info.os] or arch_regs.linux
     end
 
@@ -61,7 +61,7 @@ end
 local function get_signatures(plat_info)
     local signatures = {}
 
-    if plat_info.arch == "x86_64" then
+    if plat_info.arch == "x64" then
         if plat_info.os == "windows" then
             signatures.calculate_secret = "48895c2408 57 4883ec20 48b8bebafecaefbeadde 8bfa 4889442440"
             signatures.format_message = "4053 4883ec40 48b8bebafecaefbeadde 488bd9 4889442468 48b8efbeaddebebafeca"
@@ -70,14 +70,14 @@ local function get_signatures(plat_info)
             signatures.unsafe_copy = "4053 4883ec20 48b8bebafecaefbeadde 488bd9 4889442440"
             w1.log_info("using msvc x64 signatures")
         end
-    elseif plat_info.arch == "aarch64" then
-        if plat_info.os == "macos" then
+    elseif plat_info.arch == "arm64" then
+        if plat_info.os == "darwin" then
             signatures.calculate_secret = "202282d2 e0ddb7f2 a0d5dbf2"
             signatures.format_message = "404484d2 e0ddb7f2 a0d5dbf2"
             signatures.allocate_buffer = "606686d2 e0ddb7f2 a0d5dbf2"
             signatures.compare_strings = "808888d2 e0ddb7f2 a0d5dbf2"
             signatures.unsafe_copy = "a0aa8ad2 e0ddb7f2 a0d5dbf2"
-            w1.log_info("using aarch64 signatures")
+            w1.log_info("using arm64 signatures")
         end
     end
 

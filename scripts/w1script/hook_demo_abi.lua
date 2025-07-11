@@ -1,11 +1,10 @@
 -- hook_demo_abi.lua
 -- cross-platform hooking using calling convention apis
-
 local tracer = {}
 
 -- platform-specific function signatures
 local SIGNATURES = {
-    x86_64 = {
+    x64 = {
         windows = {
             calculate_secret = "48895c2408 57 4883ec20 48b8bebafecaefbeadde 8bfa 4889442440",
             format_message = "4053 4883ec40 48b8bebafecaefbeadde 488bd9 4889442468 48b8efbeaddebebafeca",
@@ -14,8 +13,8 @@ local SIGNATURES = {
             unsafe_copy = "4053 4883ec20 48b8bebafecaefbeadde 488bd9 4889442440"
         }
     },
-    aarch64 = {
-        macos = {
+    arm64 = {
+        darwin = {
             calculate_secret = "202282d2 e0ddb7f2 a0d5dbf2",
             format_message = "404484d2 e0ddb7f2 a0d5dbf2",
             allocate_buffer = "606686d2 e0ddb7f2 a0d5dbf2",

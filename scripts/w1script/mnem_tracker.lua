@@ -8,8 +8,8 @@ local arch_targets = {}
 
 -- architecture-specific default mnemonics
 local default_mnemonics = {
-    aarch64 = {"B*", "BL*", "BR*", "BLR*", "RET*"},
-    x86_64 = {"CALL*", "JMP*", "RET*", "TAI*"},
+    arm64 = {"B*", "BL*", "BR*", "BLR*", "RET*"},
+    x64 = {"CALL*", "JMP*", "RET*", "TAI*"},
     x86 = {"CALL*", "JMP*", "RET*", "TAI*"}
 }
 

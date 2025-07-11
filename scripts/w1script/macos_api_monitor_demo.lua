@@ -1,5 +1,5 @@
--- macos api monitoring demo
--- demonstrates real-time api tracing with semantic analysis on macos
+-- darwin api monitoring demo
+-- demonstrates real-time api tracing with semantic analysis on darwin
 -- requires: DYLD_SHARED_CACHE_DUMP_DIR=/tmp/libraries for symbol resolution
 local tracer = {}
 
@@ -12,7 +12,7 @@ local stats = {
 
 -- initialize api monitoring callbacks
 function tracer.init()
-    w1.log_info("initializing macos api monitor")
+    w1.log_info("initializing darwin api monitor")
 
     -- monitor printf with detailed argument analysis
     tracer.register_api_symbol_callback("libsystem_c.dylib", "_printf", function(event)

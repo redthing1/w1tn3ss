@@ -18,11 +18,11 @@ namespace platform_utils {
 
 /**
  * @brief Get the current platform name as a string
- * @return Platform name ("macos", "linux", "windows", or "unknown")
+ * @return Platform name ("darwin", "linux", "windows", or "unknown")
  */
 inline std::string get_platform_name() {
 #ifdef __APPLE__
-  return "macos";
+  return "darwin";
 #elif defined(__linux__)
   return "linux";
 #elif defined(_WIN32)

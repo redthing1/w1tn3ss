@@ -141,11 +141,11 @@ void calling_convention_factory::register_platform_conventions() {
   // Determine platform string for logging
   const char* platform_str =
 #if defined(__x86_64__) || defined(_M_X64)
-      "x86_64"
+      "x64"
 #elif defined(__i386__) || defined(_M_IX86)
       "x86"
 #elif defined(__aarch64__) || defined(_M_ARM64)
-      "aarch64"
+      "arm64"
 #elif defined(__arm__) || defined(_M_ARM)
       "arm"
 #else
