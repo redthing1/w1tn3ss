@@ -33,19 +33,33 @@ void setup_vm_core(sol::state& lua, sol::table& w1_module) {
   auto logger = redlog::get_logger("w1.script_bindings");
   logger.dbg("setting up core VM bindings for direct VM access");
 
-  // VMAction enum - control flow actions for callbacks
-  w1_module.new_enum(
-      "VMAction", "CONTINUE", QBDI::VMAction::CONTINUE, // Continue execution normally
-      "SKIP_INST", QBDI::VMAction::SKIP_INST,           // Skip current instruction
-      "SKIP_PATCH", QBDI::VMAction::SKIP_PATCH,         // Skip current patch
-      "STOP", QBDI::VMAction::STOP                      // Stop execution
-  );
-
-  // For backward compatibility
+  // Note: VMAction and InstPosition enums are defined in core_types.cpp
+  // For backward compatibility, expose them at module level
   w1_module["CONTINUE"] = QBDI::VMAction::CONTINUE;
   w1_module["SKIP_INST"] = QBDI::VMAction::SKIP_INST;
   w1_module["SKIP_PATCH"] = QBDI::VMAction::SKIP_PATCH;
+  w1_module["BREAK_TO_VM"] = QBDI::VMAction::BREAK_TO_VM;
   w1_module["STOP"] = QBDI::VMAction::STOP;
+  w1_module["PREINST"] = QBDI::InstPosition::PREINST;
+  w1_module["POSTINST"] = QBDI::InstPosition::POSTINST;
+
+  // CallbackPriority enum - callback execution priority
+  w1_module.new_enum(
+      "CallbackPriority", "PRIORITY_DEFAULT", QBDI::CallbackPriority::PRIORITY_DEFAULT, // Default priority (0)
+      "PRIORITY_MEMACCESS_LIMIT",
+      QBDI::CallbackPriority::PRIORITY_MEMACCESS_LIMIT // Max priority for memory access callbacks
+  );
+
+  // For backward compatibility
+  w1_module["PRIORITY_DEFAULT"] = QBDI::CallbackPriority::PRIORITY_DEFAULT;
+
+  // VMError enum - error codes
+  w1_module.new_enum(
+      "VMError", "INVALID_EVENTID", QBDI::VMError::INVALID_EVENTID // Invalid event ID
+  );
+
+  // For backward compatibility
+  w1_module["INVALID_EVENTID"] = QBDI::VMError::INVALID_EVENTID;
 
   // Options enum - VM configuration options
   w1_module.new_enum(
@@ -57,12 +71,6 @@ void setup_vm_core(sol::state& lua, sol::table& w1_module) {
       "OPT_BYPASS_PAUTH", QBDI::Options::OPT_BYPASS_PAUTH,                   // Bypass pointer auth (ARM64)
       "OPT_ENABLE_BTI", QBDI::Options::OPT_ENABLE_BTI                        // Enable BTI on instrumented code
   );
-
-  // Priority constants for callbacks
-  w1_module["PRIORITY_DEFAULT"] = QBDI::PRIORITY_DEFAULT;
-
-  // Error codes
-  w1_module["INVALID_EVENTID"] = QBDI::VMError::INVALID_EVENTID;
 
   // Properly bind QBDI::VM as a usertype
   auto vm_type = lua.new_usertype<QBDI::VM>(
