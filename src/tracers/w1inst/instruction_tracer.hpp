@@ -17,8 +17,10 @@ public:
   void shutdown();
   const char* get_name() const { return "w1inst"; }
 
-  // instruction callback for mnemonic filtering
-  QBDI::VMAction on_instruction_preinst(QBDI::VMInstanceRef vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr);
+  // manual callback for mnemonic filtering (not using SFINAE)
+  static QBDI::VMAction on_mnemonic_callback(
+      QBDI::VMInstanceRef vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr, void* data
+  );
 
   // statistics access
   const mnemonic_stats& get_stats() const;

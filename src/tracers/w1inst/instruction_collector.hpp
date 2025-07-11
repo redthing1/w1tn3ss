@@ -17,38 +17,32 @@ struct mnemonic_entry {
   uint64_t address;
   std::string mnemonic;
   std::string disassembly;
-  uint32_t instruction_count;
   std::string module_name;
 
-  JS_OBJECT(
-      JS_MEMBER(address), JS_MEMBER(mnemonic), JS_MEMBER(disassembly), JS_MEMBER(instruction_count),
-      JS_MEMBER(module_name)
-  );
+  JS_OBJECT(JS_MEMBER(address), JS_MEMBER(mnemonic), JS_MEMBER(disassembly), JS_MEMBER(module_name));
 };
 
 struct mnemonic_stats {
-  uint64_t total_instructions;
   uint64_t matched_instructions;
+  uint64_t unique_sites;
   std::vector<std::string> target_mnemonics;
 
-  JS_OBJECT(JS_MEMBER(total_instructions), JS_MEMBER(matched_instructions), JS_MEMBER(target_mnemonics));
+  JS_OBJECT(JS_MEMBER(matched_instructions), JS_MEMBER(unique_sites), JS_MEMBER(target_mnemonics));
 };
 
 class mnemonic_collector {
 public:
   explicit mnemonic_collector(const std::string& output_file, const std::vector<std::string>& target_mnemonics);
 
-  void record_instruction();
   void record_mnemonic(uint64_t address, const std::string& mnemonic, const std::string& disassembly);
 
   const mnemonic_stats& get_stats() const { return stats_; }
-  uint32_t get_instruction_count() const { return instruction_count_; }
 
 private:
   mnemonic_stats stats_;
   std::unordered_set<std::string> target_mnemonic_set_;
+  std::unordered_set<uint64_t> unique_addresses_;
 
-  uint32_t instruction_count_;
   uint64_t matched_count_;
 
   // jsonl output

@@ -5,7 +5,7 @@
 namespace w1inst {
 
 mnemonic_collector::mnemonic_collector(const std::string& output_file, const std::vector<std::string>& target_mnemonics)
-    : instruction_count_(0), matched_count_(0), metadata_written_(false), modules_initialized_(false) {
+    : matched_count_(0), metadata_written_(false), modules_initialized_(false) {
 
   // initialize output if file specified
   if (!output_file.empty()) {
@@ -26,38 +26,23 @@ mnemonic_collector::mnemonic_collector(const std::string& output_file, const std
   }
 }
 
-void mnemonic_collector::record_instruction() {
-  instruction_count_++;
-  stats_.total_instructions++;
-}
-
 void mnemonic_collector::record_mnemonic(
     uint64_t address, const std::string& mnemonic, const std::string& disassembly
 ) {
-  // check if this mnemonic matches our targets
-  bool matches = false;
-
-  // special case: '*' means match all instructions
-  if (target_mnemonic_set_.count("*")) {
-    matches = true;
-  } else {
-    // exact string matching
-    matches = (target_mnemonic_set_.find(mnemonic) != target_mnemonic_set_.end());
-  }
-
-  if (!matches) {
-    return; // not a target mnemonic
-  }
-
+  // when using QBDI's addMnemonicCB, we only get called for matching mnemonics
+  // so we can skip the filtering logic and always record
   matched_count_++;
   stats_.matched_instructions++;
+
+  // track unique addresses
+  unique_addresses_.insert(address);
+  stats_.unique_sites = unique_addresses_.size();
 
   // create event
   mnemonic_entry entry;
   entry.address = address;
   entry.mnemonic = mnemonic;
   entry.disassembly = disassembly;
-  entry.instruction_count = instruction_count_;
   entry.module_name = get_module_name(address);
 
   // write event if output configured
