@@ -1,11 +1,6 @@
 -- hook_demo_abi.lua
 -- cross-platform hooking using calling convention apis
--- portable across architectures without hardcoding register names
---
--- run with:
--- ./build-release/w1tool tracer -n w1script \
---   -c script=./scripts/w1script/hook_demo_abi.lua \
---   -s ./build-release/tests/programs/hook_test_target
+
 local tracer = {}
 
 -- platform-specific function signatures
@@ -30,172 +25,113 @@ local SIGNATURES = {
     }
 }
 
--- simple hook handlers using abi apis
-local function hook_calculate_secret(vm, gpr, fpr, address)
-    -- get two integer arguments portably
-    local a = w1.get_arg(vm, gpr, fpr, 1)
-    local b = w1.get_arg(vm, gpr, fpr, 2)
-
-    if a and b then
-        local result = 3 * a + 2 * b
-        w1.log_info(string.format("[hook:calculate_secret] a=%d, b=%d → result=%d", a, b, result))
+-- hook definitions with typed argument specs
+local HOOKS = {{
+    name = "calculate_secret",
+    types = {"integer", "integer"},
+    handler = function(args)
+        local result = 3 * args[1].value + 2 * args[2].value
+        return string.format("a=%d, b=%d -> expecting result=%d", args[1].value, args[2].value, result)
     end
+}, {
+    name = "format_message",
+    types = {"pointer", "pointer", "integer"},
+    handler = function(args, vm)
+        local name = w1.read_string(vm, args[2].value, 256)
+        return string.format("buffer=0x%x, name='%s', value=%d", args[1].value, name, args[3].value)
+    end
+}, {
+    name = "allocate_buffer",
+    types = {"size_t"},
+    handler = function(args)
+        return string.format("size=%d bytes", args[1].value)
+    end
+}, {
+    name = "compare_strings",
+    types = {"pointer", "pointer"},
+    handler = function(args, vm)
+        local str1 = w1.read_string(vm, args[1].value, 256)
+        local str2 = w1.read_string(vm, args[2].value, 256)
+        return string.format("'%s' vs '%s'", str1, str2)
+    end
+}, {
+    name = "unsafe_copy",
+    types = {"pointer", "pointer"},
+    handler = function(args, vm)
+        local src = w1.read_string(vm, args[2].value, 256)
+        return string.format("dst=0x%x, src='%s'", args[1].value, src)
+    end,
+    warning = true
+}}
 
-    return w1.VMAction.CONTINUE
-end
-
-local function hook_format_message(vm, gpr, fpr, address)
-    -- get three arguments: buffer*, name*, value
-    local buffer_ptr = w1.get_arg(vm, gpr, fpr, 1)
-    local name_ptr = w1.get_arg(vm, gpr, fpr, 2)
-    local value = w1.get_arg(vm, gpr, fpr, 3)
-
-    if name_ptr then
-        local name_str = w1.read_string(vm, name_ptr, 256)
-        if name_str then
-            w1.log_info(string.format("[hook:format_message] name='%s', value=%d", name_str, value or 0))
+-- create hook function from definition
+local function create_hook(hook_def)
+    return function(vm, gpr, fpr, address)
+        local args = w1.get_typed_args(vm, gpr, fpr, hook_def.types)
+        if args then
+            local msg = hook_def.handler(args, vm)
+            local log_fn = hook_def.warning and w1.log_warning or w1.log_info
+            log_fn(string.format("[hook:%s] %s", hook_def.name, msg))
         end
+        return w1.VMAction.CONTINUE
     end
-
-    return w1.VMAction.CONTINUE
 end
 
-local function hook_compare_strings(vm, gpr, fpr, address)
-    -- get two string pointers
-    local str1_ptr = w1.get_arg(vm, gpr, fpr, 1)
-    local str2_ptr = w1.get_arg(vm, gpr, fpr, 2)
-
-    if str1_ptr and str2_ptr then
-        local str1 = w1.read_string(vm, str1_ptr, 256)
-        local str2 = w1.read_string(vm, str2_ptr, 256)
-        if str1 and str2 then
-            w1.log_info(string.format("[hook:compare_strings] '%s' vs '%s'", str1, str2))
-        end
-    end
-
-    return w1.VMAction.CONTINUE
-end
-
-local function hook_allocate_buffer(vm, gpr, fpr, address)
-    -- get size argument
-    local size = w1.get_arg(vm, gpr, fpr, 1)
-
-    if size then
-        w1.log_info(string.format("[hook:allocate_buffer] size=%d bytes", size))
-    end
-
-    return w1.VMAction.CONTINUE
-end
-
-local function hook_unsafe_copy(vm, gpr, fpr, address)
-    -- get dst and src pointers
-    local dst = w1.get_arg(vm, gpr, fpr, 1)
-    local src = w1.get_arg(vm, gpr, fpr, 2)
-
-    if src then
-        local src_content = w1.read_string(vm, src, 256)
-        if src_content then
-            w1.log_warning(string.format("[hook:unsafe_copy] security risk! copying '%s'", src_content))
-        end
-    end
-
-    return w1.VMAction.CONTINUE
-end
-
--- main initialization
 function tracer.init()
-    w1.log_info("abi hooking demonstration")
-    w1.log_info("")
+    w1.log_info("hooked demo (abi aware arguments)")
 
-    -- detect and log platform info
-    local plat_info = w1.get_platform_info()
-    w1.log_info("platform information:")
-    w1.log_info(string.format("  os: %s", plat_info.os))
-    w1.log_info(string.format("  architecture: %s", plat_info.arch))
-    w1.log_info(string.format("  bits: %d", plat_info.bits))
+    -- platform info
+    local plat = w1.get_platform_info()
+    w1.log_info(string.format("platform: %s %s (%d-bit)", plat.os, plat.arch, plat.bits))
 
-    -- get calling convention details
-    local cc_info = w1.get_calling_convention_info()
-    if cc_info then
-        w1.log_info("calling convention:")
-        w1.log_info(string.format("  name: %s", cc_info.name))
-        w1.log_info(string.format("  id: %s", cc_info.id))
-
-        if cc_info.argument_registers then
-            w1.log_info(string.format("  argument registers: %s", table.concat(cc_info.argument_registers, ", ")))
+    -- calling convention
+    local cc = w1.get_calling_convention_info()
+    if cc then
+        w1.log_info(string.format("calling convention: %s (%s)", cc.name, cc.id))
+        if cc.argument_registers then
+            w1.log_info(string.format("arg registers: %s", table.concat(cc.argument_registers, ", ")))
         end
-
-        w1.log_info(string.format("  return register: %s", cc_info.return_register))
-        w1.log_info(string.format("  stack alignment: %d bytes", cc_info.stack_alignment))
-        w1.log_info(string.format("  stack cleanup: %s", cc_info.stack_cleanup))
     end
-    w1.log_info("")
 
-    -- find target module
-    local target_module = w1.module_list("hook_test_target")[1]
-    if not target_module then
-        w1.log_error("target module 'hook_test_target' not found")
+    -- find target
+    local target = w1.module_list("hook_test_target")[1]
+    if not target then
+        w1.log_error("target not found")
+        return
+    end
+    w1.log_info(string.format("target: %s @ 0x%x", target.path, target.base_address))
+
+    -- get signatures
+    local sigs = SIGNATURES[plat.arch] and SIGNATURES[plat.arch][plat.os]
+    if not sigs then
+        w1.log_error("no signatures for this platform")
         return
     end
 
-    w1.log_info(string.format("target module: %s", target_module.path))
-    w1.log_info(string.format("base address: 0x%x", target_module.base_address))
-    w1.log_info("")
-
-    -- get platform signatures
-    local arch_sigs = SIGNATURES[plat_info.arch]
-    if not arch_sigs then
-        w1.log_error("no signatures for this architecture")
-        return
-    end
-
-    local signatures = arch_sigs[plat_info.os]
-    if not signatures then
-        w1.log_error("no signatures for this os")
-        return
-    end
-
-    -- hook functions using signatures
-    local hooks = {{
-        name = "calculate_secret",
-        handler = hook_calculate_secret
-    }, {
-        name = "format_message",
-        handler = hook_format_message
-    }, {
-        name = "allocate_buffer",
-        handler = hook_allocate_buffer
-    }, {
-        name = "compare_strings",
-        handler = hook_compare_strings
-    }, {
-        name = "unsafe_copy",
-        handler = hook_unsafe_copy
-    }}
-
+    -- hook all functions
     local hooked = 0
-    for _, hook in ipairs(hooks) do
-        if signatures[hook.name] then
-            local addr = p1.search_sig(signatures[hook.name], {
-                filter = "hook_test_target",
+    for _, hook_def in ipairs(HOOKS) do
+        local sig = sigs[hook_def.name]
+        if sig then
+            local addr = p1.search_sig(sig, {
+                filter = target.name,
                 single = true
             })
-
-            if addr then
-                if w1.hook_addr(addr, hook.handler) then
-                    w1.log_info(string.format("hooked %s @ 0x%x", hook.name, addr))
+            if not addr then
+                w1.log_error(string.format("signature not found for %s", hook_def.name))
+            else
+                local hook_fn = create_hook(hook_def)
+                if w1.hook_addr(addr, hook_fn) then
+                    w1.log_info(string.format("hooked %s @ 0x%x", hook_def.name, addr))
                     hooked = hooked + 1
                 else
-                    w1.log_error(string.format("failed to hook %s at 0x%x", hook.name, addr))
+                    w1.log_error(string.format("failed to hook %s @ 0x%x", hook_def.name, addr))
                 end
-            else
-                w1.log_error(string.format("failed to find signature for %s", hook.name))
             end
         end
     end
 
-    w1.log_info(string.format("hooked %d/%d functions", hooked, #hooks))
-    w1.log_info("ready to trace")
+    w1.log_info(string.format("hooked %d functions using typed abi apis", hooked))
 end
 
 return tracer
