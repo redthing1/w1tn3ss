@@ -7,7 +7,7 @@
 // create unique signatures using inline asm with different constants
 #if defined(__x86_64__)
 #define UNIQUE_SIGNATURE(id) \
-    __asm__ volatile("movabs $0xDEADBEEF0000" #id ", %rax\n\t" : : : "rax")
+    __asm__ volatile("movabs $0xDEADBEEF0000" #id ", %%rax\n\t" : : : "rax")
 #elif defined(__aarch64__)
 #define UNIQUE_SIGNATURE(id) \
     __asm__ volatile( \

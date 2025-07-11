@@ -1,5 +1,6 @@
 #include "env_config.hpp"
 #include <cstdlib>
+#include <cstdint>
 #include <sstream>
 #include <algorithm>
 #include <cctype>

@@ -48,6 +48,7 @@ if(WITNESS_SCRIPT)
     # set output directory for static library
     set_target_properties(p1ll PROPERTIES 
         ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
+        POSITION_INDEPENDENT_CODE ON
     )
     
     message(STATUS "p1ll library configured with lua scripting support")

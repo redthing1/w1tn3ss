@@ -3,7 +3,7 @@
 #include "abi/api_knowledge_db.hpp"
 #include <vector>
 
-namespace w1::abi::apis::linux {
+namespace w1::abi::apis::linux_apis {
 
 // determine Linux calling convention based on architecture
 #if defined(__x86_64__)
@@ -237,4 +237,4 @@ static const std::vector<api_info> linux_system_apis = {
      .headers = {"sys/socket.h"}}
 };
 
-} // namespace w1::abi::apis::linux
+} // namespace w1::abi::apis::linux_apis

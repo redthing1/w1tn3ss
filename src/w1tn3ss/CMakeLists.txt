@@ -95,3 +95,6 @@ apply_common_compile_options(w1tn3ss)
 set_standard_output_dirs(w1tn3ss)
 apply_platform_linking(w1tn3ss)
 configure_target_with_lief(w1tn3ss)
+
+# Set position independent code for shared library linking
+set_target_properties(w1tn3ss PROPERTIES POSITION_INDEPENDENT_CODE ON)

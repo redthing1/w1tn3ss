@@ -13,7 +13,7 @@ struct pending_call {
   uint64_t call_target_address;
   std::string target_symbol_name;
   std::string target_module;
-  api_info api_info;
+  api_info api_info_data;
   uint64_t timestamp;
 };
 
@@ -250,7 +250,7 @@ std::optional<api_event> api_listener::analyze_call(const api_context& ctx) {
       pending.call_target_address = ctx.target_address;
       pending.target_symbol_name = ctx.symbol_name;
       pending.target_module = ctx.module_name;
-      pending.api_info = *api_info;
+      pending.api_info_data = *api_info;
       pending.timestamp = ctx.timestamp;
 
       // limit call stack size to prevent unbounded growth
@@ -282,8 +282,8 @@ std::optional<api_event> api_listener::analyze_return(const api_context& ctx) {
   api_analysis_result return_analysis;
   return_analysis.symbol_name = matching_call->target_symbol_name;
   return_analysis.module_name = matching_call->target_module;
-  return_analysis.category = matching_call->api_info.api_category;
-  return_analysis.description = matching_call->api_info.description;
+  return_analysis.category = matching_call->api_info_data.api_category;
+  return_analysis.description = matching_call->api_info_data.description;
   return_analysis.analysis_complete = true;
 
   // analyze return value
@@ -367,7 +367,7 @@ void api_listener::process_return(const api_context& ctx) {
   }
 
   // check if we have callbacks for this return
-  if (!pimpl_->has_callbacks_for(call_it->target_module, call_it->target_symbol_name, call_it->api_info.api_category)) {
+  if (!pimpl_->has_callbacks_for(call_it->target_module, call_it->target_symbol_name, call_it->api_info_data.api_category)) {
     pimpl_->stats_.calls_filtered_out++;
     return;
   }

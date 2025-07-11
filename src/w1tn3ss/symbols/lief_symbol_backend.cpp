@@ -603,8 +603,8 @@ symbol_info lief_symbol_backend::macho_symbol_to_info(const LIEF::MachO::Symbol&
 
   // determine type from macho type flags
   // n_stab (0xe0) and n_ext (0x01) are macho-specific constants
-  // only use these on non-windows platforms where they're defined
-#ifndef _WIN32
+  // only use these on Apple platforms where they're defined
+#ifdef __APPLE__
   if (sym.raw_type() & N_STAB) {
     info.symbol_type = symbol_info::DEBUG;
   } else
@@ -617,21 +617,17 @@ symbol_info lief_symbol_backend::macho_symbol_to_info(const LIEF::MachO::Symbol&
   }
 
   // determine binding from external flag
-#ifndef _WIN32
+#ifdef __APPLE__
   if (sym.raw_type() & N_EXT) {
     info.symbol_binding = symbol_info::GLOBAL;
   } else {
     info.symbol_binding = symbol_info::LOCAL;
   }
-#else
-  // on windows, assume global binding for macho symbols
-  info.symbol_binding = symbol_info::GLOBAL;
-#endif
-
-#ifndef _WIN32
   info.is_exported = (sym.raw_type() & N_EXT) != 0;
 #else
-  info.is_exported = true; // assume exported on windows
+  // on non-Apple platforms, assume global binding for macho symbols
+  info.symbol_binding = symbol_info::GLOBAL;
+  info.is_exported = true; // assume exported on non-Apple platforms
 #endif
   info.is_imported = sym.type() == LIEF::MachO::Symbol::TYPE::UNDEFINED;
 

@@ -8,9 +8,7 @@ namespace w1::abi {
 // platform-agnostic utilities for accessing FPR state
 // qbdi has different FPRState structures on different platforms
 
-#ifdef _WIN32
-// on windows, qbdi defines xmm registers as individual char[16] arrays
-// we need to cast them to access as float/double values
+// QBDI defines XMM as individual char[16] arrays on both Windows and Unix
 
 // helper to get xmm register pointer by index
 inline const char* get_xmm_ptr(const QBDI::FPRState* fpr, size_t reg_idx) {
@@ -86,32 +84,5 @@ inline void get_xmm_bytes(const QBDI::FPRState* fpr, size_t reg_idx, void* dest)
 
   std::memcpy(dest, xmm_ptr, 16);
 }
-
-#else
-// On Unix platforms (Linux/macOS), QBDI typically defines XMM as an array of unions
-
-inline float get_xmm_float(const QBDI::FPRState* fpr, size_t reg_idx) {
-  if (reg_idx >= 16) {
-    return 0.0f;
-  }
-  return fpr->xmm[reg_idx].reg32[0];
-}
-
-inline double get_xmm_double(const QBDI::FPRState* fpr, size_t reg_idx) {
-  if (reg_idx >= 16) {
-    return 0.0;
-  }
-  return fpr->xmm[reg_idx].reg64[0];
-}
-
-inline void get_xmm_bytes(const QBDI::FPRState* fpr, size_t reg_idx, void* dest) {
-  if (reg_idx >= 16) {
-    std::memset(dest, 0, 16);
-    return;
-  }
-  std::memcpy(dest, &fpr->xmm[reg_idx], 16);
-}
-
-#endif
 
 } // namespace w1::abi

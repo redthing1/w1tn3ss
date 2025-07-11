@@ -194,7 +194,7 @@ private:
 #ifdef __APPLE__
     load_api_set(apis::macos::macos_system_apis, "macos system apis");
 #elif defined(__linux__)
-    load_api_set(apis::linux::linux_system_apis, "linux system apis");
+    load_api_set(apis::linux_apis::linux_system_apis, "linux system apis");
 #elif defined(_WIN32)
     auto windows_apis = apis::windows::get_all_windows_apis();
     load_api_set(windows_apis, "windows system apis");
