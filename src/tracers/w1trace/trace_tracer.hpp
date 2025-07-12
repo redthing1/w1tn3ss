@@ -17,8 +17,7 @@ public:
   void shutdown();
   const char* get_name() const { return "w1trace"; }
 
-  // Required callback for tracer_engine - captures every instruction address
-  QBDI::VMAction on_instruction_postinst(QBDI::VMInstanceRef vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr);
+  QBDI::VMAction on_instruction_preinst(QBDI::VMInstanceRef vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr);
 
   // Statistics access
   size_t get_instruction_count() const;

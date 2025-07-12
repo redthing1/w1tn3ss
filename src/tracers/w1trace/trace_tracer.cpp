@@ -14,8 +14,7 @@ trace_tracer::trace_tracer(const trace_config& config)
 bool trace_tracer::initialize(w1::tracer_engine<trace_tracer>& engine) {
   log_.inf("initializing trace tracer");
 
-  // No additional initialization needed - the tracer_engine will automatically
-  // register our on_instruction_postinst callback via SFINAE detection
+  // register our on_instruction_preinst callback via SFINAE detection
 
   log_.inf("trace tracer initialization complete");
   return true;
@@ -27,18 +26,18 @@ void trace_tracer::shutdown() {
   log_.inf("trace collection completed");
 }
 
-QBDI::VMAction trace_tracer::on_instruction_postinst(QBDI::VMInstanceRef vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr) {
-  // Get the current instruction address from analysis
+QBDI::VMAction trace_tracer::on_instruction_preinst(QBDI::VMInstanceRef vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr) {
+  // get the current instruction address from analysis
   QBDI::VM* vm_ptr = static_cast<QBDI::VM*>(vm);
   const QBDI::InstAnalysis* analysis = vm_ptr->getInstAnalysis();
   uint64_t address = analysis ? analysis->address : 0;
 
   if (address != 0) {
-    // Add to collector
+    // add to collector
     collector_.add_instruction_address(address);
   }
 
-  // Continue execution
+  // continue execution
   return QBDI::VMAction::CONTINUE;
 }
 
