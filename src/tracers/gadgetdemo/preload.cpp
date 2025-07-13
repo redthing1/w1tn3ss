@@ -44,42 +44,81 @@ extern "C" {
     }
 }
 
+// hardcoded offsets from hook_test_target (from nm output)
+// these would normally be resolved dynamically via symbol resolution
+static const QBDI::rword OFFSET_get_process_id = 0xa34;
+static const QBDI::rword OFFSET_compute_hash = 0xa10;
+static const QBDI::rword OFFSET_contains_pattern = 0x9e0;
+static const QBDI::rword OFFSET_get_string_length = 0x9d4;
+static const QBDI::rword OFFSET_is_valid_pointer = 0xa38;
+
+// get base address of main executable
+static QBDI::rword get_main_base() {
+    auto maps = QBDI::getRemoteProcessMaps(getpid());
+    for (const auto& map : maps) {
+        if (map.permission & QBDI::PF_EXEC) {
+            // simple heuristic: first executable map is likely the main binary
+            return map.range.start();
+        }
+    }
+    return 0;
+}
+
 // instruction callback that demonstrates gadget execution
 static QBDI::VMAction instruction_callback(QBDI::VMInstanceRef vm, QBDI::GPRState* gprState, 
                                          QBDI::FPRState* fprState, void* data) {
     static uint64_t inst_count = 0;
+    static QBDI::rword main_base = 0;
     inst_count++;
     
+    // get main base address once
+    if (main_base == 0) {
+        main_base = get_main_base();
+    }
+    
     // demonstrate gadget execution after 100 instructions
-    if (inst_count == 100 && !g_demo_completed && g_executor) {
+    if (inst_count == 100 && !g_demo_completed && g_executor && main_base) {
         g_demo_completed = true;
         
         auto log = redlog::get_logger("gadgetdemo");
         log.info("=== demonstrating gadget execution from VM callback ===");
+        log.dbg("main executable base", redlog::field("base", "0x%llx", main_base));
         
         try {
-            // arithmetic gadgets
+            // call get_process_id from target - this is really interesting!
+            QBDI::rword get_pid_addr = main_base + OFFSET_get_process_id;
+            int pid = g_executor->call<int>(get_pid_addr, {});
+            log.info("target gadget", 
+                    redlog::field("get_process_id()", "%d", pid),
+                    redlog::field("addr", "0x%llx", get_pid_addr));
+            
+            // call compute_hash from target
+            const char* data = "test data for hash";
+            QBDI::rword compute_hash_addr = main_base + OFFSET_compute_hash;
+            unsigned int hash = g_executor->call<unsigned int>(
+                compute_hash_addr,
+                {reinterpret_cast<QBDI::rword>(data), strlen(data)});
+            log.info("target gadget", 
+                    redlog::field("compute_hash", "0x%08x", hash),
+                    redlog::field("data", data));
+            
+            // call contains_pattern from target
+            const char* haystack = "the quick brown fox";
+            const char* needle = "brown";
+            QBDI::rword contains_pattern_addr = main_base + OFFSET_contains_pattern;
+            int found = g_executor->call<int>(
+                contains_pattern_addr,
+                {reinterpret_cast<QBDI::rword>(haystack),
+                 reinterpret_cast<QBDI::rword>(needle)});
+            log.info("target gadget", 
+                    redlog::field("contains_pattern", found ? "found" : "not found"),
+                    redlog::field("needle", needle),
+                    redlog::field("haystack", haystack));
+            
+            // also demonstrate our simple demo gadgets
             int sum = g_executor->call<int>(
                 reinterpret_cast<QBDI::rword>(demo_add), {42, 58});
-            log.info("arithmetic gadget", redlog::field("add(42, 58)", "%d", sum));
-            
-            int product = g_executor->call<int>(
-                reinterpret_cast<QBDI::rword>(demo_multiply), {7, 9});
-            log.info("arithmetic gadget", redlog::field("multiply(7, 9)", "%d", product));
-            
-            // string gadget
-            const char* test_str = "hello from gadget!";
-            size_t len = g_executor->call<size_t>(
-                reinterpret_cast<QBDI::rword>(demo_strlen), 
-                {reinterpret_cast<QBDI::rword>(test_str)});
-            log.info("string gadget", 
-                    redlog::field("strlen", "%zu", len),
-                    redlog::field("expected", "%zu", strlen(test_str)));
-            
-            // void gadget
-            g_executor->call<void>(
-                reinterpret_cast<QBDI::rword>(demo_print),
-                {reinterpret_cast<QBDI::rword>("gadget execution successful!")});
+            log.info("demo gadget", redlog::field("add(42, 58)", "%d", sum));
             
             log.info("=== gadget execution complete ===");
         } catch (const std::exception& e) {
