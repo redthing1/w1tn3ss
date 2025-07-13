@@ -31,3 +31,22 @@ if(WITNESS_SCRIPT)
         LABELS "unit;p1ll;pattern_matching"
     )
 endif()
+
+# gadget executor test
+add_executable(test_gadget_executor test_gadget_executor.cpp)
+apply_common_compile_options(test_gadget_executor)
+apply_windows_definitions(test_gadget_executor)
+target_include_directories(test_gadget_executor PRIVATE ${WITNESS_SOURCE_DIR}/src)
+target_link_libraries(test_gadget_executor PRIVATE w1tn3ss QBDI_static redlog::redlog)
+set_target_properties(test_gadget_executor PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests
+)
+
+add_test(
+    NAME gadget_executor_tests
+    COMMAND test_gadget_executor
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests
+)
+set_tests_properties(gadget_executor_tests PROPERTIES
+    LABELS "unit;gadget;executor"
+)

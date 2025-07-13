@@ -65,6 +65,7 @@ set_target_properties(hook_test_target PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs
 )
 
+
 # linux-specific target programs
 if(UNIX AND NOT APPLE)
     # linux injection target with linux-specific features
@@ -145,7 +146,7 @@ if(WITNESS_SCRIPT)
 endif()
 
 # install targets
-set(PROGRAM_TARGETS multi_threaded_target control_flow_1 runtime_injection_target simple_demo)
+set(PROGRAM_TARGETS multi_threaded_target control_flow_1 runtime_injection_target simple_demo hook_test_target)
 
 # add p1ll targets to install list when scripting is enabled
 if(WITNESS_SCRIPT)
