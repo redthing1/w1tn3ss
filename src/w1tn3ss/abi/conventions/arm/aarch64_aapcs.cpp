@@ -351,4 +351,142 @@ std::vector<double> aarch64_aapcs::extract_float_args(const extraction_context& 
   return args;
 }
 
+void aarch64_aapcs::set_integer_args(QBDI::GPRState* gpr, const std::vector<uint64_t>& args,
+                                     std::function<void(uint64_t addr, uint64_t value)> stack_writer) const {
+  // set arguments in x0-x7 registers
+  if (args.size() > 0) gpr->x0 = args[0];
+  if (args.size() > 1) gpr->x1 = args[1];
+  if (args.size() > 2) gpr->x2 = args[2];
+  if (args.size() > 3) gpr->x3 = args[3];
+  if (args.size() > 4) gpr->x4 = args[4];
+  if (args.size() > 5) gpr->x5 = args[5];
+  if (args.size() > 6) gpr->x6 = args[6];
+  if (args.size() > 7) gpr->x7 = args[7];
+  
+  // remaining arguments go on stack
+  if (args.size() > max_int_reg_args && stack_writer) {
+    uint64_t sp = gpr->sp;
+    for (size_t i = max_int_reg_args; i < args.size(); i++) {
+      uint64_t stack_offset = (i - max_int_reg_args) * 8;
+      stack_writer(sp + stack_offset, args[i]);
+    }
+  }
+}
+
+void aarch64_aapcs::set_typed_args(QBDI::GPRState* gpr, QBDI::FPRState* fpr, const std::vector<typed_arg>& args,
+                                   std::function<void(uint64_t addr, uint64_t value)> stack_writer) const {
+  size_t int_reg_idx = 0;
+  size_t float_reg_idx = 0;
+  size_t stack_offset = 0;
+  
+  for (const auto& arg : args) {
+    switch (arg.type) {
+    case arg_type::INTEGER:
+    case arg_type::POINTER:
+      if (int_reg_idx < max_int_reg_args) {
+        // set in register
+        switch (int_reg_idx) {
+        case 0: gpr->x0 = arg.value.integer; break;
+        case 1: gpr->x1 = arg.value.integer; break;
+        case 2: gpr->x2 = arg.value.integer; break;
+        case 3: gpr->x3 = arg.value.integer; break;
+        case 4: gpr->x4 = arg.value.integer; break;
+        case 5: gpr->x5 = arg.value.integer; break;
+        case 6: gpr->x6 = arg.value.integer; break;
+        case 7: gpr->x7 = arg.value.integer; break;
+        }
+        int_reg_idx++;
+      } else if (stack_writer) {
+        // set on stack
+        stack_writer(gpr->sp + stack_offset, arg.value.integer);
+        stack_offset += 8;
+      }
+      break;
+      
+    case arg_type::FLOAT:
+    case arg_type::DOUBLE:
+      if (float_reg_idx < max_float_reg_args) {
+        // set in v register (lower 64 bits for double)
+        __uint128_t* v_regs = reinterpret_cast<__uint128_t*>(fpr);
+        uint64_t f64_val;
+        if (arg.type == arg_type::FLOAT) {
+            float f32 = arg.value.f32;
+            memcpy(&f64_val, &f32, sizeof(float));
+        } else {
+            double f64 = arg.value.f64;
+            memcpy(&f64_val, &f64, sizeof(double));
+        }
+        v_regs[float_reg_idx] = f64_val;
+        float_reg_idx++;
+      } else if (stack_writer) {
+        // set on stack
+        uint64_t val;
+        if (arg.type == arg_type::FLOAT) {
+            float f32 = arg.value.f32;
+            memcpy(&val, &f32, sizeof(float));
+        } else {
+            double f64 = arg.value.f64;
+            memcpy(&val, &f64, sizeof(double));
+        }
+        stack_writer(gpr->sp + stack_offset, val);
+        stack_offset += 8;
+      }
+      break;
+      
+    case arg_type::SIMD:
+      if (float_reg_idx < max_float_reg_args) {
+        // set full v register (128-bit)
+        __uint128_t* v_regs = reinterpret_cast<__uint128_t*>(fpr);
+        memcpy(&v_regs[float_reg_idx], arg.value.simd, 16);
+        float_reg_idx++;
+      } else if (stack_writer) {
+        // set on stack (16 bytes)
+        // would need to write 2 64-bit values
+        uint64_t* simd_data = reinterpret_cast<uint64_t*>(const_cast<uint8_t*>(arg.value.simd));
+        stack_writer(gpr->sp + stack_offset, simd_data[0]);
+        stack_writer(gpr->sp + stack_offset + 8, simd_data[1]);
+        stack_offset += 16;
+      }
+      break;
+      
+    case arg_type::STRUCT_BY_VALUE:
+      // small structs passed in integer registers
+      for (size_t i = 0; i < arg.value.struct_data.size / 8 && int_reg_idx < max_int_reg_args; i++) {
+        switch (int_reg_idx) {
+        case 0: gpr->x0 = arg.value.struct_data.data[i]; break;
+        case 1: gpr->x1 = arg.value.struct_data.data[i]; break;
+        case 2: gpr->x2 = arg.value.struct_data.data[i]; break;
+        case 3: gpr->x3 = arg.value.struct_data.data[i]; break;
+        case 4: gpr->x4 = arg.value.struct_data.data[i]; break;
+        case 5: gpr->x5 = arg.value.struct_data.data[i]; break;
+        case 6: gpr->x6 = arg.value.struct_data.data[i]; break;
+        case 7: gpr->x7 = arg.value.struct_data.data[i]; break;
+        }
+        int_reg_idx++;
+      }
+      break;
+      
+    case arg_type::STRUCT_BY_REF:
+      // pass pointer in integer register
+      if (int_reg_idx < max_int_reg_args) {
+        switch (int_reg_idx) {
+        case 0: gpr->x0 = arg.value.integer; break;
+        case 1: gpr->x1 = arg.value.integer; break;
+        case 2: gpr->x2 = arg.value.integer; break;
+        case 3: gpr->x3 = arg.value.integer; break;
+        case 4: gpr->x4 = arg.value.integer; break;
+        case 5: gpr->x5 = arg.value.integer; break;
+        case 6: gpr->x6 = arg.value.integer; break;
+        case 7: gpr->x7 = arg.value.integer; break;
+        }
+        int_reg_idx++;
+      } else if (stack_writer) {
+        stack_writer(gpr->sp + stack_offset, arg.value.integer);
+        stack_offset += 8;
+      }
+      break;
+    }
+  }
+}
+
 } // namespace w1::abi::conventions

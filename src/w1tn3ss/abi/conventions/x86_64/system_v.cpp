@@ -1,6 +1,8 @@
 #include "system_v.hpp"
 #include <redlog.hpp>
 
+#if defined(__x86_64__) || defined(_M_X64)
+
 namespace w1::abi::conventions {
 
 std::vector<uint64_t> x86_64_system_v::extract_integer_args(const extraction_context& ctx, size_t count) const {
@@ -291,4 +293,150 @@ std::vector<double> x86_64_system_v::extract_float_args(const extraction_context
   return args;
 }
 
+void x86_64_system_v::set_integer_args(QBDI::GPRState* gpr, const std::vector<uint64_t>& args,
+                                      std::function<void(uint64_t addr, uint64_t value)> stack_writer) const {
+  // set arguments in rdi, rsi, rdx, rcx, r8, r9 registers
+  if (args.size() > 0) gpr->rdi = args[0];
+  if (args.size() > 1) gpr->rsi = args[1];
+  if (args.size() > 2) gpr->rdx = args[2];
+  if (args.size() > 3) gpr->rcx = args[3];
+  if (args.size() > 4) gpr->r8 = args[4];
+  if (args.size() > 5) gpr->r9 = args[5];
+  
+  // remaining arguments go on stack
+  if (args.size() > 6 && stack_writer) {
+    // stack arguments start after return address
+    uint64_t sp = gpr->rsp;
+    for (size_t i = 6; i < args.size(); i++) {
+      uint64_t stack_offset = 8 + (i - 6) * 8; // +8 to skip return address
+      stack_writer(sp + stack_offset, args[i]);
+    }
+  }
+}
+
+void x86_64_system_v::set_typed_args(QBDI::GPRState* gpr, QBDI::FPRState* fpr, const std::vector<typed_arg>& args,
+                                    std::function<void(uint64_t addr, uint64_t value)> stack_writer) const {
+  size_t int_reg_idx = 0;
+  size_t float_reg_idx = 0;
+  size_t stack_offset = 8; // skip return address
+  
+  for (const auto& arg : args) {
+    switch (arg.type) {
+    case arg_type::INTEGER:
+    case arg_type::POINTER:
+    case arg_type::STRUCT_BY_REF:
+      if (int_reg_idx < 6) {
+        // set in register
+        switch (int_reg_idx) {
+        case 0: gpr->rdi = arg.value.integer; break;
+        case 1: gpr->rsi = arg.value.integer; break;
+        case 2: gpr->rdx = arg.value.integer; break;
+        case 3: gpr->rcx = arg.value.integer; break;
+        case 4: gpr->r8 = arg.value.integer; break;
+        case 5: gpr->r9 = arg.value.integer; break;
+        }
+        int_reg_idx++;
+      } else if (stack_writer) {
+        // set on stack
+        stack_writer(gpr->rsp + stack_offset, arg.value.integer);
+        stack_offset += 8;
+      }
+      break;
+      
+    case arg_type::FLOAT:
+      if (float_reg_idx < max_float_reg_args) {
+        // set in xmm register (lower 32 bits)
+        char* xmm_ptr = nullptr;
+        switch (float_reg_idx) {
+        case 0: xmm_ptr = fpr->xmm0; break;
+        case 1: xmm_ptr = fpr->xmm1; break;
+        case 2: xmm_ptr = fpr->xmm2; break;
+        case 3: xmm_ptr = fpr->xmm3; break;
+        case 4: xmm_ptr = fpr->xmm4; break;
+        case 5: xmm_ptr = fpr->xmm5; break;
+        case 6: xmm_ptr = fpr->xmm6; break;
+        case 7: xmm_ptr = fpr->xmm7; break;
+        }
+        if (xmm_ptr) {
+          memcpy(xmm_ptr, &arg.value.f32, sizeof(float));
+        }
+        float_reg_idx++;
+      } else if (stack_writer) {
+        // set on stack (still takes 8 bytes)
+        uint64_t val = 0;
+        memcpy(&val, &arg.value.f32, sizeof(float));
+        stack_writer(gpr->rsp + stack_offset, val);
+        stack_offset += 8;
+      }
+      break;
+      
+    case arg_type::DOUBLE:
+      if (float_reg_idx < max_float_reg_args) {
+        // set in xmm register (lower 64 bits)
+        char* xmm_ptr = nullptr;
+        switch (float_reg_idx) {
+        case 0: xmm_ptr = fpr->xmm0; break;
+        case 1: xmm_ptr = fpr->xmm1; break;
+        case 2: xmm_ptr = fpr->xmm2; break;
+        case 3: xmm_ptr = fpr->xmm3; break;
+        case 4: xmm_ptr = fpr->xmm4; break;
+        case 5: xmm_ptr = fpr->xmm5; break;
+        case 6: xmm_ptr = fpr->xmm6; break;
+        case 7: xmm_ptr = fpr->xmm7; break;
+        }
+        if (xmm_ptr) {
+          memcpy(xmm_ptr, &arg.value.f64, sizeof(double));
+        }
+        float_reg_idx++;
+      } else if (stack_writer) {
+        // set on stack
+        uint64_t val;
+        memcpy(&val, &arg.value.f64, sizeof(double));
+        stack_writer(gpr->rsp + stack_offset, val);
+        stack_offset += 8;
+      }
+      break;
+      
+    case arg_type::SIMD:
+      if (float_reg_idx < max_float_reg_args) {
+        // set full xmm register (128-bit)
+        char* xmm_ptr = nullptr;
+        switch (float_reg_idx) {
+        case 0: xmm_ptr = fpr->xmm0; break;
+        case 1: xmm_ptr = fpr->xmm1; break;
+        case 2: xmm_ptr = fpr->xmm2; break;
+        case 3: xmm_ptr = fpr->xmm3; break;
+        case 4: xmm_ptr = fpr->xmm4; break;
+        case 5: xmm_ptr = fpr->xmm5; break;
+        case 6: xmm_ptr = fpr->xmm6; break;
+        case 7: xmm_ptr = fpr->xmm7; break;
+        }
+        if (xmm_ptr) {
+          memcpy(xmm_ptr, arg.value.simd, 16);
+        }
+        float_reg_idx++;
+      } else if (stack_writer) {
+        // set on stack (16 bytes)
+        // write 2 64-bit values
+        const uint64_t* simd_data = reinterpret_cast<const uint64_t*>(arg.value.simd);
+        stack_writer(gpr->rsp + stack_offset, simd_data[0]);
+        stack_writer(gpr->rsp + stack_offset + 8, simd_data[1]);
+        stack_offset += 16;
+      }
+      break;
+      
+    case arg_type::STRUCT_BY_VALUE:
+      // simplified - would need size info for proper implementation
+      // small structs may be passed in registers, larger ones on stack
+      if (stack_writer) {
+        stack_writer(gpr->rsp + stack_offset, arg.value.struct_data.data[0]);
+        stack_offset += 8;
+      }
+      break;
+    }
+  }
+}
+
 } // namespace w1::abi::conventions
+
+#endif // defined(__x86_64__) || defined(_M_X64)

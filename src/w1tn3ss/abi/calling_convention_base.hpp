@@ -136,6 +136,41 @@ public:
 
   // helper for floating point arguments
   virtual std::vector<double> extract_float_args(const extraction_context& ctx, size_t count) const = 0;
+
+  // ===== Argument Setting Methods (for function calls) =====
+  
+  /**
+   * @brief Set integer arguments in registers/stack for a function call
+   * @param gpr GPR state to modify
+   * @param args Arguments to set (in order)
+   * @param stack_writer Optional function to write to stack for args beyond register capacity
+   */
+  virtual void set_integer_args(QBDI::GPRState* gpr, const std::vector<uint64_t>& args,
+                               std::function<void(uint64_t addr, uint64_t value)> stack_writer = nullptr) const = 0;
+
+  /**
+   * @brief Set typed arguments in registers/stack for a function call
+   * @param gpr GPR state to modify
+   * @param fpr FPR state to modify (for floating point args)
+   * @param args Typed arguments to set (in order)
+   * @param stack_writer Optional function to write to stack for args beyond register capacity
+   */
+  virtual void set_typed_args(QBDI::GPRState* gpr, QBDI::FPRState* fpr, const std::vector<typed_arg>& args,
+                             std::function<void(uint64_t addr, uint64_t value)> stack_writer = nullptr) const = 0;
+
+  /**
+   * @brief Set return value in appropriate register
+   * @param gpr GPR state to modify
+   * @param value Return value to set
+   */
+  virtual void set_integer_return(QBDI::GPRState* gpr, uint64_t value) const = 0;
+
+  /**
+   * @brief Set floating point return value in appropriate register
+   * @param fpr FPR state to modify
+   * @param value Return value to set
+   */
+  virtual void set_float_return(QBDI::FPRState* fpr, double value) const = 0;
 };
 
 // shared pointer type for convenience

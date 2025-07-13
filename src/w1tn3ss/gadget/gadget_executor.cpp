@@ -1,5 +1,6 @@
 #include "w1tn3ss/gadget/gadget_executor.hpp"
 #include "w1tn3ss/util/register_access.hpp"
+#include "w1tn3ss/abi/calling_convention_factory.hpp"
 #include <w1common/ext/tinyformat.hpp>
 #include <cstring>
 
@@ -25,11 +26,15 @@ gadget_executor::gadget_executor(QBDI::VM* parent_vm)
     cpu_model_ = "generic";
 #endif
     
+    // create calling convention for platform
+    calling_convention_ = w1::abi::create_default_calling_convention();
+    
     auto log = redlog::get_logger("gadget_executor");
     log.dbg("initialized gadget executor", 
             redlog::field("parent_vm", "%p", parent_vm),
             redlog::field("options", "0x%x", options_),
-            redlog::field("cpu_model", cpu_model_.c_str()));
+            redlog::field("cpu_model", cpu_model_.c_str()),
+            redlog::field("calling_convention", calling_convention_->get_name().c_str()));
 }
 
 std::unique_ptr<QBDI::VM> gadget_executor::create_sub_vm() {
@@ -108,29 +113,19 @@ gadget_result gadget_executor::call_with_state(QBDI::rword gadget_addr,
             log.dbg("add instrumented module", redlog::field("addr", "0x%llx", gadget_addr));
         }
         
-        // Set up arguments in registers according to platform calling convention
-        // This simulates how a normal function call would pass arguments
+        // set up arguments using calling convention infrastructure
         if (!args.empty()) {
             log.dbg("setting up arguments in registers", redlog::field("count", "%zu", args.size()));
-#if defined(QBDI_ARCH_X86_64)
-            // system v amd64 abi: rdi, rsi, rdx, rcx, r8, r9
-            if (args.size() > 0) { result.gpr.rdi = args[0]; log.dbg("arg0", redlog::field("rdi", "0x%llx", args[0])); }
-            if (args.size() > 1) { result.gpr.rsi = args[1]; log.dbg("arg1", redlog::field("rsi", "0x%llx", args[1])); }
-            if (args.size() > 2) { result.gpr.rdx = args[2]; log.dbg("arg2", redlog::field("rdx", "0x%llx", args[2])); }
-            if (args.size() > 3) { result.gpr.rcx = args[3]; log.dbg("arg3", redlog::field("rcx", "0x%llx", args[3])); }
-            if (args.size() > 4) { result.gpr.r8 = args[4]; log.dbg("arg4", redlog::field("r8", "0x%llx", args[4])); }
-            if (args.size() > 5) { result.gpr.r9 = args[5]; log.dbg("arg5", redlog::field("r9", "0x%llx", args[5])); }
-#elif defined(QBDI_ARCH_AARCH64)
-            // aarch64: x0-x7
-            if (args.size() > 0) { result.gpr.x0 = args[0]; log.dbg("arg0", redlog::field("x0", "0x%llx", args[0])); }
-            if (args.size() > 1) { result.gpr.x1 = args[1]; log.dbg("arg1", redlog::field("x1", "0x%llx", args[1])); }
-            if (args.size() > 2) { result.gpr.x2 = args[2]; log.dbg("arg2", redlog::field("x2", "0x%llx", args[2])); }
-            if (args.size() > 3) { result.gpr.x3 = args[3]; log.dbg("arg3", redlog::field("x3", "0x%llx", args[3])); }
-            if (args.size() > 4) { result.gpr.x4 = args[4]; log.dbg("arg4", redlog::field("x4", "0x%llx", args[4])); }
-            if (args.size() > 5) { result.gpr.x5 = args[5]; log.dbg("arg5", redlog::field("x5", "0x%llx", args[5])); }
-            if (args.size() > 6) { result.gpr.x6 = args[6]; log.dbg("arg6", redlog::field("x6", "0x%llx", args[6])); }
-            if (args.size() > 7) { result.gpr.x7 = args[7]; log.dbg("arg7", redlog::field("x7", "0x%llx", args[7])); }
-#endif
+            
+            // convert rword args to uint64_t for the calling convention interface
+            std::vector<uint64_t> conv_args;
+            conv_args.reserve(args.size());
+            for (auto arg : args) {
+                conv_args.push_back(static_cast<uint64_t>(arg));
+            }
+            
+            // use calling convention to set arguments
+            calling_convention_->set_integer_args(&result.gpr, conv_args);
             sub_vm->setGPRState(&result.gpr);
         }
         
@@ -151,12 +146,8 @@ gadget_result gadget_executor::call_with_state(QBDI::rword gadget_addr,
         result.gpr = *sub_vm->getGPRState();
         result.fpr = *sub_vm->getFPRState();
         
-        // extract return value from appropriate register
-#if defined(QBDI_ARCH_X86_64)
-        result.return_value = result.gpr.rax;
-#elif defined(QBDI_ARCH_AARCH64)
-        result.return_value = result.gpr.x0;
-#endif
+        // extract return value using calling convention
+        result.return_value = calling_convention_->get_integer_return(&result.gpr);
         
         result.success = true;
         
@@ -248,14 +239,8 @@ gadget_result gadget_executor::execute_raw(QBDI::rword start_addr,
             QBDI::alignedFree(stack);
         }
         
-        // for raw execution, return value is final rax/x0
-#if defined(QBDI_ARCH_X86_64) || defined(QBDI_ARCH_X86)
-        result.return_value = result.gpr.rax;
-#elif defined(QBDI_ARCH_AARCH64)
-        result.return_value = result.gpr.x0;
-#elif defined(QBDI_ARCH_ARM)
-        result.return_value = result.gpr.r0;
-#endif
+        // extract return value using calling convention
+        result.return_value = calling_convention_->get_integer_return(&result.gpr);
         
         log.dbg("raw gadget execution succeeded");
         

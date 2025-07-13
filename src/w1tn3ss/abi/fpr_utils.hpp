@@ -10,6 +10,7 @@ namespace w1::abi {
 
 // QBDI defines XMM as individual char[16] arrays on both Windows and Unix
 
+#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
 // helper to get xmm register pointer by index
 inline const char* get_xmm_ptr(const QBDI::FPRState* fpr, size_t reg_idx) {
   switch (reg_idx) {
@@ -84,5 +85,6 @@ inline void get_xmm_bytes(const QBDI::FPRState* fpr, size_t reg_idx, void* dest)
 
   std::memcpy(dest, xmm_ptr, 16);
 }
+#endif // defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
 
 } // namespace w1::abi

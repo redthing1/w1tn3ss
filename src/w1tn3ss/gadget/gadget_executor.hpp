@@ -7,6 +7,7 @@
 #include <string>
 #include <type_traits>
 #include <redlog.hpp>
+#include "w1tn3ss/abi/calling_convention_base.hpp"
 
 namespace w1tn3ss {
 namespace gadget {
@@ -81,6 +82,7 @@ private:
     std::string cpu_model_;
     std::vector<std::string> mattrs_;
     QBDI::Options options_;
+    w1::abi::calling_convention_ptr calling_convention_;
     
     // create sub-vm with parent's configuration and instrumented ranges
     std::unique_ptr<QBDI::VM> create_sub_vm();
