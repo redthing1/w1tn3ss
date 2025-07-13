@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdint.h>
+#include <unistd.h>
 
 #include "signature_helper.h"
 
@@ -58,6 +60,43 @@ NOINLINE void unsafe_copy(char* dst, const char* src) {
     // intentionally unsafe for testing security monitoring
     strcpy(dst, src);
     printf("[unsafe_copy] copied: %s\n", dst);
+}
+
+// utility functions that can be called via gadgeting
+
+// function to get string length (useful for gadgeting)
+NOINLINE size_t get_string_length(const char* str) {
+    if (!str) return 0;
+    return strlen(str);
+}
+
+// function to check if buffer contains pattern (useful for analysis)
+NOINLINE int contains_pattern(const char* buffer, const char* pattern) {
+    if (!buffer || !pattern) return 0;
+    return strstr(buffer, pattern) != NULL;
+}
+
+// function to compute hash (useful for integrity checks)
+NOINLINE unsigned int compute_hash(const void* data, size_t len) {
+    const unsigned char* bytes = (const unsigned char*)data;
+    unsigned int hash = 5381;
+    for (size_t i = 0; i < len; i++) {
+        hash = ((hash << 5) + hash) + bytes[i];
+    }
+    return hash;
+}
+
+// function to get process info (useful for context)
+NOINLINE int get_process_id(void) {
+    return getpid();
+}
+
+// function to validate pointer (useful for safety checks)
+NOINLINE int is_valid_pointer(const void* ptr) {
+    if (!ptr) return 0;
+    // simple heuristic - check if it's in reasonable address range
+    uintptr_t addr = (uintptr_t)ptr;
+    return addr > 0x1000 && addr < 0x7fffffffffff;
 }
 
 int main(int argc, char* argv[]) {

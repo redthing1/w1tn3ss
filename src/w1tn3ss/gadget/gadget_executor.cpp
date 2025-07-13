@@ -25,13 +25,21 @@ gadget_executor::gadget_executor(QBDI::VM* parent_vm)
     cpu_model_ = "generic";
 #endif
     
-    // auto log = redlog::get_logger("gadget_executor");
-    // log.debug("initialized gadget executor with parent vm options", redlog::field("options", "0x%x", options_));
+    auto log = redlog::get_logger("gadget_executor");
+    log.dbg("initialized gadget executor", 
+            redlog::field("parent_vm", "%p", parent_vm),
+            redlog::field("options", "0x%x", options_),
+            redlog::field("cpu_model", cpu_model_.c_str()));
 }
 
 std::unique_ptr<QBDI::VM> gadget_executor::create_sub_vm() {
     // create new vm with same configuration as parent
     auto sub_vm = std::make_unique<QBDI::VM>(cpu_model_, mattrs_, options_);
+    
+    auto log = redlog::get_logger("gadget_executor");
+    log.dbg("created sub-vm",
+            redlog::field("sub_vm", "%p", sub_vm.get()),
+            redlog::field("parent_vm", "%p", parent_vm_));
     
     // copy instrumented ranges from parent
     copy_instrumented_ranges(sub_vm.get());
@@ -52,44 +60,38 @@ gadget_result gadget_executor::call_with_state(QBDI::rword gadget_addr,
     result.success = false;
     
     try {
-        // Create a sub-VM to execute the gadget
-        // This avoids reentrancy issues with the parent VM
+        // create a separate vm instance to execute the gadget
+        // this is necessary because qbdi doesn't support reentrancy - 
+        // we can't call vm methods from within a vm callback
         auto sub_vm = create_sub_vm();
         
-        printf("[gadget_executor] Created sub-VM: %p (parent: %p)\n", sub_vm.get(), parent_vm_);
-        
-        // Copy current CPU state from parent VM
-        // This ensures the gadget sees the same state as the callback
+        // copy cpu state from parent vm so the gadget sees the same context
         result.gpr = *parent_vm_->getGPRState();
         result.fpr = *parent_vm_->getFPRState();
         
-        // Allocate a fresh stack for the sub-VM
-        // The gadget needs its own stack to avoid corrupting the parent's
+        // allocate a separate stack for the gadget execution
+        // this prevents stack corruption between parent and gadget
         uint8_t* stack = nullptr;
         QBDI::allocateVirtualStack(&result.gpr, 0x10000, &stack);
         
-        printf("[gadget_executor] Sub-VM stack allocated: %p (size: 0x10000)\n", stack);
-        printf("[gadget_executor] Sub-VM SP: 0x%llx, Parent SP: 0x%llx\n", 
-               (unsigned long long)w1::registers::get_sp(&result.gpr),
-               (unsigned long long)w1::registers::get_sp(parent_vm_->getGPRState()));
+        auto log = redlog::get_logger("gadget_executor");
+        log.dbg("stack allocated for sub-vm",
+                redlog::field("stack", "%p", stack),
+                redlog::field("size", "0x10000"),
+                redlog::field("sub_sp", "0x%llx", w1::registers::get_sp(&result.gpr)),
+                redlog::field("parent_sp", "0x%llx", w1::registers::get_sp(parent_vm_->getGPRState())));
         
         // Set the initial state in the sub-VM
         sub_vm->setGPRState(&result.gpr);
         sub_vm->setFPRState(&result.fpr);
         
-        // Prepare arguments (will be placed in registers below)
+        // prepare arguments for vm.call()
         std::vector<QBDI::rword> call_args = args;
         
-        // CRITICAL: Use vm.run() instead of vm.call() to avoid nested stack switches
-        // See class documentation for details on the stack switching problem
-        auto log = redlog::get_logger("gadget_executor");
-        log.debug("calling gadget", 
-                  redlog::field("addr", "0x%llx", gadget_addr),
-                  redlog::field("args", "%zu", args.size()),
-                  redlog::field("sp", "0x%llx", w1::registers::get_sp(&result.gpr)));
-        
-        // Debug: print gadget address
-        // printf("[gadget_executor] Executing gadget at 0x%llx with %zu args\n", gadget_addr, args.size());
+        log.dbg("preparing gadget call", 
+                redlog::field("addr", "0x%llx", gadget_addr),
+                redlog::field("args", "%zu", args.size()),
+                redlog::field("sp", "0x%llx", w1::registers::get_sp(&result.gpr)));
         
         // Add instrumentation for the gadget code
         // Use addInstrumentedModuleFromAddr to ensure recursive calls are covered
@@ -99,44 +101,44 @@ gadget_result gadget_executor::call_with_state(QBDI::rword gadget_addr,
             QBDI::rword range_start = gadget_addr & ~0xFFF;  // align to page
             QBDI::rword range_size = 0x10000;  // 64KB should be enough for most functions
             sub_vm->addInstrumentedRange(range_start, range_start + range_size);
-            log.debug("add instrumented range (fallback)", 
-                      redlog::field("start", "0x%llx", range_start),
-                      redlog::field("size", "0x%llx", range_size));
+            log.dbg("add instrumented range (fallback)", 
+                    redlog::field("start", "0x%llx", range_start),
+                    redlog::field("size", "0x%llx", range_size));
         } else {
-            log.debug("add instrumented module", redlog::field("addr", "0x%llx", gadget_addr));
+            log.dbg("add instrumented module", redlog::field("addr", "0x%llx", gadget_addr));
         }
         
         // Set up arguments in registers according to platform calling convention
         // This simulates how a normal function call would pass arguments
         if (!args.empty()) {
+            log.dbg("setting up arguments in registers", redlog::field("count", "%zu", args.size()));
 #if defined(QBDI_ARCH_X86_64)
             // system v amd64 abi: rdi, rsi, rdx, rcx, r8, r9
-            if (args.size() > 0) result.gpr.rdi = args[0];
-            if (args.size() > 1) result.gpr.rsi = args[1];
-            if (args.size() > 2) result.gpr.rdx = args[2];
-            if (args.size() > 3) result.gpr.rcx = args[3];
-            if (args.size() > 4) result.gpr.r8 = args[4];
-            if (args.size() > 5) result.gpr.r9 = args[5];
+            if (args.size() > 0) { result.gpr.rdi = args[0]; log.dbg("arg0", redlog::field("rdi", "0x%llx", args[0])); }
+            if (args.size() > 1) { result.gpr.rsi = args[1]; log.dbg("arg1", redlog::field("rsi", "0x%llx", args[1])); }
+            if (args.size() > 2) { result.gpr.rdx = args[2]; log.dbg("arg2", redlog::field("rdx", "0x%llx", args[2])); }
+            if (args.size() > 3) { result.gpr.rcx = args[3]; log.dbg("arg3", redlog::field("rcx", "0x%llx", args[3])); }
+            if (args.size() > 4) { result.gpr.r8 = args[4]; log.dbg("arg4", redlog::field("r8", "0x%llx", args[4])); }
+            if (args.size() > 5) { result.gpr.r9 = args[5]; log.dbg("arg5", redlog::field("r9", "0x%llx", args[5])); }
 #elif defined(QBDI_ARCH_AARCH64)
             // aarch64: x0-x7
-            if (args.size() > 0) result.gpr.x0 = args[0];
-            if (args.size() > 1) result.gpr.x1 = args[1];
-            if (args.size() > 2) result.gpr.x2 = args[2];
-            if (args.size() > 3) result.gpr.x3 = args[3];
-            if (args.size() > 4) result.gpr.x4 = args[4];
-            if (args.size() > 5) result.gpr.x5 = args[5];
-            if (args.size() > 6) result.gpr.x6 = args[6];
-            if (args.size() > 7) result.gpr.x7 = args[7];
+            if (args.size() > 0) { result.gpr.x0 = args[0]; log.dbg("arg0", redlog::field("x0", "0x%llx", args[0])); }
+            if (args.size() > 1) { result.gpr.x1 = args[1]; log.dbg("arg1", redlog::field("x1", "0x%llx", args[1])); }
+            if (args.size() > 2) { result.gpr.x2 = args[2]; log.dbg("arg2", redlog::field("x2", "0x%llx", args[2])); }
+            if (args.size() > 3) { result.gpr.x3 = args[3]; log.dbg("arg3", redlog::field("x3", "0x%llx", args[3])); }
+            if (args.size() > 4) { result.gpr.x4 = args[4]; log.dbg("arg4", redlog::field("x4", "0x%llx", args[4])); }
+            if (args.size() > 5) { result.gpr.x5 = args[5]; log.dbg("arg5", redlog::field("x5", "0x%llx", args[5])); }
+            if (args.size() > 6) { result.gpr.x6 = args[6]; log.dbg("arg6", redlog::field("x6", "0x%llx", args[6])); }
+            if (args.size() > 7) { result.gpr.x7 = args[7]; log.dbg("arg7", redlog::field("x7", "0x%llx", args[7])); }
 #endif
             sub_vm->setGPRState(&result.gpr);
         }
         
-        // Use vm.call() for proper function call semantics
-        log.debug("calling gadget via vm.call");
-        printf("[gadget_executor] Executing gadget at 0x%llx with %zu args via sub-VM\n",
-               (unsigned long long)gadget_addr, args.size());
+        // use vm.call() which handles function call semantics properly
+        // (sets up return address, manages stack frame, etc.)
+        log.dbg("executing gadget via vm.call");
         bool call_success = sub_vm->call(nullptr, gadget_addr, call_args);
-        printf("[gadget_executor] Gadget execution completed, success=%d\n", call_success);
+        log.dbg("gadget execution completed", redlog::field("success", call_success));
         
         if (!call_success) {
             result.error = "vm run failed";
@@ -158,11 +160,11 @@ gadget_result gadget_executor::call_with_state(QBDI::rword gadget_addr,
         
         result.success = true;
         
-        log.debug("gadget call succeeded", redlog::field("return", "0x%llx", result.return_value));
+        log.dbg("gadget call succeeded", redlog::field("return", "0x%llx", result.return_value));
         
         // clean up stack
         QBDI::alignedFree(stack);
-        printf("[gadget_executor] Sub-VM stack freed, sub-VM will be destroyed\n");
+        log.dbg("stack freed");
         
     } catch (const std::exception& e) {
         result.error = std::string("exception: ") + e.what();
@@ -222,9 +224,9 @@ gadget_result gadget_executor::execute_raw(QBDI::rword start_addr,
             stop_addr = start_addr + 0x1000;  // 4KB range
         }
         
-        log.debug("executing raw gadget",
-                  redlog::field("start", "0x%llx", start_addr),
-                  redlog::field("stop", "0x%llx", stop_addr));
+        log.dbg("executing raw gadget",
+                redlog::field("start", "0x%llx", start_addr),
+                redlog::field("stop", "0x%llx", stop_addr));
         bool run_success = sub_vm->run(start_addr, stop_addr);
         
         if (!run_success) {
@@ -255,7 +257,7 @@ gadget_result gadget_executor::execute_raw(QBDI::rword start_addr,
         result.return_value = result.gpr.r0;
 #endif
         
-        log.debug("raw gadget execution succeeded");
+        log.dbg("raw gadget execution succeeded");
         
     } catch (const std::exception& e) {
         result.error = std::string("exception: ") + e.what();
@@ -291,10 +293,10 @@ gadget_result gadget_executor::execute_chain(const std::vector<QBDI::rword>& gad
         QBDI::rword stop_addr = (i < stop_addrs.size()) ? stop_addrs[i] : 0;
         
         auto log = redlog::get_logger("gadget_executor");
-        log.debug("executing gadget in chain",
-                  redlog::field("index", "%zu", i+1),
-                  redlog::field("total", "%zu", gadget_addrs.size()),
-                  redlog::field("addr", "0x%llx", gadget_addr));
+        log.dbg("executing gadget in chain",
+                redlog::field("index", "%zu", i+1),
+                redlog::field("total", "%zu", gadget_addrs.size()),
+                redlog::field("addr", "0x%llx", gadget_addr));
         
         // execute gadget with current state
         auto gadget_result = execute_raw(gadget_addr, &result.gpr, &result.fpr, stop_addr);
