@@ -46,7 +46,8 @@ void gadget_executor::setup_debug_callback(QBDI::VM* vm) {
 }
 
 gadget_result gadget_executor::gadget_run(
-    QBDI::rword start_addr, QBDI::rword stop_addr, QBDI::GPRState* initial_gpr, QBDI::FPRState* initial_fpr
+    QBDI::rword start_addr, QBDI::rword stop_addr, QBDI::GPRState* initial_gpr, QBDI::FPRState* initial_fpr,
+    size_t stack_size
 ) {
   gadget_result result;
   result.success = false;
@@ -73,7 +74,7 @@ gadget_result gadget_executor::gadget_run(
 
     // then allocate a stack - this updates the sub-vm's stack pointer
     uint8_t* stack = nullptr;
-    QBDI::allocateVirtualStack(sub_vm->getGPRState(), config_.default_stack_size, &stack);
+    QBDI::allocateVirtualStack(sub_vm->getGPRState(), stack_size, &stack);
 
     // get the updated state with proper stack
     result.gpr = *sub_vm->getGPRState();

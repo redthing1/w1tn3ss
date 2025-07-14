@@ -24,11 +24,12 @@ struct gadget_result {
 // two modes: gadget_call (function semantics) and gadget_run (raw execution)
 class gadget_executor {
 public:
+  static constexpr size_t DEFAULT_STACK_SIZE = 0x10000; // 64KB default stack size
+
   struct config {
     bool debug;
-    size_t default_stack_size;
-    
-    config() : debug(false), default_stack_size(0x10000) {}
+
+    config() : debug(false) {}
   };
 
   explicit gadget_executor(QBDI::VM* parent_vm, const config& cfg = config{});
@@ -36,12 +37,14 @@ public:
 
   // call function with arguments and return value
   template <typename RetType = QBDI::rword>
-  RetType gadget_call(QBDI::rword addr, const std::vector<QBDI::rword>& args = {});
+  RetType gadget_call(
+      QBDI::rword addr, const std::vector<QBDI::rword>& args = {}, size_t stack_size = DEFAULT_STACK_SIZE
+  );
 
   // raw execution between two addresses
   gadget_result gadget_run(
       QBDI::rword start_addr, QBDI::rword stop_addr, QBDI::GPRState* initial_gpr = nullptr,
-      QBDI::FPRState* initial_fpr = nullptr
+      QBDI::FPRState* initial_fpr = nullptr, size_t stack_size = DEFAULT_STACK_SIZE
   );
 
   // create sub-vm for custom configuration
@@ -59,7 +62,7 @@ private:
 };
 
 template <typename RetType>
-RetType gadget_executor::gadget_call(QBDI::rword addr, const std::vector<QBDI::rword>& args) {
+RetType gadget_executor::gadget_call(QBDI::rword addr, const std::vector<QBDI::rword>& args, size_t stack_size) {
   auto log = redlog::get_logger("gadget_executor");
 
   try {
@@ -72,12 +75,12 @@ RetType gadget_executor::gadget_call(QBDI::rword addr, const std::vector<QBDI::r
 
     // allocate fresh stack for sub-vm first
     uint8_t* stack = nullptr;
-    bool stack_ok = QBDI::allocateVirtualStack(&gpr, config_.default_stack_size, &stack);
+    bool stack_ok = QBDI::allocateVirtualStack(&gpr, stack_size, &stack);
 
-    log.dbg("stack allocation", 
-            redlog::field("success", stack_ok),
-            redlog::field("stack", "%p", stack),
-            redlog::field("stack_size", "0x%x", config_.default_stack_size));
+    log.dbg(
+        "stack allocation", redlog::field("success", stack_ok), redlog::field("stack", "%p", stack),
+        redlog::field("stack_size", "0x%x", stack_size)
+    );
 
     if (!stack_ok || !stack) {
       log.error("failed to allocate virtual stack for sub-vm");
@@ -93,20 +96,21 @@ RetType gadget_executor::gadget_call(QBDI::rword addr, const std::vector<QBDI::r
     sub_vm->setFPRState(&fpr);
 
     log.dbg("calling gadget", redlog::field("addr", "0x%llx", addr));
-    log.dbg("parent vm info", 
-            redlog::field("parent_vm", "%p", parent_vm_),
-            redlog::field("sub_vm", "%p", sub_vm.get()),
-            redlog::field("stack", "%p", stack));
+    log.dbg(
+        "parent vm info", redlog::field("parent_vm", "%p", parent_vm_), redlog::field("sub_vm", "%p", sub_vm.get()),
+        redlog::field("stack", "%p", stack)
+    );
 
     // add instrumentation for the gadget range
     static constexpr QBDI::rword PAGE_MASK = 0xFFF;
     static constexpr QBDI::rword DEFAULT_RANGE_SIZE = 0x10000; // 64kb
     QBDI::rword range_start = addr & ~PAGE_MASK;
-    
-    log.dbg("adding instrumentation range", 
-            redlog::field("range_start", "0x%llx", range_start),
-            redlog::field("range_end", "0x%llx", range_start + DEFAULT_RANGE_SIZE));
-    
+
+    log.dbg(
+        "adding instrumentation range", redlog::field("range_start", "0x%llx", range_start),
+        redlog::field("range_end", "0x%llx", range_start + DEFAULT_RANGE_SIZE)
+    );
+
     sub_vm->addInstrumentedRange(range_start, range_start + DEFAULT_RANGE_SIZE);
 
     bool success = sub_vm->call(nullptr, addr, args);
