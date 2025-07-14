@@ -93,7 +93,7 @@ RetType gadget_executor::gadget_call(QBDI::rword addr, const std::vector<QBDI::r
     sub_vm->setFPRState(&fpr);
 
     log.dbg("calling gadget", redlog::field("addr", "0x%llx", addr));
-    log.dbg("parent VM info", 
+    log.dbg("parent vm info", 
             redlog::field("parent_vm", "%p", parent_vm_),
             redlog::field("sub_vm", "%p", sub_vm.get()),
             redlog::field("stack", "%p", stack));

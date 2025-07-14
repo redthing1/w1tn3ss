@@ -6,8 +6,9 @@
 
 namespace w1::tracers::script::bindings {
 
-void setup_gadget_execution(sol::state& lua, sol::table& w1_module, 
-                           std::shared_ptr<w1tn3ss::gadget::gadget_executor> gadget_exec) {
+void setup_gadget_execution(
+    sol::state& lua, sol::table& w1_module, std::shared_ptr<w1tn3ss::gadget::gadget_executor> gadget_exec
+) {
   auto logger = redlog::get_logger("w1.script_bindings");
   logger.dbg("setting up gadget execution functions");
 
@@ -16,188 +17,85 @@ void setup_gadget_execution(sol::state& lua, sol::table& w1_module,
     return;
   }
 
-  // basic gadget_call - call function with arguments and return value
+  // basic gadget_call: call function with arguments and return value
   w1_module.set_function(
-    "gadget_call",
-    [gadget_exec, &lua](QBDI::rword address, sol::optional<sol::table> args_table) -> sol::object {
-      try {
-        auto log = redlog::get_logger("w1.script_bindings");
-        log.inf("gadget_call invoked", redlog::field("addr", "0x%llx", address));
-        
-        if (!gadget_exec) {
-          log.err("gadget executor is null");
-          return sol::nil;
-        }
-        
-        // convert lua args to vector
-        std::vector<QBDI::rword> args;
-        if (args_table) {
-          for (size_t i = 1; i <= args_table->size(); i++) {
-            sol::optional<QBDI::rword> arg = (*args_table)[i];
-            if (arg) {
-              args.push_back(*arg);
+      "gadget_call", [gadget_exec, &lua](QBDI::rword address, sol::optional<sol::table> args_table) -> sol::object {
+        try {
+          auto log = redlog::get_logger("w1.script_bindings");
+          log.vrb("gadget_call invoked", redlog::field("addr", "0x%llx", address));
+
+          if (!gadget_exec) {
+            log.err("gadget executor is null");
+            return sol::nil;
+          }
+
+          // convert lua args to vector
+          std::vector<QBDI::rword> args;
+          if (args_table) {
+            for (size_t i = 1; i <= args_table->size(); i++) {
+              sol::optional<QBDI::rword> arg = (*args_table)[i];
+              if (arg) {
+                args.push_back(*arg);
+              }
             }
           }
-        }
 
-        log.dbg("executing gadget", 
-                 redlog::field("addr", "0x%llx", address),
-                 redlog::field("args_count", args.size()));
-        
-        // call gadget and return result
-        QBDI::rword result = gadget_exec->gadget_call<QBDI::rword>(address, args);
-        
-        log.dbg("gadget execution completed", redlog::field("result", "0x%llx", result));
-        return sol::make_object(lua, result);
+          log.dbg(
+              "executing gadget", redlog::field("addr", "0x%llx", address), redlog::field("args_count", args.size())
+          );
 
-      } catch (const std::exception& e) {
-        auto log = redlog::get_logger("w1.script_bindings");
-        log.err("gadget_call exception", redlog::field("error", e.what()));
-        return sol::nil;
-      }
-    }
-  );
-
-  // gadget_call with return type specification
-  w1_module.set_function(
-    "gadget_call_typed",
-    [gadget_exec, &logger, &lua](QBDI::rword address, sol::optional<sol::table> args_table, 
-                          const std::string& return_type) -> sol::object {
-      try {
-        // convert lua args to vector
-        std::vector<QBDI::rword> args;
-        if (args_table) {
-          for (size_t i = 1; i <= args_table->size(); i++) {
-            sol::optional<QBDI::rword> arg = (*args_table)[i];
-            if (arg) {
-              args.push_back(*arg);
-            }
-          }
-        }
-
-        logger.dbg("calling typed gadget", 
-                   redlog::field("addr", "0x%llx", address),
-                   redlog::field("args", args.size()),
-                   redlog::field("return_type", return_type.c_str()));
-
-        // call based on return type
-        if (return_type == "void") {
-          gadget_exec->gadget_call<void>(address, args);
-          return sol::nil;
-        } else if (return_type == "int" || return_type == "int32") {
-          int32_t result = gadget_exec->gadget_call<int32_t>(address, args);
-          return sol::make_object(lua, result);
-        } else if (return_type == "uint" || return_type == "uint32") {
-          uint32_t result = gadget_exec->gadget_call<uint32_t>(address, args);
-          return sol::make_object(lua, result);
-        } else if (return_type == "int64") {
-          int64_t result = gadget_exec->gadget_call<int64_t>(address, args);
-          return sol::make_object(lua, result);
-        } else if (return_type == "uint64" || return_type == "ptr" || return_type == "pointer") {
-          uint64_t result = gadget_exec->gadget_call<uint64_t>(address, args);
-          return sol::make_object(lua, result);
-        } else {
-          // default to QBDI::rword
+          // call gadget and return result
           QBDI::rword result = gadget_exec->gadget_call<QBDI::rword>(address, args);
-          return sol::make_object(lua, result);
-        }
 
-      } catch (const std::exception& e) {
-        logger.err("gadget_call_typed exception", redlog::field("error", e.what()));
-        return sol::nil;
+          log.dbg("gadget execution completed", redlog::field("result", "0x%llx", result));
+          return sol::make_object(lua, result);
+
+        } catch (const std::exception& e) {
+          auto log = redlog::get_logger("w1.script_bindings");
+          log.err("gadget_call exception", redlog::field("error", e.what()));
+          return sol::nil;
+        }
       }
-    }
   );
 
   // raw gadget execution between addresses
   w1_module.set_function(
-    "gadget_run",
-    [gadget_exec, &logger, &lua](QBDI::rword start_addr, QBDI::rword stop_addr) -> sol::table {
-      try {
-        logger.dbg("executing raw gadget", 
-                   redlog::field("start", "0x%llx", start_addr),
-                   redlog::field("stop", "0x%llx", stop_addr));
+      "gadget_run", [gadget_exec, &logger, &lua](QBDI::rword start_addr, QBDI::rword stop_addr) -> sol::table {
+        try {
+          logger.vrb(
+              "executing raw gadget", redlog::field("start", "0x%llx", start_addr),
+              redlog::field("stop", "0x%llx", stop_addr)
+          );
 
-        auto result = gadget_exec->gadget_run(start_addr, stop_addr);
+          auto result = gadget_exec->gadget_run(start_addr, stop_addr);
 
-        // create lua result table
-        sol::table result_table = lua.create_table();
-        result_table["success"] = result.success;
-        
-        if (!result.success) {
-          result_table["error"] = result.error;
-        }
-        
-        // add final register state (simplified - just a few key registers)
-        sol::table gpr_table = lua.create_table();
-        gpr_table["x0"] = result.gpr.x0;
-        gpr_table["x1"] = result.gpr.x1;
-        gpr_table["x2"] = result.gpr.x2;
-        gpr_table["x3"] = result.gpr.x3;
-        gpr_table["sp"] = result.gpr.sp;
-        result_table["gpr"] = gpr_table;
+          // create lua result table
+          sol::table result_table = lua.create_table();
+          result_table["success"] = result.success;
 
-        return result_table;
-
-      } catch (const std::exception& e) {
-        logger.err("gadget_run exception", redlog::field("error", e.what()));
-        sol::table error_result = lua.create_table();
-        error_result["success"] = false;
-        error_result["error"] = std::string("exception: ") + e.what();
-        return error_result;
-      }
-    }
-  );
-
-  // convenience function - call target function from hook_test_target
-  w1_module.set_function(
-    "call_target_function",
-    [gadget_exec, &logger, &lua](const std::string& func_name, sol::optional<sol::table> args_table) -> sol::object {
-      try {
-        // hardcoded offsets for common hook_test_target functions
-        static const std::map<std::string, QBDI::rword> FUNCTION_OFFSETS = {
-          {"get_process_id", 0xa34},
-          {"compute_hash", 0xa10}, 
-          {"contains_pattern", 0x9e0},
-          {"get_string_length", 0x9d4},
-          {"is_valid_pointer", 0xa38}
-        };
-
-        auto it = FUNCTION_OFFSETS.find(func_name);
-        if (it == FUNCTION_OFFSETS.end()) {
-          logger.err("unknown target function", redlog::field("func", func_name.c_str()));
-          return sol::nil;
-        }
-
-        // get main module base (simplified - assumes first executable module)
-        // in a real implementation, this would use proper module scanning
-        QBDI::rword base_addr = 0x100000000; // placeholder
-        QBDI::rword func_addr = base_addr + it->second;
-
-        // convert args
-        std::vector<QBDI::rword> args;
-        if (args_table) {
-          for (size_t i = 1; i <= args_table->size(); i++) {
-            sol::optional<QBDI::rword> arg = (*args_table)[i];
-            if (arg) {
-              args.push_back(*arg);
-            }
+          if (!result.success) {
+            result_table["error"] = result.error;
           }
+
+          // add final register state (simplified - just a few key registers)
+          sol::table gpr_table = lua.create_table();
+          gpr_table["x0"] = result.gpr.x0;
+          gpr_table["x1"] = result.gpr.x1;
+          gpr_table["x2"] = result.gpr.x2;
+          gpr_table["x3"] = result.gpr.x3;
+          gpr_table["sp"] = result.gpr.sp;
+          result_table["gpr"] = gpr_table;
+
+          return result_table;
+
+        } catch (const std::exception& e) {
+          logger.err("gadget_run exception", redlog::field("error", e.what()));
+          sol::table error_result = lua.create_table();
+          error_result["success"] = false;
+          error_result["error"] = std::string("exception: ") + e.what();
+          return error_result;
         }
-
-        logger.dbg("calling target function", 
-                   redlog::field("func", func_name.c_str()),
-                   redlog::field("addr", "0x%llx", func_addr));
-
-        // call the function
-        QBDI::rword result = gadget_exec->gadget_call<QBDI::rword>(func_addr, args);
-        return sol::make_object(lua, result);
-
-      } catch (const std::exception& e) {
-        logger.err("call_target_function exception", redlog::field("error", e.what()));
-        return sol::nil;
       }
-    }
   );
 
   logger.dbg("gadget execution functions registered");
