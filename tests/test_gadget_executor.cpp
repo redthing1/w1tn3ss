@@ -7,6 +7,7 @@
 
 #include "w1tn3ss/gadget/gadget_executor.hpp"
 #include "w1tn3ss/util/register_access.hpp"
+#include <QBDI/Platform.h>
 #include <cassert>
 #include <chrono>
 #include <cstdio>
@@ -74,7 +75,7 @@ int gadget_sum8(int a, int b, int c, int d, int e, int f, int g, int h) {
 }
 
 // String operations
-int gadget_strlen(const char *str) { return strlen(str); }
+int gadget_strlen(const char *str) { return static_cast<int>(strlen(str)); }
 
 void gadget_strcpy(const char *src) {
   if (src) {
@@ -89,17 +90,17 @@ double gadget_multiply_double(double x, double y) {
 }
 
 // Complex function that uses stack - prevent inlining
-__attribute__((noinline)) int gadget_fibonacci(int n) {
+QBDI_NOINLINE int gadget_fibonacci(int n) {
   if (n <= 1)
     return n;
   return gadget_fibonacci(n - 1) + gadget_fibonacci(n - 2);
 }
 
 // Helper function for testing calls - prevent inlining
-__attribute__((noinline)) int gadget_add_helper(int a, int b) { return a + b; }
+QBDI_NOINLINE int gadget_add_helper(int a, int b) { return a + b; }
 
 // Function that calls another function - prevent inlining
-__attribute__((noinline)) int gadget_call_helper(int x, int y) {
+QBDI_NOINLINE int gadget_call_helper(int x, int y) {
   return gadget_add_helper(x, y) + 1;
 }
 
@@ -111,7 +112,7 @@ void gadget_complex_state(int value, const char *str, bool flag) {
 }
 
 // Raw execution test function - make it longer to avoid hitting ret
-__attribute__((noinline)) void gadget_raw_manip() {
+QBDI_NOINLINE void gadget_raw_manip() {
   // Make this function longer so we don't hit the ret before stop_addr
   volatile int *ptr = &g_state.counter;
   *ptr = 0x1234;
