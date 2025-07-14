@@ -70,7 +70,8 @@ void setup_qbdi_bindings(
   logger.inf("all qbdi bindings registered successfully");
   logger.dbg(
       "available modules: core_types, register_access, vm_control, memory_access, memory_analysis, module_analysis, "
-      "utilities, callback_system, api_analysis, hooking, signature_scanning, calling_convention, symbol_resolution, gadget_execution"
+      "utilities, callback_system, api_analysis, hooking, signature_scanning, calling_convention, symbol_resolution, "
+      "gadget_execution"
   );
 }
 

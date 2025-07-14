@@ -95,15 +95,17 @@ public:
   std::vector<double> extract_float_args(const extraction_context& ctx, size_t count) const override;
 
   // argument setting methods
-  void set_integer_args(QBDI::GPRState* gpr, const std::vector<uint64_t>& args,
-                       std::function<void(uint64_t addr, uint64_t value)> stack_writer = nullptr) const override;
+  void set_integer_args(
+      QBDI::GPRState* gpr, const std::vector<uint64_t>& args,
+      std::function<void(uint64_t addr, uint64_t value)> stack_writer = nullptr
+  ) const override;
 
-  void set_typed_args(QBDI::GPRState* gpr, QBDI::FPRState* fpr, const std::vector<typed_arg>& args,
-                     std::function<void(uint64_t addr, uint64_t value)> stack_writer = nullptr) const override;
+  void set_typed_args(
+      QBDI::GPRState* gpr, QBDI::FPRState* fpr, const std::vector<typed_arg>& args,
+      std::function<void(uint64_t addr, uint64_t value)> stack_writer = nullptr
+  ) const override;
 
-  void set_integer_return(QBDI::GPRState* gpr, uint64_t value) const override {
-    gpr->rax = value;
-  }
+  void set_integer_return(QBDI::GPRState* gpr, uint64_t value) const override { gpr->rax = value; }
 
   void set_float_return(QBDI::FPRState* fpr, double value) const override {
     // set xmm0 register

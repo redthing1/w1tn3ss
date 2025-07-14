@@ -293,16 +293,30 @@ std::vector<double> x86_64_system_v::extract_float_args(const extraction_context
   return args;
 }
 
-void x86_64_system_v::set_integer_args(QBDI::GPRState* gpr, const std::vector<uint64_t>& args,
-                                      std::function<void(uint64_t addr, uint64_t value)> stack_writer) const {
+void x86_64_system_v::set_integer_args(
+    QBDI::GPRState* gpr, const std::vector<uint64_t>& args,
+    std::function<void(uint64_t addr, uint64_t value)> stack_writer
+) const {
   // set arguments in rdi, rsi, rdx, rcx, r8, r9 registers
-  if (args.size() > 0) gpr->rdi = args[0];
-  if (args.size() > 1) gpr->rsi = args[1];
-  if (args.size() > 2) gpr->rdx = args[2];
-  if (args.size() > 3) gpr->rcx = args[3];
-  if (args.size() > 4) gpr->r8 = args[4];
-  if (args.size() > 5) gpr->r9 = args[5];
-  
+  if (args.size() > 0) {
+    gpr->rdi = args[0];
+  }
+  if (args.size() > 1) {
+    gpr->rsi = args[1];
+  }
+  if (args.size() > 2) {
+    gpr->rdx = args[2];
+  }
+  if (args.size() > 3) {
+    gpr->rcx = args[3];
+  }
+  if (args.size() > 4) {
+    gpr->r8 = args[4];
+  }
+  if (args.size() > 5) {
+    gpr->r9 = args[5];
+  }
+
   // remaining arguments go on stack
   if (args.size() > 6 && stack_writer) {
     // stack arguments start after return address
@@ -314,12 +328,14 @@ void x86_64_system_v::set_integer_args(QBDI::GPRState* gpr, const std::vector<ui
   }
 }
 
-void x86_64_system_v::set_typed_args(QBDI::GPRState* gpr, QBDI::FPRState* fpr, const std::vector<typed_arg>& args,
-                                    std::function<void(uint64_t addr, uint64_t value)> stack_writer) const {
+void x86_64_system_v::set_typed_args(
+    QBDI::GPRState* gpr, QBDI::FPRState* fpr, const std::vector<typed_arg>& args,
+    std::function<void(uint64_t addr, uint64_t value)> stack_writer
+) const {
   size_t int_reg_idx = 0;
   size_t float_reg_idx = 0;
   size_t stack_offset = 8; // skip return address
-  
+
   for (const auto& arg : args) {
     switch (arg.type) {
     case arg_type::INTEGER:
@@ -328,12 +344,24 @@ void x86_64_system_v::set_typed_args(QBDI::GPRState* gpr, QBDI::FPRState* fpr, c
       if (int_reg_idx < 6) {
         // set in register
         switch (int_reg_idx) {
-        case 0: gpr->rdi = arg.value.integer; break;
-        case 1: gpr->rsi = arg.value.integer; break;
-        case 2: gpr->rdx = arg.value.integer; break;
-        case 3: gpr->rcx = arg.value.integer; break;
-        case 4: gpr->r8 = arg.value.integer; break;
-        case 5: gpr->r9 = arg.value.integer; break;
+        case 0:
+          gpr->rdi = arg.value.integer;
+          break;
+        case 1:
+          gpr->rsi = arg.value.integer;
+          break;
+        case 2:
+          gpr->rdx = arg.value.integer;
+          break;
+        case 3:
+          gpr->rcx = arg.value.integer;
+          break;
+        case 4:
+          gpr->r8 = arg.value.integer;
+          break;
+        case 5:
+          gpr->r9 = arg.value.integer;
+          break;
         }
         int_reg_idx++;
       } else if (stack_writer) {
@@ -342,20 +370,36 @@ void x86_64_system_v::set_typed_args(QBDI::GPRState* gpr, QBDI::FPRState* fpr, c
         stack_offset += 8;
       }
       break;
-      
+
     case arg_type::FLOAT:
       if (float_reg_idx < max_float_reg_args) {
         // set in xmm register (lower 32 bits)
         char* xmm_ptr = nullptr;
         switch (float_reg_idx) {
-        case 0: xmm_ptr = fpr->xmm0; break;
-        case 1: xmm_ptr = fpr->xmm1; break;
-        case 2: xmm_ptr = fpr->xmm2; break;
-        case 3: xmm_ptr = fpr->xmm3; break;
-        case 4: xmm_ptr = fpr->xmm4; break;
-        case 5: xmm_ptr = fpr->xmm5; break;
-        case 6: xmm_ptr = fpr->xmm6; break;
-        case 7: xmm_ptr = fpr->xmm7; break;
+        case 0:
+          xmm_ptr = fpr->xmm0;
+          break;
+        case 1:
+          xmm_ptr = fpr->xmm1;
+          break;
+        case 2:
+          xmm_ptr = fpr->xmm2;
+          break;
+        case 3:
+          xmm_ptr = fpr->xmm3;
+          break;
+        case 4:
+          xmm_ptr = fpr->xmm4;
+          break;
+        case 5:
+          xmm_ptr = fpr->xmm5;
+          break;
+        case 6:
+          xmm_ptr = fpr->xmm6;
+          break;
+        case 7:
+          xmm_ptr = fpr->xmm7;
+          break;
         }
         if (xmm_ptr) {
           memcpy(xmm_ptr, &arg.value.f32, sizeof(float));
@@ -369,20 +413,36 @@ void x86_64_system_v::set_typed_args(QBDI::GPRState* gpr, QBDI::FPRState* fpr, c
         stack_offset += 8;
       }
       break;
-      
+
     case arg_type::DOUBLE:
       if (float_reg_idx < max_float_reg_args) {
         // set in xmm register (lower 64 bits)
         char* xmm_ptr = nullptr;
         switch (float_reg_idx) {
-        case 0: xmm_ptr = fpr->xmm0; break;
-        case 1: xmm_ptr = fpr->xmm1; break;
-        case 2: xmm_ptr = fpr->xmm2; break;
-        case 3: xmm_ptr = fpr->xmm3; break;
-        case 4: xmm_ptr = fpr->xmm4; break;
-        case 5: xmm_ptr = fpr->xmm5; break;
-        case 6: xmm_ptr = fpr->xmm6; break;
-        case 7: xmm_ptr = fpr->xmm7; break;
+        case 0:
+          xmm_ptr = fpr->xmm0;
+          break;
+        case 1:
+          xmm_ptr = fpr->xmm1;
+          break;
+        case 2:
+          xmm_ptr = fpr->xmm2;
+          break;
+        case 3:
+          xmm_ptr = fpr->xmm3;
+          break;
+        case 4:
+          xmm_ptr = fpr->xmm4;
+          break;
+        case 5:
+          xmm_ptr = fpr->xmm5;
+          break;
+        case 6:
+          xmm_ptr = fpr->xmm6;
+          break;
+        case 7:
+          xmm_ptr = fpr->xmm7;
+          break;
         }
         if (xmm_ptr) {
           memcpy(xmm_ptr, &arg.value.f64, sizeof(double));
@@ -396,20 +456,36 @@ void x86_64_system_v::set_typed_args(QBDI::GPRState* gpr, QBDI::FPRState* fpr, c
         stack_offset += 8;
       }
       break;
-      
+
     case arg_type::SIMD:
       if (float_reg_idx < max_float_reg_args) {
         // set full xmm register (128-bit)
         char* xmm_ptr = nullptr;
         switch (float_reg_idx) {
-        case 0: xmm_ptr = fpr->xmm0; break;
-        case 1: xmm_ptr = fpr->xmm1; break;
-        case 2: xmm_ptr = fpr->xmm2; break;
-        case 3: xmm_ptr = fpr->xmm3; break;
-        case 4: xmm_ptr = fpr->xmm4; break;
-        case 5: xmm_ptr = fpr->xmm5; break;
-        case 6: xmm_ptr = fpr->xmm6; break;
-        case 7: xmm_ptr = fpr->xmm7; break;
+        case 0:
+          xmm_ptr = fpr->xmm0;
+          break;
+        case 1:
+          xmm_ptr = fpr->xmm1;
+          break;
+        case 2:
+          xmm_ptr = fpr->xmm2;
+          break;
+        case 3:
+          xmm_ptr = fpr->xmm3;
+          break;
+        case 4:
+          xmm_ptr = fpr->xmm4;
+          break;
+        case 5:
+          xmm_ptr = fpr->xmm5;
+          break;
+        case 6:
+          xmm_ptr = fpr->xmm6;
+          break;
+        case 7:
+          xmm_ptr = fpr->xmm7;
+          break;
         }
         if (xmm_ptr) {
           memcpy(xmm_ptr, arg.value.simd, 16);
@@ -424,7 +500,7 @@ void x86_64_system_v::set_typed_args(QBDI::GPRState* gpr, QBDI::FPRState* fpr, c
         stack_offset += 16;
       }
       break;
-      
+
     case arg_type::STRUCT_BY_VALUE:
       // simplified - would need size info for proper implementation
       // small structs may be passed in registers, larger ones on stack
