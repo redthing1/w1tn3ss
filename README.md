@@ -11,6 +11,7 @@ a cross-platform dynamic binary analysis and instrumentation framework powered b
 + scriptable tracing and patching with with [luajit](https://luajit.org/)
 + cross-platform injection library with multiple techniques (`w1nj3ct`)
 + symbol resolution and calling convention modeling for intercepting arguments and return values
++ **hooking**, **scanning**, **patching**, **gadgeting**, control execution, and more
 
 ## build
 
