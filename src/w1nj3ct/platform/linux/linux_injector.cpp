@@ -285,13 +285,10 @@ result inject_preload(const config& cfg) {
             redlog::field("execution_time_ms", launch_ms)
         );
 
-        if (exit_code == 0) {
-          return make_success_result(child_pid);
-        } else {
-          return make_error_result(
-              error_code::launch_failed, "child process failed with exit code " + std::to_string(exit_code)
-          );
-        }
+        // injection was successful regardless of target exit code
+        auto result = make_success_result(child_pid);
+        result.target_exit_code = exit_code;
+        return result;
       } else if (WIFSIGNALED(status)) {
         int signal = WTERMSIG(status);
         log.error(

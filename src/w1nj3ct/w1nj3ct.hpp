@@ -111,6 +111,7 @@ struct result {
   int target_pid = -1;
   std::string error_message;
   std::optional<int> system_error_code;
+  std::optional<int> target_exit_code; // exit code of target process (only set when wait_for_completion=true)
 
   // convenience
   bool success() const { return code == error_code::success; }

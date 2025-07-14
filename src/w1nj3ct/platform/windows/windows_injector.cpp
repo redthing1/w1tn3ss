@@ -118,8 +118,9 @@ result inject_preload(const config& cfg) {
 
   // perform launch injection
   w1::inject::windows::process_id target_pid = 0;
+  int exit_code = 0;
   bool success = w1::inject::windows::inject_dll_launch_suspended(
-      binary_path, dll_path, cfg.args, cfg.env_vars, &target_pid, cfg.suspended, cfg.wait_for_completion
+      binary_path, dll_path, cfg.args, cfg.env_vars, &target_pid, cfg.suspended, cfg.wait_for_completion, &exit_code
   );
 
   if (!success) {
@@ -127,7 +128,11 @@ result inject_preload(const config& cfg) {
     return make_error_result(translate_platform_error(static_cast<int>(err)), "launch injection failed", err);
   }
 
-  return make_success_result(target_pid);
+  auto result = make_success_result(target_pid);
+  if (cfg.wait_for_completion) {
+    result.target_exit_code = exit_code;
+  }
+  return result;
 }
 
 std::vector<process_info> list_processes() {

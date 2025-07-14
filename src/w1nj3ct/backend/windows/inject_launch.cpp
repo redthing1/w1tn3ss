@@ -43,7 +43,7 @@ std::wstring build_command_line(const std::wstring& binary_path, const std::vect
 static BOOL inject_dll_launch_suspended_impl(
     const std::wstring& binary_path, const std::wstring& dll_path, const std::vector<std::string>& args,
     const std::map<std::string, std::string>& env_vars, DWORD* out_pid, bool interactive_resume,
-    bool wait_for_completion
+    bool wait_for_completion, int* out_exit_code
 ) {
   log_msg("starting Windows launch injection with suspended process");
 
@@ -368,6 +368,9 @@ static BOOL inject_dll_launch_suspended_impl(
       std::stringstream ss;
       ss << "target process completed with exit code: " << process_exit_code;
       log_msg(ss.str());
+      if (out_exit_code) {
+        *out_exit_code = static_cast<int>(process_exit_code);
+      }
     } else {
       log_msg("failed to get process exit code");
     }
@@ -397,11 +400,11 @@ static BOOL inject_dll_launch_suspended_impl(
 bool w1::inject::windows::inject_dll_launch_suspended(
     const std::wstring& binary_path, const std::wstring& dll_path, const std::vector<std::string>& args,
     const std::map<std::string, std::string>& env_vars, process_id* out_pid, bool interactive_resume,
-    bool wait_for_completion
+    bool wait_for_completion, int* out_exit_code
 ) {
   DWORD win_pid;
   BOOL result = inject_dll_launch_suspended_impl(
-      binary_path, dll_path, args, env_vars, &win_pid, interactive_resume, wait_for_completion
+      binary_path, dll_path, args, env_vars, &win_pid, interactive_resume, wait_for_completion, out_exit_code
   );
   if (out_pid) {
     *out_pid = static_cast<process_id>(win_pid);

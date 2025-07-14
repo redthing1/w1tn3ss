@@ -342,8 +342,14 @@ int execute_tracer_impl(const tracer_execution_params& params) {
     if (result.target_pid > 0) {
       log.info("target process", redlog::field("pid", result.target_pid));
     }
+    if (result.target_exit_code.has_value()) {
+      log.info("target process exit code", redlog::field("exit_code", result.target_exit_code.value()));
+    }
 
     std::cout << "tracing with " << params.tracer_name << " completed successfully.\n";
+    if (result.target_exit_code.has_value()) {
+      std::cout << "target process exited with code: " << result.target_exit_code.value() << "\n";
+    }
     return 0;
   } else {
     log.err(

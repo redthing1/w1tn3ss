@@ -346,21 +346,15 @@ result inject_preload(const config& cfg) {
 
       if (WIFEXITED(status)) {
         int exit_code = WEXITSTATUS(status);
-        if (exit_code == 0) {
-          log.info(
-              "preload injection completed successfully", redlog::field("pid", child_pid),
-              redlog::field("exit_code", exit_code)
-          );
-          return make_success_result(child_pid);
-        } else {
-          log.error(
-              "child process exited with non-zero status", redlog::field("pid", child_pid),
-              redlog::field("exit_code", exit_code)
-          );
-          return make_error_result(
-              error_code::launch_failed, "child process failed with exit code " + std::to_string(exit_code)
-          );
-        }
+        log.info(
+            "preload injection completed, child process exited", redlog::field("pid", child_pid),
+            redlog::field("exit_code", exit_code)
+        );
+
+        // injection was successful regardless of target exit code
+        auto result = make_success_result(child_pid);
+        result.target_exit_code = exit_code;
+        return result;
       } else if (WIFSIGNALED(status)) {
         int signal = WTERMSIG(status);
         log.error(
