@@ -60,26 +60,53 @@ private:
 
 template <typename RetType>
 RetType gadget_executor::gadget_call(QBDI::rword addr, const std::vector<QBDI::rword>& args) {
+  auto log = redlog::get_logger("gadget_executor");
+
   try {
+
     auto sub_vm = create_sub_vm();
 
-    // copy parent state and allocate stack
+    // copy parent state but not stack-related registers
     QBDI::GPRState gpr = *parent_vm_->getGPRState();
     QBDI::FPRState fpr = *parent_vm_->getFPRState();
 
+    // allocate fresh stack for sub-vm first
+    uint8_t* stack = nullptr;
+    bool stack_ok = QBDI::allocateVirtualStack(&gpr, config_.default_stack_size, &stack);
+
+    log.dbg("stack allocation", 
+            redlog::field("success", stack_ok),
+            redlog::field("stack", "%p", stack),
+            redlog::field("stack_size", "0x%x", config_.default_stack_size));
+
+    if (!stack_ok || !stack) {
+      log.error("failed to allocate virtual stack for sub-vm");
+      if constexpr (std::is_same_v<RetType, void>) {
+        return;
+      } else {
+        return RetType{};
+      }
+    }
+
+    // now set the state with the properly configured stack
     sub_vm->setGPRState(&gpr);
     sub_vm->setFPRState(&fpr);
 
-    uint8_t* stack = nullptr;
-    QBDI::allocateVirtualStack(sub_vm->getGPRState(), config_.default_stack_size, &stack);
-
-    auto log = redlog::get_logger("gadget_executor");
     log.dbg("calling gadget", redlog::field("addr", "0x%llx", addr));
+    log.dbg("parent VM info", 
+            redlog::field("parent_vm", "%p", parent_vm_),
+            redlog::field("sub_vm", "%p", sub_vm.get()),
+            redlog::field("stack", "%p", stack));
 
     // add instrumentation for the gadget range
     static constexpr QBDI::rword PAGE_MASK = 0xFFF;
     static constexpr QBDI::rword DEFAULT_RANGE_SIZE = 0x10000; // 64kb
     QBDI::rword range_start = addr & ~PAGE_MASK;
+    
+    log.dbg("adding instrumentation range", 
+            redlog::field("range_start", "0x%llx", range_start),
+            redlog::field("range_end", "0x%llx", range_start + DEFAULT_RANGE_SIZE));
+    
     sub_vm->addInstrumentedRange(range_start, range_start + DEFAULT_RANGE_SIZE);
 
     bool success = sub_vm->call(nullptr, addr, args);

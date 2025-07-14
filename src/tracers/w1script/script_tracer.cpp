@@ -10,6 +10,7 @@
 #include <w1tn3ss/util/register_access.hpp>
 #include <w1tn3ss/symbols/symbol_resolver.hpp>
 #include <w1tn3ss/hooking/hook_manager.hpp>
+#include <w1tn3ss/gadget/gadget_executor.hpp>
 #include <fstream>
 #include <stdexcept>
 
@@ -45,6 +46,10 @@ bool script_tracer::initialize(w1::tracer_engine<script_tracer>& engine) {
   hook_manager_ = std::make_shared<w1::hooking::hook_manager>(vm);
   logger_.inf("hook manager created");
 
+  // create gadget executor before loading script
+  gadget_executor_ = std::make_shared<w1tn3ss::gadget::gadget_executor>(vm);
+  logger_.inf("gadget executor initialized");
+
   // create api analysis processor
   api_processor_ = std::make_unique<api_analysis_processor>();
 
@@ -56,7 +61,7 @@ bool script_tracer::initialize(w1::tracer_engine<script_tracer>& engine) {
 
   // setup bindings before loading script (without API analysis yet)
   sol::table dummy_table = lua_.create_table();
-  setup_qbdi_bindings(lua_, dummy_table, api_manager_, hook_manager_);
+  setup_qbdi_bindings(lua_, dummy_table, api_manager_, hook_manager_, gadget_executor_);
 
   // load script using the new loader
   script_loader loader;
