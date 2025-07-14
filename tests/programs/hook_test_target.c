@@ -2,7 +2,11 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
+#ifdef _WIN32
+#include <io.h>
+#else
 #include <unistd.h>
+#endif
 
 #include "signature_helper.h"
 
