@@ -54,6 +54,49 @@ inline const char* get_xmm_ptr(const QBDI::FPRState* fpr, size_t reg_idx) {
   }
 }
 
+// helper to get mutable xmm register pointer by index
+inline char* get_xmm_ptr_mutable(QBDI::FPRState* fpr, size_t reg_idx) {
+  switch (reg_idx) {
+  case 0:
+    return fpr->xmm0;
+  case 1:
+    return fpr->xmm1;
+  case 2:
+    return fpr->xmm2;
+  case 3:
+    return fpr->xmm3;
+  case 4:
+    return fpr->xmm4;
+  case 5:
+    return fpr->xmm5;
+  case 6:
+    return fpr->xmm6;
+  case 7:
+    return fpr->xmm7;
+#if defined(_M_X64) || defined(__x86_64__)
+  // x86_64 has additional xmm8-xmm15 registers
+  case 8:
+    return fpr->xmm8;
+  case 9:
+    return fpr->xmm9;
+  case 10:
+    return fpr->xmm10;
+  case 11:
+    return fpr->xmm11;
+  case 12:
+    return fpr->xmm12;
+  case 13:
+    return fpr->xmm13;
+  case 14:
+    return fpr->xmm14;
+  case 15:
+    return fpr->xmm15;
+#endif
+  default:
+    return nullptr;
+  }
+}
+
 inline float get_xmm_float(const QBDI::FPRState* fpr, size_t reg_idx) {
   const char* xmm_ptr = get_xmm_ptr(fpr, reg_idx);
   if (!xmm_ptr) {
@@ -84,6 +127,33 @@ inline void get_xmm_bytes(const QBDI::FPRState* fpr, size_t reg_idx, void* dest)
   }
 
   std::memcpy(dest, xmm_ptr, 16);
+}
+
+inline void set_xmm_float(QBDI::FPRState* fpr, size_t reg_idx, float value) {
+  char* xmm_ptr = get_xmm_ptr_mutable(fpr, reg_idx);
+  if (!xmm_ptr) {
+    return;
+  }
+
+  std::memcpy(xmm_ptr, &value, sizeof(float));
+}
+
+inline void set_xmm_double(QBDI::FPRState* fpr, size_t reg_idx, double value) {
+  char* xmm_ptr = get_xmm_ptr_mutable(fpr, reg_idx);
+  if (!xmm_ptr) {
+    return;
+  }
+
+  std::memcpy(xmm_ptr, &value, sizeof(double));
+}
+
+inline void set_xmm_bytes(QBDI::FPRState* fpr, size_t reg_idx, const void* src) {
+  char* xmm_ptr = get_xmm_ptr_mutable(fpr, reg_idx);
+  if (!xmm_ptr) {
+    return;
+  }
+
+  std::memcpy(xmm_ptr, src, 16);
 }
 #endif // defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
 
