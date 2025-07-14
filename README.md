@@ -75,7 +75,7 @@ trace api calls in real time with `w1xfer`:
 ```
 
 output will resemble:
-```
+```sh
 registered platform conventions     platform=aarch64 count=1
 ...
 call=malloc(size=64) category=Heap module=libsystem_malloc.dylib
