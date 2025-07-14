@@ -25,11 +25,13 @@ struct gadget_result {
 class gadget_executor {
 public:
   struct config {
-    bool debug = false;
-    size_t default_stack_size = 0x10000;
+    bool debug;
+    size_t default_stack_size;
+    
+    config() : debug(false), default_stack_size(0x10000) {}
   };
 
-  explicit gadget_executor(QBDI::VM* parent_vm, const config& cfg = {});
+  explicit gadget_executor(QBDI::VM* parent_vm, const config& cfg = config{});
   ~gadget_executor() = default;
 
   // call function with arguments and return value
@@ -73,6 +75,12 @@ RetType gadget_executor::gadget_call(QBDI::rword addr, const std::vector<QBDI::r
 
     auto log = redlog::get_logger("gadget_executor");
     log.dbg("calling gadget", redlog::field("addr", "0x%llx", addr));
+
+    // add instrumentation for the gadget range
+    static constexpr QBDI::rword PAGE_MASK = 0xFFF;
+    static constexpr QBDI::rword DEFAULT_RANGE_SIZE = 0x10000; // 64kb
+    QBDI::rword range_start = addr & ~PAGE_MASK;
+    sub_vm->addInstrumentedRange(range_start, range_start + DEFAULT_RANGE_SIZE);
 
     bool success = sub_vm->call(nullptr, addr, args);
 

@@ -96,7 +96,7 @@ static QBDI::VMAction instruction_callback(QBDI::VMInstanceRef vm, QBDI::GPRStat
         try {
             // call get_process_id from target - this is really interesting!
             QBDI::rword get_pid_addr = main_base + OFFSET_get_process_id;
-            int pid = g_executor->call<int>(get_pid_addr, {});
+            int pid = g_executor->gadget_call<int>(get_pid_addr, {});
             log.info("target gadget", 
                     redlog::field("get_process_id()", "%d", pid),
                     redlog::field("addr", "0x%llx", get_pid_addr));
@@ -104,7 +104,7 @@ static QBDI::VMAction instruction_callback(QBDI::VMInstanceRef vm, QBDI::GPRStat
             // call compute_hash from target
             const char* data = "test data for hash";
             QBDI::rword compute_hash_addr = main_base + OFFSET_compute_hash;
-            unsigned int hash = g_executor->call<unsigned int>(
+            unsigned int hash = g_executor->gadget_call<unsigned int>(
                 compute_hash_addr,
                 {reinterpret_cast<QBDI::rword>(data), strlen(data)});
             log.info("target gadget", 
@@ -115,7 +115,7 @@ static QBDI::VMAction instruction_callback(QBDI::VMInstanceRef vm, QBDI::GPRStat
             const char* haystack = "the quick brown fox";
             const char* needle = "brown";
             QBDI::rword contains_pattern_addr = main_base + OFFSET_contains_pattern;
-            int found = g_executor->call<int>(
+            int found = g_executor->gadget_call<int>(
                 contains_pattern_addr,
                 {reinterpret_cast<QBDI::rword>(haystack),
                  reinterpret_cast<QBDI::rword>(needle)});
@@ -125,7 +125,7 @@ static QBDI::VMAction instruction_callback(QBDI::VMInstanceRef vm, QBDI::GPRStat
                     redlog::field("haystack", haystack));
             
             // also demonstrate our simple demo gadgets
-            int sum = g_executor->call<int>(
+            int sum = g_executor->gadget_call<int>(
                 reinterpret_cast<QBDI::rword>(demo_add), {42, 58});
             log.info("demo gadget", redlog::field("add(42, 58)", "%d", sum));
             
@@ -198,7 +198,7 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vminstance, QBDI::rword s
         
         // demonstrate immediate gadget execution
         log.info("testing gadget execution from on_run callback...");
-        int result = g_executor->call<int>(
+        int result = g_executor->gadget_call<int>(
             reinterpret_cast<QBDI::rword>(demo_add), {100, 200});
         log.info("immediate test", redlog::field("add(100, 200)", "%d", result));
         

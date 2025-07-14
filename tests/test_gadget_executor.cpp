@@ -170,7 +170,7 @@ void test_basic_functionality() {
     printf("\n  Testing void function (gadget_increment):\n");
     printf("    Gadget address: %p\n", gadget_increment);
     printf("    State before: counter=%d\n", g_state.counter);
-    executor.call<void>(reinterpret_cast<QBDI::rword>(gadget_increment));
+    executor.gadget_call<void>(reinterpret_cast<QBDI::rword>(gadget_increment));
     printf("    State after: counter=%d\n", g_state.counter);
     harness.test("void function execution", g_state.counter == 1);
     
@@ -178,22 +178,22 @@ void test_basic_functionality() {
     printf("\n  Testing function with return (gadget_add):\n");
     printf("    Gadget address: %p\n", gadget_add);
     printf("    Arguments: 10, 20\n");
-    int result = executor.call<int>(reinterpret_cast<QBDI::rword>(gadget_add), {10, 20});
+    int result = executor.gadget_call<int>(reinterpret_cast<QBDI::rword>(gadget_add), {10, 20});
     printf("    Return value: %d\n", result);
     harness.test("return value capture", result == 30);
     
     // Test multiple arguments
-    result = executor.call<int>(reinterpret_cast<QBDI::rword>(gadget_sum8), 
+    result = executor.gadget_call<int>(reinterpret_cast<QBDI::rword>(gadget_sum8), 
                                {1, 2, 3, 4, 5, 6, 7, 8});
     harness.test("8 argument passing", result == 36);
     
     // Test recursive function base cases
     printf("\n  Testing recursive function base cases:\n");
-    result = executor.call<int>(reinterpret_cast<QBDI::rword>(gadget_fibonacci), {0});
+    result = executor.gadget_call<int>(reinterpret_cast<QBDI::rword>(gadget_fibonacci), {0});
     printf("    fibonacci(0) = %d\n", result);
     harness.test("fibonacci(0)", result == 0);
     
-    result = executor.call<int>(reinterpret_cast<QBDI::rword>(gadget_fibonacci), {1});
+    result = executor.gadget_call<int>(reinterpret_cast<QBDI::rword>(gadget_fibonacci), {1});
     printf("    fibonacci(1) = %d\n", result);
     harness.test("fibonacci(1)", result == 1);
     
@@ -201,13 +201,13 @@ void test_basic_functionality() {
     printf("\n  Testing function that calls another function:\n");
     printf("    gadget_call_helper address: %p\n", gadget_call_helper);
     printf("    gadget_add_helper address: %p\n", gadget_add_helper);
-    result = executor.call<int>(reinterpret_cast<QBDI::rword>(gadget_call_helper), {10, 20});
+    result = executor.gadget_call<int>(reinterpret_cast<QBDI::rword>(gadget_call_helper), {10, 20});
     printf("    gadget_call_helper(10, 20) = %d (should be add_helper(10,20) + 1 = 31)\n", result);
     harness.test("function call", result == 31);
     
     // Test recursive function complex case
     printf("\n  Testing complex recursive function:\n");
-    result = executor.call<int>(reinterpret_cast<QBDI::rword>(gadget_fibonacci), {5});
+    result = executor.gadget_call<int>(reinterpret_cast<QBDI::rword>(gadget_fibonacci), {5});
     printf("    fibonacci(5) = %d (expected: 5)\n", result);
     printf("    This tests multiple recursive calls within the sub-VM\n");
     harness.test("fibonacci(5)", result == 5);
@@ -217,13 +217,13 @@ void test_basic_functionality() {
     g_state.counter = 100;
     printf("    Initial counter: %d\n", g_state.counter);
     
-    executor.call<void>(reinterpret_cast<QBDI::rword>(gadget_increment));
+    executor.gadget_call<void>(reinterpret_cast<QBDI::rword>(gadget_increment));
     printf("    After first increment: %d\n", g_state.counter);
     
-    executor.call<void>(reinterpret_cast<QBDI::rword>(gadget_increment));
+    executor.gadget_call<void>(reinterpret_cast<QBDI::rword>(gadget_increment));
     printf("    After second increment: %d\n", g_state.counter);
     
-    int sum = executor.call<int>(reinterpret_cast<QBDI::rword>(gadget_add), 
+    int sum = executor.gadget_call<int>(reinterpret_cast<QBDI::rword>(gadget_add), 
                                 {static_cast<QBDI::rword>(g_state.counter), 10});
     printf("    add(%d, 10) = %d\n", g_state.counter, sum);
     
@@ -267,13 +267,13 @@ void test_within_vm_callback() {
                 
                 // Test basic execution
                 printf("    Calling gadget_increment from callback...\n");
-                executor.call<void>(reinterpret_cast<QBDI::rword>(gadget_increment));
+                executor.gadget_call<void>(reinterpret_cast<QBDI::rword>(gadget_increment));
                 printf("    Global counter after gadget: %d\n", g_state.counter);
                 ctx->harness->test("callback: increment executed", g_state.counter == 1);
                 
                 // Test with return value
                 printf("    Calling gadget_add(50, 50) from callback...\n");
-                ctx->gadget_result = executor.call<int>(
+                ctx->gadget_result = executor.gadget_call<int>(
                     reinterpret_cast<QBDI::rword>(gadget_add), {50, 50});
                 printf("    Result: %d\n", ctx->gadget_result);
                 ctx->gadget_executed = true;
@@ -285,7 +285,7 @@ void test_within_vm_callback() {
                 
                 // Test complex state modification
                 printf("    Calling gadget_complex_state(42, \"from callback\", true)...\n");
-                executor.call<void>(reinterpret_cast<QBDI::rword>(gadget_complex_state),
+                executor.gadget_call<void>(reinterpret_cast<QBDI::rword>(gadget_complex_state),
                     {42, reinterpret_cast<QBDI::rword>("from callback"), 1});
                 printf("    State after: counter=%d, buffer=\"%s\", flag=%d\n", 
                        g_state.counter, g_state.buffer, g_state.flag);
@@ -318,39 +318,36 @@ void test_state_management() {
     
     w1tn3ss::gadget::gadget_executor executor(&vm);
     
-    // Test call_with_state (this should work fine)
-    printf("  Testing call_with_state...\n");
-    auto result = executor.call_with_state(reinterpret_cast<QBDI::rword>(gadget_add), {15, 25});
-    harness.test("call_with_state success", result.success);
-    harness.test("call_with_state return", result.return_value == 40);
-    harness.test("call_with_state has GPR state", w1::registers::get_sp(&result.gpr) != 0);
+    // Test gadget_call (clean function call api)
+    printf("  Testing gadget_call...\n");
+    int call_result = executor.gadget_call<int>(reinterpret_cast<QBDI::rword>(gadget_add), {15, 25});
+    harness.test("gadget_call success", call_result == 40);
     
-    // Test execute_raw - the key difference from call methods
-    printf("  Testing execute_raw...\n");
-    g_state.counter = 0;  // Reset global state
+    // Test gadget_run (clean raw execution api)
+    printf("  Testing gadget_run...\n");
+    g_state.counter = 0;  // reset global state
     
     QBDI::rword start_addr = reinterpret_cast<QBDI::rword>(gadget_raw_manip);
-    QBDI::rword end_addr = start_addr + 32;  // Smaller range to avoid hitting ret
+    QBDI::rword end_addr = start_addr + 32;  // smaller range to avoid hitting ret
     
-    printf("  Raw gadget: 0x%llx - 0x%llx\n", (unsigned long long)start_addr, (unsigned long long)end_addr);
+    printf("  raw gadget: 0x%llx - 0x%llx\n", (unsigned long long)start_addr, (unsigned long long)end_addr);
     
-    // Use NULL state to let execute_raw use parent VM state (safer)
-    auto raw_result = executor.execute_raw(start_addr, nullptr, nullptr, end_addr);
+    // use null state to let gadget_run use parent vm state
+    auto raw_result = executor.gadget_run(start_addr, end_addr);
     
     if (!raw_result.success) {
-        printf("  execute_raw failed: %s\n", raw_result.error.c_str());
+        printf("  gadget_run failed: %s\n", raw_result.error.c_str());
     }
     
-    harness.test("execute_raw success", raw_result.success);
-    harness.test("execute_raw no return interpretation", raw_result.return_value == 0);
+    harness.test("gadget_run success", raw_result.success);
     
-    // Raw execution stopped before the loop completed - this is correct behavior
-    // The initial value 0x1234 (4660) was set, but loop didn't finish due to stop_addr
-    harness.test("execute_raw modifies global state", g_state.counter == 0x1234);
-    harness.test("execute_raw respects stop address", g_state.counter == 0x1234); // Proves it stopped early
+    // raw execution stopped before the loop completed - this is correct behavior
+    // the initial value 0x1234 (4660) was set, but loop didn't finish due to stop_addr
+    harness.test("gadget_run modifies global state", g_state.counter == 0x1234);
+    harness.test("gadget_run respects stop address", g_state.counter == 0x1234); // proves it stopped early
     
-    printf("  Counter after raw execution: %d\n", g_state.counter);
-    printf("  Raw execution correctly stopped at specified address range\n");
+    printf("  counter after raw execution: %d\n", g_state.counter);
+    printf("  raw execution correctly stopped at specified address range\n");
     
     QBDI::alignedFree(stack);
 }
@@ -362,14 +359,13 @@ void test_error_handling() {
     QBDI::VM vm("", {});
     w1tn3ss::gadget::gadget_executor executor(&vm);
     
-    // Test invalid address
-    auto result = executor.call_with_state(0x0, {});
-    harness.test("null address fails", !result.success);
-    harness.test("null address has error", !result.error.empty());
+    // Test invalid address - gadget_call should return default value
+    int invalid_result = executor.gadget_call<int>(0x0, {});
+    harness.test("null address returns default", invalid_result == 0);
     
     // Test unmapped address
-    result = executor.call_with_state(0xdeadbeef, {});
-    harness.test("invalid address fails", !result.success);
+    invalid_result = executor.gadget_call<int>(0xdeadbeef, {});
+    harness.test("invalid address returns default", invalid_result == 0);
 }
 
 void test_performance() {
@@ -393,7 +389,7 @@ void test_performance() {
     start = std::chrono::high_resolution_clock::now();
     sum = 0;
     for (int i = 0; i < iterations; i++) {
-        sum += executor.call<int>(reinterpret_cast<QBDI::rword>(gadget_add),
+        sum += executor.gadget_call<int>(reinterpret_cast<QBDI::rword>(gadget_add),
                                  {static_cast<QBDI::rword>(i), 
                                   static_cast<QBDI::rword>(i)});
     }
@@ -448,7 +444,7 @@ void test_nested_execution() {
                             
                             // Execute gadget from within nested VM callback
                             w1tn3ss::gadget::gadget_executor executor(vm);
-                            ctx->inner_result = executor.call<int>(
+                            ctx->inner_result = executor.gadget_call<int>(
                                 reinterpret_cast<QBDI::rword>(gadget_add), {123, 456});
                             ctx->inner_executed = true;
                         }
