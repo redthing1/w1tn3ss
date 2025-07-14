@@ -136,7 +136,11 @@ QBDI_NOINLINE void gadget_raw_manip() {
 // Target function for VM instrumentation
 void target_function(int iterations) {
   for (int i = 0; i < iterations; i++) {
+#ifdef _MSC_VER
+    __nop();
+#else
     asm volatile("nop");
+#endif
   }
 }
 
