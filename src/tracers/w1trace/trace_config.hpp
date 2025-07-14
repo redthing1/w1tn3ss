@@ -2,11 +2,11 @@
 
 #include <string>
 #include <w1tn3ss/util/env_config.hpp>
-#include <w1tn3ss/engine/tracer_config_base.hpp>
+#include <w1tn3ss/engine/instrumentation_config.hpp>
 
 namespace w1trace {
 
-struct trace_config : public w1::tracer_config_base {
+struct trace_config : public w1::instrumentation_config {
   std::string output_file = "";
   size_t buffer_size = 256 * 1024 * 1024; // 256MB default
   int verbose = 0;

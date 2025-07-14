@@ -5,11 +5,11 @@
 #include <sstream>
 #include <stdexcept>
 #include <w1tn3ss/util/env_config.hpp>
-#include <w1tn3ss/engine/tracer_config_base.hpp>
+#include <w1tn3ss/engine/instrumentation_config.hpp>
 
 namespace w1inst {
 
-struct instruction_config : public w1::tracer_config_base {
+struct instruction_config : public w1::instrumentation_config {
   std::string output_file = "";
   std::string target_mnemonics;           // comma-separated list
   std::vector<std::string> mnemonic_list; // parsed list

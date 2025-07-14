@@ -2,11 +2,11 @@
 
 #include <string>
 #include <w1tn3ss/util/env_config.hpp>
-#include <w1tn3ss/engine/tracer_config_base.hpp>
+#include <w1tn3ss/engine/instrumentation_config.hpp>
 
 namespace w1mem {
 
-struct memory_config : public w1::tracer_config_base {
+struct memory_config : public w1::instrumentation_config {
   int verbose = 0;
   std::string output_path;
 
