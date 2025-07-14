@@ -9,37 +9,19 @@ namespace gadget {
 
 gadget_executor::gadget_executor(QBDI::VM* parent_vm) 
     : parent_vm_(parent_vm) {
-    // cache parent vm configuration
-    auto config = parent_vm_->getOptions();
-    options_ = config;
-    
-    // get cpu model from parent
-    const QBDI::GPRState* parent_gpr = parent_vm_->getGPRState();
-    
-    // TODO: properly extract cpu model and mattrs from parent vm
-    // for now use defaults based on architecture
-#if defined(QBDI_ARCH_X86_64)
-    cpu_model_ = "generic";
-#elif defined(QBDI_ARCH_AARCH64)
-    cpu_model_ = "generic";
-#else
-    cpu_model_ = "generic";
-#endif
-    
+        
     // create calling convention for platform
     calling_convention_ = w1::abi::create_default_calling_convention();
     
     auto log = redlog::get_logger("gadget_executor");
     log.dbg("initialized gadget executor", 
             redlog::field("parent_vm", "%p", parent_vm),
-            redlog::field("options", "0x%x", options_),
-            redlog::field("cpu_model", cpu_model_.c_str()),
             redlog::field("calling_convention", calling_convention_->get_name().c_str()));
 }
 
 std::unique_ptr<QBDI::VM> gadget_executor::create_sub_vm() {
     // create new vm with same configuration as parent
-    auto sub_vm = std::make_unique<QBDI::VM>(cpu_model_, mattrs_, options_);
+    auto sub_vm = std::make_unique<QBDI::VM>();
     
     auto log = redlog::get_logger("gadget_executor");
     log.dbg("created sub-vm",
@@ -89,7 +71,7 @@ gadget_result gadget_executor::call_with_state(QBDI::rword gadget_addr,
         auto log = redlog::get_logger("gadget_executor");
         log.dbg("stack allocated for sub-vm",
                 redlog::field("stack", "%p", stack),
-                redlog::field("size", "0x10000"),
+                redlog::field("size", "0x%zx", stack_size),
                 redlog::field("sub_sp", "0x%llx", w1::registers::get_sp(&result.gpr)),
                 redlog::field("parent_sp", "0x%llx", w1::registers::get_sp(parent_vm_->getGPRState())));
         
@@ -107,8 +89,10 @@ gadget_result gadget_executor::call_with_state(QBDI::rword gadget_addr,
         bool module_added = sub_vm->addInstrumentedModuleFromAddr(gadget_addr);
         if (!module_added) {
             // Fallback to range-based instrumentation if module detection fails
-            QBDI::rword range_start = gadget_addr & ~0xFFF;  // align to page
-            QBDI::rword range_size = 0x10000;  // 64KB should be enough for most functions
+            static constexpr QBDI::rword PAGE_MASK = 0xFFF;
+            static constexpr QBDI::rword DEFAULT_RANGE_SIZE = 0x10000;  // 64KB
+            QBDI::rword range_start = gadget_addr & ~PAGE_MASK;  // align to page
+            QBDI::rword range_size = DEFAULT_RANGE_SIZE;
             sub_vm->addInstrumentedRange(range_start, range_start + range_size);
             log.dbg("add instrumented range (fallback)", 
                     redlog::field("start", "0x%llx", range_start),
@@ -188,8 +172,10 @@ gadget_result gadget_executor::execute_raw(QBDI::rword start_addr,
         sub_vm->setFPRState(&result.fpr);
         
         // Add instrumentation for the gadget
-        QBDI::rword range_start = start_addr & ~0xFFF;
-        QBDI::rword range_size = 0x10000;
+        static constexpr QBDI::rword PAGE_MASK = 0xFFF;
+        static constexpr QBDI::rword DEFAULT_RANGE_SIZE = 0x10000;  // 64KB
+        QBDI::rword range_start = start_addr & ~PAGE_MASK;
+        QBDI::rword range_size = DEFAULT_RANGE_SIZE;
         sub_vm->addInstrumentedRange(range_start, range_start + range_size);
         
         // run the gadget
@@ -197,7 +183,8 @@ gadget_result gadget_executor::execute_raw(QBDI::rword start_addr,
         
         // If stop_addr is 0, use a reasonable default
         if (stop_addr == 0) {
-            stop_addr = start_addr + 0x1000;  // 4KB range
+            static constexpr QBDI::rword DEFAULT_STOP_RANGE = 0x1000;  // 4KB
+            stop_addr = start_addr + DEFAULT_STOP_RANGE;
         }
         
         log.dbg("executing raw gadget",

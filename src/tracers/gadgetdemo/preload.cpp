@@ -55,13 +55,21 @@ static const QBDI::rword OFFSET_is_valid_pointer = 0xa38;
 // get base address of main executable
 static QBDI::rword get_main_base() {
     auto maps = QBDI::getRemoteProcessMaps(getpid());
+    
+    // look for the main executable (usually has the lowest address and contains "hook_test_target")
+    QBDI::rword lowest_exec = 0;
     for (const auto& map : maps) {
         if (map.permission & QBDI::PF_EXEC) {
-            // simple heuristic: first executable map is likely the main binary
-            return map.range.start();
+            if (lowest_exec == 0 || map.range.start() < lowest_exec) {
+                lowest_exec = map.range.start();
+            }
+            // if name contains our target binary, prefer that
+            if (map.name.find("hook_test_target") != std::string::npos) {
+                return map.range.start();
+            }
         }
     }
-    return 0;
+    return lowest_exec;
 }
 
 // instruction callback that demonstrates gadget execution
@@ -76,8 +84,9 @@ static QBDI::VMAction instruction_callback(QBDI::VMInstanceRef vm, QBDI::GPRStat
         main_base = get_main_base();
     }
     
-    // demonstrate gadget execution after 100 instructions
-    if (inst_count == 100 && !g_demo_completed && g_executor && main_base) {
+    // demonstrate gadget execution after a reasonable number of instructions
+    static constexpr uint64_t DEMO_TRIGGER_COUNT = 100;
+    if (inst_count == DEMO_TRIGGER_COUNT && !g_demo_completed && g_executor && main_base) {
         g_demo_completed = true;
         
         auto log = redlog::get_logger("gadgetdemo");
