@@ -60,7 +60,8 @@ void gadget_executor::copy_instrumented_ranges(QBDI::VM* sub_vm) {
 }
 
 gadget_result gadget_executor::call_with_state(QBDI::rword gadget_addr, 
-                                               const std::vector<QBDI::rword>& args) {
+                                               const std::vector<QBDI::rword>& args,
+                                               size_t stack_size) {
     gadget_result result;
     result.success = false;
     
@@ -77,7 +78,13 @@ gadget_result gadget_executor::call_with_state(QBDI::rword gadget_addr,
         // allocate a separate stack for the gadget execution
         // this prevents stack corruption between parent and gadget
         uint8_t* stack = nullptr;
-        QBDI::allocateVirtualStack(&result.gpr, 0x10000, &stack);
+        QBDI::allocateVirtualStack(&result.gpr, stack_size, &stack);
+        
+        // RAII wrapper to ensure stack cleanup
+        struct StackDeleter {
+            uint8_t* stack;
+            ~StackDeleter() { if (stack) QBDI::alignedFree(stack); }
+        } stack_deleter{stack};
         
         auto log = redlog::get_logger("gadget_executor");
         log.dbg("stack allocated for sub-vm",
@@ -89,9 +96,6 @@ gadget_result gadget_executor::call_with_state(QBDI::rword gadget_addr,
         // Set the initial state in the sub-VM
         sub_vm->setGPRState(&result.gpr);
         sub_vm->setFPRState(&result.fpr);
-        
-        // prepare arguments for vm.call()
-        std::vector<QBDI::rword> call_args = args;
         
         log.dbg("preparing gadget call", 
                 redlog::field("addr", "0x%llx", gadget_addr),
@@ -113,32 +117,15 @@ gadget_result gadget_executor::call_with_state(QBDI::rword gadget_addr,
             log.dbg("add instrumented module", redlog::field("addr", "0x%llx", gadget_addr));
         }
         
-        // set up arguments using calling convention infrastructure
-        if (!args.empty()) {
-            log.dbg("setting up arguments in registers", redlog::field("count", "%zu", args.size()));
-            
-            // convert rword args to uint64_t for the calling convention interface
-            std::vector<uint64_t> conv_args;
-            conv_args.reserve(args.size());
-            for (auto arg : args) {
-                conv_args.push_back(static_cast<uint64_t>(arg));
-            }
-            
-            // use calling convention to set arguments
-            calling_convention_->set_integer_args(&result.gpr, conv_args);
-            sub_vm->setGPRState(&result.gpr);
-        }
-        
         // use vm.call() which handles function call semantics properly
-        // (sets up return address, manages stack frame, etc.)
+        // (sets up arguments, return address, manages stack frame, etc.)
         log.dbg("executing gadget via vm.call");
-        bool call_success = sub_vm->call(nullptr, gadget_addr, call_args);
+        bool call_success = sub_vm->call(nullptr, gadget_addr, args);
         log.dbg("gadget execution completed", redlog::field("success", call_success));
         
         if (!call_success) {
-            result.error = "vm run failed";
+            result.error = "vm call failed";
             log.error("gadget call failed", redlog::field("addr", "0x%llx", gadget_addr));
-            QBDI::alignedFree(stack);
             return result;
         }
         
@@ -153,9 +140,7 @@ gadget_result gadget_executor::call_with_state(QBDI::rword gadget_addr,
         
         log.dbg("gadget call succeeded", redlog::field("return", "0x%llx", result.return_value));
         
-        // clean up stack
-        QBDI::alignedFree(stack);
-        log.dbg("stack freed");
+        // stack cleanup handled by RAII wrapper
         
     } catch (const std::exception& e) {
         result.error = std::string("exception: ") + e.what();

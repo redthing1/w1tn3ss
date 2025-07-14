@@ -50,17 +50,17 @@ struct gadget_result {
  * The qbdi_asmStackSwitch routine saves/restores frame pointers (x29/rbp) and
  * link registers (x30/rip), but nested calls corrupt these saved values.
  * 
- * ## Solution: Using vm.run() Instead of vm.call()
+ * ## Solution: Using vm.call() with Separate VM Instances
  * 
- * This implementation uses vm.run() which executes code without stack switching.
- * To make gadgets behave like function calls:
+ * This implementation creates separate VM instances for gadget execution and uses
+ * vm.call() which properly handles function call semantics including:
  * 
- * 1. Set up arguments in registers according to calling convention
- * 2. Add instrumentation to detect RET instructions
- * 3. Run the gadget with vm.run() until it returns
- * 4. Extract return value from the appropriate register
+ * 1. Setting up arguments in registers according to calling convention
+ * 2. Managing stack frame setup and cleanup
+ * 3. Handling return address placement
+ * 4. Extracting return value from the appropriate register
  * 
- * This approach avoids the nested stack switching problem entirely.
+ * By using separate VM instances, we avoid reentrancy issues entirely.
  * 
  * ## Usage Example
  * 
@@ -97,10 +97,10 @@ public:
     // execute gadget using qbdi's vm->call() for clean function calls
     // returns just the return value for convenience
     template<typename RetType = QBDI::rword>
-    RetType call(QBDI::rword gadget_addr, const std::vector<QBDI::rword>& args = {});
+    RetType call(QBDI::rword gadget_addr, const std::vector<QBDI::rword>& args = {}, size_t stack_size = 0x10000);
     
     // execute gadget and return full state (for when you need more than return value)
-    gadget_result call_with_state(QBDI::rword gadget_addr, const std::vector<QBDI::rword>& args = {});
+    gadget_result call_with_state(QBDI::rword gadget_addr, const std::vector<QBDI::rword>& args = {}, size_t stack_size = 0x10000);
     
     // execute raw gadget with custom state (for rop chains, weird jumps)
     gadget_result execute_raw(QBDI::rword start_addr, 
@@ -116,8 +116,8 @@ public:
 
 // template implementation
 template<typename RetType>
-RetType gadget_executor::call(QBDI::rword gadget_addr, const std::vector<QBDI::rword>& args) {
-    auto result = call_with_state(gadget_addr, args);
+RetType gadget_executor::call(QBDI::rword gadget_addr, const std::vector<QBDI::rword>& args, size_t stack_size) {
+    auto result = call_with_state(gadget_addr, args, stack_size);
     if (!result.success) {
         auto log = redlog::get_logger("gadget_executor");
         log.error("gadget call failed", redlog::field("error", result.error.c_str()));
