@@ -25,10 +25,8 @@
 #include <fcntl.h>
 #include <cerrno>
 #elif _WIN32
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
-#include <windows.h>
-#include <psapi.h>
+#define NEED_PSAPI
+#include <w1common/windows_clean.hpp>
 #include <algorithm>
 #endif
 

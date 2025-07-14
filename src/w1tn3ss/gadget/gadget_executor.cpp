@@ -74,7 +74,7 @@ gadget_result gadget_executor::gadget_run(
 
     // then allocate a stack - this updates the sub-vm's stack pointer
     uint8_t* stack = nullptr;
-    QBDI::allocateVirtualStack(sub_vm->getGPRState(), stack_size, &stack);
+    QBDI::allocateVirtualStack(sub_vm->getGPRState(), static_cast<uint32_t>(stack_size), &stack);
 
     // get the updated state with proper stack
     result.gpr = *sub_vm->getGPRState();

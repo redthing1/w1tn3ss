@@ -1,5 +1,6 @@
 #include "microsoft.hpp"
 #include <redlog.hpp>
+#include <w1tn3ss/abi/fpr_utils.hpp>
 
 namespace w1::abi::conventions {
 
