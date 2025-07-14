@@ -103,6 +103,7 @@ public:
     gadget_result call_with_state(QBDI::rword gadget_addr, const std::vector<QBDI::rword>& args = {}, size_t stack_size = 0x10000);
     
     // execute raw gadget with custom state (for rop chains, weird jumps)
+    // NOTE: raw execution uses vm.run() and returns raw CPU state without calling convention interpretation
     gadget_result execute_raw(QBDI::rword start_addr, 
                              QBDI::GPRState* custom_gpr = nullptr,
                              QBDI::FPRState* custom_fpr = nullptr,

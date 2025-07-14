@@ -3,6 +3,7 @@
 #include "w1tn3ss/abi/calling_convention_factory.hpp"
 #include <w1common/ext/tinyformat.hpp>
 #include <cstring>
+#include <cstdlib>
 
 namespace w1tn3ss {
 namespace gadget {
@@ -146,6 +147,20 @@ gadget_result gadget_executor::execute_raw(QBDI::rword start_addr,
         // create sub-vm
         auto sub_vm = create_sub_vm();
         
+        // Add debug callback if requested via environment variable
+        static bool debug_enabled = (getenv("W1_GADGET_DEBUG") != nullptr);
+        if (debug_enabled) {
+            sub_vm->addCodeCB(QBDI::PREINST, [](QBDI::VMInstanceRef vm, QBDI::GPRState* gpr, 
+                                                QBDI::FPRState* fpr, void* data) -> QBDI::VMAction {
+                const QBDI::InstAnalysis* inst = vm->getInstAnalysis();
+                if (inst && inst->disassembly) {
+                    printf("[GADGET DEBUG] 0x%llx: %s\n", 
+                           (unsigned long long)inst->address, inst->disassembly);
+                }
+                return QBDI::VMAction::CONTINUE;
+            }, nullptr);
+        }
+        
         // use custom state or copy from parent
         if (custom_gpr) {
             result.gpr = *custom_gpr;
@@ -159,17 +174,17 @@ gadget_result gadget_executor::execute_raw(QBDI::rword start_addr,
             result.fpr = *parent_vm_->getFPRState();
         }
         
-        // allocate a stack if not already present
-        uint8_t* stack = nullptr;
-        bool allocated_stack = false;
-        if (w1::registers::get_sp(&result.gpr) == 0) {
-            QBDI::allocateVirtualStack(&result.gpr, 0x10000, &stack);
-            allocated_stack = true;
-        }
-        
-        // set state in sub-vm
+        // set state in sub-vm FIRST
         sub_vm->setGPRState(&result.gpr);
         sub_vm->setFPRState(&result.fpr);
+        
+        // THEN allocate a stack - this updates the sub-VM's stack pointer
+        uint8_t* stack = nullptr;
+        QBDI::allocateVirtualStack(sub_vm->getGPRState(), 0x10000, &stack);
+        
+        // Get the updated state with proper stack
+        result.gpr = *sub_vm->getGPRState();
+        result.fpr = *sub_vm->getFPRState();
         
         // Add instrumentation for the gadget
         static constexpr QBDI::rword PAGE_MASK = 0xFFF;
@@ -195,9 +210,7 @@ gadget_result gadget_executor::execute_raw(QBDI::rword start_addr,
         if (!run_success) {
             result.error = "vm run failed";
             log.error("raw gadget execution failed", redlog::field("addr", "0x%llx", start_addr));
-            if (allocated_stack) {
-                QBDI::alignedFree(stack);
-            }
+            QBDI::alignedFree(stack);
             return result;
         }
         
@@ -206,13 +219,11 @@ gadget_result gadget_executor::execute_raw(QBDI::rword start_addr,
         result.fpr = *sub_vm->getFPRState();
         result.success = true;
         
-        // clean up stack if we allocated it
-        if (allocated_stack) {
-            QBDI::alignedFree(stack);
-        }
+        // clean up stack
+        QBDI::alignedFree(stack);
         
-        // extract return value using calling convention
-        result.return_value = calling_convention_->get_integer_return(&result.gpr);
+        // Raw execution doesn't interpret return values - user gets raw CPU state
+        result.return_value = 0;  // Not applicable for raw execution
         
         log.dbg("raw gadget execution succeeded");
         
