@@ -1,6 +1,6 @@
 # w1tn3ss
 
-a cross-platform dynamic binary analysis and instrumentation framework powered by [qbdi](https://github.com/QBDI/QBDI) and [lief](https://github.com/lief-project/LIEF).
+a cross-platform dynamic binary analysis and instrumentation framework powered by [qbdi](https://github.com/QBDI/QBDI).
 
 ## features
 
