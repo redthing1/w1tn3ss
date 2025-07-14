@@ -91,12 +91,12 @@ public:
 
   bool run(QBDI::rword start, QBDI::rword stop) {
     if (!vm_) {
-      log_.error("QBDI::VM instance is null, cannot run");
+      log_.error("vm instance is null, cannot run");
       return false;
     }
 
     log_.inf(
-        "executing QBDI::VM::run", redlog::field("tracer", tracer_.get_name()), redlog::field("start", "0x%08x", start),
+        "executing vm::run", redlog::field("tracer", tracer_.get_name()), redlog::field("start", "0x%08x", start),
         redlog::field("stop", "0x%08x", stop)
     );
     return vm_->run(start, stop);
@@ -104,12 +104,12 @@ public:
 
   bool call(QBDI::rword* retval, QBDI::rword function_ptr, const std::vector<QBDI::rword>& args) {
     if (!vm_) {
-      log_.error("QBDI::VM instance is null, cannot call function");
+      log_.error("vm instance is null, cannot call function");
       return false;
     }
 
     log_.inf(
-        "executing QBDI::VM::call", redlog::field("tracer", tracer_.get_name()),
+        "executing vm::call", redlog::field("tracer", tracer_.get_name()),
         redlog::field("function_ptr", "0x%08x", function_ptr), redlog::field("args", args)
     );
     return vm_->call(retval, function_ptr, args);
@@ -117,12 +117,12 @@ public:
 
   bool call_with_stack(QBDI::rword* retval, QBDI::rword function_ptr, const std::vector<QBDI::rword>& args) {
     if (!vm_) {
-      log_.error("QBDI::VM instance is null, cannot call function");
+      log_.error("vm instance is null, cannot call function");
       return false;
     }
 
     log_.inf(
-        "executing QBDI::VM::switchStackAndCall", redlog::field("tracer", tracer_.get_name()),
+        "executing vm::switchStackAndCall", redlog::field("tracer", tracer_.get_name()),
         redlog::field("function_ptr", "0x%08x", function_ptr), redlog::field("args", args)
     );
     return vm_->switchStackAndCall(retval, function_ptr, args);
