@@ -63,13 +63,27 @@ void setup_vm_core(sol::state& lua, sol::table& w1_module) {
 
   // Options enum - VM configuration options
   w1_module.new_enum(
-      "Options", "NO_OPT", QBDI::Options::NO_OPT,                            // No options
-      "OPT_DISABLE_FPR", QBDI::Options::OPT_DISABLE_FPR,                     // Disable FPR management
-      "OPT_DISABLE_OPTIONAL_FPR", QBDI::Options::OPT_DISABLE_OPTIONAL_FPR,   // Disable optional FPR operations
+      "Options", "NO_OPT", QBDI::Options::NO_OPT,                          // No options
+      "OPT_DISABLE_FPR", QBDI::Options::OPT_DISABLE_FPR,                   // Disable FPR management
+      "OPT_DISABLE_OPTIONAL_FPR", QBDI::Options::OPT_DISABLE_OPTIONAL_FPR, // Disable optional FPR operations
+      "OPT_DISABLE_ERRNO_BACKUP",
+      QBDI::Options::OPT_DISABLE_ERRNO_BACKUP // Disable errno backup
+#if defined(__aarch64__) || defined(_M_ARM64)
+      // ARM64-specific options
+      ,
       "OPT_DISABLE_LOCAL_MONITOR", QBDI::Options::OPT_DISABLE_LOCAL_MONITOR, // Disable local monitor
-      "OPT_DISABLE_ERRNO_BACKUP", QBDI::Options::OPT_DISABLE_ERRNO_BACKUP,   // Disable errno backup
       "OPT_BYPASS_PAUTH", QBDI::Options::OPT_BYPASS_PAUTH,                   // Bypass pointer auth (ARM64)
       "OPT_ENABLE_BTI", QBDI::Options::OPT_ENABLE_BTI                        // Enable BTI on instrumented code
+#elif defined(__arm__) || defined(_M_ARM)
+      // ARM32-specific options
+      ,
+      "OPT_DISABLE_LOCAL_MONITOR", QBDI::Options::OPT_DISABLE_LOCAL_MONITOR // Disable local monitor
+#elif defined(__x86_64__) || defined(_M_X64)
+      // x86_64-specific options
+      ,
+      "OPT_ATT_SYNTAX", QBDI::Options::OPT_ATT_SYNTAX,    // AT&T disassembly syntax
+      "OPT_ENABLE_FS_GS", QBDI::Options::OPT_ENABLE_FS_GS // Enable FS/GS segment backup
+#endif
   );
 
   // Properly bind QBDI::VM as a usertype
