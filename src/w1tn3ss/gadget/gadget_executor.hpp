@@ -12,123 +12,100 @@
 namespace w1tn3ss {
 namespace gadget {
 
-/**
- * @brief Result of a gadget execution
- * 
- * Contains the success status, return value, final CPU state,
- * and any error messages from the execution.
- */
+// result from raw gadget execution (no calling convention interpretation)
 struct gadget_result {
-    QBDI::GPRState gpr;             ///< Final general purpose register state
-    QBDI::FPRState fpr;             ///< Final floating point register state  
-    bool success;                   ///< Whether execution completed successfully
-    std::string error;              ///< Error message if execution failed
-    QBDI::rword return_value;       ///< Return value from the gadget (rax/x0)
+  bool success;
+  std::string error;
+  QBDI::GPRState gpr;
+  QBDI::FPRState fpr;
 };
 
-/**
- * @brief Executes code gadgets within QBDI VM contexts
- * 
- * This class provides the ability to execute arbitrary code (gadgets) from within
- * QBDI VM callbacks, working around QBDI's non-reentrant VM limitation.
- * 
- * ## Background: The Stack Switching Problem
- * 
- * QBDI VMs are not reentrant - the same VM instance cannot be run recursively.
- * Additionally, when using vm.call(), QBDI performs stack switching via the
- * qbdi_asmStackSwitch assembly routine. This creates a problem when trying to
- * execute gadgets from within VM callbacks:
- * 
- * 1. Parent VM switches stacks (stack A → stack B) when calling the target
- * 2. Callback fires and creates a sub-VM to execute a gadget
- * 3. If sub-VM uses vm.call(), it also switches stacks (stack B → stack C)
- * 4. Sub-VM returns (stack C → stack B)
- * 5. Parent VM callback returns
- * 6. Parent VM tries to restore stack (stack B → stack A)
- * 7. **BUS ERROR** - stack pointer corruption due to nested stack switches
- * 
- * The qbdi_asmStackSwitch routine saves/restores frame pointers (x29/rbp) and
- * link registers (x30/rip), but nested calls corrupt these saved values.
- * 
- * ## Solution: Using vm.call() with Separate VM Instances
- * 
- * This implementation creates separate VM instances for gadget execution and uses
- * vm.call() which properly handles function call semantics including:
- * 
- * 1. Setting up arguments in registers according to calling convention
- * 2. Managing stack frame setup and cleanup
- * 3. Handling return address placement
- * 4. Extracting return value from the appropriate register
- * 
- * By using separate VM instances, we avoid reentrancy issues entirely.
- * 
- * ## Usage Example
- * 
- * ```cpp
- * // In a QBDI callback:
- * w1tn3ss::gadget::gadget_executor executor(parent_vm);
- * 
- * // Call a function gadget
- * int result = executor.call<int>(gadget_addr, {arg1, arg2});
- * 
- * // Execute raw gadget with custom state
- * auto result = executor.execute_raw(gadget_addr, custom_gpr, custom_fpr);
- * ```
- */
+// execute gadgets from within qbdi callbacks without reentrancy issues
+// two modes: gadget_call (function semantics) and gadget_run (raw execution)
 class gadget_executor {
-private:
-    // cached parent vm configuration
-    QBDI::VM* parent_vm_;
-    std::string cpu_model_;
-    std::vector<std::string> mattrs_;
-    QBDI::Options options_;
-    w1::abi::calling_convention_ptr calling_convention_;
-    
-    // create sub-vm with parent's configuration and instrumented ranges
-    std::unique_ptr<QBDI::VM> create_sub_vm();
-    
-    // copy instrumented ranges from parent to sub-vm
-    void copy_instrumented_ranges(QBDI::VM* sub_vm);
-    
 public:
-    explicit gadget_executor(QBDI::VM* parent_vm);
-    ~gadget_executor() = default;
-    
-    // execute gadget using qbdi's vm->call() for clean function calls
-    // returns just the return value for convenience
-    template<typename RetType = QBDI::rword>
-    RetType call(QBDI::rword gadget_addr, const std::vector<QBDI::rword>& args = {}, size_t stack_size = 0x10000);
-    
-    // execute gadget and return full state (for when you need more than return value)
-    gadget_result call_with_state(QBDI::rword gadget_addr, const std::vector<QBDI::rword>& args = {}, size_t stack_size = 0x10000);
-    
-    // execute raw gadget with custom state (for rop chains, weird jumps)
-    // NOTE: raw execution uses vm.run() and returns raw CPU state without calling convention interpretation
-    gadget_result execute_raw(QBDI::rword start_addr, 
-                             QBDI::GPRState* custom_gpr = nullptr,
-                             QBDI::FPRState* custom_fpr = nullptr,
-                             QBDI::rword stop_addr = 0);
-    
-    // execute gadget chain (multiple gadgets in sequence)
-    gadget_result execute_chain(const std::vector<QBDI::rword>& gadget_addrs,
-                               QBDI::GPRState* initial_state = nullptr,
-                               const std::vector<QBDI::rword>& stop_addrs = {});
+  struct config {
+    bool debug = false;
+    size_t default_stack_size = 0x10000;
+  };
+
+  explicit gadget_executor(QBDI::VM* parent_vm, const config& cfg = {});
+  ~gadget_executor() = default;
+
+  // call function with arguments and return value
+  template <typename RetType = QBDI::rword>
+  RetType gadget_call(QBDI::rword addr, const std::vector<QBDI::rword>& args = {});
+
+  // raw execution between two addresses
+  gadget_result gadget_run(
+      QBDI::rword start_addr, QBDI::rword stop_addr, QBDI::GPRState* initial_gpr = nullptr,
+      QBDI::FPRState* initial_fpr = nullptr
+  );
+
+  // create sub-vm for custom configuration
+  std::unique_ptr<QBDI::VM> create_sub_vm();
+
+  // run with custom-configured sub-vm
+  gadget_result run_with_vm(QBDI::VM* vm, QBDI::rword start_addr, QBDI::rword stop_addr);
+
+private:
+  QBDI::VM* parent_vm_;
+  config config_;
+  w1::abi::calling_convention_ptr calling_convention_;
+
+  void setup_debug_callback(QBDI::VM* vm);
 };
 
-// template implementation
-template<typename RetType>
-RetType gadget_executor::call(QBDI::rword gadget_addr, const std::vector<QBDI::rword>& args, size_t stack_size) {
-    auto result = call_with_state(gadget_addr, args, stack_size);
-    if (!result.success) {
-        auto log = redlog::get_logger("gadget_executor");
-        log.error("gadget call failed", redlog::field("error", result.error.c_str()));
-        if constexpr (std::is_same_v<RetType, void>) {
-            return;
-        } else {
-            return RetType{};
-        }
+template <typename RetType>
+RetType gadget_executor::gadget_call(QBDI::rword addr, const std::vector<QBDI::rword>& args) {
+  try {
+    auto sub_vm = create_sub_vm();
+
+    // copy parent state and allocate stack
+    QBDI::GPRState gpr = *parent_vm_->getGPRState();
+    QBDI::FPRState fpr = *parent_vm_->getFPRState();
+
+    sub_vm->setGPRState(&gpr);
+    sub_vm->setFPRState(&fpr);
+
+    uint8_t* stack = nullptr;
+    QBDI::allocateVirtualStack(sub_vm->getGPRState(), config_.default_stack_size, &stack);
+
+    auto log = redlog::get_logger("gadget_executor");
+    log.dbg("calling gadget", redlog::field("addr", "0x%llx", addr));
+
+    bool success = sub_vm->call(nullptr, addr, args);
+
+    if (!success) {
+      QBDI::alignedFree(stack);
+      log.error("gadget call failed");
+      if constexpr (std::is_same_v<RetType, void>) {
+        return;
+      } else {
+        return RetType{};
+      }
     }
-    return static_cast<RetType>(result.return_value);
+
+    QBDI::rword result = calling_convention_->get_integer_return(sub_vm->getGPRState());
+    QBDI::alignedFree(stack);
+
+    log.dbg("gadget call succeeded");
+
+    if constexpr (std::is_same_v<RetType, void>) {
+      return;
+    } else {
+      return static_cast<RetType>(result);
+    }
+
+  } catch (const std::exception& e) {
+    auto log = redlog::get_logger("gadget_executor");
+    log.error("gadget call exception", redlog::field("error", e.what()));
+    if constexpr (std::is_same_v<RetType, void>) {
+      return;
+    } else {
+      return RetType{};
+    }
+  }
 }
 
 } // namespace gadget
