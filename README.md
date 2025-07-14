@@ -76,16 +76,15 @@ trace api calls in real time with `w1xfer`:
 
 output will resemble:
 ```
-[w1.calling_convention_factory] [inf] registered platform conventions     platform=aarch64 count=1
+registered platform conventions     platform=aarch64 count=1
 ...
-[w1.api_analyzer] [vrb] analyzed api call                   call=malloc(size=64) category=Heap module=libsystem_malloc.dylib
-[w1.api_analyzer] [vrb] analyzed api return                 return=malloc() = 0x600003b982c0 raw_value=105553178755776 module=libsystem_malloc.dylib
+call=malloc(size=64) category=Heap module=libsystem_malloc.dylib
+return=malloc() = 0x600003b982c0 raw_value=105553178755776 module=libsystem_malloc.dylib
 ...
-[w1.api_analyzer] [vrb] analyzed api call                   call=puts(s="simple demo finished") category=I/O module=libsystem_c.dylib
+call=puts(s="simple demo finished") category=I/O module=libsystem_c.dylib
 simple demo finished
-[w1.api_analyzer] [vrb] analyzed api return                 return=puts() = 10 raw_value=10 module=libsystem_c.dylib
-[w1.api_analyzer] [vrb] analyzed api call                   call=intercept_exit(?) category= module=w1xfer_qbdipreload.dylib
-[w1.preload] [inf] w1xfer preload exit                 status=0
+return=puts() = 10 raw_value=10 module=libsystem_c.dylib
+call=intercept_exit(?) category= module=w1xfer_qbdipreload.dylib
 ```
 
 as seen above, this can successfully intercept calls to many common `libc` apis!
