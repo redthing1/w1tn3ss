@@ -91,12 +91,14 @@ std::vector<QBDI::MemoryMap> module_scanner::get_executable_maps() {
 }
 
 module_info module_scanner::build_module_info(const QBDI::MemoryMap& map) {
-  module_info info;
+  module_info info{};
   info.path = map.name;
   info.base_address = map.range.start();
   info.size = map.range.end() - map.range.start();
   info.type = classify_module(map);
   info.is_system_library = is_system_library(map.name);
+  info.range = map.range;
+  info.permission = map.permission;
 
   // generate meaningful name for unnamed modules
   if (map.name.empty()) {

@@ -111,7 +111,17 @@ bool instrumentation_manager::configure_instrumentation(QBDI::VM* vm, const std:
           redlog::field("base", "0x%lx", module.base_address)
       );
 
-      if (vm->addInstrumentedModuleFromAddr(module.base_address)) {
+      // directly add instrumentation using stored range info
+      // this bypasses both addInstrumentedModule and addInstrumentedModuleFromAddr
+      // to avoid rescanning process maps entirely
+      bool success = false;
+      if (module.permission & QBDI::PF_EXEC) {
+        // add executable range directly
+        vm->addInstrumentedRange(module.range.start(), module.range.end());
+        success = true;
+      }
+
+      if (success) {
         added_count++;
       } else {
         log_.wrn(
