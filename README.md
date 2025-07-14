@@ -213,3 +213,7 @@ key concepts:
 - `meta` table: organize sigs and patches by platform
 
 `p1ll` is an excellent and powerful tool for binary modification!
+
+## acknowledgements
+
++ many thanks to quarkslab for [qbdi](https://github.com/QBDI/QBDI)!
