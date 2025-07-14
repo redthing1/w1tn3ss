@@ -32,6 +32,7 @@ this is a brief guide to using `w1tool`, a ready-to-use command line for running
 code coverage helps us learn what code in a program gets run and how often. the `w1cov` tracer is purpose built to collect detailed code coverage information, with only modest performance overhead.
 
 the drcov format is ideal for coverage tracing, as it includes metadata about loaded modules. `w1cov` also supports collecting data in a superset of the drcov format, which also records hit counts of coverage units. this can be useful to record the execution frequency of a block.
+my other project [covtool](https://github.com/redthing1/covtool) provides a powerful tool for viewing, editing, and browsing coverage traces.
 
 collect coverage in drcov format using `w1cov`:
 ```sh
