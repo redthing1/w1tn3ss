@@ -17,7 +17,7 @@ a cross-platform dynamic binary analysis and instrumentation framework powered b
 
 build for any platform (with script and lief enabled):
 ```sh
-cmake -G Ninja -B build-release -DCMAKE_BUILD_TYPE=Release -DWITNESS_SCRIPT=ON -DWITNESS_LIEF=ON
+cmake -G Ninja -B build-release -DCMAKE_BUILD_TYPE=Release -DWITNESS_SCRIPT=ON
 cmake --build build-release --parallel
 ```
 
