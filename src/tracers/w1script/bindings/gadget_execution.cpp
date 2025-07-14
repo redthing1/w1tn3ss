@@ -60,9 +60,10 @@ void setup_gadget_execution(
 
   // raw gadget execution between addresses
   w1_module.set_function(
-      "gadget_run", [gadget_exec, &logger, &lua](QBDI::rword start_addr, QBDI::rword stop_addr) -> sol::table {
+      "gadget_run", [gadget_exec, &lua](QBDI::rword start_addr, QBDI::rword stop_addr) -> sol::table {
         try {
-          logger.vrb(
+          auto log = redlog::get_logger("w1.script_bindings");
+          log.vrb(
               "executing raw gadget", redlog::field("start", "0x%llx", start_addr),
               redlog::field("stop", "0x%llx", stop_addr)
           );
@@ -89,7 +90,8 @@ void setup_gadget_execution(
           return result_table;
 
         } catch (const std::exception& e) {
-          logger.err("gadget_run exception", redlog::field("error", e.what()));
+          auto log = redlog::get_logger("w1.script_bindings");
+          log.err("gadget_run exception", redlog::field("error", e.what()));
           sol::table error_result = lua.create_table();
           error_result["success"] = false;
           error_result["error"] = std::string("exception: ") + e.what();
