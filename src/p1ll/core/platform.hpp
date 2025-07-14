@@ -4,33 +4,44 @@
 #include <string>
 #include <vector>
 
-namespace p1ll::core {
+namespace p1ll {
 
-// get detected platform information (use sparingly - prefer get_effective_platform)
-platform_key get_detected_platform();
+// forward declaration
+class context;
 
-// get effective platform (respects context override if set, otherwise returns detected)
-platform_key get_effective_platform();
+// platform detector class - consolidates all platform detection logic
+class platform_detector {
+public:
+  platform_detector() = default;
 
-// parse platform key from string like "linux:x64" or "darwin:*"
-platform_key parse_platform_key(const std::string& platform_str);
+  // get detected platform information
+  platform_key get_detected_platform() const;
 
-// get platform hierarchy for matching: "linux:x64" -> ["linux:x64", "linux:*", "*:*"]
-std::vector<std::string> get_platform_hierarchy(const platform_key& platform);
+  // get effective platform (respects context override if set)
+  platform_key get_effective_platform(const context& ctx) const;
 
-// get platform hierarchy for effective platform (respects override)
-std::vector<std::string> get_current_platform_hierarchy();
+  // get platform hierarchy for matching
+  std::vector<std::string> get_platform_hierarchy(const platform_key& platform) const;
+  std::vector<std::string> get_platform_hierarchy_for_context(const context& ctx) const;
 
-// check if platform key matches another (with wildcard support)
-bool platform_matches(const platform_key& key, const platform_key& target);
+  // platform validation
+  bool is_valid_platform_key(const platform_key& platform) const;
+  bool platform_matches(const platform_key& key, const platform_key& target) const;
 
-// validate platform key components are reasonable
-bool is_valid_platform_key(const platform_key& platform);
+  // get supported platforms/architectures
+  std::vector<std::string> get_supported_operating_systems() const;
+  std::vector<std::string> get_supported_architectures() const;
 
-// get list of known/supported operating systems
-std::vector<std::string> get_supported_operating_systems();
+  // parse platform key from string like "linux:x64" or "darwin:*"
+  platform_key parse_platform_key(const std::string& platform_str) const;
 
-// get list of known/supported architectures
-std::vector<std::string> get_supported_architectures();
+private:
+  // platform detection implementation
+  std::string detect_operating_system() const;
+  std::string detect_architecture() const;
+};
 
-} // namespace p1ll::core
+// global platform detector instance
+platform_detector& get_platform_detector();
+
+} // namespace p1ll

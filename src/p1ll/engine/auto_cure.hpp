@@ -1,74 +1,81 @@
 #pragma once
 
 #include "core/types.hpp"
+#include "core/context.hpp"
 #include "memory_scanner.hpp"
 #include <memory>
 
 namespace p1ll::engine {
 
-// declarative auto-cure orchestration engine
-class auto_cure_engine {
+// auto-cure class constructed with context
+class auto_cure {
 public:
-  auto_cure_engine();
-  ~auto_cure_engine() = default;
+  explicit auto_cure(const context& ctx);
+  ~auto_cure() = default;
 
-  // execute auto-cure with separate components
-  core::cure_result execute(
-      const core::cure_metadata& meta, const core::platform_signature_map& signatures,
-      const core::platform_patch_map& patches
-  );
+  // dynamic process patching
+  cure_result execute_dynamic(const cure_config& config);
 
-  // execute auto-cure with single config
-  core::cure_result execute(const core::cure_config& config);
-
-  // static file patching version
-  core::cure_result execute_static(
-      const std::string& file_path, const std::string& output_path, const core::cure_config& config
-  );
-
-  // static buffer patching version (modern api)
-  core::cure_result execute_static_buffer(std::vector<uint8_t>& buffer_data, const core::cure_config& config);
+  // static buffer patching
+  cure_result execute_static(std::vector<uint8_t>& buffer_data, const cure_config& config);
 
 private:
+  const context& context_;
   std::unique_ptr<memory_scanner> scanner_;
 
+  // internal implementation for dynamic execution
+  cure_result execute_dynamic_impl(
+      const cure_metadata& meta, const platform_signature_map& signatures, const platform_patch_map& patches
+  );
+
+  // internal implementation for static buffer execution
+  cure_result execute_static_impl(
+      std::vector<uint8_t>& buffer_data, const cure_metadata& meta, const platform_signature_map& signatures,
+      const platform_patch_map& patches
+  );
+
   // get patches for current platform using hierarchy
-  std::vector<core::patch_declaration> get_platform_patches(const core::platform_patch_map& patches) const;
+  std::vector<patch_decl> get_platform_patches(const platform_patch_map& patches) const;
 
   // get signatures for current platform using hierarchy
-  std::vector<core::signature_object> get_platform_signatures(const core::platform_signature_map& signatures) const;
+  std::vector<signature_decl> get_platform_signatures(const platform_signature_map& signatures) const;
 
-  // validate all required signatures exist before applying patches (dynamic mode)
-  bool validate_signatures(const std::vector<core::signature_object>& signatures);
+  // validate all required signatures exist in memory
+  bool validate_signatures_dynamic(const std::vector<signature_decl>& signatures);
 
-  // validate signatures exist in static buffer (static mode)
-  bool validate_signatures(
-      const std::vector<core::signature_object>& signatures, const std::vector<uint8_t>& buffer_data
+  // validate all required signatures exist in buffer
+  bool validate_signatures_static(
+      const std::vector<signature_decl>& signatures, const std::vector<uint8_t>& buffer_data
   );
 
-  // apply single patch in memory (dynamic mode)
-  bool apply_patch_dynamic(const core::patch_declaration& patch, const core::compiled_signature& signature);
+  // apply single patch to memory
+  bool apply_patch_dynamic(const patch_decl& patch, const compiled_signature& signature);
 
-  // apply single patch to file data (static mode)
+  // apply single patch to buffer
   bool apply_patch_static(
-      const core::patch_declaration& patch, const core::compiled_signature& signature, std::vector<uint8_t>& file_data
+      const patch_decl& patch, const compiled_signature& signature, std::vector<uint8_t>& file_data
   );
 
-  // helper methods for reducing code duplication
-  core::cure_result validate_and_prepare_patches(
-      const core::cure_metadata& meta, const core::platform_signature_map& signatures,
-      const core::platform_patch_map& patches
+  // platform patch retrieval
+  std::vector<patch_decl> get_validated_platform_patches(const platform_patch_map& patches);
+
+  // signature compilation and validation helpers
+  std::optional<compiled_signature> compile_patch_decl(const patch_decl& patch);
+  std::optional<compiled_signature> compile_sig_decl(const signature_decl& sig_obj);
+  bool validate_single_signature_constraint(
+      const signature_decl& sig_obj, size_t match_count, const std::string& context_desc
   );
 
-  std::optional<core::compiled_signature> compile_and_validate_signature(const core::patch_declaration& patch);
+  // shared patch processing
+  cure_result process_patch_results(const std::vector<std::pair<patch_decl, bool>>& patch_results);
 
   memory_protection calculate_write_protection(memory_protection current_protection, bool is_executable);
 
   bool apply_single_patch_to_address(
-      const core::patch_declaration& patch, const std::vector<uint8_t>& patch_bytes, uint64_t patch_address
+      const patch_decl& patch, const std::vector<uint8_t>& patch_bytes, uint64_t patch_address
   );
 
-  std::vector<uint8_t> extract_patch_bytes(const core::compiled_patch& compiled_patch);
+  std::vector<uint8_t> extract_patch_bytes(const compiled_patch& compiled_patch);
 };
 
 } // namespace p1ll::engine

@@ -4,9 +4,9 @@
 #include <cstdlib>
 #include <iostream>
 #include <filesystem>
+#include <fstream>
 
 #include <redlog.hpp>
-#include "p1ll/p1ll.hpp"
 #include "p1ll/core/context.hpp"
 
 #include "p1ll/scripting/lua_api.hpp"
@@ -34,10 +34,10 @@ int p01s0n_run() {
 
   log.inf("p01s0n dynamic patcher starting");
 
-  // check for P1LL_CURE environment variable
-  const char* cure_script_path = std::getenv("P1LL_CURE");
+  // check for POISON_CURE environment variable
+  const char* cure_script_path = std::getenv("POISON_CURE");
   if (!cure_script_path || strlen(cure_script_path) == 0) {
-    log.warn("P1LL_CURE environment variable not set - no cure script to apply");
+    log.warn("POISON_CURE environment variable not set, no cure script to apply");
     return 0; // not an error, just nothing to do
   }
 
@@ -52,17 +52,23 @@ int p01s0n_run() {
 
   try {
     // create dynamic context for in-memory patching
-    auto context = p1ll::core::p1ll_context::create_dynamic();
-    p1ll::core::set_current_context(std::move(context));
+    auto context = p1ll::context::create_dynamic();
 
     log.inf("executing dynamic cure script", redlog::field("script", script_path));
 
+    // read script content from file
+    std::ifstream file(script_path);
+    if (!file.is_open()) {
+      log.err("failed to open script file", redlog::field("path", script_path));
+      return 1;
+    }
+
+    std::string script_content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    file.close();
+
     // execute the cure script in dynamic mode
     p1ll::scripting::lua_api lua_engine;
-    auto result = lua_engine.execute_cure_script(script_path);
-
-    // clean up context
-    p1ll::core::clear_current_context();
+    auto result = lua_engine.execute_script(*context, script_content);
 
     if (result.success) {
       log.inf(

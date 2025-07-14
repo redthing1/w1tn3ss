@@ -10,7 +10,7 @@ namespace p1ll::engine {
 // high-performance pattern matching with Boyer-Moore-Horspool algorithm
 class pattern_matcher {
 public:
-  explicit pattern_matcher(const core::compiled_signature& signature);
+  explicit pattern_matcher(const compiled_signature& signature);
 
   // search in memory region
   std::vector<uint64_t> search(const uint8_t* data, size_t size) const;
@@ -31,7 +31,7 @@ public:
   bool is_valid() const { return !signature_.empty(); }
 
 private:
-  core::compiled_signature signature_;
+  compiled_signature signature_;
   std::array<size_t, 256> shift_table_; // Boyer-Moore-Horspool shift table
 
   void build_shift_table();

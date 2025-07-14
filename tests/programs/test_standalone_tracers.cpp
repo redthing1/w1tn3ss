@@ -217,9 +217,9 @@ local instruction_count = 0
 local max_instructions = 50  -- limit output for demo
 
 local tracer = {}
-tracer.callbacks = { "instruction_postinst" }
+tracer.callbacks = { "instruction_preinst" }
 
-function tracer.on_instruction_postinst(vm, gpr, fpr)
+function tracer.on_instruction_preinst(vm, gpr, fpr)
     instruction_count = instruction_count + 1
     
     -- only log first N instructions to avoid spam

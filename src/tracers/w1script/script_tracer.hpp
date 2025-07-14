@@ -23,6 +23,10 @@ class hook_manager;
 }
 } // namespace w1
 
+namespace w1tn3ss::gadget {
+class gadget_executor;
+}
+
 namespace w1::tracers::script {
 
 // forward declarations
@@ -52,6 +56,9 @@ private:
 
   // hook manager for dynamic hooking
   std::shared_ptr<w1::hooking::hook_manager> hook_manager_;
+
+  // gadget executor for script-controlled gadget execution
+  std::shared_ptr<w1tn3ss::gadget::gadget_executor> gadget_executor_;
 
   // api analysis processor
   std::unique_ptr<api_analysis_processor> api_processor_;

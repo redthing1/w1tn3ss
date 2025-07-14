@@ -2,7 +2,7 @@
 
 #include <w1tn3ss/util/env_config.hpp>
 #include <w1tn3ss/util/env_enumerator.hpp>
-#include <w1tn3ss/engine/tracer_config_base.hpp>
+#include <w1tn3ss/engine/instrumentation_config.hpp>
 #include <string>
 #include <unordered_map>
 #include <algorithm>
@@ -10,7 +10,7 @@
 
 namespace w1::tracers::script {
 
-struct config : public w1::tracer_config_base {
+struct config : public w1::instrumentation_config {
   std::string script_path;
   bool verbose = false;
 

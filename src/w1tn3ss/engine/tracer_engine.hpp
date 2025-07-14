@@ -7,7 +7,8 @@
 #include <QBDI.h>
 #include <redlog.hpp>
 
-#include "tracer_config_base.hpp"
+#include "instrumentation_config.hpp"
+#include "instrumentation_manager.hpp"
 #include <w1tn3ss/util/module_scanner.hpp>
 
 namespace w1 {
@@ -17,12 +18,12 @@ public:
   tracer_engine(QBDI::VMInstanceRef vm, TTracer& tracer)
       : vm_(static_cast<QBDI::VM*>(vm)), tracer_(tracer), owns_vm_(false) {
     log_.inf(
-        "tracer engine created with existing QBDI::VM instance", redlog::field("tracer", tracer.get_name()),
+        "tracer engine created with existing qbdi::vm instance", redlog::field("tracer", tracer.get_name()),
         redlog::field("vm", static_cast<void*>(vm_))
     );
   }
 
-  tracer_engine(QBDI::VMInstanceRef vm, TTracer& tracer, const tracer_config_base& config)
+  tracer_engine(QBDI::VMInstanceRef vm, TTracer& tracer, const instrumentation_config& config)
       : vm_(static_cast<QBDI::VM*>(vm)), tracer_(tracer), config_(config), owns_vm_(false) {
     log_.inf(
         "tracer engine created with config", redlog::field("tracer", tracer.get_name()),
@@ -37,7 +38,24 @@ public:
     } catch (...) {
       vm_ = nullptr;
       owns_vm_ = false;
-      log_.error("failed to create QBDI::VM instance, tracer engine will not function");
+      log_.error("failed to create qbdi::vm instance, tracer engine will not function");
+      // re-throw the exception to be handled by the caller
+      throw;
+    }
+  }
+
+  tracer_engine(TTracer& tracer, const instrumentation_config& config)
+      : tracer_(tracer), config_(config), owns_vm_(true) {
+    try {
+      vm_ = new QBDI::VM();
+      log_.inf(
+          "tracer engine created with new vm and config", redlog::field("tracer_name", tracer.get_name()),
+          redlog::field("include_system", config.include_system_modules)
+      );
+    } catch (...) {
+      vm_ = nullptr;
+      owns_vm_ = false;
+      log_.error("failed to create qbdi::vm instance, tracer engine will not function");
       // re-throw the exception to be handled by the caller
       throw;
     }
@@ -52,23 +70,33 @@ public:
 
   bool instrument() {
     if (!vm_) {
-      log_.error("QBDI::VM instance is null, cannot instrument");
+      log_.error("qbdi::vm instance is null, cannot instrument");
       return false;
     }
 
-    apply_module_filtering();
+    log_.trc("starting engine instrumentation");
+
+    // apply instrumentation configuration using the manager
+    instrumentation_manager manager(config_);
+    if (!manager.apply_instrumentation(vm_)) {
+      log_.error("failed to apply instrumentation configuration");
+      return false;
+    }
+
     register_all_callbacks();
+
+    log_.trc("engine instrumentation complete");
     return true;
   }
 
   bool run(QBDI::rword start, QBDI::rword stop) {
     if (!vm_) {
-      log_.error("QBDI::VM instance is null, cannot run");
+      log_.error("vm instance is null, cannot run");
       return false;
     }
 
     log_.inf(
-        "executing QBDI::VM::run", redlog::field("tracer", tracer_.get_name()), redlog::field("start", "0x%08x", start),
+        "executing vm::run", redlog::field("tracer", tracer_.get_name()), redlog::field("start", "0x%08x", start),
         redlog::field("stop", "0x%08x", stop)
     );
     return vm_->run(start, stop);
@@ -76,12 +104,12 @@ public:
 
   bool call(QBDI::rword* retval, QBDI::rword function_ptr, const std::vector<QBDI::rword>& args) {
     if (!vm_) {
-      log_.error("QBDI::VM instance is null, cannot call function");
+      log_.error("vm instance is null, cannot call function");
       return false;
     }
 
     log_.inf(
-        "executing QBDI::VM::call", redlog::field("tracer", tracer_.get_name()),
+        "executing vm::call", redlog::field("tracer", tracer_.get_name()),
         redlog::field("function_ptr", "0x%08x", function_ptr), redlog::field("args", args)
     );
     return vm_->call(retval, function_ptr, args);
@@ -89,12 +117,12 @@ public:
 
   bool call_with_stack(QBDI::rword* retval, QBDI::rword function_ptr, const std::vector<QBDI::rword>& args) {
     if (!vm_) {
-      log_.error("QBDI::VM instance is null, cannot call function");
+      log_.error("vm instance is null, cannot call function");
       return false;
     }
 
     log_.inf(
-        "executing QBDI::VM::switchStackAndCall", redlog::field("tracer", tracer_.get_name()),
+        "executing vm::switchStackAndCall", redlog::field("tracer", tracer_.get_name()),
         redlog::field("function_ptr", "0x%08x", function_ptr), redlog::field("args", args)
     );
     return vm_->switchStackAndCall(retval, function_ptr, args);
@@ -373,78 +401,8 @@ private:
   QBDI::VM* vm_;
   TTracer& tracer_;
   bool owns_vm_;
-  tracer_config_base config_;
+  instrumentation_config config_;
   redlog::logger log_{"w1.tracer_engine"};
-
-  /**
-   * we should avoid filtering some critical system modules, because it could cause instability
-   */
-  bool is_critical_system_module(const std::string& module_name) const {
-#ifdef __APPLE__
-    static const std::vector<std::string> critical_modules = {"libdyld"};
-#elif defined(__linux__)
-    static const std::vector<std::string> critical_modules = {
-        // add linux critical modules here when needed
-    };
-#elif defined(_WIN32)
-    static const std::vector<std::string> critical_modules = {
-        // add windows critical modules here when needed
-    };
-#else
-    static const std::vector<std::string> critical_modules = {};
-#endif
-
-    for (const auto& critical : critical_modules) {
-      if (module_name.find(critical) != std::string::npos) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  void apply_module_filtering() {
-    if (config_.include_system_modules) {
-      log_.dbg("including system modules in instrumentation");
-      return;
-    }
-
-    log_.dbg("applying system module filtering");
-    util::module_scanner scanner;
-    auto modules = scanner.scan_executable_modules();
-
-    // debug: list all modules first
-    log_.dbg("listing all executable modules", redlog::field("count", modules.size()));
-    for (const auto& mod : modules) {
-      log_.dbg(
-          "module", redlog::field("name", mod.name), redlog::field("is_system", mod.is_system_library),
-          redlog::field("base", "0x%lx", mod.base_address)
-      );
-    }
-
-    size_t excluded_count = 0;
-    for (const auto& mod : modules) {
-      if (mod.is_system_library) {
-        // check if this is a critical system module
-        if (is_critical_system_module(mod.name)) {
-          log_.dbg("keeping critical system module", redlog::field("name", mod.name));
-          continue;
-        }
-
-        // exclude system module
-        log_.dbg(
-            "excluding system module", redlog::field("module", mod.name),
-            redlog::field("base", "0x%08x", mod.base_address)
-        );
-        vm_->removeInstrumentedModuleFromAddr(mod.base_address);
-        excluded_count++;
-      }
-    }
-
-    log_.dbg(
-        "module filtering complete", redlog::field("total_modules", modules.size()),
-        redlog::field("excluded", excluded_count), redlog::field("remaining", modules.size() - excluded_count)
-    );
-  }
 
   // - SFINAE detection for callback methods (C++17)
 

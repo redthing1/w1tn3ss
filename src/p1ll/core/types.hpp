@@ -6,7 +6,7 @@
 #include <optional>
 #include <cstdint>
 
-namespace p1ll::core {
+namespace p1ll {
 
 // platform abstraction
 struct platform_key {
@@ -16,6 +16,19 @@ struct platform_key {
   std::string to_string() const { return os + ":" + arch; }
   bool matches(const platform_key& other) const;
   bool operator==(const platform_key& other) const { return os == other.os && arch == other.arch; }
+
+  static platform_key parse(const std::string& platform_str) {
+    if (platform_str.empty()) {
+      return {"*", "*"};
+    }
+
+    auto colon_pos = platform_str.find(':');
+    if (colon_pos == std::string::npos) {
+      return {platform_str, "*"};
+    }
+
+    return {platform_str.substr(0, colon_pos), platform_str.substr(colon_pos + 1)};
+  }
 };
 
 // signature types
@@ -52,27 +65,27 @@ struct signature_query {
   signature_query_filter filter;
 };
 
-// signature object (for referencing in patches)
-struct signature_object {
+// signature declaration (for referencing in patches)
+struct signature_decl {
   signature_pattern pattern;
   std::optional<signature_query_filter> filter;
   bool single = false; // enforce exactly one match
 
-  signature_object() = default;
-  signature_object(const signature_pattern& p) : pattern(p) {}
-  signature_object(const signature_pattern& p, const signature_query_filter& f) : pattern(p), filter(f) {}
-  signature_object(const signature_pattern& p, const signature_query_filter& f, bool s)
+  signature_decl() = default;
+  signature_decl(const signature_pattern& p) : pattern(p) {}
+  signature_decl(const signature_pattern& p, const signature_query_filter& f) : pattern(p), filter(f) {}
+  signature_decl(const signature_pattern& p, const signature_query_filter& f, bool s)
       : pattern(p), filter(f), single(s) {}
 
   std::string to_string() const { return pattern; }
 };
 
 // patch declaration - references signature object
-struct patch_declaration {
-  signature_object signature; // signature object reference
-  uint64_t offset;            // offset from signature match
-  patch_pattern pattern;      // hex bytes to write
-  bool required = true;       // fail if patch cannot be applied
+struct patch_decl {
+  signature_decl signature; // signature object reference
+  uint64_t offset;          // offset from signature match
+  patch_pattern pattern;    // hex bytes to write
+  bool required = true;     // fail if patch cannot be applied
 
   std::string to_string() const;
 };
@@ -83,11 +96,11 @@ struct cure_metadata {
   std::vector<std::string> platforms;
 };
 
-// platform signature mapping: "os:arch" -> [signature_objects]
-using platform_signature_map = std::unordered_map<std::string, std::vector<signature_object>>;
+// platform signature mapping: "os:arch" -> [signature_decls]
+using platform_signature_map = std::unordered_map<std::string, std::vector<signature_decl>>;
 
 // platform patch mapping: "os:arch" -> [patches]
-using platform_patch_map = std::unordered_map<std::string, std::vector<patch_declaration>>;
+using platform_patch_map = std::unordered_map<std::string, std::vector<patch_decl>>;
 
 // complete auto-cure configuration
 struct cure_config {
@@ -131,4 +144,4 @@ struct cure_result {
   bool has_errors() const { return !error_messages.empty(); }
 };
 
-} // namespace p1ll::core
+} // namespace p1ll

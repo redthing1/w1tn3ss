@@ -10,7 +10,7 @@ namespace p1ll::utils {
 namespace {
 
 // color scheme for different element types
-constexpr auto offset_color = redlog::color::bright_cyan;
+constexpr auto offset_color = redlog::color::bright_black;
 constexpr auto unchanged_color = redlog::color::white;
 constexpr auto before_change_color = redlog::color::cyan;
 constexpr auto after_change_color = redlog::color::red;
@@ -40,7 +40,7 @@ std::string format_ascii_char(uint8_t byte, redlog::color color = redlog::color:
  */
 std::string format_offset(uint64_t offset) {
   std::ostringstream oss;
-  oss << std::hex << std::setw(8) << std::setfill('0') << std::nouppercase << offset << ":";
+  oss << std::hex << std::setw(16) << std::setfill('0') << std::nouppercase << offset << ":";
   return redlog::detail::colorize(oss.str(), offset_color);
 }
 
@@ -288,7 +288,12 @@ std::string format_patch_hexdump(
     lines_shown++;
   }
 
-  return result.str();
+  std::string output = result.str();
+  // remove trailing newline since logging will add one
+  if (!output.empty() && output.back() == '\n') {
+    output.pop_back();
+  }
+  return output;
 }
 
 std::string format_signature_match_hexdump(

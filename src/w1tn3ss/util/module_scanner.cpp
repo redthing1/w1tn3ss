@@ -159,7 +159,8 @@ bool module_scanner::is_system_library(const std::string& path) const {
       path.find("libcompiler_rt") == 0 || path.find("libdyld") == 0 || path.find("dyld") == 0 ||
       path.find("libquarantine") == 0 || path.find("libmacho") == 0 || path.find("libcommonCrypto") == 0 ||
       path.find("libunwind") == 0 || path.find("libcopyfile") == 0 || path.find("libremovefile") == 0 ||
-      path.find("libkeymgr") == 0 || path.find("libcache") == 0 || path.find("libSystem") == 0) {
+      path.find("libkeymgr") == 0 || path.find("libcache") == 0 || path.find("libSystem") == 0 ||
+      path.find("libRosetta") == 0) {
     return true;
   }
   return false;

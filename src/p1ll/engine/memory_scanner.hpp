@@ -50,10 +50,10 @@ public:
    * @param query The signature and a filter to select which regions to search.
    * @return A list of all found matches.
    */
-  std::optional<std::vector<core::search_result>> search(const core::signature_query& query) const;
+  std::optional<std::vector<search_result>> search(const signature_query& query) const;
 
   // --- Low-Level Memory Introspection & Manipulation ---
-  std::optional<std::vector<memory_region>> get_memory_regions(const core::signature_query_filter& filter = {}) const;
+  std::optional<std::vector<memory_region>> get_memory_regions(const signature_query_filter& filter = {}) const;
   std::optional<memory_region> get_region_info(uint64_t address) const;
   bool set_memory_protection(uint64_t address, size_t size, memory_protection protection) const;
   std::optional<size_t> get_page_size() const;
@@ -71,7 +71,7 @@ private:
 
   // Platform-agnostic private helpers
   bool is_system_region(const memory_region& region) const;
-  bool matches_filter(const memory_region& region, const core::signature_query_filter& filter) const;
+  bool matches_filter(const memory_region& region, const signature_query_filter& filter) const;
 
   // Platform-specific implementations
   std::optional<std::vector<memory_region>> enumerate_regions() const;

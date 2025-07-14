@@ -3,18 +3,19 @@
 #include <redlog.hpp>
 #include <sstream>
 #include <algorithm>
+#include <optional>
 
-namespace p1ll::core {
+namespace p1ll {
 
-compiled_signature compile_signature(const signature_pattern& pattern) {
+std::optional<compiled_signature> compile_signature(const signature_pattern& pattern) {
   auto log = redlog::get_logger("p1ll.signature");
-
-  compiled_signature result;
 
   if (!validate_signature_pattern(pattern)) {
     log.err("invalid signature pattern", redlog::field("pattern", pattern));
-    return result;
+    return std::nullopt;
   }
+
+  compiled_signature result;
 
   std::string normalized = utils::normalize_hex_pattern(pattern);
 
@@ -41,7 +42,7 @@ compiled_signature compile_signature(const signature_pattern& pattern) {
   }
 
   auto wildcard_count = std::count(result.mask.begin(), result.mask.end(), false);
-  std::string visual_pattern = utils::format_compiled_signature(result);
+  std::string visual_pattern = format_compiled_signature(result);
 
   log.trc("compiling signature pattern", redlog::field("input", pattern));
   log.dbg(
@@ -52,15 +53,33 @@ compiled_signature compile_signature(const signature_pattern& pattern) {
   return result;
 }
 
-compiled_patch compile_patch(const patch_pattern& pattern) {
-  auto log = redlog::get_logger("p1ll.signature");
+// pattern visualization
+std::string format_compiled_signature(const compiled_signature& sig) {
+  std::ostringstream result;
+  for (size_t i = 0; i < sig.pattern.size(); i++) {
+    if (sig.mask[i]) {
+      // exact byte (lowercase hex)
+      result << std::hex << std::setw(2) << std::setfill('0') << std::nouppercase << static_cast<int>(sig.pattern[i]);
+    } else {
+      // wildcard
+      result << "??";
+    }
+    if (i < sig.pattern.size() - 1) {
+      result << " ";
+    }
+  }
+  return result.str();
+}
 
-  compiled_patch result;
+std::optional<compiled_patch> compile_patch(const patch_pattern& pattern) {
+  auto log = redlog::get_logger("p1ll.signature");
 
   if (!validate_patch_pattern(pattern)) {
     log.err("invalid patch pattern", redlog::field("pattern", pattern));
-    return result;
+    return std::nullopt;
   }
+
+  compiled_patch result;
 
   std::string normalized = utils::normalize_hex_pattern(pattern);
 
@@ -98,18 +117,25 @@ bool validate_signature_pattern(const signature_pattern& pattern) { return utils
 
 bool validate_patch_pattern(const patch_pattern& pattern) { return utils::is_valid_hex_pattern(pattern); }
 
-signature_query create_signature_query(const signature_pattern& pattern, const signature_query_filter& filter) {
+std::optional<signature_query> create_signature_query(
+    const signature_pattern& pattern, const signature_query_filter& filter
+) {
+  auto compiled_sig = compile_signature(pattern);
+  if (!compiled_sig) {
+    return std::nullopt;
+  }
+
   signature_query query;
-  query.signature = compile_signature(pattern);
+  query.signature = *compiled_sig;
   query.filter = filter;
   return query;
 }
 
-std::string patch_declaration::to_string() const {
+std::string patch_decl::to_string() const {
   std::ostringstream oss;
   oss << "patch(" << signature.pattern << ", offset=" << offset << ", pattern=" << pattern
       << ", required=" << (required ? "true" : "false") << ")";
   return oss.str();
 }
 
-} // namespace p1ll::core
+} // namespace p1ll

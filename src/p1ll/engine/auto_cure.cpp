@@ -12,197 +12,143 @@
 
 namespace p1ll::engine {
 
-auto_cure_engine::auto_cure_engine() : scanner_(std::make_unique<memory_scanner>()) {
+auto_cure::auto_cure(const context& ctx) : context_(ctx), scanner_(std::make_unique<memory_scanner>()) {
 
   auto log = redlog::get_logger("p1ll.auto_cure");
-  log.dbg("initialized auto-cure engine");
+  log.dbg("initialized auto-cure");
 }
 
-core::cure_result auto_cure_engine::execute(
-    const core::cure_metadata& meta, const core::platform_signature_map& signatures,
-    const core::platform_patch_map& patches
+cure_result auto_cure::execute_dynamic_impl(
+    const cure_metadata& meta, const platform_signature_map& signatures, const platform_patch_map& patches
 ) {
   auto log = redlog::get_logger("p1ll.auto_cure");
 
-  // validate and prepare patches
-  auto validation_result = validate_and_prepare_patches(meta, signatures, patches);
-  if (!validation_result.success) {
-    return validation_result;
+  log.inf("starting auto-cure", redlog::field("name", meta.name), redlog::field("platforms", meta.platforms.size()));
+
+  // validate platform signatures for dynamic mode
+  auto platform_signatures = get_platform_signatures(signatures);
+  if (!platform_signatures.empty()) {
+    log.inf("validating platform signatures", redlog::field("count", platform_signatures.size()));
+    if (!validate_signatures_dynamic(platform_signatures)) {
+      cure_result result;
+      result.add_error("signature validation failed: cure cannot apply to this platform");
+      log.err("signature validation failed");
+      return result;
+    }
+    log.inf("signature validation passed");
   }
 
-  core::cure_result result;
-  auto platform_patches = get_platform_patches(patches);
+  auto platform_patches = get_validated_platform_patches(patches);
+  std::vector<std::pair<patch_decl, bool>> patch_results;
 
-  // apply patches in order (each patch contains its own signature)
   for (const auto& patch : platform_patches) {
-    auto compiled_signature_result = compile_and_validate_signature(patch);
+    auto compiled_signature_result = compile_patch_decl(patch);
     if (!compiled_signature_result.has_value()) {
+      // signature compilation failed
       if (patch.required) {
-        result.add_error("failed to compile signature: " + patch.signature.pattern);
-        log.err("failed to compile signature", redlog::field("signature", patch.signature.pattern));
+        cure_result result;
+        result.add_error(redlog::fmt("failed to compile required patch signature: %s", patch.signature.pattern));
+        log.err("required patch signature compilation failed", redlog::field("signature", patch.signature.pattern));
         return result;
       } else {
-        log.warn("failed to compile optional signature", redlog::field("signature", patch.signature.pattern));
-        result.patches_failed++;
+        log.warn(
+            "optional patch signature compilation failed, skipping", redlog::field("signature", patch.signature.pattern)
+        );
         continue;
       }
     }
 
     bool patch_success = apply_patch_dynamic(patch, compiled_signature_result.value());
-
-    if (patch_success) {
-      result.patches_applied++;
-      log.inf(
-          "applied patch", redlog::field("signature", patch.signature.pattern), redlog::field("offset", patch.offset)
-      );
-    } else {
-      result.patches_failed++;
-      if (patch.required) {
-        result.add_error("required patch failed: " + patch.signature.pattern);
-        log.err("required patch failed", redlog::field("signature", patch.signature.pattern));
-        return result;
-      } else {
-        log.warn("optional patch failed", redlog::field("signature", patch.signature.pattern));
-      }
-    }
+    patch_results.emplace_back(patch, patch_success);
   }
 
-  result.success = (result.patches_failed == 0 || result.patches_applied > 0);
-
-  log.inf(
-      "auto-cure completed", redlog::field("success", result.success), redlog::field("applied", result.patches_applied),
-      redlog::field("failed", result.patches_failed)
-  );
-
-  return result;
+  return process_patch_results(patch_results);
 }
 
-core::cure_result auto_cure_engine::execute(const core::cure_config& config) {
-  return execute(config.meta, config.signatures, config.patches);
+cure_result auto_cure::execute_dynamic(const cure_config& config) {
+  auto log = redlog::get_logger("p1ll.auto_cure");
+
+  if (!context_.is_dynamic()) {
+    cure_result result;
+    result.add_error("context is not dynamic: cannot execute dynamic patching");
+    log.err("context validation failed: not dynamic");
+    return result;
+  }
+
+  return execute_dynamic_impl(config.meta, config.signatures, config.patches);
 }
 
-core::cure_result auto_cure_engine::execute_static(
-    const std::string& file_path, const std::string& output_path, const core::cure_config& config
+cure_result auto_cure::execute_static(std::vector<uint8_t>& buffer_data, const cure_config& config) {
+  auto log = redlog::get_logger("p1ll.auto_cure");
+
+  if (context_.is_dynamic()) {
+    cure_result result;
+    result.add_error("context is dynamic: cannot execute static buffer patching");
+    log.err("context validation failed: is dynamic");
+    return result;
+  }
+
+  return execute_static_impl(buffer_data, config.meta, config.signatures, config.patches);
+}
+
+cure_result auto_cure::execute_static_impl(
+    std::vector<uint8_t>& buffer_data, const cure_metadata& meta, const platform_signature_map& signatures,
+    const platform_patch_map& patches
 ) {
   auto log = redlog::get_logger("p1ll.auto_cure");
 
   log.inf(
-      "starting static auto-cure", redlog::field("name", config.meta.name), redlog::field("input", file_path),
-      redlog::field("output", output_path)
-  );
-
-  // read input file
-  auto file_data_result = p1ll::utils::read_file(file_path);
-  if (!file_data_result.has_value()) {
-    core::cure_result result;
-    result.add_error("failed to read input file: " + file_path);
-    return result;
-  }
-  auto file_data = file_data_result.value();
-
-  // execute static patching on file data
-  auto result = execute_static_buffer(file_data, config);
-  if (!result.success) {
-    return result;
-  }
-
-  // write output file
-  auto write_result = p1ll::utils::write_file(output_path, file_data);
-  if (!write_result) {
-    result.add_error("failed to write output file: " + output_path);
-    return result;
-  }
-
-  log.inf(
-      "static auto-cure completed", redlog::field("applied", result.patches_applied),
-      redlog::field("failed", result.patches_failed)
-  );
-
-  return result;
-}
-
-core::cure_result auto_cure_engine::execute_static_buffer(
-    std::vector<uint8_t>& buffer_data, const core::cure_config& config
-) {
-  auto log = redlog::get_logger("p1ll.auto_cure");
-
-  core::cure_result result;
-
-  log.inf(
-      "starting static buffer auto-cure", redlog::field("name", config.meta.name),
+      "starting static buffer auto-cure", redlog::field("name", meta.name),
       redlog::field("buffer_size", buffer_data.size())
   );
 
-  // first validate all platform signatures
-  auto platform_signatures = get_platform_signatures(config.signatures);
+  // validate signatures against buffer
+  auto platform_signatures = get_platform_signatures(signatures);
   if (!platform_signatures.empty()) {
-    log.inf(
-        "validating platform signatures for static buffer cure", redlog::field("count", platform_signatures.size())
-    );
-
-    // for static cure, validate signatures exist in the buffer
-    if (!validate_signatures(platform_signatures, buffer_data)) {
-      result.add_error("signature validation failed - cure cannot apply");
+    log.inf("validating platform signatures against buffer", redlog::field("count", platform_signatures.size()));
+    if (!validate_signatures_static(platform_signatures, buffer_data)) {
+      cure_result result;
+      result.add_error("signature validation failed: cure cannot apply to this buffer");
       log.err("signature validation failed");
       return result;
     }
-
     log.inf("signature validation passed");
-  } else {
-    log.dbg("no platform signatures to validate");
   }
 
-  // get patches for current platform
-  auto platform_patches = get_platform_patches(config.patches);
-  if (platform_patches.empty()) {
-    result.add_error("no patches found for current platform");
-    return result;
-  }
+  auto platform_patches = get_validated_platform_patches(patches);
+  std::vector<std::pair<patch_decl, bool>> patch_results;
 
-  // apply patches to buffer data - each patch contains its own signature
   for (const auto& patch : platform_patches) {
-    auto compiled_signature_result = compile_and_validate_signature(patch);
+    auto compiled_signature_result = compile_patch_decl(patch);
     if (!compiled_signature_result.has_value()) {
+      // signature compilation failed
       if (patch.required) {
-        result.add_error("failed to compile signature: " + patch.signature.pattern);
+        cure_result result;
+        result.add_error(redlog::fmt("failed to compile required patch signature: %s", patch.signature.pattern));
+        log.err("required patch signature compilation failed", redlog::field("signature", patch.signature.pattern));
         return result;
       } else {
-        result.patches_failed++;
+        log.warn(
+            "optional patch signature compilation failed, skipping", redlog::field("signature", patch.signature.pattern)
+        );
         continue;
       }
     }
 
     bool patch_success = apply_patch_static(patch, compiled_signature_result.value(), buffer_data);
-
-    if (patch_success) {
-      result.patches_applied++;
-    } else {
-      result.patches_failed++;
-      if (patch.required) {
-        result.add_error("required patch failed: " + patch.signature.pattern);
-        return result;
-      }
-    }
+    patch_results.emplace_back(patch, patch_success);
   }
 
-  result.success = true;
-
-  log.inf(
-      "static buffer auto-cure completed", redlog::field("applied", result.patches_applied),
-      redlog::field("failed", result.patches_failed)
-  );
-
-  return result;
+  return process_patch_results(patch_results);
 }
 
-std::vector<core::patch_declaration> auto_cure_engine::get_platform_patches(
-    const core::platform_patch_map& patches
-) const {
+std::vector<patch_decl> auto_cure::get_platform_patches(const platform_patch_map& patches) const {
 
   auto log = redlog::get_logger("p1ll.auto_cure");
 
   // get platform hierarchy for matching
-  auto platform_hierarchy = core::get_current_platform_hierarchy();
+  auto& detector = get_platform_detector();
+  auto platform_hierarchy = detector.get_platform_hierarchy_for_context(context_);
 
   log.dbg("checking platform hierarchy", redlog::field("platforms", platform_hierarchy.size()));
 
@@ -222,18 +168,17 @@ std::vector<core::patch_declaration> auto_cure_engine::get_platform_patches(
   return {};
 }
 
-std::vector<core::signature_object> auto_cure_engine::get_platform_signatures(
-    const core::platform_signature_map& signatures
-) const {
+std::vector<signature_decl> auto_cure::get_platform_signatures(const platform_signature_map& signatures) const {
   auto log = redlog::get_logger("p1ll.auto_cure");
 
   // get effective platform (respects override if set)
-  auto current_platform = core::get_effective_platform();
+  auto& detector = get_platform_detector();
+  auto current_platform = detector.get_effective_platform(context_);
 
   // get platform hierarchy (exact -> os wildcard -> universal)
-  auto platform_hierarchy = core::get_platform_hierarchy(current_platform);
+  auto platform_hierarchy = detector.get_platform_hierarchy(current_platform);
 
-  std::vector<core::signature_object> platform_signatures;
+  std::vector<signature_decl> platform_signatures;
 
   // collect signatures from all matching platform keys
   for (const auto& platform_key : platform_hierarchy) {
@@ -255,7 +200,7 @@ std::vector<core::signature_object> auto_cure_engine::get_platform_signatures(
 
   // deduplicate signatures by pattern to avoid redundant validation
   std::unordered_set<std::string> seen_patterns;
-  std::vector<core::signature_object> deduplicated_signatures;
+  std::vector<signature_decl> deduplicated_signatures;
 
   for (const auto& sig : platform_signatures) {
     if (seen_patterns.find(sig.pattern) == seen_patterns.end()) {
@@ -275,72 +220,36 @@ std::vector<core::signature_object> auto_cure_engine::get_platform_signatures(
   return deduplicated_signatures;
 }
 
-bool auto_cure_engine::validate_signatures(const std::vector<core::signature_object>& signatures) {
+bool auto_cure::validate_signatures_dynamic(const std::vector<signature_decl>& signatures) {
   auto log = redlog::get_logger("p1ll.auto_cure");
 
-  // validate all signature patterns are valid
   for (size_t i = 0; i < signatures.size(); ++i) {
     const auto& sig_obj = signatures[i];
 
-    // validate signature pattern
-    if (!core::validate_signature_pattern(sig_obj.pattern)) {
-      log.err("invalid signature pattern", redlog::field("index", i), redlog::field("pattern", sig_obj.pattern));
-      return false;
-    }
-  }
-
-  // validate signatures exist in target memory/file
-  for (size_t i = 0; i < signatures.size(); ++i) {
-    const auto& sig_obj = signatures[i];
-
-    // compile signature for validation
-    auto compiled_sig = core::compile_signature(sig_obj.pattern);
-    if (compiled_sig.empty()) {
-      log.err(
-          "failed to compile signature for validation", redlog::field("index", i),
-          redlog::field("pattern", sig_obj.pattern)
-      );
+    auto compiled_sig = compile_sig_decl(sig_obj);
+    if (!compiled_sig) {
       return false;
     }
 
-    // try to find signature in memory (for dynamic mode) or current context
-    auto current_context = core::get_current_context();
-    if (current_context && current_context->is_dynamic()) {
-      // validate signature exists in memory using the signature's filter if available
-      core::signature_query query;
-      query.signature = compiled_sig;
-      query.filter = sig_obj.filter.value_or(core::signature_query_filter{});
+    // validate signature exists in memory using the signature's filter if available
+    signature_query query;
+    query.signature = *compiled_sig;
+    query.filter = sig_obj.filter.value_or(signature_query_filter{});
 
-      auto search_results = scanner_->search(query);
-      if (!search_results || search_results->empty()) {
-        log.warn("signature not found in memory during validation", redlog::field("pattern", sig_obj.pattern));
-        // note: don't fail validation since signature might be optional
-      } else {
-        // check single match constraint during validation
-        if (sig_obj.single && search_results->size() > 1) {
-          log.err(
-              "signature validation failed: multiple matches found for single signature",
-              redlog::field("pattern", sig_obj.pattern), redlog::field("matches", search_results->size())
+    auto search_results = scanner_->search(query);
+    if (!search_results || search_results->empty()) {
+      log.warn("signature not found in memory during validation", redlog::field("pattern", sig_obj.pattern));
+      // note: don't fail validation since signature might be optional
+    } else {
+      // check single match constraint during validation
+      if (!validate_single_signature_constraint(sig_obj, search_results->size(), "in memory")) {
+        // log all match locations for debugging
+        for (size_t j = 0; j < search_results->size(); ++j) {
+          log.dbg(
+              "match location", redlog::field("index", j + 1), redlog::field("address", (*search_results)[j].address)
           );
-
-          // log all match locations for debugging
-          for (size_t j = 0; j < search_results->size(); ++j) {
-            log.dbg(
-                "match location", redlog::field("index", j + 1), redlog::field("address", (*search_results)[j].address)
-            );
-          }
-
-          log.err(
-              "validation failed: signature marked as 'single' but found multiple matches - this indicates the "
-              "signature pattern is not unique enough"
-          );
-          return false;
         }
-
-        log.dbg(
-            "signature validated in memory", redlog::field("pattern", sig_obj.pattern),
-            redlog::field("matches", search_results->size())
-        );
+        return false;
       }
     }
   }
@@ -349,38 +258,21 @@ bool auto_cure_engine::validate_signatures(const std::vector<core::signature_obj
   return true;
 }
 
-bool auto_cure_engine::validate_signatures(
-    const std::vector<core::signature_object>& signatures, const std::vector<uint8_t>& buffer_data
+bool auto_cure::validate_signatures_static(
+    const std::vector<signature_decl>& signatures, const std::vector<uint8_t>& buffer_data
 ) {
   auto log = redlog::get_logger("p1ll.auto_cure");
 
-  // validate all signature patterns are valid
   for (size_t i = 0; i < signatures.size(); ++i) {
     const auto& sig_obj = signatures[i];
 
-    // validate signature pattern
-    if (!core::validate_signature_pattern(sig_obj.pattern)) {
-      log.err("invalid signature pattern", redlog::field("index", i), redlog::field("pattern", sig_obj.pattern));
-      return false;
-    }
-  }
-
-  // validate signatures exist in static buffer
-  for (size_t i = 0; i < signatures.size(); ++i) {
-    const auto& sig_obj = signatures[i];
-
-    // compile signature for validation
-    auto compiled_sig = core::compile_signature(sig_obj.pattern);
-    if (compiled_sig.empty()) {
-      log.err(
-          "failed to compile signature for validation", redlog::field("index", i),
-          redlog::field("pattern", sig_obj.pattern)
-      );
+    auto compiled_sig = compile_sig_decl(sig_obj);
+    if (!compiled_sig) {
       return false;
     }
 
     // search for signature in buffer data
-    pattern_matcher matcher(compiled_sig);
+    pattern_matcher matcher(*compiled_sig);
     auto offsets = matcher.search_file(buffer_data);
 
     if (offsets.empty()) {
@@ -388,12 +280,7 @@ bool auto_cure_engine::validate_signatures(
       // note: don't fail validation since signature might be optional
     } else {
       // check single match constraint during validation
-      if (sig_obj.single && offsets.size() > 1) {
-        log.err(
-            "signature validation failed: multiple matches found for single signature",
-            redlog::field("pattern", sig_obj.pattern), redlog::field("matches", offsets.size())
-        );
-
+      if (!validate_single_signature_constraint(sig_obj, offsets.size(), "in buffer")) {
         // log all match locations for debugging
         for (size_t j = 0; j < offsets.size(); ++j) {
           log.dbg(
@@ -401,41 +288,22 @@ bool auto_cure_engine::validate_signatures(
               redlog::field("offset", utils::format_address(offsets[j]))
           );
         }
-
-        log.err(
-            "validation failed: signature marked as 'single' but found multiple matches - this indicates the signature "
-            "pattern is not unique enough"
-        );
         return false;
-      }
-
-      log.dbg(
-          "signature validated in buffer", redlog::field("pattern", sig_obj.pattern),
-          redlog::field("matches", offsets.size())
-      );
-      // log first match for debugging
-      if (!offsets.empty()) {
-        log.dbg(
-            "first signature match", redlog::field("pattern", sig_obj.pattern),
-            redlog::field("offset", utils::format_address(offsets[0]))
-        );
       }
     }
   }
 
-  log.dbg("signature validation passed", redlog::field("count", signatures.size()));
+  log.dbg("static signature validation passed", redlog::field("count", signatures.size()));
   return true;
 }
 
-bool auto_cure_engine::apply_patch_dynamic(
-    const core::patch_declaration& patch, const core::compiled_signature& signature
-) {
+bool auto_cure::apply_patch_dynamic(const patch_decl& patch, const compiled_signature& signature) {
   auto log = redlog::get_logger("p1ll.auto_cure");
 
   // search for signature across memory regions
-  core::signature_query query;
+  signature_query query;
   query.signature = signature;
-  query.filter = patch.signature.filter.value_or(core::signature_query_filter{});
+  query.filter = patch.signature.filter.value_or(signature_query_filter{});
 
   auto search_results_result = scanner_->search(query);
   if (!search_results_result) {
@@ -449,53 +317,37 @@ bool auto_cure_engine::apply_patch_dynamic(
   }
 
   // check single match enforcement
-  if (patch.signature.single && search_results.size() > 1) {
-    log.err(
-        "multiple matches found for single signature", redlog::field("signature", patch.signature),
-        redlog::field("matches", search_results.size())
-    );
-
+  if (!validate_single_signature_constraint(patch.signature, search_results.size(), "in memory")) {
     // log all match locations for debugging
     for (size_t i = 0; i < search_results.size(); ++i) {
       log.dbg("match location", redlog::field("index", i + 1), redlog::field("address", search_results[i].address));
     }
-
     return false;
   }
 
-  // apply patch based on signature behavior
-  // single=true: we have exactly one match, patch it
-  // single=false: patch all matches found (default behavior)
-  std::vector<size_t> target_indices;
-
-  if (patch.signature.single) {
-    // single match mode - we already validated exactly one match exists
-    target_indices.push_back(0);
-    log.dbg("applying patch to single match");
-  } else {
-    // default behavior: patch all matches
-    for (size_t i = 0; i < search_results.size(); ++i) {
-      target_indices.push_back(i);
-    }
-    log.dbg("applying patch to all matches", redlog::field("count", search_results.size()));
-  }
-
   // compile patch data once for all applications
-  auto compiled_patch = core::compile_patch(patch.pattern);
-  if (compiled_patch.empty()) {
+  auto compiled_patch_opt = compile_patch(patch.pattern);
+  if (!compiled_patch_opt) {
     log.err("failed to compile patch pattern", redlog::field("pattern", patch.pattern));
     return false;
   }
 
-  // extract bytes to write (only those marked in mask)
+  auto compiled_patch = *compiled_patch_opt;
   auto patch_bytes = extract_patch_bytes(compiled_patch);
 
   bool any_success = false;
-  for (size_t idx : target_indices) {
-    auto& result = search_results[idx];
+  size_t patch_count = patch.signature.single ? 1 : search_results.size();
+
+  log.dbg(
+      patch.signature.single ? "applying patch to single match" : "applying patch to all matches",
+      redlog::field("count", patch_count)
+  );
+
+  for (size_t i = 0; i < patch_count; ++i) {
+    auto& result = search_results[i];
     uint64_t patch_address = result.address + patch.offset;
 
-    log.dbg("applying patch to match", redlog::field("index", idx), redlog::field("address", patch_address));
+    log.dbg("applying patch to match", redlog::field("index", i), redlog::field("address", patch_address));
 
     bool patch_success = apply_single_patch_to_address(patch, patch_bytes, patch_address);
     if (patch_success) {
@@ -503,11 +355,11 @@ bool auto_cure_engine::apply_patch_dynamic(
     }
   }
 
-  return any_success || !patch.required;
+  return any_success;
 }
 
-bool auto_cure_engine::apply_patch_static(
-    const core::patch_declaration& patch, const core::compiled_signature& signature, std::vector<uint8_t>& file_data
+bool auto_cure::apply_patch_static(
+    const patch_decl& patch, const compiled_signature& signature, std::vector<uint8_t>& file_data
 ) {
   auto log = redlog::get_logger("p1ll.auto_cure");
 
@@ -542,17 +394,19 @@ bool auto_cure_engine::apply_patch_static(
   }
 
   // compile patch data
-  auto compiled_patch = core::compile_patch(patch.pattern);
-  if (compiled_patch.empty()) {
+  auto compiled_patch_opt = compile_patch(patch.pattern);
+  if (!compiled_patch_opt) {
     log.err("failed to compile patch pattern", redlog::field("pattern", patch.pattern));
     return false;
   }
 
+  auto compiled_patch = *compiled_patch_opt;
+
   // check bounds
-  if (patch_offset + compiled_patch.size() > file_data.size()) {
+  if (patch_offset + compiled_patch.data.size() > file_data.size()) {
     log.err(
         "patch would exceed file bounds", redlog::field("offset", patch_offset),
-        redlog::field("patch_size", compiled_patch.size()), redlog::field("file_size", file_data.size())
+        redlog::field("patch_size", compiled_patch.data.size()), redlog::field("file_size", file_data.size())
     );
     return false;
   }
@@ -582,18 +436,11 @@ bool auto_cure_engine::apply_patch_static(
       redlog::field("offset", utils::format_address(patch_offset))
   );
 
-  // show beautiful patch hexdump at debug level
+  // show beautiful patch hexdump
   if (redlog::get_level() <= redlog::level::debug) {
     // pass aligned context with the aligned start as base offset
     std::string patch_hexdump = utils::format_patch_hexdump(original_context, patched_context, aligned_start);
-    log.dbg(
-        "patch hexdump", redlog::field("offset", utils::format_address(patch_offset)),
-        redlog::field("size", compiled_patch.data.size())
-    );
-    // output the hexdump directly to stderr to preserve formatting
-    if (!patch_hexdump.empty()) {
-      std::fprintf(stderr, "%s", patch_hexdump.c_str());
-    }
+    log.vrb(redlog::fmt("patch\n%s", patch_hexdump));
   }
 
   log.dbg(
@@ -604,58 +451,108 @@ bool auto_cure_engine::apply_patch_static(
   return true;
 }
 
-core::cure_result auto_cure_engine::validate_and_prepare_patches(
-    const core::cure_metadata& meta, const core::platform_signature_map& signatures,
-    const core::platform_patch_map& patches
-) {
-
+std::vector<patch_decl> auto_cure::get_validated_platform_patches(const platform_patch_map& patches) {
   auto log = redlog::get_logger("p1ll.auto_cure");
-  core::cure_result result;
-
-  log.inf("starting auto-cure", redlog::field("name", meta.name), redlog::field("platforms", meta.platforms.size()));
-
-  // validate all platform signatures
-  auto platform_signatures = get_platform_signatures(signatures);
-  if (!platform_signatures.empty()) {
-    log.inf("validating platform signatures", redlog::field("count", platform_signatures.size()));
-
-    if (!validate_signatures(platform_signatures)) {
-      result.add_error("signature validation failed - cure cannot apply to this platform");
-      log.err("signature validation failed");
-      return result;
-    }
-
-    log.inf("signature validation passed");
-  } else {
-    log.dbg("no platform signatures to validate");
-  }
-
-  // get patches for current platform
   auto platform_patches = get_platform_patches(patches);
+
   if (platform_patches.empty()) {
-    result.add_error("no patches found for current platform");
     log.err("no patches for current platform");
-    return result;
+  } else {
+    log.inf("found platform patches", redlog::field("count", platform_patches.size()));
   }
 
-  log.inf("found platform patches", redlog::field("count", platform_patches.size()));
-  result.success = true; // validation passed
+  return platform_patches;
+}
+
+cure_result auto_cure::process_patch_results(const std::vector<std::pair<patch_decl, bool>>& patch_results) {
+  auto log = redlog::get_logger("p1ll.auto_cure");
+  cure_result result;
+
+  for (const auto& [patch, success] : patch_results) {
+    if (success) {
+      result.patches_applied++;
+      log.inf(
+          "applied patch", redlog::field("signature", patch.signature.pattern), redlog::field("offset", patch.offset)
+      );
+    } else {
+      result.patches_failed++;
+      if (patch.required) {
+        result.add_error(redlog::fmt("required patch failed: %s", patch.signature.pattern));
+        log.err("required patch failed", redlog::field("signature", patch.signature.pattern));
+        return result;
+      } else {
+        log.warn("optional patch failed", redlog::field("signature", patch.signature.pattern));
+      }
+    }
+  }
+
+  result.success = (result.patches_failed == 0 || result.patches_applied > 0);
+  log.inf(
+      "auto-cure completed", redlog::field("success", result.success), redlog::field("applied", result.patches_applied),
+      redlog::field("failed", result.patches_failed)
+  );
+
   return result;
 }
 
-std::optional<core::compiled_signature> auto_cure_engine::compile_and_validate_signature(
-    const core::patch_declaration& patch
-) {
-  auto compiled_signature = core::compile_signature(patch.signature.pattern);
-  if (compiled_signature.empty()) {
-    return std::nullopt;
+std::optional<compiled_signature> auto_cure::compile_patch_decl(const patch_decl& patch) {
+  auto log = redlog::get_logger("p1ll.auto_cure");
+  auto compiled_sig = compile_signature(patch.signature.pattern);
+  if (!compiled_sig) {
+    if (patch.required) {
+      log.err("failed to compile signature", redlog::field("signature", patch.signature.pattern));
+    } else {
+      log.warn("failed to compile optional signature", redlog::field("signature", patch.signature.pattern));
+    }
   }
-  return compiled_signature;
+  return compiled_sig;
 }
 
-memory_protection auto_cure_engine::calculate_write_protection(
-    memory_protection current_protection, bool is_executable
+std::optional<compiled_signature> auto_cure::compile_sig_decl(const signature_decl& sig_obj) {
+  auto log = redlog::get_logger("p1ll.auto_cure");
+
+  if (!validate_signature_pattern(sig_obj.pattern)) {
+    log.err("invalid signature pattern", redlog::field("pattern", sig_obj.pattern));
+    return std::nullopt;
+  }
+
+  auto compiled_sig = compile_signature(sig_obj.pattern);
+  if (!compiled_sig) {
+    log.err("failed to compile signature for validation", redlog::field("pattern", sig_obj.pattern));
+    return std::nullopt;
+  }
+
+  return compiled_sig;
+}
+
+bool auto_cure::validate_single_signature_constraint(
+    const signature_decl& sig_obj, size_t match_count, const std::string& context_desc
 ) {
+  auto log = redlog::get_logger("p1ll.auto_cure");
+
+  if (sig_obj.single && match_count > 1) {
+    log.err(
+        "signature validation failed: multiple matches found for single signature",
+        redlog::field("pattern", sig_obj.pattern), redlog::field("matches", match_count)
+    );
+    log.err(
+        "validation failed: signature marked as 'single' but found multiple matches: the "
+        "signature pattern is not unique enough"
+    );
+    return false;
+  }
+
+  if (match_count > 0) {
+    log.dbg(
+        redlog::fmt("signature validated %s", context_desc), redlog::field("pattern", sig_obj.pattern),
+        redlog::field("matches", match_count)
+    );
+  }
+
+  return true;
+}
+
+memory_protection auto_cure::calculate_write_protection(memory_protection current_protection, bool is_executable) {
   if (is_executable) {
     // W^X compliance: remove execute, add write
     return static_cast<memory_protection>(
@@ -668,7 +565,7 @@ memory_protection auto_cure_engine::calculate_write_protection(
   }
 }
 
-std::vector<uint8_t> auto_cure_engine::extract_patch_bytes(const core::compiled_patch& compiled_patch) {
+std::vector<uint8_t> auto_cure::extract_patch_bytes(const compiled_patch& compiled_patch) {
   std::vector<uint8_t> patch_bytes;
   for (size_t i = 0; i < compiled_patch.data.size(); ++i) {
     if (compiled_patch.mask[i]) {
@@ -678,8 +575,8 @@ std::vector<uint8_t> auto_cure_engine::extract_patch_bytes(const core::compiled_
   return patch_bytes;
 }
 
-bool auto_cure_engine::apply_single_patch_to_address(
-    const core::patch_declaration& patch, const std::vector<uint8_t>& patch_bytes, uint64_t patch_address
+bool auto_cure::apply_single_patch_to_address(
+    const patch_decl& patch, const std::vector<uint8_t>& patch_bytes, uint64_t patch_address
 ) {
 
   auto log = redlog::get_logger("p1ll.auto_cure");
@@ -695,7 +592,7 @@ bool auto_cure_engine::apply_single_patch_to_address(
       return false;
     } else {
       log.warn(
-          "failed to get memory protection for optional patch - skipping",
+          "failed to get memory protection for optional patch, skipping",
           redlog::field("signature", patch.signature.pattern), redlog::field("address", patch_address)
       );
       return true; // optional patch failure is not fatal
@@ -727,7 +624,7 @@ bool auto_cure_engine::apply_single_patch_to_address(
           "failed to change memory protection", redlog::field("signature", patch.signature.pattern),
           redlog::field("address", patch_address)
       );
-      return patch.required ? false : true;
+      return !patch.required;
     }
   }
 
@@ -754,7 +651,7 @@ bool auto_cure_engine::apply_single_patch_to_address(
     if (needs_protection_change) {
       scanner_->set_memory_protection(patch_address, patch_bytes.size(), original_protection);
     }
-    return patch.required ? false : true;
+    return !patch.required;
   }
 
   auto original_bytes = *original_data_result;
@@ -769,7 +666,7 @@ bool auto_cure_engine::apply_single_patch_to_address(
       patch_success = std::equal(patch_bytes.begin(), patch_bytes.end(), written_bytes.begin());
 
       if (patch_success) {
-        // show beautiful patch hexdump at debug level
+        // show beautiful patch hexdump
         if (redlog::get_level() <= redlog::level::debug) {
           if (has_context) {
             // read the modified context
@@ -778,39 +675,20 @@ bool auto_cure_engine::apply_single_patch_to_address(
               auto modified_context = *modified_context_result;
               std::string patch_hexdump =
                   utils::format_patch_hexdump(original_context, modified_context, aligned_start);
-              log.dbg(
-                  "dynamic patch hexdump", redlog::field("address", utils::format_address(patch_address)),
-                  redlog::field("size", patch_bytes.size())
-              );
-              // output the hexdump directly to stderr to preserve formatting
-              if (!patch_hexdump.empty()) {
-                std::fprintf(stderr, "%s", patch_hexdump.c_str());
-              }
+              log.vrb(redlog::fmt("patch\n%s", patch_hexdump));
             } else {
               // fallback to just patch bytes
               std::string patch_hexdump = utils::format_patch_hexdump(original_bytes, written_bytes, patch_address);
-              log.dbg(
-                  "dynamic patch hexdump", redlog::field("address", utils::format_address(patch_address)),
-                  redlog::field("size", patch_bytes.size())
-              );
-              if (!patch_hexdump.empty()) {
-                std::fprintf(stderr, "%s", patch_hexdump.c_str());
-              }
+              log.vrb(redlog::fmt("patch\n%s", patch_hexdump));
             }
           } else {
             // fallback to just patch bytes
             std::string patch_hexdump = utils::format_patch_hexdump(original_bytes, written_bytes, patch_address);
-            log.dbg(
-                "dynamic patch hexdump", redlog::field("address", utils::format_address(patch_address)),
-                redlog::field("size", patch_bytes.size())
-            );
-            if (!patch_hexdump.empty()) {
-              std::fprintf(stderr, "%s", patch_hexdump.c_str());
-            }
+            log.vrb(redlog::fmt("patch\n%s", patch_hexdump));
           }
         }
       } else {
-        log.err("patch verification failed - restoring original bytes", redlog::field("address", patch_address));
+        log.err("patch verification failed, restoring original bytes", redlog::field("address", patch_address));
         scanner_->write_memory(patch_address, original_bytes);
       }
     }

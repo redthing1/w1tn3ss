@@ -19,9 +19,14 @@
 #include "bindings/signature_scanning.hpp"
 #include "bindings/calling_convention.hpp"
 #include "bindings/symbol_resolution.hpp"
+#include "bindings/gadget_execution.hpp"
 
 namespace w1::hooking {
 class hook_manager;
+}
+
+namespace w1tn3ss::gadget {
+class gadget_executor;
 }
 
 namespace w1::tracers::script {
@@ -51,7 +56,8 @@ namespace w1::tracers::script {
  */
 void setup_qbdi_bindings(
     sol::state& lua, sol::table& tracer_table, std::shared_ptr<bindings::api_analysis_manager>& api_manager,
-    std::shared_ptr<w1::hooking::hook_manager>& hook_manager
+    std::shared_ptr<w1::hooking::hook_manager>& hook_manager,
+    std::shared_ptr<w1tn3ss::gadget::gadget_executor>& gadget_executor
 );
 
 } // namespace w1::tracers::script

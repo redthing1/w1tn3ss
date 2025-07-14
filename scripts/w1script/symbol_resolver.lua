@@ -6,7 +6,7 @@ local unique_symbols = {}
 
 local tracer = {}
 
-function tracer.on_instruction_postinst(vm, gpr, fpr)
+function tracer.on_instruction_preinst(vm, gpr, fpr)
     instruction_count = instruction_count + 1
 
     -- get program counter

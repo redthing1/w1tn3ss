@@ -255,4 +255,137 @@ std::vector<double> x86_64_microsoft::extract_float_args(const extraction_contex
   return args;
 }
 
+void x86_64_microsoft::set_integer_args(
+    QBDI::GPRState* gpr, const std::vector<uint64_t>& args,
+    std::function<void(uint64_t addr, uint64_t value)> stack_writer
+) const {
+  // set arguments in rcx, rdx, r8, r9 registers
+  if (args.size() > 0) {
+    gpr->rcx = args[0];
+  }
+  if (args.size() > 1) {
+    gpr->rdx = args[1];
+  }
+  if (args.size() > 2) {
+    gpr->r8 = args[2];
+  }
+  if (args.size() > 3) {
+    gpr->r9 = args[3];
+  }
+
+  // remaining arguments go on stack after shadow space
+  if (args.size() > max_reg_args && stack_writer) {
+    // stack args start after shadow space (32 bytes) and return address (8 bytes)
+    uint64_t sp = gpr->rsp;
+    for (size_t i = max_reg_args; i < args.size(); i++) {
+      uint64_t stack_offset = 40 + (i - max_reg_args) * 8;
+      stack_writer(sp + stack_offset, args[i]);
+    }
+  }
+}
+
+void x86_64_microsoft::set_typed_args(
+    QBDI::GPRState* gpr, QBDI::FPRState* fpr, const std::vector<typed_arg>& args,
+    std::function<void(uint64_t addr, uint64_t value)> stack_writer
+) const {
+  size_t reg_idx = 0;
+  size_t stack_offset = 40; // after shadow space (32) + return addr (8)
+
+  for (const auto& arg : args) {
+    if (reg_idx < max_reg_args) {
+      // arguments go in registers based on position, not type
+      switch (arg.type) {
+      case arg_type::INTEGER:
+      case arg_type::POINTER:
+      case arg_type::STRUCT_BY_REF:
+      case arg_type::SIMD:            // passed by reference
+      case arg_type::STRUCT_BY_VALUE: // passed by reference if > 8 bytes
+        // set in integer register
+        switch (reg_idx) {
+        case 0:
+          gpr->rcx = arg.value.integer;
+          break;
+        case 1:
+          gpr->rdx = arg.value.integer;
+          break;
+        case 2:
+          gpr->r8 = arg.value.integer;
+          break;
+        case 3:
+          gpr->r9 = arg.value.integer;
+          break;
+        }
+        break;
+
+      case arg_type::FLOAT:
+        // set in xmm register at same position
+        set_xmm_float(fpr, reg_idx, arg.value.f32);
+        // also set integer register for varargs compatibility
+        switch (reg_idx) {
+        case 0:
+          memcpy(&gpr->rcx, &arg.value.f32, sizeof(float));
+          break;
+        case 1:
+          memcpy(&gpr->rdx, &arg.value.f32, sizeof(float));
+          break;
+        case 2:
+          memcpy(&gpr->r8, &arg.value.f32, sizeof(float));
+          break;
+        case 3:
+          memcpy(&gpr->r9, &arg.value.f32, sizeof(float));
+          break;
+        }
+        break;
+
+      case arg_type::DOUBLE:
+        // set in xmm register at same position
+        set_xmm_double(fpr, reg_idx, arg.value.f64);
+        // also set integer register for varargs compatibility
+        switch (reg_idx) {
+        case 0:
+          memcpy(&gpr->rcx, &arg.value.f64, sizeof(double));
+          break;
+        case 1:
+          memcpy(&gpr->rdx, &arg.value.f64, sizeof(double));
+          break;
+        case 2:
+          memcpy(&gpr->r8, &arg.value.f64, sizeof(double));
+          break;
+        case 3:
+          memcpy(&gpr->r9, &arg.value.f64, sizeof(double));
+          break;
+        }
+        break;
+      }
+      reg_idx++;
+    } else if (stack_writer) {
+      // set on stack
+      switch (arg.type) {
+      case arg_type::INTEGER:
+      case arg_type::POINTER:
+      case arg_type::STRUCT_BY_REF:
+      case arg_type::SIMD:
+      case arg_type::STRUCT_BY_VALUE:
+        stack_writer(gpr->rsp + stack_offset, arg.value.integer);
+        break;
+
+      case arg_type::FLOAT: {
+        uint64_t val = 0;
+        memcpy(&val, &arg.value.f32, sizeof(float));
+        stack_writer(gpr->rsp + stack_offset, val);
+        break;
+      }
+
+      case arg_type::DOUBLE: {
+        uint64_t val;
+        memcpy(&val, &arg.value.f64, sizeof(double));
+        stack_writer(gpr->rsp + stack_offset, val);
+        break;
+      }
+      }
+      stack_offset += 8;
+    }
+  }
+}
+
 } // namespace w1::abi::conventions

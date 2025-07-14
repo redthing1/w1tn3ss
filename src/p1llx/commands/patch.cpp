@@ -1,7 +1,6 @@
 #include "patch.hpp"
 #include <p1ll/p1ll.hpp>
 #include <p1ll/core/signature.hpp>
-#include <p1ll/utils/hex_utils.hpp>
 #include <redlog.hpp>
 #include <fstream>
 #include <iostream>
@@ -58,18 +57,20 @@ int patch(
     }
 
     // compile patch
-    auto compiled_patch = p1ll::core::compile_patch(replace_data);
-    if (compiled_patch.empty()) {
+    auto compiled_patch_opt = p1ll::compile_patch(replace_data);
+    if (!compiled_patch_opt) {
       log.err("failed to compile patch", redlog::field("pattern", replace_data));
       std::cerr << "error: failed to compile patch pattern: " << replace_data << std::endl;
       return 1;
     }
 
+    auto compiled_patch = *compiled_patch_opt;
+
     // check bounds
-    if (address + compiled_patch.size() > file_data.size()) {
+    if (address + compiled_patch.data.size() > file_data.size()) {
       log.err(
           "patch would exceed file bounds", redlog::field("address", address),
-          redlog::field("patch_size", compiled_patch.size()), redlog::field("file_size", file_data.size())
+          redlog::field("patch_size", compiled_patch.data.size()), redlog::field("file_size", file_data.size())
       );
       std::cerr << "error: patch would exceed file bounds" << std::endl;
       return 1;

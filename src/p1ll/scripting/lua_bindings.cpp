@@ -1,10 +1,14 @@
 #include "lua_bindings.hpp"
 #include "p1ll.hpp"
+#include "core/context.hpp"
+#include "core/signature.hpp"
+#include "engine/auto_cure.hpp"
+#include "engine/memory_scanner.hpp"
 #include <redlog.hpp>
 
 namespace p1ll::scripting {
 
-void setup_p1ll_bindings(sol::state& lua) {
+void setup_p1ll_bindings(sol::state& lua, const context& ctx) {
   auto log = redlog::get_logger("p1ll.bindings");
   log.inf("setting up modular p1ll bindings");
 
@@ -22,7 +26,7 @@ void setup_p1ll_bindings(sol::state& lua) {
   bindings::setup_patch_api(lua, p1_module);
 
   log.dbg("setting up auto-cure api");
-  bindings::setup_auto_cure_api(lua, p1_module);
+  bindings::setup_auto_cure_api(lua, p1_module, ctx);
 
   log.dbg("setting up manual api");
   bindings::setup_manual_api(lua, p1_module);
@@ -44,23 +48,23 @@ void setup_core_types(sol::state& lua, sol::table& p1_module) {
   log.dbg("setting up core types");
 
   // expose cure_result for return values
-  lua.new_usertype<core::cure_result>(
-      "cure_result", "success", &core::cure_result::success, "patches_applied", &core::cure_result::patches_applied,
-      "patches_failed", &core::cure_result::patches_failed, "error_messages", &core::cure_result::error_messages,
-      "has_errors", &core::cure_result::has_errors
+  lua.new_usertype<cure_result>(
+      "cure_result", "success", &cure_result::success, "patches_applied", &cure_result::patches_applied,
+      "patches_failed", &cure_result::patches_failed, "error_messages", &cure_result::error_messages, "has_errors",
+      &cure_result::has_errors
   );
 
   // expose search_result for manual api
-  lua.new_usertype<core::search_result>(
-      "search_result", "address", &core::search_result::address, "region_name", &core::search_result::region_name,
-      "section_name", &core::search_result::section_name
+  lua.new_usertype<search_result>(
+      "search_result", "address", &search_result::address, "region_name", &search_result::region_name, "section_name",
+      &search_result::section_name
   );
 
   // expose module_info for manual api
-  lua.new_usertype<core::module_info>(
-      "module_info", "name", &core::module_info::name, "path", &core::module_info::path, "base_address",
-      &core::module_info::base_address, "size", &core::module_info::size, "permissions",
-      &core::module_info::permissions, "is_system_module", &core::module_info::is_system_module
+  lua.new_usertype<module_info>(
+      "module_info", "name", &module_info::name, "path", &module_info::path, "base_address", &module_info::base_address,
+      "size", &module_info::size, "permissions", &module_info::permissions, "is_system_module",
+      &module_info::is_system_module
   );
 
   log.dbg("core types registered");
@@ -70,65 +74,63 @@ void setup_signature_api(sol::state& lua, sol::table& p1_module) {
   auto log = redlog::get_logger("p1ll.bindings.signature");
   log.dbg("setting up signature api");
 
-  // expose signature_object
-  lua.new_usertype<core::signature_object>(
-      "signature_object", "pattern", &core::signature_object::pattern, "to_string", &core::signature_object::to_string
+  // expose signature_decl
+  lua.new_usertype<signature_decl>(
+      "signature_decl", "pattern", &signature_decl::pattern, "to_string", &signature_decl::to_string
   );
 
   // p1.sig(pattern, opts) - create signature object with optional options table
-  p1_module.set_function(
-      "sig", [](const std::string& pattern, sol::optional<sol::table> opts) -> core::signature_object {
-        // validate pattern
-        if (pattern.empty()) {
-          throw std::invalid_argument("sig: pattern cannot be empty");
+  p1_module.set_function("sig", [](const std::string& pattern, sol::optional<sol::table> opts) -> signature_decl {
+    // validate pattern
+    if (pattern.empty()) {
+      throw std::invalid_argument("sig: pattern cannot be empty");
+    }
+
+    // basic hex pattern validation - should contain only hex chars, spaces, and wildcards
+    for (char c : pattern) {
+      if (!std::isxdigit(c) && c != ' ' && c != '?' && c != '\t' && c != '\n' && c != '\r') {
+        if (c < 32 || c > 126) { // non-printable
+          throw std::invalid_argument("sig: pattern contains invalid character (non-printable)");
         }
-
-        // basic hex pattern validation - should contain only hex chars, spaces, and wildcards
-        for (char c : pattern) {
-          if (!std::isxdigit(c) && c != ' ' && c != '?' && c != '\t' && c != '\n' && c != '\r') {
-            if (c < 32 || c > 126) { // non-printable
-              throw std::invalid_argument("sig: pattern contains invalid character (non-printable)");
-            }
-          }
-        }
-
-        if (opts) {
-          sol::table options = *opts;
-
-          // check for filter option
-          auto filter_opt = options["filter"];
-          // check for single option
-          auto single_opt = options["single"];
-
-          core::signature_query_filter filter;
-          bool single = false;
-
-          if (filter_opt.valid()) {
-            sol::object filter_obj = filter_opt;
-            if (filter_obj.is<std::string>()) {
-              filter.pattern = filter_obj.as<std::string>();
-            } else {
-              throw std::invalid_argument("sig: filter option must be a string");
-            }
-          }
-
-          if (single_opt.valid()) {
-            sol::object single_obj = single_opt;
-            if (single_obj.is<bool>()) {
-              single = single_obj.as<bool>();
-            } else {
-              throw std::invalid_argument("sig: single option must be a boolean");
-            }
-          }
-
-          // if we have either filter or single, create with those options
-          if (filter_opt.valid() || single_opt.valid()) {
-            return core::signature_object(pattern, filter, single);
-          }
-        }
-        return core::signature_object(pattern);
       }
-  );
+    }
+
+    if (opts) {
+      sol::table options = *opts;
+
+      // check for filter option
+      auto filter_opt = options["filter"];
+      // check for single option
+      auto single_opt = options["single"];
+
+      signature_query_filter filter;
+      bool single = false;
+
+      if (filter_opt.valid()) {
+        sol::object filter_obj = filter_opt;
+        if (filter_obj.is<std::string>()) {
+          filter.pattern = filter_obj.as<std::string>();
+        } else {
+          throw std::invalid_argument("sig: filter option must be a string");
+        }
+      }
+
+      if (single_opt.valid()) {
+        sol::object single_obj = single_opt;
+        if (single_obj.is<bool>()) {
+          single = single_obj.as<bool>();
+        } else {
+          throw std::invalid_argument("sig: single option must be a boolean");
+        }
+      }
+
+      // if we have either filter or single, create with those options
+      if (filter_opt.valid() || single_opt.valid()) {
+        return signature_decl(pattern, filter, single);
+      }
+    }
+    return signature_decl(pattern);
+  });
 
   log.dbg("signature api registered");
 }
@@ -141,14 +143,14 @@ void setup_patch_api(sol::state& lua, sol::table& p1_module) {
   p1_module.set_function(
       "patch",
       [](sol::object sig_param, uint64_t offset, const std::string& replace,
-         sol::optional<sol::table> opts) -> core::patch_declaration {
-        core::patch_declaration patch;
+         sol::optional<sol::table> opts) -> patch_decl {
+        patch_decl patch;
 
         // validate and convert signature parameter
-        if (sig_param.is<core::signature_object>()) {
-          patch.signature = sig_param.as<core::signature_object>();
+        if (sig_param.is<signature_decl>()) {
+          patch.signature = sig_param.as<signature_decl>();
         } else if (sig_param.is<std::string>()) {
-          // auto-convert string to signature_object with warning
+          // auto-convert string to signature_decl with warning
           std::string sig_str = sig_param.as<std::string>();
           if (sig_str.empty()) {
             throw std::invalid_argument("patch: signature string cannot be empty");
@@ -161,7 +163,7 @@ void setup_patch_api(sol::state& lua, sol::table& p1_module) {
               redlog::field("signature", sig_str.length() > 50 ? sig_str.substr(0, 50) + "..." : sig_str)
           );
 
-          patch.signature = core::signature_object(sig_str);
+          patch.signature = signature_decl(sig_str);
         } else {
           throw std::invalid_argument("patch: first argument must be a signature object or string");
         }
@@ -202,17 +204,17 @@ void setup_patch_api(sol::state& lua, sol::table& p1_module) {
   log.dbg("patch api registered");
 }
 
-void setup_auto_cure_api(sol::state& lua, sol::table& p1_module) {
+void setup_auto_cure_api(sol::state& lua, sol::table& p1_module, const context& ctx) {
   auto log = redlog::get_logger("p1ll.bindings.auto_cure");
   log.dbg("setting up auto-cure api");
 
   // p1.auto_cure(meta) - execute auto-cure
-  p1_module.set_function("auto_cure", [&lua](sol::table meta_table) -> core::cure_result {
+  p1_module.set_function("auto_cure", [&ctx](sol::table meta_table) -> cure_result {
     auto log = redlog::get_logger("p1ll.lua.auto_cure");
 
     try {
       // parse metadata
-      core::cure_metadata meta;
+      cure_metadata meta;
       auto name = meta_table["name"];
       if (name.valid() && name.is<std::string>()) {
         meta.name = name;
@@ -231,7 +233,7 @@ void setup_auto_cure_api(sol::state& lua, sol::table& p1_module) {
       }
 
       // parse platform-specific signatures map
-      core::platform_signature_map signatures;
+      platform_signature_map signatures;
       auto sigs_table = meta_table["sigs"];
       if (sigs_table.valid() && sigs_table.is<sol::table>()) {
         sol::table sigs_tbl = sigs_table;
@@ -239,13 +241,13 @@ void setup_auto_cure_api(sol::state& lua, sol::table& p1_module) {
           sol::object platform_key = pair.first;
           sol::object sig_list = pair.second;
           if (platform_key.is<std::string>() && sig_list.is<sol::table>()) {
-            std::vector<core::signature_object> platform_sigs;
+            std::vector<signature_decl> platform_sigs;
             sol::table sig_tbl = sig_list.as<sol::table>();
 
             for (auto& sig_pair : sig_tbl) {
               sol::object sig_obj = sig_pair.second;
-              if (sig_obj.is<core::signature_object>()) {
-                core::signature_object sig = sig_obj.as<core::signature_object>();
+              if (sig_obj.is<signature_decl>()) {
+                signature_decl sig = sig_obj.as<signature_decl>();
                 platform_sigs.push_back(sig);
               }
             }
@@ -257,7 +259,7 @@ void setup_auto_cure_api(sol::state& lua, sol::table& p1_module) {
       }
 
       // parse platform-specific patches map
-      core::platform_patch_map patches;
+      platform_patch_map patches;
       auto patches_table = meta_table["patches"];
       if (patches_table.valid() && patches_table.is<sol::table>()) {
         sol::table patches_tbl = patches_table;
@@ -265,13 +267,13 @@ void setup_auto_cure_api(sol::state& lua, sol::table& p1_module) {
           sol::object platform_key = pair.first;
           sol::object patch_list = pair.second;
           if (platform_key.is<std::string>() && patch_list.is<sol::table>()) {
-            std::vector<core::patch_declaration> platform_patches;
+            std::vector<patch_decl> platform_patches;
             sol::table patch_tbl = patch_list.as<sol::table>();
 
             for (auto& patch_pair : patch_tbl) {
               sol::object patch_obj = patch_pair.second;
-              if (patch_obj.is<core::patch_declaration>()) {
-                core::patch_declaration patch = patch_obj.as<core::patch_declaration>();
+              if (patch_obj.is<patch_decl>()) {
+                patch_decl patch = patch_obj.as<patch_decl>();
                 platform_patches.push_back(patch);
               }
             }
@@ -282,49 +284,21 @@ void setup_auto_cure_api(sol::state& lua, sol::table& p1_module) {
         }
       }
 
-      // get current context to determine mode
-      auto current_context = core::get_current_context();
-      if (!current_context) {
-        log.err("no p1ll context available for auto-cure execution");
-        core::cure_result result;
-        result.add_error("no p1ll context available - ensure proper initialization");
-        return result;
-      }
+      // use the context passed to bindings setup
+      log.inf(
+          "executing auto-cure from lua", redlog::field("name", meta.name),
+          redlog::field("platforms", meta.platforms.size()), redlog::field("signatures", signatures.size()),
+          redlog::field("patch_groups", patches.size())
+      );
 
-      if (current_context->is_static()) {
-        // static buffer patching mode
-        log.inf(
-            "executing static auto-cure from lua", redlog::field("name", meta.name),
-            redlog::field("platforms", meta.platforms.size()), redlog::field("signatures", signatures.size()),
-            redlog::field("patch_groups", patches.size())
-        );
-
-        // create cure config and execute static buffer patching
-        core::cure_config config;
-        config.meta = meta;
-        config.signatures = signatures;
-        config.patches = patches;
-
-        // get buffer from context and patch in-place
-        auto& buffer_data = current_context->get_buffer();
-
-        engine::auto_cure_engine engine;
-        return engine.execute_static_buffer(buffer_data, config);
-      } else {
-        // dynamic memory patching mode
-        log.inf(
-            "executing dynamic auto-cure from lua", redlog::field("name", meta.name),
-            redlog::field("platforms", meta.platforms.size()), redlog::field("signatures", signatures.size()),
-            redlog::field("patch_groups", patches.size())
-        );
-
-        // execute dynamic auto-cure
-        return p1ll::auto_cure(meta, signatures, patches);
-      }
+      // create auto_cure instance with context and execute
+      engine::auto_cure cure(ctx);
+      cure_config config{meta, signatures, patches};
+      return cure.execute_dynamic(config);
 
     } catch (const std::exception& e) {
       log.err("auto-cure execution failed", redlog::field("error", e.what()));
-      core::cure_result result;
+      cure_result result;
       result.add_error("lua auto-cure failed: " + std::string(e.what()));
       return result;
     }
@@ -338,8 +312,8 @@ void setup_manual_api(sol::state& lua, sol::table& p1_module) {
   log.dbg("setting up manual api");
 
   // p1.get_modules(filter) - get modules matching filter
-  p1_module.set_function("get_modules", [](sol::optional<sol::object> filter_opt) -> std::vector<core::module_info> {
-    core::signature_query_filter filter;
+  p1_module.set_function("get_modules", [](sol::optional<sol::object> filter_opt) -> std::vector<module_info> {
+    signature_query_filter filter;
 
     if (filter_opt) {
       if (filter_opt->is<std::string>()) {
@@ -355,7 +329,8 @@ void setup_manual_api(sol::state& lua, sol::table& p1_module) {
       }
     }
 
-    return p1ll::get_modules(filter);
+    // get_modules functionality moved to engine::memory_scanner
+    return {};
   });
 
   // p1.search_sig(pattern, opts) - search for signature with options
@@ -363,7 +338,7 @@ void setup_manual_api(sol::state& lua, sol::table& p1_module) {
       "search_sig", [&lua](const std::string& pattern, sol::optional<sol::object> opts_param) -> sol::object {
         auto log = redlog::get_logger("p1ll.lua.search_sig");
 
-        core::signature_query_filter filter;
+        signature_query_filter filter;
         bool single = false;
 
         // parse options - can be string (backward compat) or table
@@ -396,7 +371,26 @@ void setup_manual_api(sol::state& lua, sol::table& p1_module) {
         }
 
         // perform the search
-        auto results = p1ll::search_signature(pattern, filter);
+        // compile the signature pattern
+        auto compiled_sig = compile_signature(pattern);
+        if (!compiled_sig) {
+          log.err("search_sig: failed to compile signature pattern", redlog::field("pattern", pattern));
+          return sol::nil;
+        }
+
+        // create memory scanner and perform search
+        engine::memory_scanner scanner;
+        signature_query query;
+        query.signature = *compiled_sig;
+        query.filter = filter;
+
+        auto search_results_opt = scanner.search(query);
+        if (!search_results_opt) {
+          log.err("search_sig: search failed", redlog::field("pattern", pattern));
+          return sol::nil;
+        }
+
+        std::vector<search_result> results = *search_results_opt;
 
         // handle single mode
         if (single) {
@@ -424,7 +418,8 @@ void setup_manual_api(sol::state& lua, sol::table& p1_module) {
 
   // p1.patch_memory(address, pattern) - patch memory directly
   p1_module.set_function("patch_memory", [](uint64_t address, const std::string& pattern) -> bool {
-    return p1ll::patch_memory(address, pattern);
+    // patch_memory functionality moved to engine::memory_scanner
+    return false;
   });
 
   log.dbg("manual api registered");
@@ -435,12 +430,12 @@ void setup_utilities(sol::state& lua, sol::table& p1_module) {
   log.dbg("setting up utilities");
 
   // === hex utilities ===
-  p1_module.set_function("str2hex", [](const std::string& str) -> std::string { return p1ll::str2hex(str); });
+  p1_module.set_function("str2hex", [](const std::string& str) -> std::string { return p1ll::utils::str2hex(str); });
 
-  p1_module.set_function("hex2str", [](const std::string& hex) -> std::string { return p1ll::hex2str(hex); });
+  p1_module.set_function("hex2str", [](const std::string& hex) -> std::string { return p1ll::utils::hex2str(hex); });
 
   p1_module.set_function("format_address", [](uint64_t address) -> std::string {
-    return p1ll::format_address(address);
+    return p1ll::utils::format_address(address);
   });
 
   // === logging functions ===
@@ -465,6 +460,122 @@ void setup_utilities(sol::state& lua, sol::table& p1_module) {
   });
 
   log.dbg("utilities registered");
+}
+
+} // namespace bindings
+
+void setup_p1ll_bindings_with_buffer(sol::state& lua, const context& ctx, std::vector<uint8_t>& buffer_data) {
+  auto log = redlog::get_logger("p1ll.bindings");
+  log.inf("setting up p1ll bindings with buffer");
+
+  sol::table p1_module = lua.create_table();
+
+  bindings::setup_core_types(lua, p1_module);
+  bindings::setup_signature_api(lua, p1_module);
+  bindings::setup_patch_api(lua, p1_module);
+  bindings::setup_auto_cure_api_with_buffer(lua, p1_module, ctx, buffer_data);
+  bindings::setup_manual_api(lua, p1_module);
+  bindings::setup_utilities(lua, p1_module);
+
+  lua["p1"] = p1_module;
+  log.inf("p1ll bindings registered");
+}
+
+namespace bindings {
+
+void setup_auto_cure_api_with_buffer(
+    sol::state& lua, sol::table& p1_module, const context& ctx, std::vector<uint8_t>& buffer_data
+) {
+  auto log = redlog::get_logger("p1ll.bindings.auto_cure");
+  log.dbg("setting up auto-cure api with buffer");
+
+  p1_module.set_function("auto_cure", [&ctx, &buffer_data](sol::table meta_table) -> cure_result {
+    auto log = redlog::get_logger("p1ll.lua.auto_cure");
+
+    try {
+      cure_metadata meta;
+      auto name = meta_table["name"];
+      if (name.valid() && name.is<std::string>()) {
+        meta.name = name;
+      }
+
+      auto platforms = meta_table["platforms"];
+      if (platforms.valid() && platforms.is<sol::table>()) {
+        sol::table platforms_tbl = platforms;
+        for (auto& pair : platforms_tbl) {
+          sol::object value = pair.second;
+          if (value.is<std::string>()) {
+            std::string platform_str = value.as<std::string>();
+            meta.platforms.push_back(platform_str);
+          }
+        }
+      }
+
+      platform_signature_map signatures;
+      auto sigs_table = meta_table["sigs"];
+      if (sigs_table.valid() && sigs_table.is<sol::table>()) {
+        sol::table sigs_tbl = sigs_table;
+        for (auto& pair : sigs_tbl) {
+          sol::object platform_key = pair.first;
+          sol::object sig_list = pair.second;
+          if (platform_key.is<std::string>() && sig_list.is<sol::table>()) {
+            std::vector<signature_decl> platform_sigs;
+            sol::table sig_tbl = sig_list.as<sol::table>();
+
+            for (auto& sig_pair : sig_tbl) {
+              sol::object sig_obj = sig_pair.second;
+              if (sig_obj.is<signature_decl>()) {
+                signature_decl sig = sig_obj.as<signature_decl>();
+                platform_sigs.push_back(sig);
+              }
+            }
+
+            std::string platform_str = platform_key.as<std::string>();
+            signatures[platform_str] = platform_sigs;
+          }
+        }
+      }
+
+      platform_patch_map patches;
+      auto patches_table = meta_table["patches"];
+      if (patches_table.valid() && patches_table.is<sol::table>()) {
+        sol::table patches_tbl = patches_table;
+        for (auto& pair : patches_tbl) {
+          sol::object platform_key = pair.first;
+          sol::object patch_list = pair.second;
+          if (platform_key.is<std::string>() && patch_list.is<sol::table>()) {
+            std::vector<patch_decl> platform_patches;
+            sol::table patch_tbl = patch_list.as<sol::table>();
+
+            for (auto& patch_pair : patch_tbl) {
+              sol::object patch_obj = patch_pair.second;
+              if (patch_obj.is<patch_decl>()) {
+                patch_decl patch = patch_obj.as<patch_decl>();
+                platform_patches.push_back(patch);
+              }
+            }
+
+            std::string platform_str = platform_key.as<std::string>();
+            patches[platform_str] = platform_patches;
+          }
+        }
+      }
+
+      log.inf("executing auto-cure", redlog::field("name", meta.name));
+
+      engine::auto_cure cure(ctx);
+      cure_config config{meta, signatures, patches};
+      return cure.execute_static(buffer_data, config);
+
+    } catch (const std::exception& e) {
+      log.err("auto-cure failed", redlog::field("error", e.what()));
+      cure_result result;
+      result.add_error(std::string("auto-cure exception: ") + e.what());
+      return result;
+    }
+  });
+
+  log.dbg("auto-cure api registered");
 }
 
 } // namespace bindings

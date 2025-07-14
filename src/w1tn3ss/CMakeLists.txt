@@ -24,6 +24,11 @@ add_library(w1tn3ss STATIC
     abi/api_listener.cpp
     # hooking system
     hooking/hook_manager.cpp
+    # gadget execution
+    gadget/gadget_executor.cpp
+    # instrumentation management
+    engine/instrumentation_lists.cpp
+    engine/instrumentation_manager.cpp
 )
 
 # Add platform-specific calling convention implementations

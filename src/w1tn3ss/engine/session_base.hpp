@@ -40,7 +40,10 @@ public:
 
     try {
       tracer_ = std::make_unique<TTracer>(config_);
-      engine_ = std::make_unique<tracer_engine<TTracer>>(*tracer_);
+
+      // in session_base, we always create a fresh vm
+      // preload scenarios use the vm directly and don't go through session_base
+      engine_ = std::make_unique<tracer_engine<TTracer>>(*tracer_, config_);
 
       if (!tracer_->initialize(*engine_)) {
         log.err("tracer initialization failed");

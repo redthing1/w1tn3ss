@@ -1,4 +1,5 @@
 #include "cdecl.hpp"
+#include <stdexcept>
 
 namespace w1::abi::conventions {
 
@@ -167,6 +168,40 @@ std::vector<double> x86_cdecl::extract_float_args(const extraction_context& ctx,
   }
 
   return args;
+}
+
+void x86_cdecl::set_integer_args(
+    QBDI::GPRState* gpr, const std::vector<uint64_t>& args,
+    std::function<void(uint64_t addr, uint64_t value)> stack_writer
+) const {
+  throw std::runtime_error(
+      "x86 cdecl calling convention is not yet implemented for gadget execution. "
+      "Only x86-64 (System V and Microsoft) and ARM64 (AAPCS) are currently supported."
+  );
+}
+
+void x86_cdecl::set_typed_args(
+    QBDI::GPRState* gpr, QBDI::FPRState* fpr, const std::vector<typed_arg>& args,
+    std::function<void(uint64_t addr, uint64_t value)> stack_writer
+) const {
+  throw std::runtime_error(
+      "x86 cdecl calling convention is not yet implemented for gadget execution. "
+      "Only x86-64 (System V and Microsoft) and ARM64 (AAPCS) are currently supported."
+  );
+}
+
+void x86_cdecl::set_integer_return(QBDI::GPRState* gpr, uint64_t value) const {
+  throw std::runtime_error(
+      "x86 cdecl calling convention is not yet implemented for gadget execution. "
+      "Only x86-64 (System V and Microsoft) and ARM64 (AAPCS) are currently supported."
+  );
+}
+
+void x86_cdecl::set_float_return(QBDI::FPRState* fpr, double value) const {
+  throw std::runtime_error(
+      "x86 cdecl calling convention is not yet implemented for gadget execution. "
+      "Only x86-64 (System V and Microsoft) and ARM64 (AAPCS) are currently supported."
+  );
 }
 
 } // namespace w1::abi::conventions
