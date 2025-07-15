@@ -101,11 +101,9 @@ bool script_tracer::initialize(w1::tracer_engine<script_tracer>& engine) {
   module_index_->rebuild_from_modules(std::move(modules));
   logger_.inf("module index built", redlog::field("module_count", module_index_->size()));
 
-  // create symbol resolver if lief is enabled
-#ifdef WITNESS_LIEF_ENABLED
+  // create symbol resolver
   symbol_resolver_ = std::make_unique<w1::symbols::symbol_resolver>();
   logger_.inf("symbol resolver created");
-#endif
 
   // initialize api manager if created
   if (api_manager_) {

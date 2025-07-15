@@ -12,14 +12,12 @@ public:
       : config_(config), log_("w1.api_analyzer"), api_db_(std::make_shared<api_knowledge_db>()),
         detector_(std::make_shared<calling_convention_detector>()), argument_extractor_(api_db_, detector_) {
 
-#ifdef WITNESS_LIEF_ENABLED
     if (config_.resolve_symbols) {
       symbols::symbol_resolver::config sym_cfg;
       sym_cfg.max_cache_size = 50;
       sym_cfg.prepopulate_exports = true;
       symbol_resolver_ = std::make_unique<symbols::symbol_resolver>(sym_cfg);
     }
-#endif
   }
 
   void initialize(const util::module_range_index& module_index) {
@@ -309,16 +307,13 @@ public:
   stats get_stats() const { return stats_; }
 
   void clear_caches() {
-#ifdef WITNESS_LIEF_ENABLED
     if (symbol_resolver_) {
       symbol_resolver_->clear_cache();
     }
-#endif
   }
 
 private:
   void resolve_symbol(api_analysis_result& result, uint64_t address, const util::module_info& module) {
-#ifdef WITNESS_LIEF_ENABLED
     if (!symbol_resolver_) {
       return;
     }
@@ -333,12 +328,10 @@ private:
           redlog::field("demangled", symbol->demangled_name)
       );
     }
-#else
     // fallback: use module name + offset when lief is not available
     std::stringstream ss;
     ss << module.name << "+0x" << std::hex << result.module_offset;
     result.symbol_name = ss.str();
-#endif
   }
 
   void extract_arguments(api_analysis_result& result, const api_context& ctx, const api_info& api) {
@@ -504,9 +497,7 @@ private:
   std::shared_ptr<calling_convention_detector> detector_;
   argument_extractor argument_extractor_;
 
-#ifdef WITNESS_LIEF_ENABLED
   std::unique_ptr<symbols::symbol_resolver> symbol_resolver_;
-#endif
 
   mutable stats stats_;
 };

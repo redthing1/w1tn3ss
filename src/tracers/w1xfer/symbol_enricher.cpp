@@ -4,8 +4,7 @@
 namespace w1xfer {
 
 symbol_enricher::symbol_enricher() {
-#ifdef WITNESS_LIEF_ENABLED
-  log_.inf("creating unified symbol resolver with enhanced config");
+  log_.inf("creating unified symbol resolver");
 
   w1::symbols::symbol_resolver::config cfg;
   cfg.max_cache_size = 100; // cache more binaries for transfer analysis
@@ -13,9 +12,6 @@ symbol_enricher::symbol_enricher() {
   cfg.resolve_imports = true;
 
   resolver_ = std::make_unique<w1::symbols::symbol_resolver>(cfg);
-#else
-  log_.wrn("lief support not enabled, symbol resolution will be limited");
-#endif
 }
 
 symbol_enricher::~symbol_enricher() = default;
@@ -26,8 +22,6 @@ void symbol_enricher::initialize(const w1::util::module_range_index& module_inde
 }
 
 std::optional<symbol_enricher::symbol_context> symbol_enricher::enrich_address(uint64_t address) const {
-#ifdef WITNESS_LIEF_ENABLED
-
   // check symbol cache first
   {
     std::lock_guard<std::mutex> lock(symbol_cache_mutex_);
@@ -105,16 +99,11 @@ std::optional<symbol_enricher::symbol_context> symbol_enricher::enrich_address(u
   }
 
   return result;
-#else
-  // log_.dbg("lief not enabled, no symbol resolution available");
-  return std::nullopt;
-#endif
 }
 
 std::vector<std::optional<symbol_enricher::symbol_context>> symbol_enricher::enrich_addresses(
     const std::vector<uint64_t>& addresses
 ) const {
-#ifdef WITNESS_LIEF_ENABLED
   if (!resolver_ || !module_index_) {
     return std::vector<std::optional<symbol_context>>(addresses.size());
   }
@@ -148,25 +137,19 @@ std::vector<std::optional<symbol_enricher::symbol_context>> symbol_enricher::enr
   }
 
   return results;
-#else
-  return std::vector<std::optional<symbol_context>>(addresses.size());
-#endif
 }
 
 void symbol_enricher::clear_cache() {
-#ifdef WITNESS_LIEF_ENABLED
   if (resolver_) {
     resolver_->clear_cache();
   }
   std::lock_guard<std::mutex> lock(symbol_cache_mutex_);
   symbol_cache_.clear();
-#endif
 }
 
 symbol_enricher::cache_stats symbol_enricher::get_cache_stats() const {
   cache_stats stats{};
 
-#ifdef WITNESS_LIEF_ENABLED
   if (resolver_) {
     auto resolver_stats = resolver_->get_cache_stats();
     stats.binary_cache_size = resolver_stats.size;
@@ -174,7 +157,6 @@ symbol_enricher::cache_stats symbol_enricher::get_cache_stats() const {
     stats.binary_cache_misses = resolver_stats.misses;
     stats.hit_rate = resolver_stats.hit_rate;
   }
-#endif
 
   return stats;
 }

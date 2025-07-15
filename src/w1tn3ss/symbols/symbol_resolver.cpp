@@ -125,8 +125,8 @@ void symbol_resolver::impl::setup_backends() {
 #endif
 
   // create lief backend as fallback if enabled
-#ifdef WITNESS_LIEF_ENABLED
   if (config_.use_lief_backend) {
+#ifdef WITNESS_LIEF_ENABLED
     lief_symbol_backend::config lief_cfg;
     lief_cfg.max_cache_size = config_.max_cache_size;
     lief_cfg.prepopulate_exports = config_.prepopulate_exports;
@@ -143,8 +143,8 @@ void symbol_resolver::impl::setup_backends() {
     } else {
       fallback_backend_ = lief_backend;
     }
-  }
 #endif
+  }
 
   if (!primary_backend_) {
     log_.err("no symbol backend available");

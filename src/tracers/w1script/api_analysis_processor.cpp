@@ -34,13 +34,11 @@ void api_analysis_processor::process_call(
     ctx.module_name = module_info->name;
 
     // resolve symbol if we have a resolver
-#ifdef WITNESS_LIEF_ENABLED
     if (symbol_resolver) {
       if (auto sym_info = symbol_resolver->resolve_address(ctx.target_address, *module_index)) {
         ctx.symbol_name = sym_info->name;
       }
     }
-#endif
   }
 
   logger_.dbg(
@@ -78,13 +76,11 @@ void api_analysis_processor::process_return(
     ctx.module_name = module_info->name;
 
     // resolve symbol if we have a resolver
-#ifdef WITNESS_LIEF_ENABLED
     if (symbol_resolver) {
       if (auto sym_info = symbol_resolver->resolve_address(ctx.target_address, *module_index)) {
         ctx.symbol_name = sym_info->name;
       }
     }
-#endif
   }
 
   api_manager->process_return(ctx);
