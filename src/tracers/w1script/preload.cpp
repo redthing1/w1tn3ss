@@ -114,6 +114,14 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
 
   logger.inf("engine instrumentation successful");
 
+  // call on_vm_start callback if defined
+  QBDI::VMAction vm_action = g_tracer->on_vm_start(vm);
+  if (vm_action == QBDI::VMAction::STOP) {
+    logger.inf("on_vm_start requested stop, terminating execution");
+    // clean shutdown - not an error
+    return QBDIPRELOAD_NO_ERROR;
+  }
+
   // run engine
   logger.inf("running engine", redlog::field("start", "0x%08x", start), redlog::field("stop", "0x%08x", stop));
   if (!g_engine->run(start, stop)) {

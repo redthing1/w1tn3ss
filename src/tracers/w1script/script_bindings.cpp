@@ -64,6 +64,9 @@ void setup_qbdi_bindings(
   logger.dbg("setting up gadget execution");
   bindings::setup_gadget_execution(lua, w1_module, gadget_executor);
 
+  logger.dbg("setting up process dumping");
+  bindings::setup_process_dumping(lua, w1_module);
+
   // register the w1 module with the lua state
   lua["w1"] = w1_module;
 
@@ -71,7 +74,7 @@ void setup_qbdi_bindings(
   logger.dbg(
       "available modules: core_types, register_access, vm_control, memory_access, memory_analysis, module_analysis, "
       "utilities, callback_system, api_analysis, hooking, signature_scanning, calling_convention, symbol_resolution, "
-      "gadget_execution"
+      "gadget_execution, process_dumping"
   );
 }
 

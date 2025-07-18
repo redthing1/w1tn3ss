@@ -20,6 +20,7 @@
 #include "bindings/calling_convention.hpp"
 #include "bindings/symbol_resolution.hpp"
 #include "bindings/gadget_execution.hpp"
+#include "bindings/process_dumping.hpp"
 
 namespace w1::hooking {
 class hook_manager;

@@ -197,4 +197,21 @@ void script_tracer::shutdown() {
 // all callbacks are registered manually by callback_manager
 // we don't define any on_* methods to prevent tracer_engine from registering callbacks
 
+QBDI::VMAction script_tracer::on_vm_start(QBDI::VMInstanceRef vm) {
+  logger_.dbg("on_vm_start called");
+
+  // check if the script has an on_vm_start callback
+  if (!callback_manager_->is_callback_enabled(callback_manager::callback_type::vm_start)) {
+    logger_.dbg("no on_vm_start callback in script, continuing");
+    return QBDI::VMAction::CONTINUE;
+  }
+
+  // dispatch to the lua callback - just vm
+  QBDI::VMAction action = callback_manager_->dispatch_vm_start_callback(vm);
+
+  logger_.dbg("on_vm_start callback returned", redlog::field("action", static_cast<int>(action)));
+
+  return action;
+}
+
 } // namespace w1::tracers::script

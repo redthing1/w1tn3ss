@@ -10,6 +10,7 @@ namespace w1::tracers::script {
 namespace {
 // mapping of string names to callback types
 const std::unordered_map<std::string, callback_manager::callback_type> callback_name_map = {
+    {"vm_start", callback_manager::callback_type::vm_start},
     {"instruction_preinst", callback_manager::callback_type::instruction_preinst},
     {"instruction_postinst", callback_manager::callback_type::instruction_postinst},
     {"sequence_entry", callback_manager::callback_type::sequence_entry},
@@ -34,6 +35,7 @@ const std::unordered_map<std::string, callback_manager::callback_type> callback_
 
 // mapping of callback types to lua function names
 const std::unordered_map<callback_manager::callback_type, std::string> lua_function_names = {
+    {callback_manager::callback_type::vm_start, "on_vm_start"},
     {callback_manager::callback_type::instruction_preinst, "on_instruction_preinst"},
     {callback_manager::callback_type::instruction_postinst, "on_instruction_postinst"},
     {callback_manager::callback_type::sequence_entry, "on_sequence_entry"},
@@ -262,6 +264,24 @@ std::vector<QBDI::InstrRuleDataCBK> callback_manager::dispatch_instr_rule_callba
     );
   }
   return {};
+}
+
+QBDI::VMAction callback_manager::dispatch_vm_start_callback(QBDI::VMInstanceRef vm) {
+  auto it = lua_callbacks_.find(callback_type::vm_start);
+  if (it == lua_callbacks_.end() || !it->second.valid()) {
+    return QBDI::VMAction::CONTINUE;
+  }
+
+  try {
+    auto result = it->second(vm);
+    if (result.valid() && result.get_type() == sol::type::number) {
+      return static_cast<QBDI::VMAction>(result.get<int>());
+    }
+  } catch (const sol::error& e) {
+    logger_.err("error in on_vm_start callback", redlog::field("error", e.what()));
+  }
+
+  return QBDI::VMAction::CONTINUE;
 }
 
 } // namespace w1::tracers::script

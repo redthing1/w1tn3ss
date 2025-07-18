@@ -76,6 +76,10 @@ public:
   // to prevent tracer_engine from registering callbacks via SFINAE
   // all callbacks are registered manually by callback_manager
 
+  // exception: on_vm_start is called explicitly by preload before vm->run
+  // returns VMAction to control whether to continue or stop execution
+  QBDI::VMAction on_vm_start(QBDI::VMInstanceRef vm);
+
   // api manager access (for exec_transfer callbacks)
   std::shared_ptr<bindings::api_analysis_manager> get_api_manager() { return api_manager_; }
 };

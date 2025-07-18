@@ -33,6 +33,9 @@ class callback_manager {
 public:
   // callback types enum to replace string-based lookup
   enum class callback_type {
+    // vm lifecycle callbacks
+    vm_start,
+
     // instruction callbacks
     instruction_preinst,
     instruction_postinst,
@@ -137,6 +140,8 @@ public:
   QBDI::VMAction dispatch_simple_callback(
       callback_type type, QBDI::VMInstanceRef vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr
   );
+
+  QBDI::VMAction dispatch_vm_start_callback(QBDI::VMInstanceRef vm);
 
   QBDI::VMAction dispatch_vm_event_callback(
       callback_type type, QBDI::VMInstanceRef vm, const QBDI::VMState* state, QBDI::GPRState* gpr, QBDI::FPRState* fpr
