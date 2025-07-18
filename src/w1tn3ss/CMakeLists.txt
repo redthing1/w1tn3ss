@@ -103,3 +103,11 @@ configure_target_with_lief(w1tn3ss)
 
 # Set position independent code for shared library linking
 set_target_properties(w1tn3ss PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+# Add dump subdirectory
+add_subdirectory(dump)
+
+# Link dump library
+target_link_libraries(w1tn3ss PUBLIC
+    w1tn3ss_dump
+)

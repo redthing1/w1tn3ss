@@ -6,9 +6,11 @@
 #include "ext/args.hpp"
 
 #include "commands/cover.hpp"
+#include "commands/dump.hpp"
 #include "commands/inject.hpp"
 #include "commands/inspect.hpp"
 #include "commands/read_drcov.hpp"
+#include "commands/read_dump.hpp"
 #include "commands/tracer.hpp"
 
 namespace cli {
@@ -99,6 +101,41 @@ void cmd_read_drcov(args::Subparser& parser) {
   w1tool::commands::read_drcov(file, summary, detailed, module);
 }
 
+void cmd_dump(args::Subparser& parser) {
+  cli::apply_verbosity();
+
+  args::ValueFlag<std::string> library(parser, "path", "path to w1dump library", {'L', "w1dump-library"});
+  args::Flag spawn(parser, "spawn", "spawn new process for dumping", {'s', "spawn"});
+  args::ValueFlag<int> pid(parser, "pid", "process ID to attach to", {'p', "pid"});
+  args::ValueFlag<std::string> name(parser, "name", "process name to attach to", {'n', "name"});
+  args::ValueFlag<std::string> output(parser, "path", "output file path", {'o', "output"});
+  args::Flag memory(parser, "memory", "dump memory content", {"memory"});
+  args::ValueFlagList<std::string> filter(
+      parser, "filter", "filter regions (format: type[:module1,module2])", {'f', "filter"}
+  );
+  args::ValueFlag<std::string> max_region_size(parser, "size", "max region size to dump (e.g. 10M, 1G)", {"max-region-size"});
+  args::ValueFlag<int> debug_level(parser, "level", "debug level override", {"debug"});
+  args::Flag suspended(parser, "suspended", "start process in suspended state (only with --spawn)", {"suspended"});
+  args::PositionalList<std::string> args(parser, "args", "binary -- arguments");
+  parser.Parse();
+
+  w1tool::commands::dump(
+      library, spawn, pid, name, output, memory, filter, max_region_size, debug_level, suspended, args,
+      g_executable_path
+  );
+}
+
+void cmd_read_dump(args::Subparser& parser) {
+  cli::apply_verbosity();
+
+  args::ValueFlag<std::string> file(parser, "path", "path to dump file", {'f', "file"});
+  args::Flag detailed(parser, "detailed", "show detailed module and region listings", {'d', "detailed"});
+  args::ValueFlag<std::string> module(parser, "module", "filter by module name (substring match)", {'m', "module"});
+  parser.Parse();
+
+  w1tool::commands::read_dump(file, detailed, module);
+}
+
 void cmd_tracer(args::Subparser& parser) {
   cli::apply_verbosity();
 
@@ -137,6 +174,8 @@ int main(int argc, char* argv[]) {
   args::Command inspect_cmd(commands, "inspect", "inspect binary file", &cmd_inspect);
   args::Command cover_cmd(commands, "cover", "perform coverage tracing with configurable options", &cmd_cover);
   args::Command read_drcov_cmd(commands, "read-drcov", "analyze DrCov coverage files", &cmd_read_drcov);
+  args::Command dump_cmd(commands, "dump", "dump process state to file", &cmd_dump);
+  args::Command read_dump_cmd(commands, "read-dump", "analyze process dump files", &cmd_read_dump);
   args::Command tracer_cmd(commands, "tracer", "run arbitrary tracer with flexible configuration", &cmd_tracer);
 
   try {

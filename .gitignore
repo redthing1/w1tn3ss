@@ -8,6 +8,8 @@ CLAUDE.md
 /*.jsonl
 /*.txt
 /*.bin
+/*.w1dump
+/*.dmp
 
 temp/
 plans/

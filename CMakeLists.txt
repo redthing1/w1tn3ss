@@ -67,6 +67,12 @@ if(NOT TARGET redlog::redlog)
     add_subdirectory(src/third_party/redlog_cpp)
 endif()
 
+# configure nlohmann_json
+if(NOT TARGET nlohmann_json::nlohmann_json)
+    set(JSON_BuildTests OFF)
+    add_subdirectory(src/third_party/nlohmann_json)
+endif()
+
 # add lief if enabled
 if(WITNESS_LIEF)
     add_subdirectory(src/third_party/lief)

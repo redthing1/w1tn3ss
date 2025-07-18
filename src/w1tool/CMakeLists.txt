@@ -8,6 +8,8 @@ add_executable(w1tool
     commands/inspect.cpp
     commands/cover.cpp
     commands/read_drcov.cpp
+    commands/dump.cpp
+    commands/read_dump.cpp
     commands/tracer.cpp
     tracer_discovery.cpp
 )
@@ -21,6 +23,7 @@ target_include_directories(w1tool PRIVATE
 
 target_link_libraries(w1tool PRIVATE
     w1tn3ss
+    w1tn3ss_dump
     w1nj3ct
     common
     redlog::redlog
