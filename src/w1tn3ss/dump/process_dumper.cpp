@@ -26,6 +26,7 @@ w1dump process_dumper::dump_current(
   w1dump dump;
 
   // fill metadata
+  log_.trc("capturing process metadata");
   dump.metadata.version = 1;
   // store timestamp as milliseconds since epoch for portability
   auto now = std::chrono::system_clock::now();
@@ -83,12 +84,15 @@ w1dump process_dumper::dump_current(
   );
 
   // capture thread state
+  log_.trc("capturing thread state");
   dump.thread = register_dumper::capture_thread_state(gpr, fpr);
 
   // dump modules
+  log_.trc("collecting module information");
   dump.modules = memory_dumper::dump_modules(options);
 
   // dump memory regions
+  log_.trc("dumping memory regions");
   dump.regions = memory_dumper::dump_memory_regions(vm, gpr, options);
 
   log_.inf(
@@ -104,12 +108,16 @@ void process_dumper::save_dump(const w1dump& dump, const std::string& path) {
 
   try {
     // convert to json
+    log_.dbg("converting dump to json format");
     nlohmann::json j = dump;
 
     // serialize to msgpack
+    log_.dbg("serializing to msgpack format");
     auto msgpack = nlohmann::json::to_msgpack(j);
+    log_.dbg("msgpack serialization complete", redlog::field("size", msgpack.size()));
 
     // write to file
+    log_.trc("writing dump to disk");
     std::ofstream file(path, std::ios::binary);
     if (!file) {
       log_.err("failed to open file for writing", redlog::field("path", path));
@@ -139,13 +147,17 @@ w1dump process_dumper::load_dump(const std::string& path) {
     }
 
     // read all data
+    log_.trc("reading msgpack data from file");
     std::vector<uint8_t> msgpack((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
     file.close();
+    log_.dbg("read msgpack data", redlog::field("size", msgpack.size()));
 
     // deserialize from msgpack
+    log_.dbg("deserializing msgpack to json");
     auto j = nlohmann::json::from_msgpack(msgpack);
 
     // convert to dump struct
+    log_.dbg("converting json to dump structure");
     w1dump dump = j.get<w1dump>();
 
     log_.inf(

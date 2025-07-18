@@ -113,7 +113,9 @@ void cmd_dump(args::Subparser& parser) {
   args::ValueFlagList<std::string> filter(
       parser, "filter", "filter regions (format: type[:module1,module2])", {'f', "filter"}
   );
-  args::ValueFlag<std::string> max_region_size(parser, "size", "max region size to dump (e.g. 10M, 1G)", {"max-region-size"});
+  args::ValueFlag<std::string> max_region_size(
+      parser, "size", "max region size to dump (e.g. 10M, 1G)", {"max-region-size"}
+  );
   args::ValueFlag<int> debug_level(parser, "level", "debug level override", {"debug"});
   args::Flag suspended(parser, "suspended", "start process in suspended state (only with --spawn)", {"suspended"});
   args::PositionalList<std::string> args(parser, "args", "binary -- arguments");

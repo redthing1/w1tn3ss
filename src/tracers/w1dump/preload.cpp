@@ -61,6 +61,21 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
   // parse config from environment
   w1::util::env_config loader("W1DUMP_");
 
+  // verbosity
+  int verbose = loader.get<int>("VERBOSE", 0);
+  // set log level based on debug level
+  if (verbose >= 4) {
+    redlog::set_level(redlog::level::pedantic);
+  } else if (verbose >= 3) {
+    redlog::set_level(redlog::level::debug);
+  } else if (verbose >= 2) {
+    redlog::set_level(redlog::level::trace);
+  } else if (verbose >= 1) {
+    redlog::set_level(redlog::level::verbose);
+  } else {
+    redlog::set_level(redlog::level::info);
+  }
+
   // output file
   g_config.output = loader.get<std::string>("OUTPUT", "process.w1dump");
 
@@ -113,36 +128,12 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
     g_tracer->on_vm_start(vm);
   }
 
-  // run engine
-  log.inf("running engine", redlog::field("start", "0x%08x", start), redlog::field("stop", "0x%08x", stop));
-  if (!g_engine->run(start, stop)) {
-    log.err("engine run failed");
-    return QBDIPRELOAD_ERR_STARTUP_FAILED;
-  }
+  // tell the process to kys (it's so over)
 
-  // execution doesn't reach here if it works (vm run jumps)
-  log.inf("qbdipreload_on_run completed");
-
-  return QBDIPRELOAD_NO_ERROR;
+  return QBDIPRELOAD_ERR_STARTUP_FAILED; // we don't actually run the VM, just dump
 }
 
-QBDI_EXPORT int qbdipreload_on_exit(int status) {
-  auto log = redlog::get_logger("w1dump.preload");
-
-  log.inf("qbdipreload_on_exit called", redlog::field("status", status));
-
-  if (g_tracer) {
-    log.inf("cleaning up tracer");
-    g_tracer.reset();
-  }
-
-  if (g_engine) {
-    g_engine.reset();
-  }
-
-  log.inf("qbdipreload_on_exit completed");
-  return QBDIPRELOAD_NO_ERROR;
-}
+QBDI_EXPORT int qbdipreload_on_exit(int status) { return QBDIPRELOAD_NO_ERROR; }
 
 QBDI_EXPORT int qbdipreload_on_start(void* main) {
 #if defined(_WIN32) || defined(WIN32)
