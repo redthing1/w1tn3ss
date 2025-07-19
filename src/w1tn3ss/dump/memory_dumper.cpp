@@ -69,15 +69,29 @@ std::vector<memory_region> memory_dumper::dump_memory_regions(
 
       // dump memory content if requested
       if (options.dump_memory_content) {
-        // skip regions that are too large
+        bool should_dump_content = true;
+
+        // check size limit (stack always gets dumped regardless of size)
         if (size > options.max_region_size) {
-          status = "including region (metadata only, too large)";
-          log_.warn(
-              "region too large for content dump", redlog::field("start", "0x%llx", region.start),
-              redlog::field("size", size), redlog::field("max", options.max_region_size)
-          );
-          // still include the region metadata, just not the content
-        } else {
+          if (region.is_stack) {
+            // stack bypasses size limit
+            log_.wrn(
+                "dumping large stack region (bypassing size limit)", redlog::field("start", "0x%llx", region.start),
+                redlog::field("size", size), redlog::field("size_mb", size / (1024 * 1024))
+            );
+          } else {
+            // non-stack regions that are too large get metadata only
+            should_dump_content = false;
+            status = "including region (metadata only, too large)";
+            log_.wrn(
+                "region too large for content dump", redlog::field("start", "0x%llx", region.start),
+                redlog::field("size", size), redlog::field("max", options.max_region_size)
+            );
+          }
+        }
+
+        // dump content if appropriate
+        if (should_dump_content) {
           region.data = read_memory_region(vm, region.start, size);
           if (region.data.empty()) {
             status = "including region (content read failed)";
