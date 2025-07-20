@@ -11,10 +11,15 @@ extern "C" {
 #include <crt_externs.h>
 #include <cstdlib>
 #include <libproc.h>
+#include <spawn.h>
 #include <sys/sysctl.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+
+#ifndef _POSIX_SPAWN_DISABLE_ASLR
+#define _POSIX_SPAWN_DISABLE_ASLR 0x100
+#endif
 
 namespace w1::inject::darwin {
 
@@ -216,7 +221,7 @@ result inject_preload(const config& cfg) {
 
   log.info(
       "darwin preload injection starting", redlog::field("binary_path", cfg.binary_path ? *cfg.binary_path : "null"),
-      redlog::field("library_path", cfg.library_path)
+      redlog::field("library_path", cfg.library_path), redlog::field("disable_aslr", cfg.disable_aslr)
   );
 
   if (!cfg.binary_path) {
@@ -308,21 +313,66 @@ result inject_preload(const config& cfg) {
 
   log.debug("environment prepared", redlog::field("vars", env.size()), redlog::field("total_vars", envp.size() - 1));
 
-  // fork and exec with modified environment
-  log.debug("forking child process for preload injection");
+  pid_t child_pid = -1;
 
-  pid_t child_pid = fork();
-  if (child_pid == 0) {
-    // child process
-    log.trace("child process executing target binary", redlog::field("binary_path", *cfg.binary_path));
+  if (cfg.disable_aslr) {
+    // use posix_spawn with ASLR disabled
+    log.debug("launching child process with ASLR disabled using posix_spawn");
 
-    execve(cfg.binary_path->c_str(), const_cast<char**>(argv.data()), const_cast<char**>(envp.data()));
+    posix_spawnattr_t attrs;
+    int ret = posix_spawnattr_init(&attrs);
+    if (ret != 0) {
+      log.error("posix_spawnattr_init failed", redlog::field("error", strerror(ret)));
+      return make_error_result(error_code::launch_failed, "posix_spawnattr_init failed", ret);
+    }
 
-    // execve only returns on error
-    int exec_errno = errno;
-    fprintf(stderr, "[w1nj3ct.darwin] execve failed: %s (errno=%d)\n", strerror(exec_errno), exec_errno);
-    _exit(1);
-  } else if (child_pid > 0) {
+    short ps_flags = 0;
+    ps_flags |= POSIX_SPAWN_SETEXEC;
+    ps_flags |= _POSIX_SPAWN_DISABLE_ASLR;
+    ret = posix_spawnattr_setflags(&attrs, ps_flags);
+    if (ret != 0) {
+      posix_spawnattr_destroy(&attrs);
+      log.error("posix_spawnattr_setflags failed", redlog::field("error", strerror(ret)));
+      return make_error_result(error_code::launch_failed, "posix_spawnattr_setflags failed", ret);
+    }
+
+    // fork first, then use posix_spawn with SETEXEC in child
+    child_pid = fork();
+    if (child_pid == 0) {
+      // child process - use posix_spawn with SETEXEC
+      log.trace(
+          "child process executing target binary with ASLR disabled", redlog::field("binary_path", *cfg.binary_path)
+      );
+
+      ret = posix_spawnp(
+          NULL, cfg.binary_path->c_str(), NULL, &attrs, const_cast<char**>(argv.data()), const_cast<char**>(envp.data())
+      );
+
+      // posix_spawnp with SETEXEC only returns on error
+      int spawn_errno = errno;
+      fprintf(stderr, "[w1nj3ct.darwin] posix_spawnp failed: %s (errno=%d)\n", strerror(spawn_errno), spawn_errno);
+      _exit(1);
+    }
+
+    posix_spawnattr_destroy(&attrs);
+  } else {
+    // use traditional fork/exec
+    log.debug("forking child process for preload injection");
+    child_pid = fork();
+    if (child_pid == 0) {
+      // child process
+      log.trace("child process executing target binary", redlog::field("binary_path", *cfg.binary_path));
+
+      execve(cfg.binary_path->c_str(), const_cast<char**>(argv.data()), const_cast<char**>(envp.data()));
+
+      // execve only returns on error
+      int exec_errno = errno;
+      fprintf(stderr, "[w1nj3ct.darwin] execve failed: %s (errno=%d)\n", strerror(exec_errno), exec_errno);
+      _exit(1);
+    }
+  }
+
+  if (child_pid > 0) {
     // parent process: wait for child to complete
     log.info(
         "preload injection started successfully", redlog::field("pid", child_pid),

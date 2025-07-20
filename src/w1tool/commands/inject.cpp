@@ -6,7 +6,7 @@ namespace w1tool::commands {
 
 int inject(
     args::ValueFlag<std::string>& library_flag, args::Flag& spawn_flag, args::ValueFlag<int>& pid_flag,
-    args::ValueFlag<std::string>& process_name_flag, args::Flag& suspended_flag,
+    args::ValueFlag<std::string>& process_name_flag, args::Flag& suspended_flag, args::Flag& no_aslr_flag,
     args::PositionalList<std::string>& args_list
 ) {
 
@@ -41,6 +41,12 @@ int inject(
     return 1;
   }
 
+  // validate no_aslr flag usage
+  if (no_aslr_flag && !spawn_flag) {
+    log.err("--no-aslr can only be used with -s/--spawn (launch injection)");
+    return 1;
+  }
+
   std::string lib_path = args::get(library_flag);
   w1::inject::result result;
 
@@ -68,7 +74,8 @@ int inject(
     log.info(
         "spawn injection starting", redlog::field("method", method_name), redlog::field("binary", binary_path),
         redlog::field("library", lib_path), redlog::field("args_count", binary_args.size()),
-        redlog::field("suspended", suspended_flag ? "true" : "false")
+        redlog::field("suspended", suspended_flag ? "true" : "false"),
+        redlog::field("no_aslr", no_aslr_flag ? "true" : "false")
     );
 
     // use full config for spawn injection to support arguments and suspended flag
@@ -78,6 +85,7 @@ int inject(
     cfg.binary_path = binary_path;
     cfg.args = binary_args;
     cfg.suspended = suspended_flag;
+    cfg.disable_aslr = no_aslr_flag;
     cfg.wait_for_completion = true; // inject command should wait for completion
 
     result = w1::inject::inject(cfg);

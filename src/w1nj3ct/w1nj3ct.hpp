@@ -86,6 +86,7 @@ struct config {
   std::chrono::milliseconds timeout{5000};
   bool suspended = false;           // start process in suspended state (launch method only)
   bool wait_for_completion = false; // wait for process completion (launch method only)
+  bool disable_aslr = false;        // disable ASLR when launching process (launch method only)
 
   // LAUNCH OPTIONS (when using binary_path)
   std::vector<std::string> args;

@@ -21,6 +21,7 @@ struct tracer_execution_params {
   std::string binary_path;
   std::vector<std::string> binary_args;
   bool suspended = false;
+  bool disable_aslr = false;
 
   int target_pid = -1;
   std::string process_name;
@@ -41,7 +42,7 @@ int tracer(
     args::ValueFlag<int>& pid_flag, args::ValueFlag<std::string>& process_name_flag,
     args::ValueFlag<std::string>& output_flag, args::ValueFlagList<std::string>& config_flags,
     args::ValueFlag<int>& debug_level_flag, args::Flag& list_tracers_flag, args::Flag& suspended_flag,
-    args::PositionalList<std::string>& args_list, const std::string& executable_path
+    args::Flag& no_aslr_flag, args::PositionalList<std::string>& args_list, const std::string& executable_path
 );
 
 } // namespace w1tool::commands

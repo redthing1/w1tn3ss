@@ -49,10 +49,11 @@ void cmd_inject(args::Subparser& parser) {
       parser, "process", "target process name (uses runtime injection)", {"process-name"}
   );
   args::Flag suspended(parser, "suspended", "start process in suspended state (only with --spawn)", {"suspended"});
+  args::Flag no_aslr(parser, "no-aslr", "disable ASLR when launching process (only with --spawn)", {"no-aslr"});
   args::PositionalList<std::string> args(parser, "args", "binary -- arguments");
   parser.Parse();
 
-  w1tool::commands::inject(library, spawn, pid, process_name, suspended, args);
+  w1tool::commands::inject(library, spawn, pid, process_name, suspended, no_aslr, args);
 }
 
 void cmd_inspect(args::Subparser& parser) {
@@ -80,12 +81,13 @@ void cmd_cover(args::Subparser& parser) {
   args::ValueFlag<int> debug_level(parser, "level", "debug level override", {"debug"});
   args::ValueFlag<std::string> format(parser, "format", "output format (drcov, text)", {"format"});
   args::Flag suspended(parser, "suspended", "start process in suspended state (only with --spawn)", {"suspended"});
+  args::Flag no_aslr(parser, "no-aslr", "disable ASLR when launching process (only with --spawn)", {"no-aslr"});
   args::PositionalList<std::string> args(parser, "args", "binary -- arguments");
   parser.Parse();
 
   w1tool::commands::cover(
       library, spawn, pid, name, output, include_system, inst_trace, module_filter, debug_level, format, suspended,
-      args, g_executable_path
+      no_aslr, args, g_executable_path
   );
 }
 
@@ -118,11 +120,12 @@ void cmd_dump(args::Subparser& parser) {
   );
   args::ValueFlag<int> debug_level(parser, "level", "debug level override", {"debug"});
   args::Flag suspended(parser, "suspended", "start process in suspended state (only with --spawn)", {"suspended"});
+  args::Flag no_aslr(parser, "no-aslr", "disable ASLR when launching process (only with --spawn)", {"no-aslr"});
   args::PositionalList<std::string> args(parser, "args", "binary -- arguments");
   parser.Parse();
 
   w1tool::commands::dump(
-      library, spawn, pid, name, output, memory, filter, max_region_size, debug_level, suspended, args,
+      library, spawn, pid, name, output, memory, filter, max_region_size, debug_level, suspended, no_aslr, args,
       g_executable_path
   );
 }
@@ -151,11 +154,12 @@ void cmd_tracer(args::Subparser& parser) {
   args::ValueFlag<int> debug_level(parser, "level", "debug level override", {"debug"});
   args::Flag list_tracers(parser, "list", "list available tracers", {"list-tracers"});
   args::Flag suspended(parser, "suspended", "start process in suspended state (only with --spawn)", {"suspended"});
+  args::Flag no_aslr(parser, "no-aslr", "disable ASLR when launching process (only with --spawn)", {"no-aslr"});
   args::PositionalList<std::string> args(parser, "args", "binary -- arguments");
   parser.Parse();
 
   w1tool::commands::tracer(
-      library, name, spawn, pid, process_name, output, config, debug_level, list_tracers, suspended, args,
+      library, name, spawn, pid, process_name, output, config, debug_level, list_tracers, suspended, no_aslr, args,
       g_executable_path
   );
 }

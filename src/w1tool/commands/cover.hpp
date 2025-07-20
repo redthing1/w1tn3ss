@@ -17,6 +17,7 @@ namespace w1tool::commands {
  * @param debug_level_flag debug level override - defaults to passthrough verbosity (optional)
  * @param format_flag output format (drcov, text) (optional)
  * @param suspended_flag start process in suspended state (optional)
+ * @param no_aslr_flag disable ASLR when launching process (optional)
  * @param args_list binary and arguments (use -- to separate w1tool args from target args)
  * @param executable_path path to the current executable (for auto-discovery)
  * @return exit code (0 for success, 1 for failure)
@@ -26,7 +27,7 @@ int cover(
     args::ValueFlag<std::string>& name_flag, args::ValueFlag<std::string>& output_flag, args::Flag& include_system_flag,
     args::Flag& inst_trace_flag, args::ValueFlag<std::string>& module_filter_flag,
     args::ValueFlag<int>& debug_level_flag, args::ValueFlag<std::string>& format_flag, args::Flag& suspended_flag,
-    args::PositionalList<std::string>& args_list, const std::string& executable_path
+    args::Flag& no_aslr_flag, args::PositionalList<std::string>& args_list, const std::string& executable_path
 );
 
 } // namespace w1tool::commands

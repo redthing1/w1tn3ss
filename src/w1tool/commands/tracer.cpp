@@ -55,7 +55,7 @@ int tracer(
     args::ValueFlag<int>& pid_flag, args::ValueFlag<std::string>& process_name_flag,
     args::ValueFlag<std::string>& output_flag, args::ValueFlagList<std::string>& config_flags,
     args::ValueFlag<int>& debug_level_flag, args::Flag& list_tracers_flag, args::Flag& suspended_flag,
-    args::PositionalList<std::string>& args_list, const std::string& executable_path
+    args::Flag& no_aslr_flag, args::PositionalList<std::string>& args_list, const std::string& executable_path
 ) {
   auto log = redlog::get_logger("w1tool.tracer");
 
@@ -107,6 +107,12 @@ int tracer(
     return 1;
   }
 
+  // validate no_aslr flag
+  if (no_aslr_flag && !spawn_flag) {
+    log.err("--no-aslr can only be used with -s/--spawn (launch tracing)");
+    return 1;
+  }
+
   // build execution parameters
   tracer_execution_params params;
   params.tracer_name = tracer_name;
@@ -153,6 +159,7 @@ int tracer(
     params.spawn_target = true;
     params.binary_path = all_args[0];
     params.suspended = suspended_flag;
+    params.disable_aslr = no_aslr_flag;
 
     // extract binary arguments
     if (all_args.size() > 1) {
@@ -257,13 +264,15 @@ int execute_tracer_impl(const tracer_execution_params& params) {
     log.info(
         "starting launch-time tracing", redlog::field("tracer", params.tracer_name),
         redlog::field("binary", params.binary_path), redlog::field("args_count", params.binary_args.size()),
-        redlog::field("suspended", params.suspended ? "true" : "false")
+        redlog::field("suspended", params.suspended ? "true" : "false"),
+        redlog::field("disable_aslr", params.disable_aslr ? "true" : "false")
     );
 
     cfg.injection_method = w1::inject::method::preload;
     cfg.binary_path = params.binary_path;
     cfg.args = params.binary_args;
     cfg.suspended = params.suspended;
+    cfg.disable_aslr = params.disable_aslr;
     cfg.wait_for_completion = true;
 
     result = w1::inject::inject(cfg);

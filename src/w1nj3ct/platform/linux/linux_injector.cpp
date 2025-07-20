@@ -8,14 +8,20 @@ extern "C" {
 #include "backend/linux/injector.h"
 }
 
+#include <cerrno>
 #include <cstdlib>
 #include <cstring>
 #include <dirent.h>
 #include <fstream>
 #include <sstream>
+#include <sys/personality.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+
+#ifndef ADDR_NO_RANDOMIZE
+#define ADDR_NO_RANDOMIZE 0x0040000
+#endif
 
 namespace w1::inject::linux_impl {
 
@@ -176,7 +182,7 @@ result inject_preload(const config& cfg) {
 
   log.info(
       "linux preload injection starting", redlog::field("binary_path", cfg.binary_path ? *cfg.binary_path : "null"),
-      redlog::field("library_path", cfg.library_path)
+      redlog::field("library_path", cfg.library_path), redlog::field("disable_aslr", cfg.disable_aslr)
   );
 
   if (!cfg.binary_path) {
@@ -252,12 +258,35 @@ result inject_preload(const config& cfg) {
   log.debug("environment prepared", redlog::field("env_count", env.size()));
 
   // fork and exec with modified environment
-  log.debug("launching target process");
+  if (cfg.disable_aslr) {
+    log.debug("launching target process with ASLR disabled");
+  } else {
+    log.debug("launching target process");
+  }
   auto launch_start = std::chrono::steady_clock::now();
 
   pid_t child_pid = fork();
   if (child_pid == 0) {
     // child process
+
+    // disable ASLR if requested
+    if (cfg.disable_aslr) {
+      log.trace("disabling ASLR using personality()");
+      unsigned long pers_value = PER_LINUX | ADDR_NO_RANDOMIZE;
+
+      if (personality(pers_value) < 0) {
+        // try again to confirm error
+        if (personality(pers_value) < 0) {
+          int pers_errno = errno;
+          fprintf(
+              stderr, "[w1nj3ct.linux] personality failed to disable ASLR: %s (errno=%d)\n", strerror(pers_errno),
+              pers_errno
+          );
+          // continue anyway - some systems may not support this
+        }
+      }
+    }
+
     log.trace("child process starting execve", redlog::field("binary_path", *cfg.binary_path));
     execve(cfg.binary_path->c_str(), const_cast<char**>(argv.data()), const_cast<char**>(envp.data()));
     // execve only returns on error

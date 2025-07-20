@@ -13,6 +13,16 @@
 #endif
 
 #include <windows.h>
+
+// Windows version constants for process mitigation
+#ifndef PROCESS_CREATION_MITIGATION_POLICY_FORCE_RELOCATE_IMAGES_ALWAYS_OFF
+#define PROCESS_CREATION_MITIGATION_POLICY_FORCE_RELOCATE_IMAGES_ALWAYS_OFF (0x00000001ULL << 56)
+#endif
+
+#ifndef PROC_THREAD_ATTRIBUTE_MITIGATION_POLICY
+#define PROC_THREAD_ATTRIBUTE_MITIGATION_POLICY 0x00020007
+#endif
+
 #include "winapis.h"
 #include "inject.hpp"
 #include "util.hpp"
@@ -43,9 +53,13 @@ std::wstring build_command_line(const std::wstring& binary_path, const std::vect
 static BOOL inject_dll_launch_suspended_impl(
     const std::wstring& binary_path, const std::wstring& dll_path, const std::vector<std::string>& args,
     const std::map<std::string, std::string>& env_vars, DWORD* out_pid, bool interactive_resume,
-    bool wait_for_completion, int* out_exit_code
+    bool wait_for_completion, bool disable_aslr, int* out_exit_code
 ) {
-  log_msg("starting Windows launch injection with suspended process");
+  if (disable_aslr) {
+    log_msg("starting Windows launch injection with suspended process (ASLR disabled)");
+  } else {
+    log_msg("starting Windows launch injection with suspended process");
+  }
 
   // validate library exists
   if (GetFileAttributesW(dll_path.c_str()) == INVALID_FILE_ATTRIBUTES) {
@@ -144,11 +158,7 @@ static BOOL inject_dll_launch_suspended_impl(
   }
 
   // create process in suspended state
-  STARTUPINFOW si = {0};
   PROCESS_INFORMATION pi = {0};
-  si.cb = sizeof(si);
-
-  log_msg("creating suspended process");
 
   // createProcessW modifies the command line, so we need a mutable copy
   std::vector<wchar_t> cmd_line_buffer(command_line.begin(), command_line.end());
@@ -159,18 +169,98 @@ static BOOL inject_dll_launch_suspended_impl(
     creation_flags |= CREATE_UNICODE_ENVIRONMENT;
   }
 
-  BOOL create_result = CreateProcessW(
-      binary_path.c_str(),    // lpApplicationName
-      cmd_line_buffer.data(), // lpCommandLine (must be mutable)
-      NULL,                   // lpProcessAttributes
-      NULL,                   // lpThreadAttributes
-      TRUE,                   // bInheritHandles
-      creation_flags,         // dwCreationFlags
-      environment_block,      // lpEnvironment
-      NULL,                   // lpCurrentDirectory
-      &si,                    // lpStartupInfo
-      &pi                     // lpProcessInformation
-  );
+  BOOL create_result = FALSE;
+
+  if (disable_aslr) {
+    log_msg("creating suspended process with ASLR disabled");
+
+    // Use extended startup info for process mitigation policy
+    STARTUPINFOEXW siex = {0};
+    siex.StartupInfo.cb = sizeof(STARTUPINFOEXW);
+
+    // Initialize attribute list
+    SIZE_T attr_size = 0;
+    InitializeProcThreadAttributeList(NULL, 1, 0, &attr_size);
+
+    LPPROC_THREAD_ATTRIBUTE_LIST attr_list = (LPPROC_THREAD_ATTRIBUTE_LIST) malloc(attr_size);
+    if (!attr_list) {
+      log_msg("failed to allocate memory for attribute list");
+      if (environment_block) {
+        free(environment_block);
+      }
+      return FALSE;
+    }
+
+    if (!InitializeProcThreadAttributeList(attr_list, 1, 0, &attr_size)) {
+      DWORD error = GetLastError();
+      std::stringstream ss;
+      ss << "Failed to initialize attribute list. Error code: " << error;
+      log_msg(ss.str());
+      free(attr_list);
+      if (environment_block) {
+        free(environment_block);
+      }
+      return FALSE;
+    }
+
+    // Set mitigation policy to disable ASLR
+    DWORD64 mitigation_policy = PROCESS_CREATION_MITIGATION_POLICY_FORCE_RELOCATE_IMAGES_ALWAYS_OFF;
+
+    if (!UpdateProcThreadAttribute(
+            attr_list, 0, PROC_THREAD_ATTRIBUTE_MITIGATION_POLICY, &mitigation_policy, sizeof(mitigation_policy), NULL,
+            NULL
+        )) {
+      DWORD error = GetLastError();
+      std::stringstream ss;
+      ss << "Failed to update mitigation policy attribute. Error code: " << error;
+      log_msg(ss.str());
+      DeleteProcThreadAttributeList(attr_list);
+      free(attr_list);
+      if (environment_block) {
+        free(environment_block);
+      }
+      return FALSE;
+    }
+
+    siex.lpAttributeList = attr_list;
+    creation_flags |= EXTENDED_STARTUPINFO_PRESENT;
+
+    create_result = CreateProcessW(
+        binary_path.c_str(),    // lpApplicationName
+        cmd_line_buffer.data(), // lpCommandLine (must be mutable)
+        NULL,                   // lpProcessAttributes
+        NULL,                   // lpThreadAttributes
+        TRUE,                   // bInheritHandles
+        creation_flags,         // dwCreationFlags
+        environment_block,      // lpEnvironment
+        NULL,                   // lpCurrentDirectory
+        (LPSTARTUPINFOW) &siex, // lpStartupInfo
+        &pi                     // lpProcessInformation
+    );
+
+    // Clean up attribute list
+    DeleteProcThreadAttributeList(attr_list);
+    free(attr_list);
+
+  } else {
+    log_msg("creating suspended process");
+
+    STARTUPINFOW si = {0};
+    si.cb = sizeof(si);
+
+    create_result = CreateProcessW(
+        binary_path.c_str(),    // lpApplicationName
+        cmd_line_buffer.data(), // lpCommandLine (must be mutable)
+        NULL,                   // lpProcessAttributes
+        NULL,                   // lpThreadAttributes
+        TRUE,                   // bInheritHandles
+        creation_flags,         // dwCreationFlags
+        environment_block,      // lpEnvironment
+        NULL,                   // lpCurrentDirectory
+        &si,                    // lpStartupInfo
+        &pi                     // lpProcessInformation
+    );
+  }
 
   if (!create_result) {
     DWORD error = GetLastError();
@@ -400,11 +490,12 @@ static BOOL inject_dll_launch_suspended_impl(
 bool w1::inject::windows::inject_dll_launch_suspended(
     const std::wstring& binary_path, const std::wstring& dll_path, const std::vector<std::string>& args,
     const std::map<std::string, std::string>& env_vars, process_id* out_pid, bool interactive_resume,
-    bool wait_for_completion, int* out_exit_code
+    bool wait_for_completion, bool disable_aslr, int* out_exit_code
 ) {
   DWORD win_pid;
   BOOL result = inject_dll_launch_suspended_impl(
-      binary_path, dll_path, args, env_vars, &win_pid, interactive_resume, wait_for_completion, out_exit_code
+      binary_path, dll_path, args, env_vars, &win_pid, interactive_resume, wait_for_completion, disable_aslr,
+      out_exit_code
   );
   if (out_pid) {
     *out_pid = static_cast<process_id>(win_pid);

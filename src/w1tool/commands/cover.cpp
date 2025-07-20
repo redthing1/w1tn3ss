@@ -18,7 +18,7 @@ int cover(
     args::ValueFlag<std::string>& name_flag, args::ValueFlag<std::string>& output_flag, args::Flag& include_system_flag,
     args::Flag& inst_trace_flag, args::ValueFlag<std::string>& module_filter_flag,
     args::ValueFlag<int>& debug_level_flag, args::ValueFlag<std::string>& format_flag, args::Flag& suspended_flag,
-    args::PositionalList<std::string>& args_list, const std::string& executable_path
+    args::Flag& no_aslr_flag, args::PositionalList<std::string>& args_list, const std::string& executable_path
 ) {
   auto log = redlog::get_logger("w1tool.cover");
 
@@ -42,6 +42,12 @@ int cover(
   // validate suspended flag
   if (suspended_flag && !spawn_flag) {
     log.err("--suspended can only be used with -s/--spawn (launch tracing)");
+    return 1;
+  }
+
+  // validate no_aslr flag
+  if (no_aslr_flag && !spawn_flag) {
+    log.err("--no-aslr can only be used with -s/--spawn (launch tracing)");
     return 1;
   }
 
@@ -112,6 +118,7 @@ int cover(
     params.spawn_target = true;
     params.binary_path = all_args[0];
     params.suspended = suspended_flag;
+    params.disable_aslr = no_aslr_flag;
 
     // extract binary arguments
     if (all_args.size() > 1) {

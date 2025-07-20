@@ -120,7 +120,8 @@ result inject_preload(const config& cfg) {
   w1::inject::windows::process_id target_pid = 0;
   int exit_code = 0;
   bool success = w1::inject::windows::inject_dll_launch_suspended(
-      binary_path, dll_path, cfg.args, cfg.env_vars, &target_pid, cfg.suspended, cfg.wait_for_completion, &exit_code
+      binary_path, dll_path, cfg.args, cfg.env_vars, &target_pid, cfg.suspended, cfg.wait_for_completion,
+      cfg.disable_aslr, &exit_code
   );
 
   if (!success) {
