@@ -27,7 +27,10 @@ bool memory_tracer::initialize(w1::tracer_engine<memory_tracer>& engine) {
     log_.warn("memory recording not supported on this platform, using callback fallback");
   }
 
-  log_.inf("memory tracer initialized", redlog::field("memory_recording", memory_recording_enabled_));
+  log_.inf(
+      "memory tracer initialized", redlog::field("memory_recording", memory_recording_enabled_),
+      redlog::field("record_values", config_.record_values)
+  );
   return true;
 }
 
@@ -61,7 +64,16 @@ QBDI::VMAction memory_tracer::on_instruction_postinst(
       }
 
       if (access_type > 0) {
-        collector_.record_memory_access(instruction_addr, access.accessAddress, access.size, access_type);
+        // check if value is valid (not flagged as unknown)
+        bool value_valid = !(access.flags & QBDI::MEMORY_UNKNOWN_VALUE);
+
+        // use default value of 0 if not recording values
+        uint64_t value = config_.record_values ? access.value : 0;
+        bool report_valid = config_.record_values ? value_valid : false;
+
+        collector_.record_memory_access(
+            instruction_addr, access.accessAddress, access.size, access_type, value, report_valid
+        );
       }
     }
   }

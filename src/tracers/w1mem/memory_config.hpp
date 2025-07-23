@@ -9,6 +9,7 @@ namespace w1mem {
 struct memory_config : public w1::instrumentation_config {
   int verbose = 0;
   std::string output_path;
+  bool record_values = true; // whether to record memory values (may increase trace size)
 
   static memory_config from_environment() {
     w1::util::env_config loader("W1MEM_");
@@ -17,6 +18,7 @@ struct memory_config : public w1::instrumentation_config {
     config.include_system_modules = loader.get<bool>("INCLUDE_SYSTEM", false);
     config.verbose = loader.get<int>("VERBOSE", 0);
     config.output_path = loader.get<std::string>("OUTPUT", "");
+    config.record_values = loader.get<bool>("RECORD_VALUES", true);
 
     return config;
   }

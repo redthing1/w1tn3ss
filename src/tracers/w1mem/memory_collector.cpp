@@ -26,7 +26,8 @@ void memory_collector::record_instruction() {
 }
 
 void memory_collector::record_memory_access(
-    uint64_t instruction_addr, uint64_t memory_addr, uint32_t size, uint8_t access_type
+    uint64_t instruction_addr, uint64_t memory_addr, uint32_t size, uint8_t access_type, uint64_t value,
+    bool value_valid
 ) {
   // update statistics
   if (access_type == 1) { // read
@@ -50,6 +51,8 @@ void memory_collector::record_memory_access(
   entry.instruction_count = instruction_count_;
   entry.instruction_module = get_module_name(instruction_addr);
   entry.memory_module = get_module_name(memory_addr);
+  entry.value = value;
+  entry.value_valid = value_valid;
 
   // write event if output configured
   if (jsonl_writer_) {
