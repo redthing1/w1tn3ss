@@ -2,6 +2,11 @@
 
 utility scripts for w1tn3ss development.
 
+## helper scripts
+
+- `setup_macos.sh` - set up certificates and sign w1tool
+- `allow_ida_dbg.sh` - set up certificates and sign all ida debug binaries found on host
+
 ## macos-signing
 
 code signing tools for injection on macos.
@@ -30,3 +35,4 @@ sign w1tool:
 - signing needed after each build
 - required for injection on macos
 - development only - not for distribution
+
