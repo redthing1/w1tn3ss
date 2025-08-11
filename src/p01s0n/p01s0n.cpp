@@ -14,10 +14,8 @@
 namespace p01s0n {
 
 int p01s0n_run() {
-  // get config from environment
-  p01s0n_config config = p01s0n_config::from_environment();
+  p01s0n_config config = p01s0n_config::discover();
 
-  // set log level based on verbose setting
   if (config.verbose >= 4) {
     redlog::set_level(redlog::level::pedantic);
   } else if (config.verbose >= 3) {
@@ -32,46 +30,40 @@ int p01s0n_run() {
 
   auto log = redlog::get_logger("p01s0n");
 
-  log.inf("p01s0n dynamic patcher starting");
+  log.inf("p01s0n dynamic patcher starting", redlog::field("config_source", config.source_string()));
 
-  // check for POISON_CURE environment variable
-  const char* cure_script_path = std::getenv("POISON_CURE");
-  if (!cure_script_path || strlen(cure_script_path) == 0) {
-    log.warn("POISON_CURE environment variable not set, no cure script to apply");
-    return 0; // not an error, just nothing to do
+  if (config.script_path.empty()) {
+    log.warn("no cure script configured");
+    return 0;
   }
 
-  std::string script_path(cure_script_path);
-  log.inf("found cure script", redlog::field("path", script_path));
+  log.inf("found cure script", redlog::field("path", config.script_path));
 
-  // validate script file exists
-  if (!std::filesystem::exists(script_path)) {
-    log.err("cure script file does not exist", redlog::field("path", script_path));
+  if (!std::filesystem::exists(config.script_path)) {
+    log.err("script file does not exist", redlog::field("path", config.script_path));
     return 1;
   }
 
   try {
-    // create dynamic context for in-memory patching
     auto context = p1ll::context::create_dynamic();
 
-    log.inf("executing dynamic cure script", redlog::field("script", script_path));
+    log.inf("executing dynamic cure script", redlog::field("script", config.script_path));
 
-    // read script content from file
-    std::ifstream file(script_path);
+    std::ifstream file(config.script_path);
     if (!file.is_open()) {
-      log.err("failed to open script file", redlog::field("path", script_path));
+      log.err("failed to open script file", redlog::field("path", config.script_path));
       return 1;
     }
 
     std::string script_content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
     file.close();
 
-    // execute the cure script in dynamic mode
     auto script_engine = p1ll::scripting::ScriptEngineFactory::create();
     if (!script_engine) {
       log.err("failed to create script engine");
       return 1;
     }
+
     auto result = script_engine->execute_script(*context, script_content);
 
     if (result.success) {
@@ -79,11 +71,6 @@ int p01s0n_run() {
           "dynamic cure completed successfully", redlog::field("patches_applied", result.patches_applied),
           redlog::field("patches_failed", result.patches_failed)
       );
-
-      if (result.patches_applied > 0) {
-        std::cout << "p01s0n: applied " << result.patches_applied << " patches successfully" << std::endl;
-      }
-
       return 0;
     } else {
       log.err(
@@ -94,15 +81,12 @@ int p01s0n_run() {
 
       for (const auto& error : result.error_messages) {
         log.err("cure error", redlog::field("message", error));
-        std::cerr << "p01s0n error: " << error << std::endl;
       }
-
       return 1;
     }
 
   } catch (const std::exception& e) {
     log.err("exception during dynamic cure", redlog::field("what", e.what()));
-    std::cerr << "p01s0n exception: " << e.what() << std::endl;
     return 1;
   }
 }

@@ -22,9 +22,6 @@ public:
 };
 
 // supported script engine types
-enum class ScriptEngineType {
-  LUA,
-  JAVASCRIPT
-};
+enum class ScriptEngineType { LUA, JAVASCRIPT };
 
 } // namespace p1ll::scripting
