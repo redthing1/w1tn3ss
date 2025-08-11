@@ -26,7 +26,7 @@ std::unique_ptr<IScriptEngine> ScriptEngineFactory::create(ScriptEngineType engi
       
 #ifdef PILL_SCRIPT_ENGINE_JS
     case ScriptEngineType::JAVASCRIPT:
-      log.dbg("creating javascript script engine (stub)");
+      log.inf("creating js script engine");
       return std::make_unique<js::js_engine>();
 #endif
       

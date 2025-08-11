@@ -20,6 +20,7 @@ option(WITNESS_QBDI_EXTRAS "Build QBDI with examples, tests and additional tools
 include(${WITNESS_SOURCE_DIR}/cmake/CommonConfig.cmake)
 include(${WITNESS_SOURCE_DIR}/cmake/PlatformConfig.cmake)
 include(${WITNESS_SOURCE_DIR}/cmake/LuaConfig.cmake)
+include(${WITNESS_SOURCE_DIR}/cmake/JavaScriptConfig.cmake)
 include(${WITNESS_SOURCE_DIR}/cmake/LIEFConfig.cmake)
 include(${WITNESS_SOURCE_DIR}/cmake/WindowsSymbolConfig.cmake)
 
@@ -28,7 +29,7 @@ detect_qbdi_platform()
 detect_architecture()
 configure_qbdi_options()
 
-# setup lua environment once globally
+# setup scripting environments once globally
 setup_lua_environment()
 
 # setup lief environment once globally
@@ -43,6 +44,9 @@ message(STATUS "Build Type:            ${CMAKE_BUILD_TYPE}")
 message(STATUS "Static Libraries:      ${WITNESS_BUILD_STATIC}")
 message(STATUS "Shared Libraries:      ${WITNESS_BUILD_SHARED}")
 message(STATUS "Scripting Support:     ${WITNESS_SCRIPT}")
+if(WITNESS_SCRIPT)
+    message(STATUS "Script Engine:         ${WITNESS_SCRIPT_ENGINE}")
+endif()
 message(STATUS "LIEF Support:          ${WITNESS_LIEF}")
 message(STATUS "Tests:                 ${BUILD_TESTS}")
 message(STATUS "")
@@ -65,6 +69,15 @@ endforeach()
 if(NOT TARGET redlog::redlog)
     set(REDLOG_BUILD_TESTS OFF)
     add_subdirectory(src/third_party/redlog_cpp)
+endif()
+
+# configure jnjs for javascript support
+if(WITNESS_SCRIPT AND WITNESS_SCRIPT_ENGINE STREQUAL "js")
+    if(NOT TARGET jnjs)
+        set(JNJS_ENABLE_TESTING OFF)
+        add_subdirectory(src/third_party/jnjs)
+        message(STATUS "added jnjs javascript engine")
+    endif()
 endif()
 
 # configure nlohmann_json

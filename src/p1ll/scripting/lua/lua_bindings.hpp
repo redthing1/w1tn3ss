@@ -399,12 +399,6 @@ inline void setup_manual_api(sol::state& lua, sol::table& p1_module) {
       }
   );
 
-  // p1.patch_memory(address, pattern) - patch memory directly
-  p1_module.set_function("patch_memory", [](uint64_t address, const std::string& pattern) -> bool {
-    // patch_memory functionality moved to engine::memory_scanner
-    return false;
-  });
-
   log.dbg("manual api registered");
 }
 

@@ -2,7 +2,9 @@
 # provides functions for setting up lua and sol2 dependencies
 
 # global scripting configuration
-option(WITNESS_SCRIPT "enable lua scripting support with sol2" OFF)
+option(WITNESS_SCRIPT "enable scripting support" OFF)
+set(WITNESS_SCRIPT_ENGINE "lua" CACHE STRING "script engine to use (lua or js)")
+set_property(CACHE WITNESS_SCRIPT_ENGINE PROPERTY STRINGS "lua" "js")
 
 include(${WITNESS_SOURCE_DIR}/cmake/LuaJITBuild.cmake)
 

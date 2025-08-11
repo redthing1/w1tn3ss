@@ -19,10 +19,6 @@ public:
   cure_result execute_script_content_with_buffer(
       const context& context, const std::string& script_content, std::vector<uint8_t>& buffer_data
   ) override;
-
-private:
-  // helper to create error result
-  cure_result create_not_implemented_error(const std::string& method_name);
 };
 
 } // namespace p1ll::scripting::js
