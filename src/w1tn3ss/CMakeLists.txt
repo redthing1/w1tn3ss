@@ -104,6 +104,11 @@ else()
     )
 endif()
 
+# Configure LIEF for import insertion when enabled
+if(WITNESS_LIEF)
+    target_compile_definitions(w1tn3ss PRIVATE WITNESS_LIEF_ENABLED=1)
+endif()
+
 target_include_directories(w1tn3ss PUBLIC 
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${WITNESS_SOURCE_DIR}/src

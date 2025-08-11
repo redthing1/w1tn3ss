@@ -58,7 +58,7 @@ struct config {
   bool overwrite_existing = false;        // overwrite output file if it exists
 
   // LIBRARY IMPORT OPTIONS
-  bool weak_import = false;           // use weak import (LC_LOAD_WEAK_DYLIB on macos)
+  bool weak_import = false;          // use weak import (LC_LOAD_WEAK_DYLIB on macos)
   bool strip_code_signature = false; // automatically remove code signature if present
 
   // USER INTERACTION
@@ -83,5 +83,6 @@ result insert_library_import(const config& cfg);
 std::string error_code_to_string(error_code code);
 bool is_recoverable_error(error_code code);
 bool is_platform_supported();
+std::string get_platform_support_info();
 
 } // namespace w1::import_insertion

@@ -68,9 +68,12 @@ void cmd_insert_library(args::Subparser& parser) {
   args::Flag overwrite(parser, "overwrite", "overwrite existing output file", {"overwrite"});
   args::Flag strip_codesig(parser, "strip-codesig", "automatically strip code signature", {"strip-codesig"});
   args::Flag all_yes(parser, "all-yes", "answer yes to all prompts", {"all-yes"});
+  args::Flag show_platforms(parser, "show-platforms", "show platform support information", {"show-platforms"});
   parser.Parse();
 
-  w1tool::commands::insert_library(dylib_path, binary_path, output_path, inplace, weak, overwrite, strip_codesig, all_yes);
+  w1tool::commands::insert_library(
+      dylib_path, binary_path, output_path, inplace, weak, overwrite, strip_codesig, all_yes, show_platforms
+  );
 }
 
 void cmd_inspect(args::Subparser& parser) {
@@ -194,7 +197,9 @@ int main(int argc, char* argv[]) {
   args::Group commands(parser, "commands");
 
   args::Command inject_cmd(commands, "inject", "inject library into target process", &cmd_inject);
-  args::Command insert_library_cmd(commands, "insert-library", "insert library import into binary file", &cmd_insert_library);
+  args::Command insert_library_cmd(
+      commands, "insert-library", "insert library import into binary file", &cmd_insert_library
+  );
   args::Command inspect_cmd(commands, "inspect", "inspect binary file", &cmd_inspect);
   args::Command cover_cmd(commands, "cover", "perform coverage tracing with configurable options", &cmd_cover);
   args::Command read_drcov_cmd(commands, "read-drcov", "analyze DrCov coverage files", &cmd_read_drcov);
