@@ -372,6 +372,81 @@ class P1llxRunner:
             return False
 
 
+class InsertDylibRunner:
+    """insert_dylib command execution utilities"""
+
+    @staticmethod
+    def find_insert_dylib() -> Path:
+        """find the insert_dylib executable"""
+        script_dir = Path(__file__).parent
+        insert_dylib_path = script_dir.parent / "build-release" / "insert_dylib"
+
+        if not insert_dylib_path.exists():
+            raise FileNotFoundError(f"insert_dylib not found at {insert_dylib_path}")
+
+        return insert_dylib_path
+
+    @staticmethod
+    def run_insert_dylib(cmd_args: List[str], sudo: bool = False) -> bool:
+        """
+        run insert_dylib with given arguments
+        """
+        insert_dylib_path = InsertDylibRunner.find_insert_dylib()
+        cmd = [str(insert_dylib_path)] + cmd_args
+
+        if sudo:
+            cmd = ["sudo"] + cmd
+
+        try:
+            console.print(f"[dim]$ {' '.join(cmd)}[/dim]")
+            result = subprocess.run(cmd, text=True)
+
+            if result.returncode == 0:
+                console.print(f"[green]✓ insert_dylib completed successfully[/green]")
+                return True
+            else:
+                console.print(
+                    f"[red]insert_dylib failed with exit code: {result.returncode}[/red]"
+                )
+                return False
+
+        except Exception as e:
+            console.print(f"[red]insert_dylib execution error: {e}[/red]")
+            return False
+
+
+class P01s0nManager:
+    """p01s0n.dylib deployment utilities"""
+
+    @staticmethod
+    def find_p01s0n_dylib() -> Path:
+        """find the p01s0n.dylib library"""
+        script_dir = Path(__file__).parent
+        p01s0n_path = script_dir.parent / "build-release" / "lib" / "p01s0n.dylib"
+
+        if not p01s0n_path.exists():
+            raise FileNotFoundError(f"p01s0n.dylib not found at {p01s0n_path}")
+
+        return p01s0n_path
+
+    @staticmethod
+    def deploy_p01s0n(target_binary: Path, use_elevation: bool = False) -> Path:
+        """
+        deploy p01s0n.dylib next to target binary
+        returns the deployed dylib path
+        """
+        p01s0n_source = P01s0nManager.find_p01s0n_dylib()
+        target_dir = target_binary.parent
+        p01s0n_target = target_dir / "p01s0n.dylib"
+
+        console.print(f"[blue]deploying p01s0n.dylib to: {target_dir}[/blue]")
+
+        if not FileOperations.copy_file(p01s0n_source, p01s0n_target, use_elevation):
+            raise RuntimeError(f"failed to deploy p01s0n.dylib to {p01s0n_target}")
+
+        return p01s0n_target
+
+
 def setup_logging(verbose: int = 0):
     """setup logging based on verbosity level"""
     levels = [logging.WARNING, logging.INFO, logging.DEBUG]
@@ -419,7 +494,7 @@ def auto_cure(
     ),
 ):
     """
-    smart wrapper for p1llx cure with automatic backup management and codesigning
+    static cure patching with automatic backup and codesigning
     """
     setup_logging(global_verbose)
 
@@ -613,6 +688,163 @@ def poison(
 
     if not P1llxRunner.run_p1llx(cmd_args, global_sudo):
         raise typer.Exit(1)
+
+
+@app.command()
+def insert_poison(
+    input_file: str = typer.Option(..., "-i", "--input", help="input file path"),
+    output_file: Optional[str] = typer.Option(
+        None, "-o", "--output", help="output file path"
+    ),
+    poison_lib: Optional[str] = typer.Option(
+        None,
+        "-L",
+        "--poison-lib",
+        help="custom dylib to inject (default: p01s0n.dylib)",
+    ),
+    no_backup: bool = typer.Option(
+        False, "--no-backup", help="disable backup creation"
+    ),
+):
+    """
+    insert p01s0n dylib into import table of target binary
+    """
+    setup_logging(global_verbose)
+
+    # check platform
+    if platform.system() != "Darwin":
+        console.print(f"[red]insert-poison is only supported on macOS[/red]")
+        raise typer.Exit(1)
+
+    input_path = Path(input_file)
+    output_path = Path(output_file) if output_file else None
+
+    # determine dylib to inject
+    if poison_lib:
+        poison_lib_path = Path(poison_lib)
+        if not poison_lib_path.exists():
+            console.print(f"[red]custom poison library not found: {poison_lib}[/red]")
+            raise typer.Exit(1)
+        dylib_name = poison_lib_path.name
+        dylib_import_path = f"@executable_path/{dylib_name}"
+        use_custom_lib = True
+    else:
+        # default to p01s0n.dylib
+        dylib_name = "p01s0n.dylib"
+        dylib_import_path = "@executable_path/p01s0n.dylib"
+        use_custom_lib = False
+
+    console.print(
+        Panel(
+            f"[bold]d0ct0r insert-poison[/bold]\n"
+            f"input: {input_path.name}\n"
+            f"output: {output_path.name if output_path else 'in-place'}\n"
+            f"poison lib: {dylib_name}\n"
+            f"method: import table modification + dylib deployment"
+        )
+    )
+
+    # validate input file exists
+    if not input_path.exists():
+        console.print(f"[red]input file not found: {input_path}[/red]")
+        raise typer.Exit(1)
+
+    # prevent same input/output
+    if output_path and input_path.resolve() == output_path.resolve():
+        console.print(f"[red]input and output cannot be the same file[/red]")
+        raise typer.Exit(1)
+
+    # detect binary format - must be mach-o
+    format_name, is_macho = BinaryFormat.detect_format(input_path)
+    console.print(f"[cyan]detected format: {format_name}[/cyan]")
+
+    if not is_macho:
+        console.print(
+            f"[red]insert-poison requires mach-o binary, got: {format_name}[/red]"
+        )
+        raise typer.Exit(1)
+
+    # preserve original permissions
+    original_permissions = PermissionManager.get_permissions(input_path)
+
+    # handle backup workflow
+    if not no_backup and BackupManager.should_use_backup(input_path, output_path):
+        backup_path = BackupManager.create_backup(
+            input_path, force=False, use_elevation=global_sudo
+        )
+        actual_input = backup_path
+    else:
+        actual_input = input_path
+
+    # determine target file
+    if output_path:
+        target_file = output_path
+    else:
+        target_file = input_path
+
+    # build insert_dylib command
+    # format: insert_dylib [flags] dylib_path binary_path [output_path]
+    cmd_args = []
+
+    # add verbosity flags
+    if global_verbose > 0:
+        cmd_args.append("-" + "v" * global_verbose)
+
+    # add insert_dylib specific flags
+    cmd_args.extend(["--strip-codesig", "--all-yes"])  # auto-answer prompts
+
+    # for in-place modification, we need to be careful with the workflow
+    if output_path:
+        # explicit output path - straightforward
+        cmd_args.extend([dylib_import_path, str(actual_input), str(output_path)])
+    else:
+        # in-place modification: work from backup to original location
+        cmd_args.extend(
+            [
+                "--overwrite",  # allow overwriting existing file
+                dylib_import_path,
+                str(actual_input),
+                str(target_file),  # output back to original location
+            ]
+        )
+
+    # run insert_dylib
+    if not InsertDylibRunner.run_insert_dylib(cmd_args, global_sudo):
+        raise typer.Exit(1)
+
+    # deploy dylib next to target binary
+    try:
+        if use_custom_lib:
+            # deploy custom dylib
+            target_dir = target_file.parent
+            dylib_target = target_dir / dylib_name
+            console.print(f"[blue]deploying custom dylib to: {target_dir}[/blue]")
+            if not FileOperations.copy_file(poison_lib_path, dylib_target, global_sudo):
+                raise RuntimeError(f"failed to deploy {dylib_name} to {dylib_target}")
+            deployed_dylib = dylib_target
+        else:
+            # deploy default p01s0n.dylib
+            deployed_dylib = P01s0nManager.deploy_p01s0n(target_file, global_sudo)
+
+        console.print(f"[green]✓ deployed dylib: {deployed_dylib.name}[/green]")
+    except Exception as e:
+        console.print(f"[red]failed to deploy dylib: {e}[/red]")
+        raise typer.Exit(1)
+
+    # codesign if needed
+    if not CodesignManager.codesign(target_file, global_sudo):
+        console.print(f"[yellow]warning: codesigning failed[/yellow]")
+
+    # restore permissions
+    if not PermissionManager.set_permissions(
+        target_file, original_permissions, global_sudo
+    ):
+        console.print(f"[yellow]warning: could not restore permissions[/yellow]")
+
+    console.print(f"[green]✓ insert-poison completed successfully[/green]")
+    console.print(
+        f"[dim]note: binary now loads {dylib_name} from {dylib_import_path}[/dim]"
+    )
 
 
 if __name__ == "__main__":
