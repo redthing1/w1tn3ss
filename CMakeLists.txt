@@ -102,6 +102,11 @@ if(WITNESS_LIEF)
     endforeach()
 endif()
 
+# add insert_dylib tool on macOS only
+if(QBDI_PLATFORM STREQUAL "osx")
+    add_subdirectory(tools/insert_dylib)
+endif()
+
 # add project subdirectories
 add_subdirectory(src/w1common)
 add_subdirectory(src/w1tn3ss)

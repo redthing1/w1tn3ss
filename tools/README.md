@@ -1,6 +1,6 @@
 # tools
 
-utility scripts for w1tn3ss development.
+utilities for working with w1tn3ss.
 
 ## macos-signing
 
@@ -26,7 +26,6 @@ sign w1tool:
 
 ### notes
 
-- certificate install requires sudo
-- signing needed after each build
-- required for injection on macos
-- development only - not for distribution
+- installing the certificate requires sudo
+- each build of the binary must be signed with the entitlements
+- you can't inject as a non-root user on macos without the `com.apple.security.cs.debugger` entitlement
