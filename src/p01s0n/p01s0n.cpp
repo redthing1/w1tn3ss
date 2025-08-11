@@ -9,7 +9,7 @@
 #include <redlog.hpp>
 #include "p1ll/core/context.hpp"
 
-#include "p1ll/scripting/lua_api.hpp"
+#include "p1ll/scripting/script_engine_factory.hpp"
 
 namespace p01s0n {
 
@@ -67,8 +67,12 @@ int p01s0n_run() {
     file.close();
 
     // execute the cure script in dynamic mode
-    p1ll::scripting::lua_api lua_engine;
-    auto result = lua_engine.execute_script(*context, script_content);
+    auto script_engine = p1ll::scripting::ScriptEngineFactory::create();
+    if (!script_engine) {
+      log.err("failed to create script engine");
+      return 1;
+    }
+    auto result = script_engine->execute_script(*context, script_content);
 
     if (result.success) {
       log.inf(

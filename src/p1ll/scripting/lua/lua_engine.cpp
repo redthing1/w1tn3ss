@@ -1,19 +1,19 @@
-#include "lua_api.hpp"
+#include "lua_engine.hpp"
 #include "lua_bindings.hpp"
 #include "p1ll.hpp"
 #include <redlog.hpp>
 #include <fstream>
 #include <sstream>
 
-namespace p1ll::scripting {
+namespace p1ll::scripting::lua {
 
-lua_api::lua_api() {
+lua_engine::lua_engine() {
   setup_lua_environment();
   setup_logging_integration();
 }
 
-void lua_api::setup_lua_environment() {
-  auto log = redlog::get_logger("p1ll.lua_api");
+void lua_engine::setup_lua_environment() {
+  auto log = redlog::get_logger("p1ll.lua_engine");
   log.dbg("setting up lua environment");
 
   // open standard lua libraries
@@ -22,8 +22,8 @@ void lua_api::setup_lua_environment() {
   log.dbg("lua environment ready (bindings setup deferred)");
 }
 
-void lua_api::setup_logging_integration() {
-  auto log = redlog::get_logger("p1ll.lua_api");
+void lua_engine::setup_logging_integration() {
+  auto log = redlog::get_logger("p1ll.lua_engine");
   log.dbg("setting up logging integration");
 
   // override lua print function to use redlog
@@ -44,10 +44,10 @@ void lua_api::setup_logging_integration() {
   log.dbg("logging integration complete");
 }
 
-cure_result lua_api::execute_script_content_with_buffer(
+cure_result lua_engine::execute_script_content_with_buffer(
     const context& ctx, const std::string& script_content, std::vector<uint8_t>& buffer_data
 ) {
-  auto log = redlog::get_logger("p1ll.lua_api");
+  auto log = redlog::get_logger("p1ll.lua_engine");
 
   cure_result result;
 
@@ -77,8 +77,8 @@ cure_result lua_api::execute_script_content_with_buffer(
   }
 }
 
-cure_result lua_api::execute_script(const context& ctx, const std::string& script_content) {
-  auto log = redlog::get_logger("p1ll.lua_api");
+cure_result lua_engine::execute_script(const context& ctx, const std::string& script_content) {
+  auto log = redlog::get_logger("p1ll.lua_engine");
 
   cure_result result;
 
@@ -108,8 +108,8 @@ cure_result lua_api::execute_script(const context& ctx, const std::string& scrip
   }
 }
 
-cure_result lua_api::call_cure_function() {
-  auto log = redlog::get_logger("p1ll.lua_api");
+cure_result lua_engine::call_cure_function() {
+  auto log = redlog::get_logger("p1ll.lua_engine");
 
   cure_result result;
 
@@ -155,4 +155,4 @@ cure_result lua_api::call_cure_function() {
   }
 }
 
-} // namespace p1ll::scripting
+} // namespace p1ll::scripting::lua

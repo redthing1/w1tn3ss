@@ -1,49 +1,32 @@
-#include "lua_bindings.hpp"
-#include "p1ll.hpp"
-#include "core/context.hpp"
-#include "core/signature.hpp"
-#include "engine/auto_cure.hpp"
-#include "engine/memory_scanner.hpp"
+#pragma once
+
+// Header-only standalone p1ll lua bindings for w1script integration
+// Converted from lua_bindings.cpp to be self-contained
+
+#include <sol/sol.hpp>
 #include <redlog.hpp>
+
+// Core p1ll includes
+#include "p1ll/core/types.hpp"
+#include "p1ll/core/context.hpp"
+#include "p1ll/core/signature.hpp"
+#include "p1ll/engine/auto_cure.hpp"
+#include "p1ll/engine/memory_scanner.hpp"
+#include "p1ll/utils/hex_utils.hpp"
+
+// Standard library includes
+#include <string>
+#include <vector>
+#include <memory>
+#include <stdexcept>
+#include <optional>
+#include <cctype>
 
 namespace p1ll::scripting {
 
-void setup_p1ll_bindings(sol::state& lua, const context& ctx) {
-  auto log = redlog::get_logger("p1ll.bindings");
-  log.inf("setting up modular p1ll bindings");
-
-  // create the main p1 module (short and beautiful)
-  sol::table p1_module = lua.create_table();
-
-  // setup all binding modules in logical order
-  log.dbg("setting up core types");
-  bindings::setup_core_types(lua, p1_module);
-
-  log.dbg("setting up signature api");
-  bindings::setup_signature_api(lua, p1_module);
-
-  log.dbg("setting up patch api");
-  bindings::setup_patch_api(lua, p1_module);
-
-  log.dbg("setting up auto-cure api");
-  bindings::setup_auto_cure_api(lua, p1_module, ctx);
-
-  log.dbg("setting up manual api");
-  bindings::setup_manual_api(lua, p1_module);
-
-  log.dbg("setting up utilities");
-  bindings::setup_utilities(lua, p1_module);
-
-  // register the p1 module with the lua state
-  lua["p1"] = p1_module;
-
-  log.inf("all p1ll bindings registered successfully");
-  log.dbg("available in lua as: p1.sig(), p1.patch(), p1.auto_cure(), p1.str2hex(), etc.");
-}
-
 namespace bindings {
 
-void setup_core_types(sol::state& lua, sol::table& p1_module) {
+inline void setup_core_types(sol::state& lua, sol::table& p1_module) {
   auto log = redlog::get_logger("p1ll.bindings.core");
   log.dbg("setting up core types");
 
@@ -70,7 +53,7 @@ void setup_core_types(sol::state& lua, sol::table& p1_module) {
   log.dbg("core types registered");
 }
 
-void setup_signature_api(sol::state& lua, sol::table& p1_module) {
+inline void setup_signature_api(sol::state& lua, sol::table& p1_module) {
   auto log = redlog::get_logger("p1ll.bindings.signature");
   log.dbg("setting up signature api");
 
@@ -135,7 +118,7 @@ void setup_signature_api(sol::state& lua, sol::table& p1_module) {
   log.dbg("signature api registered");
 }
 
-void setup_patch_api(sol::state& lua, sol::table& p1_module) {
+inline void setup_patch_api(sol::state& lua, sol::table& p1_module) {
   auto log = redlog::get_logger("p1ll.bindings.patch");
   log.dbg("setting up patch api");
 
@@ -204,7 +187,7 @@ void setup_patch_api(sol::state& lua, sol::table& p1_module) {
   log.dbg("patch api registered");
 }
 
-void setup_auto_cure_api(sol::state& lua, sol::table& p1_module, const context& ctx) {
+inline void setup_auto_cure_api(sol::state& lua, sol::table& p1_module, const context& ctx) {
   auto log = redlog::get_logger("p1ll.bindings.auto_cure");
   log.dbg("setting up auto-cure api");
 
@@ -307,7 +290,7 @@ void setup_auto_cure_api(sol::state& lua, sol::table& p1_module, const context& 
   log.dbg("auto-cure api registered");
 }
 
-void setup_manual_api(sol::state& lua, sol::table& p1_module) {
+inline void setup_manual_api(sol::state& lua, sol::table& p1_module) {
   auto log = redlog::get_logger("p1ll.bindings.manual");
   log.dbg("setting up manual api");
 
@@ -375,7 +358,7 @@ void setup_manual_api(sol::state& lua, sol::table& p1_module) {
         auto compiled_sig = compile_signature(pattern);
         if (!compiled_sig) {
           log.err("search_sig: failed to compile signature pattern", redlog::field("pattern", pattern));
-          return sol::nil;
+          return sol::lua_nil;
         }
 
         // create memory scanner and perform search
@@ -387,7 +370,7 @@ void setup_manual_api(sol::state& lua, sol::table& p1_module) {
         auto search_results_opt = scanner.search(query);
         if (!search_results_opt) {
           log.err("search_sig: search failed", redlog::field("pattern", pattern));
-          return sol::nil;
+          return sol::lua_nil;
         }
 
         std::vector<search_result> results = *search_results_opt;
@@ -396,7 +379,7 @@ void setup_manual_api(sol::state& lua, sol::table& p1_module) {
         if (single) {
           if (results.empty()) {
             log.err("search_sig: no matches found (expected exactly 1)", redlog::field("pattern", pattern));
-            return sol::nil;
+            return sol::lua_nil;
           } else if (results.size() > 1) {
             log.err(
                 "search_sig: multiple matches found (expected exactly 1)", redlog::field("pattern", pattern),
@@ -405,7 +388,7 @@ void setup_manual_api(sol::state& lua, sol::table& p1_module) {
             for (size_t i = 0; i < results.size(); ++i) {
               log.inf(redlog::fmt("  match %zu: address=0x%llx", i, results[i].address));
             }
-            return sol::nil;
+            return sol::lua_nil;
           }
           // exactly one match - return the address directly
           return sol::make_object(lua, results[0].address);
@@ -425,7 +408,7 @@ void setup_manual_api(sol::state& lua, sol::table& p1_module) {
   log.dbg("manual api registered");
 }
 
-void setup_utilities(sol::state& lua, sol::table& p1_module) {
+inline void setup_utilities(sol::state& lua, sol::table& p1_module) {
   auto log = redlog::get_logger("p1ll.bindings.utilities");
   log.dbg("setting up utilities");
 
@@ -462,28 +445,7 @@ void setup_utilities(sol::state& lua, sol::table& p1_module) {
   log.dbg("utilities registered");
 }
 
-} // namespace bindings
-
-void setup_p1ll_bindings_with_buffer(sol::state& lua, const context& ctx, std::vector<uint8_t>& buffer_data) {
-  auto log = redlog::get_logger("p1ll.bindings");
-  log.inf("setting up p1ll bindings with buffer");
-
-  sol::table p1_module = lua.create_table();
-
-  bindings::setup_core_types(lua, p1_module);
-  bindings::setup_signature_api(lua, p1_module);
-  bindings::setup_patch_api(lua, p1_module);
-  bindings::setup_auto_cure_api_with_buffer(lua, p1_module, ctx, buffer_data);
-  bindings::setup_manual_api(lua, p1_module);
-  bindings::setup_utilities(lua, p1_module);
-
-  lua["p1"] = p1_module;
-  log.inf("p1ll bindings registered");
-}
-
-namespace bindings {
-
-void setup_auto_cure_api_with_buffer(
+inline void setup_auto_cure_api_with_buffer(
     sol::state& lua, sol::table& p1_module, const context& ctx, std::vector<uint8_t>& buffer_data
 ) {
   auto log = redlog::get_logger("p1ll.bindings.auto_cure");
@@ -579,5 +541,55 @@ void setup_auto_cure_api_with_buffer(
 }
 
 } // namespace bindings
+
+inline void setup_p1ll_bindings(sol::state& lua, const context& ctx) {
+  auto log = redlog::get_logger("p1ll.bindings");
+  log.inf("setting up modular p1ll bindings");
+
+  // create the main p1 module (short and beautiful)
+  sol::table p1_module = lua.create_table();
+
+  // setup all binding modules in logical order
+  log.dbg("setting up core types");
+  bindings::setup_core_types(lua, p1_module);
+
+  log.dbg("setting up signature api");
+  bindings::setup_signature_api(lua, p1_module);
+
+  log.dbg("setting up patch api");
+  bindings::setup_patch_api(lua, p1_module);
+
+  log.dbg("setting up auto-cure api");
+  bindings::setup_auto_cure_api(lua, p1_module, ctx);
+
+  log.dbg("setting up manual api");
+  bindings::setup_manual_api(lua, p1_module);
+
+  log.dbg("setting up utilities");
+  bindings::setup_utilities(lua, p1_module);
+
+  // register the p1 module with the lua state
+  lua["p1"] = p1_module;
+
+  log.inf("all p1ll bindings registered successfully");
+  log.dbg("available in lua as: p1.sig(), p1.patch(), p1.auto_cure(), p1.str2hex(), etc.");
+}
+
+inline void setup_p1ll_bindings_with_buffer(sol::state& lua, const context& ctx, std::vector<uint8_t>& buffer_data) {
+  auto log = redlog::get_logger("p1ll.bindings");
+  log.inf("setting up p1ll bindings with buffer");
+
+  sol::table p1_module = lua.create_table();
+
+  bindings::setup_core_types(lua, p1_module);
+  bindings::setup_signature_api(lua, p1_module);
+  bindings::setup_patch_api(lua, p1_module);
+  bindings::setup_auto_cure_api_with_buffer(lua, p1_module, ctx, buffer_data);
+  bindings::setup_manual_api(lua, p1_module);
+  bindings::setup_utilities(lua, p1_module);
+
+  lua["p1"] = p1_module;
+  log.inf("p1ll bindings registered");
+}
 
 } // namespace p1ll::scripting

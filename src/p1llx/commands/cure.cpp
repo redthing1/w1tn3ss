@@ -1,6 +1,6 @@
 #include "cure.hpp"
 #include <p1ll/core/context.hpp>
-#include <p1ll/scripting/lua_api.hpp>
+#include <p1ll/scripting/script_engine_factory.hpp>
 #include <p1ll/core/platform.hpp>
 #include <redlog.hpp>
 #include <iostream>
@@ -65,8 +65,12 @@ int cure(
       context = p1ll::context::create_static();
     }
 
-    p1ll::scripting::lua_api lua_engine;
-    auto result = lua_engine.execute_script_content_with_buffer(*context, script_content, buffer_data);
+    auto script_engine = p1ll::scripting::ScriptEngineFactory::create();
+    if (!script_engine) {
+      std::cerr << "failed to create script engine" << std::endl;
+      return 1;
+    }
+    auto result = script_engine->execute_script_content_with_buffer(*context, script_content, buffer_data);
 
     if (result.success) {
       // write modified buffer to output file

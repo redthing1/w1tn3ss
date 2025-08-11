@@ -1,5 +1,5 @@
 #include "signature_scanning.hpp"
-#include <p1ll/scripting/lua_bindings.hpp>
+#include <p1ll/scripting/lua/lua_bindings.hpp>
 #include <p1ll/core/context.hpp>
 #include <redlog.hpp>
 
