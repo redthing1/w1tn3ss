@@ -19,3 +19,6 @@
 [submodule "src/third_party/nlohmann_json"]
 	path = src/third_party/nlohmann_json
 	url = https://github.com/nlohmann/json
+[submodule "src/third_party/jnjs"]
+	path = src/third_party/jnjs
+	url = https://github.com/notjuliee/jnjs.git
