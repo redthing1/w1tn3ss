@@ -18,13 +18,8 @@ namespace w1tool::commands {
  * @return exit code (0 for success, 1 for failure)
  */
 int inspect(
-    args::ValueFlag<std::string>& binary_flag,
-    args::Flag& detailed_flag,
-    args::Flag& sections_flag,
-    args::Flag& symbols_flag,
-    args::Flag& imports_flag,
-    args::Flag& security_flag,
-    args::Flag& json_flag,
+    args::ValueFlag<std::string>& binary_flag, args::Flag& detailed_flag, args::Flag& sections_flag,
+    args::Flag& symbols_flag, args::Flag& imports_flag, args::Flag& security_flag, args::Flag& json_flag,
     args::ValueFlag<std::string>& format_flag
 );
 

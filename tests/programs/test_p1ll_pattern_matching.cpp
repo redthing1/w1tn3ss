@@ -16,12 +16,12 @@ struct TestResult {
   int passed = 0;
   int failed = 0;
 
-  void pass(const std::string &test_name) {
+  void pass(const std::string& test_name) {
     std::cout << "[PASS] " << test_name << std::endl;
     passed++;
   }
 
-  void fail(const std::string &test_name, const std::string &reason) {
+  void fail(const std::string& test_name, const std::string& reason) {
     std::cout << "[FAIL] " << test_name << " - " << reason << std::endl;
     failed++;
   }
@@ -60,8 +60,7 @@ void test_wildcard_pattern_matching() {
 
     auto compiled_sig_opt = compile_signature(pattern);
     if (!compiled_sig_opt) {
-      results.fail("Wildcard pattern matching - basic case",
-                   "failed to compile signature");
+      results.fail("Wildcard pattern matching - basic case", "failed to compile signature");
       return;
     }
     auto sig = *compiled_sig_opt;
@@ -71,9 +70,10 @@ void test_wildcard_pattern_matching() {
     if (matches.size() == 1 && matches[0] == 0) {
       results.pass("Wildcard pattern matching - basic case");
     } else {
-      results.fail("Wildcard pattern matching - basic case",
-                   "Expected 1 match at offset 0, got " +
-                       std::to_string(matches.size()) + " matches");
+      results.fail(
+          "Wildcard pattern matching - basic case",
+          "Expected 1 match at offset 0, got " + std::to_string(matches.size()) + " matches"
+      );
     }
   }
 
@@ -95,8 +95,7 @@ void test_wildcard_pattern_matching() {
 
     auto compiled_sig_opt = compile_signature(pattern);
     if (!compiled_sig_opt) {
-      results.fail("Wildcard pattern matching - different wildcard values",
-                   "failed to compile signature");
+      results.fail("Wildcard pattern matching - different wildcard values", "failed to compile signature");
       return;
     }
     auto sig = *compiled_sig_opt;
@@ -106,9 +105,10 @@ void test_wildcard_pattern_matching() {
     if (matches.size() == 1 && matches[0] == 0) {
       results.pass("Wildcard pattern matching - different wildcard values");
     } else {
-      results.fail("Wildcard pattern matching - different wildcard values",
-                   "Expected 1 match at offset 0, got " +
-                       std::to_string(matches.size()) + " matches");
+      results.fail(
+          "Wildcard pattern matching - different wildcard values",
+          "Expected 1 match at offset 0, got " + std::to_string(matches.size()) + " matches"
+      );
     }
   }
 
@@ -140,9 +140,10 @@ void test_wildcard_pattern_matching() {
     if (matches.size() == 0) {
       results.pass("Wildcard pattern matching - negative case");
     } else {
-      results.fail("Wildcard pattern matching - negative case",
-                   "Expected 0 matches, got " + std::to_string(matches.size()) +
-                       " matches");
+      results.fail(
+          "Wildcard pattern matching - negative case",
+          "Expected 0 matches, got " + std::to_string(matches.size()) + " matches"
+      );
     }
   }
 
@@ -177,9 +178,10 @@ void test_wildcard_pattern_matching() {
     if (matches.size() == 1 && matches[0] == 50) {
       results.pass("Wildcard pattern matching - different offset");
     } else {
-      results.fail("Wildcard pattern matching - different offset",
-                   "Expected 1 match at offset 50, got " +
-                       std::to_string(matches.size()) + " matches");
+      results.fail(
+          "Wildcard pattern matching - different offset",
+          "Expected 1 match at offset 50, got " + std::to_string(matches.size()) + " matches"
+      );
     }
   }
 }
@@ -204,17 +206,17 @@ void test_exact_pattern_matching() {
     if (matches.size() == 1 && matches[0] == 0) {
       results.pass("Exact pattern matching - basic case");
     } else {
-      results.fail("Exact pattern matching - basic case",
-                   "Expected 1 match at offset 0, got " +
-                       std::to_string(matches.size()) + " matches");
+      results.fail(
+          "Exact pattern matching - basic case",
+          "Expected 1 match at offset 0, got " + std::to_string(matches.size()) + " matches"
+      );
     }
   }
 
   // Test case 2: Pattern not found
   {
     std::string pattern = "488b5158 488d4c24";
-    uint8_t test_data[] = {0x48, 0x8b, 0x51, 0x58,
-                           0x48, 0x8d, 0x4c, 0x25}; // Last byte wrong
+    uint8_t test_data[] = {0x48, 0x8b, 0x51, 0x58, 0x48, 0x8d, 0x4c, 0x25}; // Last byte wrong
 
     auto compiled_sig_opt = compile_signature(pattern);
     if (!compiled_sig_opt) {
@@ -228,9 +230,10 @@ void test_exact_pattern_matching() {
     if (matches.size() == 0) {
       results.pass("Exact pattern matching - negative case");
     } else {
-      results.fail("Exact pattern matching - negative case",
-                   "Expected 0 matches, got " + std::to_string(matches.size()) +
-                       " matches");
+      results.fail(
+          "Exact pattern matching - negative case",
+          "Expected 0 matches, got " + std::to_string(matches.size()) + " matches"
+      );
     }
   }
 }
@@ -255,9 +258,10 @@ void test_edge_cases() {
     if (matches.size() == 1 && matches[0] == 0) {
       results.pass("Edge case - single byte pattern");
     } else {
-      results.fail("Edge case - single byte pattern",
-                   "Expected 1 match at offset 0, got " +
-                       std::to_string(matches.size()) + " matches");
+      results.fail(
+          "Edge case - single byte pattern",
+          "Expected 1 match at offset 0, got " + std::to_string(matches.size()) + " matches"
+      );
     }
   }
 
@@ -278,9 +282,10 @@ void test_edge_cases() {
     if (matches.size() == 1 && matches[0] == 0) {
       results.pass("Edge case - single wildcard pattern");
     } else {
-      results.fail("Edge case - single wildcard pattern",
-                   "Expected 1 match at offset 0, got " +
-                       std::to_string(matches.size()) + " matches");
+      results.fail(
+          "Edge case - single wildcard pattern",
+          "Expected 1 match at offset 0, got " + std::to_string(matches.size()) + " matches"
+      );
     }
   }
 
@@ -301,16 +306,17 @@ void test_edge_cases() {
     if (matches.size() == 1 && matches[0] == 0) {
       results.pass("Edge case - all wildcards pattern");
     } else {
-      results.fail("Edge case - all wildcards pattern",
-                   "Expected 1 match at offset 0, got " +
-                       std::to_string(matches.size()) + " matches");
+      results.fail(
+          "Edge case - all wildcards pattern",
+          "Expected 1 match at offset 0, got " + std::to_string(matches.size()) + " matches"
+      );
     }
   }
 
   // Test case 4: Empty data
   {
     std::string pattern = "48";
-    uint8_t *test_data = nullptr;
+    uint8_t* test_data = nullptr;
 
     auto compiled_sig_opt = compile_signature(pattern);
     if (!compiled_sig_opt) {
@@ -324,9 +330,7 @@ void test_edge_cases() {
     if (matches.size() == 0) {
       results.pass("Edge case - empty data");
     } else {
-      results.fail("Edge case - empty data",
-                   "Expected 0 matches, got " + std::to_string(matches.size()) +
-                       " matches");
+      results.fail("Edge case - empty data", "Expected 0 matches, got " + std::to_string(matches.size()) + " matches");
     }
   }
 }
@@ -363,13 +367,13 @@ void test_performance_patterns() {
       if (found_at_500) {
         results.pass("Performance pattern - many wildcards");
       } else {
-        results.fail("Performance pattern - many wildcards",
-                     "Expected match at offset 500, but not found");
+        results.fail("Performance pattern - many wildcards", "Expected match at offset 500, but not found");
       }
     } else {
-      results.fail("Performance pattern - many wildcards",
-                   "Expected at least 1 match, got " +
-                       std::to_string(matches.size()) + " matches");
+      results.fail(
+          "Performance pattern - many wildcards",
+          "Expected at least 1 match, got " + std::to_string(matches.size()) + " matches"
+      );
     }
   }
 }
@@ -404,8 +408,7 @@ void test_hex_utils() {
     if (normalized == "488b??ffd2") {
       results.pass("Hex utils - normalize pattern");
     } else {
-      results.fail("Hex utils - normalize pattern",
-                   "Expected '488b??ffd2', got '" + normalized + "'");
+      results.fail("Hex utils - normalize pattern", "Expected '488b??ffd2', got '" + normalized + "'");
     }
   }
 }

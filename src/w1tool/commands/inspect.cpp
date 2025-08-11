@@ -17,13 +17,8 @@ namespace w1tool::commands {
 #ifndef WITNESS_LIEF_ENABLED
 
 int inspect(
-    args::ValueFlag<std::string>& binary_flag,
-    args::Flag& detailed_flag,
-    args::Flag& sections_flag,
-    args::Flag& symbols_flag,
-    args::Flag& imports_flag,
-    args::Flag& security_flag,
-    args::Flag& json_flag,
+    args::ValueFlag<std::string>& binary_flag, args::Flag& detailed_flag, args::Flag& sections_flag,
+    args::Flag& symbols_flag, args::Flag& imports_flag, args::Flag& security_flag, args::Flag& json_flag,
     args::ValueFlag<std::string>& format_flag
 ) {
   auto log = redlog::get_logger("w1tool.inspect");
@@ -78,7 +73,7 @@ protected:
   std::unique_ptr<LIEF::Binary> binary_;
 
   binary_analyzer(std::unique_ptr<LIEF::Binary> binary, const std::string& logger_name)
-    : log_(redlog::get_logger(logger_name)), binary_(std::move(binary)) {}
+      : log_(redlog::get_logger(logger_name)), binary_(std::move(binary)) {}
 };
 
 // format-specific analyzers
@@ -129,13 +124,8 @@ std::unique_ptr<binary_analyzer> create_analyzer(std::unique_ptr<LIEF::Binary> b
 } // namespace detail
 
 int inspect(
-    args::ValueFlag<std::string>& binary_flag,
-    args::Flag& detailed_flag,
-    args::Flag& sections_flag,
-    args::Flag& symbols_flag,
-    args::Flag& imports_flag,
-    args::Flag& security_flag,
-    args::Flag& json_flag,
+    args::ValueFlag<std::string>& binary_flag, args::Flag& detailed_flag, args::Flag& sections_flag,
+    args::Flag& symbols_flag, args::Flag& imports_flag, args::Flag& security_flag, args::Flag& json_flag,
     args::ValueFlag<std::string>& format_flag
 ) {
   auto log = redlog::get_logger("w1tool.inspect");
@@ -147,7 +137,7 @@ int inspect(
   }
 
   std::string binary_path = args::get(binary_flag);
-  
+
   if (!fs::exists(binary_path)) {
     log.error("binary file does not exist", redlog::field("path", binary_path));
     return 1;
@@ -170,12 +160,12 @@ int inspect(
   try {
     // parse binary using LIEF
     std::unique_ptr<LIEF::Binary> binary;
-    
+
     if (!opts.forced_format.empty()) {
       // TODO: implement forced format parsing when needed
       log.warn("forced format not yet implemented, using auto-detection");
     }
-    
+
     binary = LIEF::Parser::parse(binary_path);
     if (!binary) {
       log.error("failed to parse binary - invalid format or corrupted file");
@@ -251,84 +241,110 @@ std::string format_bytes(uint64_t bytes) {
 
 std::string format_permissions(uint32_t flags, const std::string& format) {
   std::string perms = "---";
-  
+
   if (format == "elf") {
-    if (flags & 0x4) perms[0] = 'r'; // PF_R
-    if (flags & 0x2) perms[1] = 'w'; // PF_W
-    if (flags & 0x1) perms[2] = 'x'; // PF_X
+    if (flags & 0x4) {
+      perms[0] = 'r'; // PF_R
+    }
+    if (flags & 0x2) {
+      perms[1] = 'w'; // PF_W
+    }
+    if (flags & 0x1) {
+      perms[2] = 'x'; // PF_X
+    }
   } else if (format == "pe") {
     // PE section characteristics
-    if (flags & 0x40000000) perms[0] = 'r'; // IMAGE_SCN_MEM_READ
-    if (flags & 0x80000000) perms[1] = 'w'; // IMAGE_SCN_MEM_WRITE
-    if (flags & 0x20000000) perms[2] = 'x'; // IMAGE_SCN_MEM_EXECUTE
+    if (flags & 0x40000000) {
+      perms[0] = 'r'; // IMAGE_SCN_MEM_READ
+    }
+    if (flags & 0x80000000) {
+      perms[1] = 'w'; // IMAGE_SCN_MEM_WRITE
+    }
+    if (flags & 0x20000000) {
+      perms[2] = 'x'; // IMAGE_SCN_MEM_EXECUTE
+    }
   } else if (format == "macho") {
-    if (flags & 0x1) perms[0] = 'r'; // VM_PROT_READ
-    if (flags & 0x2) perms[1] = 'w'; // VM_PROT_WRITE
-    if (flags & 0x4) perms[2] = 'x'; // VM_PROT_EXECUTE
+    if (flags & 0x1) {
+      perms[0] = 'r'; // VM_PROT_READ
+    }
+    if (flags & 0x2) {
+      perms[1] = 'w'; // VM_PROT_WRITE
+    }
+    if (flags & 0x4) {
+      perms[2] = 'x'; // VM_PROT_EXECUTE
+    }
   }
-  
+
   return perms;
 }
 
 std::unique_ptr<binary_analyzer> create_analyzer(std::unique_ptr<LIEF::Binary> binary) {
   switch (binary->format()) {
-    case LIEF::Binary::FORMATS::ELF:
-      return std::make_unique<elf_analyzer>(std::move(binary));
-    case LIEF::Binary::FORMATS::PE:
-      return std::make_unique<pe_analyzer>(std::move(binary));
-    case LIEF::Binary::FORMATS::MACHO:
-      return std::make_unique<macho_analyzer>(std::move(binary));
-    default:
-      return nullptr;
+  case LIEF::Binary::FORMATS::ELF:
+    return std::make_unique<elf_analyzer>(std::move(binary));
+  case LIEF::Binary::FORMATS::PE:
+    return std::make_unique<pe_analyzer>(std::move(binary));
+  case LIEF::Binary::FORMATS::MACHO:
+    return std::make_unique<macho_analyzer>(std::move(binary));
+  default:
+    return nullptr;
   }
 }
 
 // ELF analyzer implementation
 elf_analyzer::elf_analyzer(std::unique_ptr<LIEF::Binary> binary)
-  : binary_analyzer(std::move(binary), "w1tool.inspect.elf")
-  , elf_(static_cast<LIEF::ELF::Binary*>(binary_.get())) {
-}
+    : binary_analyzer(std::move(binary), "w1tool.inspect.elf"), elf_(static_cast<LIEF::ELF::Binary*>(binary_.get())) {}
 
 void elf_analyzer::analyze_basic_info(binary_info& info) {
   info.format = "ELF";
   info.entry_point = elf_->entrypoint();
-  
+
   // architecture and bitness
   auto machine = elf_->header().machine_type();
   switch (machine) {
-    case LIEF::ELF::ARCH::I386: 
-      info.architecture = "x86"; 
-      info.bitness = "32-bit"; 
-      break;
-    case LIEF::ELF::ARCH::X86_64: 
-      info.architecture = "x86_64"; 
-      info.bitness = "64-bit"; 
-      break;
-    case LIEF::ELF::ARCH::ARM: 
-      info.architecture = "ARM"; 
-      info.bitness = "32-bit"; 
-      break;
-    case LIEF::ELF::ARCH::AARCH64: 
-      info.architecture = "ARM64"; 
-      info.bitness = "64-bit"; 
-      break;
-    default: 
-      info.architecture = "Unknown (" + std::to_string(static_cast<int>(machine)) + ")";
-      info.bitness = elf_->header().identity_class() == LIEF::ELF::Header::CLASS::ELF64 ? "64-bit" : "32-bit";
-      break;
+  case LIEF::ELF::ARCH::I386:
+    info.architecture = "x86";
+    info.bitness = "32-bit";
+    break;
+  case LIEF::ELF::ARCH::X86_64:
+    info.architecture = "x86_64";
+    info.bitness = "64-bit";
+    break;
+  case LIEF::ELF::ARCH::ARM:
+    info.architecture = "ARM";
+    info.bitness = "32-bit";
+    break;
+  case LIEF::ELF::ARCH::AARCH64:
+    info.architecture = "ARM64";
+    info.bitness = "64-bit";
+    break;
+  default:
+    info.architecture = "Unknown (" + std::to_string(static_cast<int>(machine)) + ")";
+    info.bitness = elf_->header().identity_class() == LIEF::ELF::Header::CLASS::ELF64 ? "64-bit" : "32-bit";
+    break;
   }
-  
+
   // endianness
   info.endianness = elf_->header().identity_data() == LIEF::ELF::Header::ELF_DATA::LSB ? "Little-endian" : "Big-endian";
-  
+
   // binary type
   auto type = elf_->header().file_type();
   switch (type) {
-    case LIEF::ELF::Header::FILE_TYPE::EXEC: info.binary_type = "Executable"; break;
-    case LIEF::ELF::Header::FILE_TYPE::DYN: info.binary_type = "Shared Object/PIE"; break;
-    case LIEF::ELF::Header::FILE_TYPE::CORE: info.binary_type = "Core file"; break;
-    case LIEF::ELF::Header::FILE_TYPE::REL: info.binary_type = "Relocatable"; break;
-    default: info.binary_type = "Unknown"; break;
+  case LIEF::ELF::Header::FILE_TYPE::EXEC:
+    info.binary_type = "Executable";
+    break;
+  case LIEF::ELF::Header::FILE_TYPE::DYN:
+    info.binary_type = "Shared Object/PIE";
+    break;
+  case LIEF::ELF::Header::FILE_TYPE::CORE:
+    info.binary_type = "Core file";
+    break;
+  case LIEF::ELF::Header::FILE_TYPE::REL:
+    info.binary_type = "Relocatable";
+    break;
+  default:
+    info.binary_type = "Unknown";
+    break;
   }
 }
 
@@ -355,7 +371,7 @@ void elf_analyzer::analyze_imports() {
 void elf_analyzer::print_results(const analysis_options& opts) {
   detail::binary_info info;
   analyze_basic_info(info);
-  
+
   std::cout << "=== Binary Analysis Results ===\n";
   std::cout << "Format: " << info.format << "\n";
   std::cout << "Architecture: " << info.architecture << "\n";
@@ -363,23 +379,22 @@ void elf_analyzer::print_results(const analysis_options& opts) {
   std::cout << "Entry Point: " << format_address(info.entry_point) << "\n";
   std::cout << "Endianness: " << info.endianness << "\n";
   std::cout << "Type: " << info.binary_type << "\n";
-  
+
   // Add more detailed output based on options
   if (opts.detailed) {
     std::cout << "\n=== ELF Header Details ===\n";
     auto& header = elf_->header();
-    std::cout << "ELF Class: " << (header.identity_class() == LIEF::ELF::Header::CLASS::ELF64 ? "64-bit" : "32-bit") << "\n";
+    std::cout << "ELF Class: " << (header.identity_class() == LIEF::ELF::Header::CLASS::ELF64 ? "64-bit" : "32-bit")
+              << "\n";
     std::cout << "Version: " << static_cast<int>(header.object_file_version()) << "\n";
     std::cout << "Sections: " << elf_->sections().size() << "\n";
     std::cout << "Segments: " << elf_->segments().size() << "\n";
   }
 }
 
-// PE analyzer stub implementation  
+// PE analyzer stub implementation
 pe_analyzer::pe_analyzer(std::unique_ptr<LIEF::Binary> binary)
-  : binary_analyzer(std::move(binary), "w1tool.inspect.pe")
-  , pe_(static_cast<LIEF::PE::Binary*>(binary_.get())) {
-}
+    : binary_analyzer(std::move(binary), "w1tool.inspect.pe"), pe_(static_cast<LIEF::PE::Binary*>(binary_.get())) {}
 
 void pe_analyzer::analyze_basic_info(binary_info& info) {
   info.format = "PE";
@@ -398,91 +413,104 @@ void pe_analyzer::print_results(const analysis_options& opts) {
 
 // MachO analyzer stub implementation
 macho_analyzer::macho_analyzer(std::unique_ptr<LIEF::Binary> binary)
-  : binary_analyzer(std::move(binary), "w1tool.inspect.macho")
-  , macho_(static_cast<LIEF::MachO::Binary*>(binary_.get())) {
-}
+    : binary_analyzer(std::move(binary), "w1tool.inspect.macho"),
+      macho_(static_cast<LIEF::MachO::Binary*>(binary_.get())) {}
 
 void macho_analyzer::analyze_basic_info(binary_info& info) {
   info.format = "Mach-O";
   info.entry_point = macho_->entrypoint();
-  
+
   // architecture and bitness
   auto cpu_type = macho_->header().cpu_type();
   switch (cpu_type) {
-    case LIEF::MachO::Header::CPU_TYPE::X86:
-      info.architecture = "x86";
-      info.bitness = "32-bit";
-      break;
-    case LIEF::MachO::Header::CPU_TYPE::X86_64:
-      info.architecture = "x86_64";
-      info.bitness = "64-bit";
-      break;
-    case LIEF::MachO::Header::CPU_TYPE::ARM:
-      info.architecture = "ARM";
-      info.bitness = "32-bit";
-      break;
-    case LIEF::MachO::Header::CPU_TYPE::ARM64:
-      info.architecture = "ARM64";
-      info.bitness = "64-bit";
-      break;
-    case LIEF::MachO::Header::CPU_TYPE::POWERPC:
-      info.architecture = "PowerPC";
-      info.bitness = "32-bit";
-      break;
-    case LIEF::MachO::Header::CPU_TYPE::POWERPC64:
-      info.architecture = "PowerPC64";
-      info.bitness = "64-bit";
-      break;
-    default:
-      info.architecture = "Unknown (" + std::to_string(static_cast<int>(cpu_type)) + ")";
-      info.bitness = (static_cast<int>(cpu_type) & LIEF::MachO::Header::ABI64) ? "64-bit" : "32-bit";
-      break;
+  case LIEF::MachO::Header::CPU_TYPE::X86:
+    info.architecture = "x86";
+    info.bitness = "32-bit";
+    break;
+  case LIEF::MachO::Header::CPU_TYPE::X86_64:
+    info.architecture = "x86_64";
+    info.bitness = "64-bit";
+    break;
+  case LIEF::MachO::Header::CPU_TYPE::ARM:
+    info.architecture = "ARM";
+    info.bitness = "32-bit";
+    break;
+  case LIEF::MachO::Header::CPU_TYPE::ARM64:
+    info.architecture = "ARM64";
+    info.bitness = "64-bit";
+    break;
+  case LIEF::MachO::Header::CPU_TYPE::POWERPC:
+    info.architecture = "PowerPC";
+    info.bitness = "32-bit";
+    break;
+  case LIEF::MachO::Header::CPU_TYPE::POWERPC64:
+    info.architecture = "PowerPC64";
+    info.bitness = "64-bit";
+    break;
+  default:
+    info.architecture = "Unknown (" + std::to_string(static_cast<int>(cpu_type)) + ")";
+    info.bitness = (static_cast<int>(cpu_type) & LIEF::MachO::Header::ABI64) ? "64-bit" : "32-bit";
+    break;
   }
-  
+
   // endianness - Mach-O is always little-endian on supported platforms
   info.endianness = "Little-endian";
-  
+
   // binary type
   auto file_type = macho_->header().file_type();
   switch (file_type) {
-    case LIEF::MachO::Header::FILE_TYPE::EXECUTE: info.binary_type = "Executable"; break;
-    case LIEF::MachO::Header::FILE_TYPE::DYLIB: info.binary_type = "Dynamic Library"; break;
-    case LIEF::MachO::Header::FILE_TYPE::BUNDLE: info.binary_type = "Bundle"; break;
-    case LIEF::MachO::Header::FILE_TYPE::OBJECT: info.binary_type = "Object File"; break;
-    case LIEF::MachO::Header::FILE_TYPE::DSYM: info.binary_type = "Debug Symbols"; break;
-    case LIEF::MachO::Header::FILE_TYPE::KEXT_BUNDLE: info.binary_type = "Kernel Extension"; break;
-    default: info.binary_type = "Unknown"; break;
+  case LIEF::MachO::Header::FILE_TYPE::EXECUTE:
+    info.binary_type = "Executable";
+    break;
+  case LIEF::MachO::Header::FILE_TYPE::DYLIB:
+    info.binary_type = "Dynamic Library";
+    break;
+  case LIEF::MachO::Header::FILE_TYPE::BUNDLE:
+    info.binary_type = "Bundle";
+    break;
+  case LIEF::MachO::Header::FILE_TYPE::OBJECT:
+    info.binary_type = "Object File";
+    break;
+  case LIEF::MachO::Header::FILE_TYPE::DSYM:
+    info.binary_type = "Debug Symbols";
+    break;
+  case LIEF::MachO::Header::FILE_TYPE::KEXT_BUNDLE:
+    info.binary_type = "Kernel Extension";
+    break;
+  default:
+    info.binary_type = "Unknown";
+    break;
   }
 }
 
 void macho_analyzer::analyze_security_features() {
   log_.dbg("analyzing mach-o security features");
-  
+
   std::cout << "\n=== Security Analysis ===\n";
-  
+
   auto& header = macho_->header();
-  
+
   // PIE (Position Independent Executable)
   if (header.has(LIEF::MachO::Header::FLAGS::PIE)) {
     std::cout << "PIE (Position Independent): ✓ ENABLED\n";
   } else {
     std::cout << "PIE (Position Independent): ✗ DISABLED\n";
   }
-  
+
   // Stack execution protection
   if (header.has(LIEF::MachO::Header::FLAGS::ALLOW_STACK_EXECUTION)) {
     std::cout << "Stack Execution Protection: ✗ DISABLED (Allows stack execution)\n";
   } else {
     std::cout << "Stack Execution Protection: ✓ ENABLED\n";
   }
-  
+
   // Heap execution protection
   if (header.has(LIEF::MachO::Header::FLAGS::NO_HEAP_EXECUTION)) {
     std::cout << "Heap Execution Protection: ✓ ENABLED (NX bit)\n";
   } else {
     std::cout << "Heap Execution Protection: ? UNKNOWN\n";
   }
-  
+
   // Code signing and validation
   bool has_codesign = false;
   for (const auto& cmd : macho_->commands()) {
@@ -491,45 +519,52 @@ void macho_analyzer::analyze_security_features() {
       break;
     }
   }
-  
+
   if (has_codesign) {
     std::cout << "Code Signature: ✓ PRESENT\n";
   } else {
     std::cout << "Code Signature: ✗ NOT FOUND\n";
   }
-  
+
   // Additional security flags
   if (header.has(LIEF::MachO::Header::FLAGS::SETUID_SAFE)) {
     std::cout << "SetUID Safe: ✓ ENABLED\n";
   }
-  
+
   if (header.has(LIEF::MachO::Header::FLAGS::ROOT_SAFE)) {
     std::cout << "Root Safe: ✓ ENABLED\n";
   }
-  
+
   // ARC (Automatic Reference Counting) detection - heuristic
   bool likely_arc = false;
   for (const auto& sym : macho_->symbols()) {
-    if (sym.name().find("objc_release") != std::string::npos ||
-        sym.name().find("objc_retain") != std::string::npos) {
+    if (sym.name().find("objc_release") != std::string::npos || sym.name().find("objc_retain") != std::string::npos) {
       likely_arc = true;
       break;
     }
   }
-  
+
   if (likely_arc) {
     std::cout << "ARC (Automatic Reference Counting): ✓ LIKELY ENABLED\n";
   }
-  
+
   // Print security summary
   int security_score = 0;
   int total_checks = 4;
-  
-  if (header.has(LIEF::MachO::Header::FLAGS::PIE)) security_score++;
-  if (!header.has(LIEF::MachO::Header::FLAGS::ALLOW_STACK_EXECUTION)) security_score++;
-  if (header.has(LIEF::MachO::Header::FLAGS::NO_HEAP_EXECUTION)) security_score++;
-  if (has_codesign) security_score++;
-  
+
+  if (header.has(LIEF::MachO::Header::FLAGS::PIE)) {
+    security_score++;
+  }
+  if (!header.has(LIEF::MachO::Header::FLAGS::ALLOW_STACK_EXECUTION)) {
+    security_score++;
+  }
+  if (header.has(LIEF::MachO::Header::FLAGS::NO_HEAP_EXECUTION)) {
+    security_score++;
+  }
+  if (has_codesign) {
+    security_score++;
+  }
+
   std::cout << "\nSecurity Score: " << security_score << "/" << total_checks;
   if (security_score == total_checks) {
     std::cout << " (EXCELLENT)";
@@ -544,34 +579,31 @@ void macho_analyzer::analyze_security_features() {
 }
 void macho_analyzer::analyze_sections() {
   log_.dbg("analyzing mach-o sections");
-  
+
   std::cout << "\n=== Sections ===\n";
-  std::cout << std::left << std::setw(20) << "Name" 
-            << std::setw(18) << "Virtual Address"
-            << std::setw(12) << "Size"
+  std::cout << std::left << std::setw(20) << "Name" << std::setw(18) << "Virtual Address" << std::setw(12) << "Size"
             << std::setw(8) << "Perms"
             << "Segment\n";
   std::cout << std::string(66, '-') << "\n";
-  
+
   for (const auto& section : macho_->sections()) {
-    std::cout << std::left << std::setw(20) << section.name()
-              << std::setw(18) << format_address(section.address())
-              << std::setw(12) << format_bytes(section.size())
-              << std::setw(8) << "r--"  // TODO: implement proper permission detection
+    std::cout << std::left << std::setw(20) << section.name() << std::setw(18) << format_address(section.address())
+              << std::setw(12) << format_bytes(section.size()) << std::setw(8)
+              << "r--" // TODO: implement proper permission detection
               << section.segment_name() << "\n";
   }
 }
 void macho_analyzer::analyze_symbols() {
   log_.dbg("analyzing mach-o symbols");
-  
+
   std::cout << "\n=== Symbols ===\n";
-  
+
   // Show dynamic symbols (imported/exported)
   auto symbols = macho_->symbols();
   size_t total_symbols = symbols.size();
   size_t external_symbols = 0;
   size_t local_symbols = 0;
-  
+
   for (const auto& sym : symbols) {
     if (sym.is_external()) {
       external_symbols++;
@@ -579,23 +611,21 @@ void macho_analyzer::analyze_symbols() {
       local_symbols++;
     }
   }
-  
+
   std::cout << "Total Symbols: " << total_symbols << "\n";
   std::cout << "External Symbols: " << external_symbols << "\n";
   std::cout << "Local Symbols: " << local_symbols << "\n";
-  
+
   // Show first 10 external symbols as examples
   std::cout << "\nSample External Symbols:\n";
-  std::cout << std::left << std::setw(30) << "Name" 
-            << std::setw(18) << "Address"
+  std::cout << std::left << std::setw(30) << "Name" << std::setw(18) << "Address"
             << "Type\n";
   std::cout << std::string(56, '-') << "\n";
-  
+
   int count = 0;
   for (const auto& sym : symbols) {
     if (sym.is_external() && !sym.name().empty() && count < 10) {
-      std::cout << std::left << std::setw(30) << sym.name()
-                << std::setw(18) << format_address(sym.value())
+      std::cout << std::left << std::setw(30) << sym.name() << std::setw(18) << format_address(sym.value())
                 << "External\n";
       count++;
     }
@@ -603,17 +633,17 @@ void macho_analyzer::analyze_symbols() {
 }
 void macho_analyzer::analyze_imports() {
   log_.dbg("analyzing mach-o imports");
-  
+
   std::cout << "\n=== Library Dependencies ===\n";
-  
+
   // Show imported libraries
   auto libraries = macho_->libraries();
   std::cout << "Total Libraries: " << libraries.size() << "\n\n";
-  
+
   for (const auto& lib : libraries) {
     std::cout << "- " << lib.name() << "\n";
   }
-  
+
   // Show binding information (imports)
   std::cout << "\n=== Import Bindings ===\n";
   auto bindings = macho_->dyld_info();
@@ -628,7 +658,7 @@ void macho_analyzer::analyze_imports() {
 void macho_analyzer::print_results(const analysis_options& opts) {
   detail::binary_info info;
   analyze_basic_info(info);
-  
+
   std::cout << "=== Binary Analysis Results ===\n";
   std::cout << "Format: " << info.format << "\n";
   std::cout << "Architecture: " << info.architecture << "\n";
@@ -636,7 +666,7 @@ void macho_analyzer::print_results(const analysis_options& opts) {
   std::cout << "Entry Point: " << format_address(info.entry_point) << "\n";
   std::cout << "Endianness: " << info.endianness << "\n";
   std::cout << "Type: " << info.binary_type << "\n";
-  
+
   // Add more detailed output based on options
   if (opts.detailed) {
     std::cout << "\n=== Mach-O Header Details ===\n";
@@ -646,7 +676,7 @@ void macho_analyzer::print_results(const analysis_options& opts) {
     std::cout << "Load Commands: " << header.nb_cmds() << "\n";
     std::cout << "Sections: " << macho_->sections().size() << "\n";
     std::cout << "Segments: " << macho_->segments().size() << "\n";
-    
+
     // Check for security flags
     if (header.has(LIEF::MachO::Header::FLAGS::PIE)) {
       std::cout << "PIE: Enabled\n";
@@ -658,7 +688,7 @@ void macho_analyzer::print_results(const analysis_options& opts) {
       std::cout << "Stack Execution: Allowed\n";
     }
   }
-  
+
   // Note: sections analysis is handled via flag check in main function
 }
 

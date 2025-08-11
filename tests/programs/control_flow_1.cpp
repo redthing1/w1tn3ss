@@ -17,7 +17,7 @@
 class ValidationEngine {
 private:
   static constexpr uint32_t MAGIC_CONSTANT = 0xDEADBEEF;
-  static constexpr const char *SECRET_KEY = "w1tn3ss_cr4ckm3";
+  static constexpr const char* SECRET_KEY = "w1tn3ss_cr4ckm3";
 
   bool anti_debug_check() {
     // simple timing-based anti-debug (cross-platform)
@@ -27,15 +27,14 @@ private:
       dummy += i;
     }
     auto end = std::chrono::high_resolution_clock::now();
-    auto duration =
-        std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
 
     // if execution takes too long, might be debugged
     // more lenient timing for cross-platform compatibility
     return duration.count() < 10000;
   }
 
-  uint32_t hash_string(const std::string &input) {
+  uint32_t hash_string(const std::string& input) {
     uint32_t hash = 5381;
     for (char c : input) {
       hash = ((hash << 5) + hash) + static_cast<uint32_t>(c);
@@ -43,30 +42,29 @@ private:
     return hash ^ MAGIC_CONSTANT;
   }
 
-  bool validate_length(const std::string &input) {
-    return input.length() >= 8 && input.length() <= 32;
-  }
+  bool validate_length(const std::string& input) { return input.length() >= 8 && input.length() <= 32; }
 
-  bool validate_charset(const std::string &input) {
+  bool validate_charset(const std::string& input) {
     bool has_upper = false, has_lower = false, has_digit = false;
 
     for (char c : input) {
-      if (c >= 'A' && c <= 'Z')
+      if (c >= 'A' && c <= 'Z') {
         has_upper = true;
-      else if (c >= 'a' && c <= 'z')
+      } else if (c >= 'a' && c <= 'z') {
         has_lower = true;
-      else if (c >= '0' && c <= '9')
+      } else if (c >= '0' && c <= '9') {
         has_digit = true;
-      else if (c == '_' || c == '-')
+      } else if (c == '_' || c == '-') {
         continue;
-      else
+      } else {
         return false;
+      }
     }
 
     return has_upper && has_lower && has_digit;
   }
 
-  bool validate_pattern(const std::string &input) {
+  bool validate_pattern(const std::string& input) {
     // must contain "w1" somewhere
     if (input.find("w1") == std::string::npos) {
       return false;
@@ -88,7 +86,7 @@ private:
     return upper_count >= 2;
   }
 
-  bool validate_checksum(const std::string &input) {
+  bool validate_checksum(const std::string& input) {
     // the correct password is "w1tn3ss_H4ckM3" but good luck finding it without
     // reversing
     uint32_t expected_hash = 0x1a7a9dde;
@@ -109,7 +107,7 @@ public:
     CHECKSUM_FAILED = 5
   };
 
-  ValidationResult validate_input(const std::string &input) {
+  ValidationResult validate_input(const std::string& input) {
     // stage 1: anti-debug check
     if (!anti_debug_check()) {
       std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -181,16 +179,14 @@ void success_message() {
 void failure_message(int attempts) {
   std::cout << std::endl;
   if (attempts >= 5) {
-    std::cout << "*** too many failed attempts. access denied. ***"
-              << std::endl;
+    std::cout << "*** too many failed attempts. access denied. ***" << std::endl;
     std::cout << "hint: try analyzing the control flow..." << std::endl;
   } else {
-    std::cout << "*** access denied. attempts remaining: " << (5 - attempts)
-              << " ***" << std::endl;
+    std::cout << "*** access denied. attempts remaining: " << (5 - attempts) << " ***" << std::endl;
   }
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
   print_banner();
 
   ValidationEngine engine;
