@@ -2,6 +2,7 @@
 
 #include <jnjs/jnjs.h>
 #include <redlog.hpp>
+#include <unordered_map>
 
 #include "p1ll/utils/hex_utils.hpp"
 #include "p1ll/core/signature.hpp"
@@ -326,17 +327,18 @@ struct p1ll_api {
 inline platform_signature_map parse_signatures(const jnjs::value& meta_obj) {
   platform_signature_map sig_map;
   auto sigs_val = meta_obj["sigs"];
-  auto sigs_wildcard = sigs_val["*"];
 
-  if (sigs_wildcard.is<std::vector<signature_wrapper*>>()) {
-    auto js_sigs = sigs_wildcard.as<std::vector<signature_wrapper*>>();
-    std::vector<signature_decl> sig_decls;
-    for (auto* js_sig : js_sigs) {
-      if (js_sig) {
-        sig_decls.push_back(js_sig->sig_decl);
+  if (sigs_val.is<std::unordered_map<std::string, std::vector<signature_wrapper*>>>()) {
+    auto sigs_map = sigs_val.as<std::unordered_map<std::string, std::vector<signature_wrapper*>>>();
+    for (const auto& [platform_key, js_sigs] : sigs_map) {
+      std::vector<signature_decl> sig_decls;
+      for (auto* js_sig : js_sigs) {
+        if (js_sig) {
+          sig_decls.push_back(js_sig->sig_decl);
+        }
       }
+      sig_map[platform_key] = sig_decls;
     }
-    sig_map["*"] = sig_decls;
   }
   return sig_map;
 }
@@ -344,17 +346,18 @@ inline platform_signature_map parse_signatures(const jnjs::value& meta_obj) {
 inline platform_patch_map parse_patches(const jnjs::value& meta_obj) {
   platform_patch_map patch_map;
   auto patches_val = meta_obj["patches"];
-  auto patches_wildcard = patches_val["*"];
 
-  if (patches_wildcard.is<std::vector<patch_wrapper*>>()) {
-    auto js_patches = patches_wildcard.as<std::vector<patch_wrapper*>>();
-    std::vector<patch_decl> patch_decls;
-    for (auto* js_patch : js_patches) {
-      if (js_patch) {
-        patch_decls.push_back(js_patch->patch_decl_obj);
+  if (patches_val.is<std::unordered_map<std::string, std::vector<patch_wrapper*>>>()) {
+    auto patches_map = patches_val.as<std::unordered_map<std::string, std::vector<patch_wrapper*>>>();
+    for (const auto& [platform_key, js_patches] : patches_map) {
+      std::vector<patch_decl> patch_decls;
+      for (auto* js_patch : js_patches) {
+        if (js_patch) {
+          patch_decls.push_back(js_patch->patch_decl_obj);
+        }
       }
+      patch_map[platform_key] = patch_decls;
     }
-    patch_map["*"] = patch_decls;
   }
   return patch_map;
 }
