@@ -479,7 +479,7 @@ cure_result auto_cure::process_patch_results(const std::vector<std::pair<patch_d
   for (const auto& [patch, success] : patch_results) {
     if (success) {
       result.patches_applied++;
-      log.inf(
+      log.trc(
           "applied patch", redlog::field("signature", patch.signature.pattern), redlog::field("offset", patch.offset)
       );
     } else {
