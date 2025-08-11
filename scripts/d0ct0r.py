@@ -372,27 +372,27 @@ class P1llxRunner:
             return False
 
 
-class InsertDylibRunner:
-    """insert_dylib command execution utilities"""
+class InsertLibraryRunner:
+    """w1tool insert-library command execution utilities"""
 
     @staticmethod
-    def find_insert_dylib() -> Path:
-        """find the insert_dylib executable"""
+    def find_w1tool() -> Path:
+        """find the w1tool executable"""
         script_dir = Path(__file__).parent
-        insert_dylib_path = script_dir.parent / "build-release" / "insert_dylib"
+        w1tool_path = script_dir.parent / "build-release" / "w1tool"
 
-        if not insert_dylib_path.exists():
-            raise FileNotFoundError(f"insert_dylib not found at {insert_dylib_path}")
+        if not w1tool_path.exists():
+            raise FileNotFoundError(f"w1tool not found at {w1tool_path}")
 
-        return insert_dylib_path
+        return w1tool_path
 
     @staticmethod
-    def run_insert_dylib(cmd_args: List[str], sudo: bool = False) -> bool:
+    def run_insert_library(cmd_args: List[str], sudo: bool = False) -> bool:
         """
-        run insert_dylib with given arguments
+        run w1tool insert-library with given arguments
         """
-        insert_dylib_path = InsertDylibRunner.find_insert_dylib()
-        cmd = [str(insert_dylib_path)] + cmd_args
+        w1tool_path = InsertLibraryRunner.find_w1tool()
+        cmd = [str(w1tool_path), "insert-library"] + cmd_args
 
         if sudo:
             cmd = ["sudo"] + cmd
@@ -402,16 +402,16 @@ class InsertDylibRunner:
             result = subprocess.run(cmd, text=True)
 
             if result.returncode == 0:
-                console.print(f"[green]✓ insert_dylib completed successfully[/green]")
+                console.print(f"[green]✓ w1tool insert-library completed successfully[/green]")
                 return True
             else:
                 console.print(
-                    f"[red]insert_dylib failed with exit code: {result.returncode}[/red]"
+                    f"[red]w1tool insert-library failed with exit code: {result.returncode}[/red]"
                 )
                 return False
 
         except Exception as e:
-            console.print(f"[red]insert_dylib execution error: {e}[/red]")
+            console.print(f"[red]w1tool insert-library execution error: {e}[/red]")
             return False
 
 
@@ -782,15 +782,11 @@ def insert_poison(
     else:
         target_file = input_path
 
-    # build insert_dylib command
-    # format: insert_dylib [flags] dylib_path binary_path [output_path]
+    # build w1tool insert-library command
+    # format: w1tool insert-library [flags] dylib_path binary_path [output_path]
     cmd_args = []
 
-    # add verbosity flags
-    if global_verbose > 0:
-        cmd_args.append("-" + "v" * global_verbose)
-
-    # add insert_dylib specific flags
+    # add w1tool insert-library specific flags
     cmd_args.extend(["--strip-codesig", "--all-yes"])  # auto-answer prompts
 
     # for in-place modification, we need to be careful with the workflow
@@ -808,8 +804,8 @@ def insert_poison(
             ]
         )
 
-    # run insert_dylib
-    if not InsertDylibRunner.run_insert_dylib(cmd_args, global_sudo):
+    # run w1tool insert-library
+    if not InsertLibraryRunner.run_insert_library(cmd_args, global_sudo):
         raise typer.Exit(1)
 
     # deploy dylib next to target binary

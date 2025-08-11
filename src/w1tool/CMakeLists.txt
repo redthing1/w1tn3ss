@@ -5,6 +5,7 @@ include(${WITNESS_SOURCE_DIR}/cmake/CommonConfig.cmake)
 add_executable(w1tool
     main.cpp
     commands/inject.cpp
+    commands/insert_library.cpp
     commands/inspect.cpp
     commands/cover.cpp
     commands/read_drcov.cpp

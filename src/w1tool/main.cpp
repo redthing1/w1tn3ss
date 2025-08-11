@@ -8,6 +8,7 @@
 #include "commands/cover.hpp"
 #include "commands/dump.hpp"
 #include "commands/inject.hpp"
+#include "commands/insert_library.hpp"
 #include "commands/inspect.hpp"
 #include "commands/read_drcov.hpp"
 #include "commands/read_dump.hpp"
@@ -54,6 +55,22 @@ void cmd_inject(args::Subparser& parser) {
   parser.Parse();
 
   w1tool::commands::inject(library, spawn, pid, process_name, suspended, no_aslr, args);
+}
+
+void cmd_insert_library(args::Subparser& parser) {
+  cli::apply_verbosity();
+
+  args::Positional<std::string> dylib_path(parser, "dylib_path", "path to library to insert");
+  args::Positional<std::string> binary_path(parser, "binary_path", "path to target binary");
+  args::Positional<std::string> output_path(parser, "output_path", "path to output binary (optional)");
+  args::Flag inplace(parser, "inplace", "modify binary in-place", {"inplace"});
+  args::Flag weak(parser, "weak", "insert as weak import", {"weak"});
+  args::Flag overwrite(parser, "overwrite", "overwrite existing output file", {"overwrite"});
+  args::Flag strip_codesig(parser, "strip-codesig", "automatically strip code signature", {"strip-codesig"});
+  args::Flag all_yes(parser, "all-yes", "answer yes to all prompts", {"all-yes"});
+  parser.Parse();
+
+  w1tool::commands::insert_library(dylib_path, binary_path, output_path, inplace, weak, overwrite, strip_codesig, all_yes);
 }
 
 void cmd_inspect(args::Subparser& parser) {
@@ -177,6 +194,7 @@ int main(int argc, char* argv[]) {
   args::Group commands(parser, "commands");
 
   args::Command inject_cmd(commands, "inject", "inject library into target process", &cmd_inject);
+  args::Command insert_library_cmd(commands, "insert-library", "insert library import into binary file", &cmd_insert_library);
   args::Command inspect_cmd(commands, "inspect", "inspect binary file", &cmd_inspect);
   args::Command cover_cmd(commands, "cover", "perform coverage tracing with configurable options", &cmd_cover);
   args::Command read_drcov_cmd(commands, "read-drcov", "analyze DrCov coverage files", &cmd_read_drcov);

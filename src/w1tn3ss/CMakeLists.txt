@@ -29,6 +29,8 @@ add_library(w1tn3ss STATIC
     # instrumentation management
     engine/instrumentation_lists.cpp
     engine/instrumentation_manager.cpp
+    # import insertion
+    import_insertion/import_insertion.cpp
 )
 
 # Add platform-specific calling convention implementations
@@ -83,6 +85,22 @@ endif()
 if(WITNESS_LIEF)
     target_sources(w1tn3ss PRIVATE
         symbols/lief_symbol_backend.cpp
+    )
+endif()
+
+# Platform-specific import insertion implementations
+if(APPLE)
+    target_sources(w1tn3ss PRIVATE
+        import_insertion/platform/macos/macos_import_inserter.cpp
+        import_insertion/backend/macos/macho_processor.cpp
+    )
+elseif(WIN32)
+    target_sources(w1tn3ss PRIVATE
+        import_insertion/platform/windows/windows_import_inserter.cpp
+    )
+else()
+    target_sources(w1tn3ss PRIVATE
+        import_insertion/platform/linux/linux_import_inserter.cpp
     )
 endif()
 
