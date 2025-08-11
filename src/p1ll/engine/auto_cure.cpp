@@ -51,7 +51,7 @@ cure_result auto_cure::execute_dynamic_impl(
         log.err("required patch signature compilation failed", redlog::field("signature", patch.signature.pattern));
         return result;
       } else {
-        log.warn(
+        log.wrn(
             "optional patch signature compilation failed, skipping", redlog::field("signature", patch.signature.pattern)
         );
         continue;
@@ -128,7 +128,7 @@ cure_result auto_cure::execute_static_impl(
         log.err("required patch signature compilation failed", redlog::field("signature", patch.signature.pattern));
         return result;
       } else {
-        log.warn(
+        log.wrn(
             "optional patch signature compilation failed, skipping", redlog::field("signature", patch.signature.pattern)
         );
         continue;
@@ -246,7 +246,7 @@ bool auto_cure::validate_signatures_dynamic(const std::vector<signature_decl>& s
 
     auto search_results = scanner_->search(query);
     if (!search_results || search_results->empty()) {
-      log.warn("signature not found in memory during validation", redlog::field("pattern", sig_obj.pattern));
+      log.wrn("signature not found in memory during validation", redlog::field("pattern", sig_obj.pattern));
       // note: don't fail validation since signature might be optional
     } else {
       // check single match constraint during validation
@@ -284,7 +284,7 @@ bool auto_cure::validate_signatures_static(
     auto offsets = matcher.search_file(buffer_data);
 
     if (offsets.empty()) {
-      log.warn("signature not found in buffer during validation", redlog::field("pattern", sig_obj.pattern));
+      log.wrn("signature not found in buffer during validation", redlog::field("pattern", sig_obj.pattern));
       // note: don't fail validation since signature might be optional
     } else {
       // check single match constraint during validation
@@ -315,12 +315,12 @@ bool auto_cure::apply_patch_dynamic(const patch_decl& patch, const compiled_sign
 
   auto search_results_result = scanner_->search(query);
   if (!search_results_result) {
-    log.warn("search failed", redlog::field("signature", patch.signature));
+    log.wrn("search failed", redlog::field("signature", patch.signature));
     return false;
   }
   auto search_results = *search_results_result;
   if (search_results.empty()) {
-    log.warn("signature not found", redlog::field("signature", patch.signature));
+    log.wrn("signature not found", redlog::field("signature", patch.signature));
     return false;
   }
 
@@ -395,7 +395,7 @@ bool auto_cure::apply_patch_static(
     // use normal search (first match)
     auto offsets = matcher.search_file(file_data);
     if (offsets.empty()) {
-      log.warn("signature not found in file", redlog::field("signature", patch.signature));
+      log.wrn("signature not found in file", redlog::field("signature", patch.signature));
       return false;
     }
     patch_offset = offsets[0] + patch.offset;
@@ -489,7 +489,7 @@ cure_result auto_cure::process_patch_results(const std::vector<std::pair<patch_d
         log.err("required patch failed", redlog::field("signature", patch.signature.pattern));
         return result;
       } else {
-        log.warn("optional patch failed", redlog::field("signature", patch.signature.pattern));
+        log.wrn("optional patch failed", redlog::field("signature", patch.signature.pattern));
       }
     }
   }
@@ -510,7 +510,7 @@ std::optional<compiled_signature> auto_cure::compile_patch_decl(const patch_decl
     if (patch.required) {
       log.err("failed to compile signature", redlog::field("signature", patch.signature.pattern));
     } else {
-      log.warn("failed to compile optional signature", redlog::field("signature", patch.signature.pattern));
+      log.wrn("failed to compile optional signature", redlog::field("signature", patch.signature.pattern));
     }
   }
   return compiled_sig;
@@ -599,7 +599,7 @@ bool auto_cure::apply_single_patch_to_address(
       );
       return false;
     } else {
-      log.warn(
+      log.wrn(
           "failed to get memory protection for optional patch, skipping",
           redlog::field("signature", patch.signature.pattern), redlog::field("address", patch_address)
       );
@@ -709,7 +709,7 @@ bool auto_cure::apply_single_patch_to_address(
   if (needs_protection_change) {
     auto restore_result = scanner_->set_memory_protection(patch_address, patch_bytes.size(), original_protection);
     if (!restore_result) {
-      log.warn("failed to restore original memory protection", redlog::field("address", patch_address));
+      log.wrn("failed to restore original memory protection", redlog::field("address", patch_address));
     }
   }
 
