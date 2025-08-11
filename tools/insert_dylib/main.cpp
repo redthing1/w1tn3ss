@@ -1,3 +1,9 @@
+/**
+ * insert_dylib
+ * 
+ * implementation based on https://github.com/tyilo/insert_dylib
+ */
+
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
