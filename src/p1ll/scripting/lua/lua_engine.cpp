@@ -70,9 +70,15 @@ cure_result lua_engine::execute_script_content_with_buffer(
     // call cure function
     return call_cure_function();
 
+  } catch (const sol::error& e) {
+    // sol2-specific lua errors
+    result.add_error("lua execution error: " + std::string(e.what()));
+    log.err("lua execution error", redlog::field("error", e.what()));
+    return result;
   } catch (const std::exception& e) {
-    result.add_error("script execution failed: " + std::string(e.what()));
-    log.err("script execution exception", redlog::field("error", e.what()));
+    // other c++ exceptions
+    result.add_error("script execution failed (c++ exception): " + std::string(e.what()));
+    log.err("script execution c++ exception", redlog::field("error", e.what()));
     return result;
   }
 }
@@ -101,9 +107,15 @@ cure_result lua_engine::execute_script(const context& ctx, const std::string& sc
     // call cure function
     return call_cure_function();
 
+  } catch (const sol::error& e) {
+    // sol2-specific lua errors
+    result.add_error("lua execution error: " + std::string(e.what()));
+    log.err("lua execution error", redlog::field("error", e.what()));
+    return result;
   } catch (const std::exception& e) {
-    result.add_error("script execution failed: " + std::string(e.what()));
-    log.err("script execution exception", redlog::field("error", e.what()));
+    // other c++ exceptions
+    result.add_error("script execution failed (c++ exception): " + std::string(e.what()));
+    log.err("script execution c++ exception", redlog::field("error", e.what()));
     return result;
   }
 }
@@ -148,9 +160,15 @@ cure_result lua_engine::call_cure_function() {
       return result;
     }
 
+  } catch (const sol::error& e) {
+    // sol2-specific lua errors
+    result.add_error("cure function lua error: " + std::string(e.what()));
+    log.err("cure function lua error", redlog::field("error", e.what()));
+    return result;
   } catch (const std::exception& e) {
-    result.add_error("cure function call failed: " + std::string(e.what()));
-    log.err("cure function exception", redlog::field("error", e.what()));
+    // other c++ exceptions
+    result.add_error("cure function call failed (c++ exception): " + std::string(e.what()));
+    log.err("cure function c++ exception", redlog::field("error", e.what()));
     return result;
   }
 }
