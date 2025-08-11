@@ -152,20 +152,28 @@ std::vector<patch_decl> auto_cure::get_platform_patches(const platform_patch_map
 
   log.dbg("checking platform hierarchy", redlog::field("platforms", platform_hierarchy.size()));
 
-  // try each platform key in hierarchy order
+  std::vector<patch_decl> platform_patches;
+
+  // collect patches from all matching platform keys
   for (const auto& platform_key : platform_hierarchy) {
+    log.dbg("checking platform for patches", redlog::field("platform", platform_key));
+
     auto it = patches.find(platform_key);
     if (it != patches.end() && !it->second.empty()) {
       log.dbg(
           "found patches for platform", redlog::field("platform", platform_key),
           redlog::field("count", it->second.size())
       );
-      return it->second;
+
+      // add all patches from this platform
+      for (const auto& patch : it->second) {
+        platform_patches.push_back(patch);
+      }
     }
   }
 
-  log.warn("no patches found for any platform in hierarchy");
-  return {};
+  log.dbg("collected platform patches", redlog::field("total", platform_patches.size()));
+  return platform_patches;
 }
 
 std::vector<signature_decl> auto_cure::get_platform_signatures(const platform_signature_map& signatures) const {
