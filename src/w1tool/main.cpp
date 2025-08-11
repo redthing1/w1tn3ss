@@ -80,9 +80,16 @@ void cmd_inspect(args::Subparser& parser) {
   cli::apply_verbosity();
 
   args::ValueFlag<std::string> binary(parser, "path", "path to binary file", {'b', "binary"});
+  args::Flag detailed(parser, "detailed", "show detailed analysis", {'d', "detailed"});
+  args::Flag sections(parser, "sections", "show section/segment information", {"sections"});
+  args::Flag symbols(parser, "symbols", "show symbol table information", {"symbols"});
+  args::Flag imports(parser, "imports", "show import/export information", {"imports"});
+  args::Flag security(parser, "security", "show security features analysis", {"security"});
+  args::Flag json(parser, "json", "output results in JSON format", {'j', "json"});
+  args::ValueFlag<std::string> format(parser, "format", "force format (elf/pe/macho)", {"format"});
   parser.Parse();
 
-  w1tool::commands::inspect(binary);
+  w1tool::commands::inspect(binary, detailed, sections, symbols, imports, security, json, format);
 }
 
 void cmd_cover(args::Subparser& parser) {
@@ -200,7 +207,7 @@ int main(int argc, char* argv[]) {
   args::Command insert_library_cmd(
       commands, "insert-library", "insert library import into binary file", &cmd_insert_library
   );
-  args::Command inspect_cmd(commands, "inspect", "inspect binary file", &cmd_inspect);
+  args::Command inspect_cmd(commands, "inspect", "comprehensive binary analysis using LIEF", &cmd_inspect);
   args::Command cover_cmd(commands, "cover", "perform coverage tracing with configurable options", &cmd_cover);
   args::Command read_drcov_cmd(commands, "read-drcov", "analyze DrCov coverage files", &cmd_read_drcov);
   args::Command dump_cmd(commands, "dump", "dump process state to file", &cmd_dump);
