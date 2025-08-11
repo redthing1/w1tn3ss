@@ -87,13 +87,6 @@ int cure(
           redlog::field("patches_failed", result.patches_failed)
       );
 
-      // print summary to user
-      std::cout << "cure completed successfully" << std::endl;
-      std::cout << "patches applied: " << result.patches_applied << std::endl;
-      if (result.patches_failed > 0) {
-        std::cout << "patches failed: " << result.patches_failed << std::endl;
-      }
-
       return 0;
     } else {
       log.err("cure failed", redlog::field("errors", result.error_messages.size()));
