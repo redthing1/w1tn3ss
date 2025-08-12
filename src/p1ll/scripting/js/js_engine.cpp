@@ -26,6 +26,46 @@ cure_result extract_cure_result(const jnjs::value& js_result) {
   return result;
 }
 
+// helper function to execute cure function and common logic
+cure_result execute_cure_script_impl(
+    jnjs::context& js_ctx, const std::string& script_content, const std::string& log_context
+) {
+  auto log = redlog::get_logger("p1ll.js_engine");
+
+  try {
+    js_ctx.eval(script_content);
+
+    auto cure_fn = js_ctx.eval("cure");
+    if (cure_fn.is<jnjs::function>()) {
+      log.dbg("executing cure() function");
+      auto cure_result_value = cure_fn.as<jnjs::function>();
+      auto js_result = cure_result_value();
+      return extract_cure_result(js_result);
+    } else {
+      log.err("no cure() function found in script or function is not callable");
+      cure_result result;
+      result.add_error("script must define a callable cure() function that returns a result object");
+      return result;
+    }
+
+  } catch (const std::runtime_error& e) {
+    log.err("js runtime error", redlog::field("error", e.what()), redlog::field("context", log_context));
+    cure_result result;
+    result.add_error("js runtime error: " + std::string(e.what()));
+    return result;
+  } catch (const std::bad_alloc& e) {
+    log.err("js memory allocation failed", redlog::field("error", e.what()), redlog::field("context", log_context));
+    cure_result result;
+    result.add_error("js out of memory: " + std::string(e.what()));
+    return result;
+  } catch (const std::exception& e) {
+    log.err("js execution failed", redlog::field("error", e.what()), redlog::field("context", log_context));
+    cure_result result;
+    result.add_error("js execution error: " + std::string(e.what()));
+    return result;
+  }
+}
+
 js_engine::js_engine() {
   auto log = redlog::get_logger("p1ll.js_engine");
   log.inf("initializing js engine");
@@ -35,34 +75,9 @@ cure_result js_engine::execute_script(const context& context, const std::string&
   auto log = redlog::get_logger("p1ll.js_engine");
   log.inf("executing js script for dynamic patching");
 
-  try {
-    auto js_ctx = jnjs::runtime::new_context();
-    setup_p1ll_js_bindings(js_ctx, context);
-    js_ctx.eval(script_content);
-
-    auto cure_fn = js_ctx.eval("cure");
-    if (cure_fn.is<jnjs::function>()) {
-      log.dbg("executing cure() function");
-      auto cure_result_value = cure_fn.as<jnjs::function>();
-      auto js_result = cure_result_value();
-
-      // try to extract result as object properties
-      cure_result result;
-
-      return extract_cure_result(js_result);
-    } else {
-      log.err("no cure() function found in script");
-      cure_result result;
-      result.add_error("script must define a cure() function");
-      return result;
-    }
-
-  } catch (const std::exception& e) {
-    log.err("js execution failed", redlog::field("error", e.what()));
-    cure_result result;
-    result.add_error("js execution error: " + std::string(e.what()));
-    return result;
-  }
+  auto js_ctx = jnjs::runtime::new_context();
+  setup_p1ll_js_bindings(js_ctx, context);
+  return execute_cure_script_impl(js_ctx, script_content, "dynamic_patching");
 }
 
 cure_result js_engine::execute_script_content_with_buffer(
@@ -71,34 +86,9 @@ cure_result js_engine::execute_script_content_with_buffer(
   auto log = redlog::get_logger("p1ll.js_engine");
   log.inf("executing js script for static patching with buffer");
 
-  try {
-    auto js_ctx = jnjs::runtime::new_context();
-    setup_p1ll_js_bindings_with_buffer(js_ctx, context, buffer_data);
-    js_ctx.eval(script_content);
-
-    auto cure_fn = js_ctx.eval("cure");
-    if (cure_fn.is<jnjs::function>()) {
-      log.dbg("executing cure() function");
-      auto cure_result_value = cure_fn.as<jnjs::function>();
-      auto js_result = cure_result_value();
-
-      // try to extract result as object properties
-      cure_result result;
-
-      return extract_cure_result(js_result);
-    } else {
-      log.err("no cure() function found in script");
-      cure_result result;
-      result.add_error("script must define a cure() function");
-      return result;
-    }
-
-  } catch (const std::exception& e) {
-    log.err("js execution with buffer failed", redlog::field("error", e.what()));
-    cure_result result;
-    result.add_error("js execution error: " + std::string(e.what()));
-    return result;
-  }
+  auto js_ctx = jnjs::runtime::new_context();
+  setup_p1ll_js_bindings_with_buffer(js_ctx, context, buffer_data);
+  return execute_cure_script_impl(js_ctx, script_content, "static_patching_with_buffer");
 }
 
 } // namespace p1ll::scripting::js
