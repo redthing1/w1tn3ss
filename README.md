@@ -1,6 +1,7 @@
 # w1tn3ss
 
 a cross-platform dynamic binary analysis and instrumentation framework powered by [qbdi](https://github.com/QBDI/QBDI).
+fully supports **linux**, **macos**, **windows** for `x86`, `x64`, and `arm64`.
 
 ## features
 
