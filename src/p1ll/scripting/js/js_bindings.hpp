@@ -390,6 +390,14 @@ inline cure_result_wrapper* p1ll_api::auto_cure(jnjs::value meta_obj) {
       return result;
     }
 
+    // basic validation of metadata object
+    if (meta_obj.is<jnjs::undefined>() || meta_obj.is<jnjs::null>()) {
+      log.err("auto_cure called with invalid metadata object");
+      auto result = new cure_result_wrapper();
+      result->error_messages.push_back("invalid metadata object");
+      return result;
+    }
+
     auto meta = parse_metadata(meta_obj);
     auto sig_map = parse_signatures(meta_obj);
     auto patch_map = parse_patches(meta_obj);
