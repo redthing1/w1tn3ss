@@ -232,21 +232,26 @@ class HelpDialog:
 class W1DumpTUI:
     """main TUI application class"""
     
+    TAB_OVERVIEW = 0
+    TAB_REGISTERS = 1
+    TAB_MODULES = 2
+    TAB_MEMORY = 3
+    TAB_REGION_EDITOR = 4
+    TAB_SEARCH = 5
+    
     def __init__(self, dump_file: Path):
         self.dump_file = dump_file
         self.dump = None
-        self.selected_regions = set()  # indices of selected regions for export
-        self.search_results = []  # list of SearchResult objects
+        self.selected_regions = set()
+        self.search_results = []
         self.current_search_index = -1
         self.last_search_pattern = ""
         
-        # load the dump
         try:
             self.dump = w1dump.load_dump(dump_file)
         except Exception as e:
             raise ValueError(f"failed to load dump: {e}")
         
-        # setup urwid palette
         self.palette = [
             ('title', 'white,bold', 'dark blue'),
             ('tab_active', 'white,bold', 'dark blue'),
@@ -261,31 +266,70 @@ class W1DumpTUI:
             ('checkbox_selected', 'white,bold', 'dark green'),
         ]
         
-        # tab names
         self.tab_names = ['Overview', 'Registers', 'Modules', 'Memory Map', 'Region Editor', 'Search']
         self.current_tab = 0
-        
-        # initialize UI components
         self.setup_ui()
     
-    def create_table_row(self, columns_data: List[Tuple[str, str]], selectable=False):
-        """
-        create a table row using urwid Columns
-        columns_data: list of (width, text) tuples where width can be 'weight' or int
-        """
-        column_widgets = []
-        for width, text in columns_data:
-            if isinstance(width, int):
-                column_widgets.append(('fixed', width, urwid.Text(text)))
-            else:
-                # flexible width
-                column_widgets.append(urwid.Text(text))
-        
-        row = urwid.Columns(column_widgets, dividechars=1)
+    @staticmethod
+    def format_size(size: int) -> str:
+        """format byte size in human readable form"""
+        if size >= 1024*1024*1024:
+            return f"{size/(1024*1024*1024):.1f}G"
+        elif size >= 1024*1024:
+            return f"{size/(1024*1024):.1f}M"
+        elif size >= 1024:
+            return f"{size/1024:.1f}K"
+        else:
+            return f"{size:,}"
+    
+    @staticmethod
+    def build_flag_string(region) -> str:
+        """build flag string for memory region"""
+        flags = []
+        if region.is_stack:
+            flags.append("STACK")
+        if region.is_code:
+            flags.append("CODE")
+        if region.is_data:
+            flags.append("DATA")
+        if region.is_anonymous:
+            flags.append("ANON")
+        if hasattr(region, 'data') and region.data:
+            flags.append("DUMPED" if len(flags) < 4 else "DUMP")
+        return ",".join(flags)
+    
+    def create_table_header(self, columns_data: List[Tuple]) -> urwid.Widget:
+        """create a table header row"""
+        widgets = self._build_column_widgets(columns_data, is_header=True)
+        row = urwid.Columns(widgets, dividechars=1)
+        return urwid.AttrMap(row, 'header')
+    
+    def create_table_row(self, columns_data: List[Tuple], selectable=True) -> urwid.Widget:
+        """create a table data row"""
+        widgets = self._build_column_widgets(columns_data, is_header=False)
+        row = urwid.Columns(widgets, dividechars=1)
         if selectable:
             return urwid.AttrMap(row, 'body', 'highlight')
         else:
             return urwid.AttrMap(row, 'body')
+    
+    def _build_column_widgets(self, columns_data: List[Tuple], is_header: bool) -> List[Tuple]:
+        """build column widgets from specifications"""
+        widgets = []
+        for spec in columns_data:
+            if len(spec) == 2:
+                width, text = spec
+                if isinstance(width, int):
+                    attr = ('header', text) if is_header else text
+                    widgets.append(('fixed', width, urwid.Text(attr)))
+                else:
+                    attr = ('header', text) if is_header else text
+                    widgets.append(urwid.Text(attr))
+            elif len(spec) == 3:
+                width_type, width_val, text = spec
+                attr = ('header', text) if is_header else text
+                widgets.append((width_type, width_val, urwid.Text(attr)))
+        return widgets
     
     def update_status_bar(self, message=None):
         """update status bar with dynamic shortcuts based on current tab"""
@@ -293,17 +337,15 @@ class W1DumpTUI:
             self.status_text.set_text(message)
             return
         
-        tab_name = self.tab_names[self.current_tab]
         base_shortcuts = "Tab:Switch ?:Help q:Quit"
+        tab_shortcuts = {
+            self.TAB_REGION_EDITOR: " g:Goto /:Search Space:Toggle a:All z:None e:Export",
+            self.TAB_MODULES: " g:Goto /:Search",
+            self.TAB_MEMORY: " g:Goto /:Search",
+            self.TAB_SEARCH: " Enter:Search n:Next p:Prev",
+        }
         
-        if tab_name == 'Region Editor':
-            shortcuts = f"{base_shortcuts} g:Goto /:Search Space:Toggle a:All z:None e:Export"
-        elif tab_name in ['Modules', 'Memory Map']:
-            shortcuts = f"{base_shortcuts} g:Goto /:Search"
-        elif tab_name == 'Search':
-            shortcuts = f"{base_shortcuts} Enter:Search n:Next p:Prev"
-        else:
-            shortcuts = base_shortcuts
+        shortcuts = base_shortcuts + tab_shortcuts.get(self.current_tab, "")
         
         if self.search_results:
             shortcuts += f" | Results: {len(self.search_results)}"
@@ -315,7 +357,6 @@ class W1DumpTUI:
     
     def setup_ui(self):
         """initialize the main UI structure"""
-        # create tab bar
         self.tab_buttons = []
         for i, name in enumerate(self.tab_names):
             btn = urwid.Button(f" {name} ", on_press=self.switch_tab, user_data=i)
@@ -327,22 +368,18 @@ class W1DumpTUI:
         
         self.tab_bar = urwid.Columns(self.tab_buttons, dividechars=1)
         
-        # create tab contents
-        self.tab_contents = [
-            self.create_overview_tab(),
-            self.create_registers_tab(),
-            self.create_modules_tab(),
-            self.create_memory_tab(),
-            self.create_region_editor_tab(),
-            self.create_search_tab(),
-        ]
+        self.tab_contents = [None] * len(self.tab_names)
+        self.tab_contents[self.TAB_OVERVIEW] = self.create_overview_tab()
+        self.tab_contents[self.TAB_REGISTERS] = self.create_registers_tab()
+        self.tab_contents[self.TAB_MODULES] = self.create_modules_tab()
+        self.tab_contents[self.TAB_MEMORY] = self.create_memory_tab()
+        self.tab_contents[self.TAB_REGION_EDITOR] = self.create_region_editor_tab()
+        self.tab_contents[self.TAB_SEARCH] = self.create_search_tab()
         
-        # status bar
         self.status_text = urwid.Text("")
         self.status_bar = urwid.AttrMap(self.status_text, 'footer')
-        self.update_status_bar()  # initialize with proper shortcuts
+        self.update_status_bar()
         
-        # main layout
         header = urwid.Pile([
             urwid.AttrMap(urwid.Text(f"w1dump TUI - {self.dump.metadata.process_name}", align='center'), 'title'),
             urwid.Divider(),
@@ -350,7 +387,7 @@ class W1DumpTUI:
             urwid.Divider('─'),
         ])
         
-        self.content_area = self.tab_contents[0]
+        self.content_area = self.tab_contents[self.TAB_OVERVIEW]
         
         self.main_frame = urwid.Frame(
             body=self.content_area,
@@ -362,7 +399,6 @@ class W1DumpTUI:
         """create overview tab content"""
         lines = []
         
-        # process information
         lines.append(urwid.Text(('header', 'Process Information')))
         lines.append(urwid.Text(f"Name:         {self.dump.metadata.process_name}"))
         lines.append(urwid.Text(f"PID:          {self.dump.metadata.pid}"))
@@ -378,32 +414,24 @@ class W1DumpTUI:
         lines.append(urwid.Text(f"Thread ID:    {self.dump.thread.thread_id}"))
         lines.append(urwid.Divider())
         
-        # statistics
         lines.append(urwid.Text(('header', 'Statistics')))
         lines.append(urwid.Text(f"Modules:         {len(self.dump.modules):4d}"))
         lines.append(urwid.Text(f"Memory regions:  {len(self.dump.regions):4d}"))
         
-        # memory breakdown
         total_size = sum(r.size for r in self.dump.regions)
         code_size = sum(r.size for r in self.dump.regions if r.is_code)
         data_size = sum(r.size for r in self.dump.regions if r.is_data)
         stack_size = sum(r.size for r in self.dump.regions if r.is_stack)
         anon_size = sum(r.size for r in self.dump.regions if r.is_anonymous)
         
-        def format_size(size):
-            for unit in ["B", "KB", "MB", "GB"]:
-                if size < 1024.0:
-                    return f"{size:6.1f} {unit}"
-                size /= 1024.0
-            return f"{size:6.1f} TB"
         
         lines.append(urwid.Divider())
         lines.append(urwid.Text(('header', 'Memory Breakdown')))
-        lines.append(urwid.Text(f"Total:      {format_size(total_size):>12} ({total_size:,} bytes)"))
-        lines.append(urwid.Text(f"Code:       {format_size(code_size):>12} ({code_size:,} bytes)"))
-        lines.append(urwid.Text(f"Data:       {format_size(data_size):>12} ({data_size:,} bytes)"))
-        lines.append(urwid.Text(f"Stack:      {format_size(stack_size):>12} ({stack_size:,} bytes)"))
-        lines.append(urwid.Text(f"Anonymous:  {format_size(anon_size):>12} ({anon_size:,} bytes)"))
+        lines.append(urwid.Text(f"Total:      {self.format_size(total_size):>12} ({total_size:,} bytes)"))
+        lines.append(urwid.Text(f"Code:       {self.format_size(code_size):>12} ({code_size:,} bytes)"))
+        lines.append(urwid.Text(f"Data:       {self.format_size(data_size):>12} ({data_size:,} bytes)"))
+        lines.append(urwid.Text(f"Stack:      {self.format_size(stack_size):>12} ({stack_size:,} bytes)"))
+        lines.append(urwid.Text(f"Anonymous:  {self.format_size(anon_size):>12} ({anon_size:,} bytes)"))
         
         # current execution context
         if self.dump.thread.gpr_state:
@@ -453,44 +481,21 @@ class W1DumpTUI:
             (4, "Type"),
             (8, "Flags")
         ]
-        header_widgets = []
-        for width_spec in header_cols:
-            if len(width_spec) == 2:
-                width, text = width_spec
-                if isinstance(width, int):
-                    header_widgets.append(('fixed', width, urwid.Text(('header', text))))
-                else:
-                    header_widgets.append((width[0], width[1], urwid.Text(('header', text))))
-            else:
-                width_type, width_val, text = width_spec
-                header_widgets.append((width_type, width_val, urwid.Text(('header', text))))
         
-        header_row = urwid.Columns(header_widgets, dividechars=1)
-        lines.append(urwid.AttrMap(header_row, 'header'))
+        lines.append(self.create_table_header(header_cols))
         lines.append(urwid.Divider('─'))
         
         # sort all modules by address
         all_modules = sorted(self.dump.modules, key=lambda m: m.base_address)
         
         for module in all_modules:
-            flags = []
-            if module.is_system_library:
-                flags.append("SYS")
-            flag_str = ",".join(flags) if flags else ""
+            # build flags
+            flags = ["SYS"] if module.is_system_library else []
+            flag_str = ",".join(flags)
             
-            # format size
-            size_str = f"{module.size:,}"
-            if module.size >= 1024*1024:
-                size_str = f"{module.size/(1024*1024):.1f}M"
-            elif module.size >= 1024:
-                size_str = f"{module.size/1024:.1f}K"
-            
-            # shorten module type - only E and L as requested
-            type_short = ""
-            if module.type == "main_executable":
-                type_short = "E"
-            else:  # everything else is L (library)
-                type_short = "L"
+            # format size and type
+            size_str = self.format_size(module.size)
+            type_short = "E" if module.type == "main_executable" else "L"
             
             row_data = [
                 (18, f"{module.base_address:016x}"),
@@ -500,20 +505,7 @@ class W1DumpTUI:
                 (8, flag_str)
             ]
             
-            row_widgets = []
-            for width_spec in row_data:
-                if len(width_spec) == 2:
-                    width, text = width_spec
-                    if isinstance(width, int):
-                        row_widgets.append(('fixed', width, urwid.Text(text)))
-                    else:
-                        row_widgets.append(urwid.Text(text))
-                else:
-                    width_type, width_val, text = width_spec
-                    row_widgets.append((width_type, width_val, urwid.Text(text)))
-            
-            row = urwid.Columns(row_widgets, dividechars=1)
-            lines.append(urwid.AttrMap(row, 'body', 'highlight'))
+            lines.append(self.create_table_row(row_data))
         
         return urwid.ListBox(urwid.SimpleFocusListWalker(lines))
     
@@ -522,57 +514,35 @@ class W1DumpTUI:
         lines = []
         
         # table header
-        header_widgets = [
-            ('fixed', 18, urwid.Text(('header', "Start"))),
-            ('fixed', 18, urwid.Text(('header', "End"))),
-            ('fixed', 5, urwid.Text(('header', "Perms"))),
-            ('fixed', 12, urwid.Text(('header', "Size"))),
-            ('weight', 1, urwid.Text(('header', "Module"))),
-            ('fixed', 20, urwid.Text(('header', "Flags")))
+        header_cols = [
+            (18, "Start"),
+            (18, "End"),
+            (5, "Perms"),
+            (12, "Size"),
+            ('weight', 1, "Module"),
+            (20, "Flags")
         ]
         
-        header_row = urwid.Columns(header_widgets, dividechars=1)
-        lines.append(urwid.AttrMap(header_row, 'header'))
+        lines.append(self.create_table_header(header_cols))
         lines.append(urwid.Divider('─'))
         
         # show ALL regions (no truncation)
         regions = sorted(self.dump.regions, key=lambda r: r.start)
         
         for region in regions:
-            flags = []
-            if region.is_stack:
-                flags.append("STACK")
-            if region.is_code:
-                flags.append("CODE")
-            if region.is_data:
-                flags.append("DATA")
-            if region.is_anonymous:
-                flags.append("ANON")
-            if region.data:
-                flags.append("DUMPED")
+            flag_str = self.build_flag_string(region)
+            size_str = self.format_size(region.size)
             
-            flag_str = ",".join(flags)
-            
-            # format size
-            size_str = f"{region.size:,}"
-            if region.size >= 1024*1024*1024:
-                size_str = f"{region.size/(1024*1024*1024):.1f}G"
-            elif region.size >= 1024*1024:
-                size_str = f"{region.size/(1024*1024):.1f}M"
-            elif region.size >= 1024:
-                size_str = f"{region.size/1024:.1f}K"
-            
-            row_widgets = [
-                ('fixed', 18, urwid.Text(f"{region.start:016x}")),
-                ('fixed', 18, urwid.Text(f"{region.end:016x}")),
-                ('fixed', 5, urwid.Text(region.perms_str)),
-                ('fixed', 12, urwid.Text(size_str)),
-                ('weight', 1, urwid.Text(region.module_name or "")),
-                ('fixed', 20, urwid.Text(flag_str))
+            row_data = [
+                (18, f"{region.start:016x}"),
+                (18, f"{region.end:016x}"),
+                (5, region.perms_str),
+                (12, size_str),
+                ('weight', 1, region.module_name or ""),
+                (20, flag_str)
             ]
             
-            row = urwid.Columns(row_widgets, dividechars=1)
-            lines.append(urwid.AttrMap(row, 'body', 'highlight'))
+            lines.append(self.create_table_row(row_data))
         
         return urwid.ListBox(urwid.SimpleFocusListWalker(lines))
     
@@ -581,31 +551,28 @@ class W1DumpTUI:
         lines = []
         
         # control buttons
-        select_all_btn = urwid.Button("All", on_press=self.select_all_regions)
-        select_none_btn = urwid.Button("None", on_press=self.select_no_regions)
-        export_btn = urwid.Button("Export", on_press=self.export_selected)
-        
         buttons = urwid.Columns([
             urwid.Text(('header', 'Region Editor - Select regions to export:')),
-            ('fixed', 8, urwid.AttrMap(select_all_btn, 'body')),
-            ('fixed', 9, urwid.AttrMap(select_none_btn, 'body')),
-            ('fixed', 11, urwid.AttrMap(export_btn, 'success')),
+            ('fixed', 8, urwid.AttrMap(urwid.Button("All", on_press=self.select_all_regions), 'body')),
+            ('fixed', 9, urwid.AttrMap(urwid.Button("None", on_press=self.select_no_regions), 'body')),
+            ('fixed', 11, urwid.AttrMap(urwid.Button("Export", on_press=self.export_selected), 'success')),
         ], dividechars=2)
         
         lines.append(buttons)
         lines.append(urwid.Divider('─'))
         
         # table header
-        header_row = urwid.Columns([
-            ('fixed', 4, urwid.Text(('header', "Sel"))),
-            ('fixed', 18, urwid.Text(('header', "Start"))),
-            ('fixed', 18, urwid.Text(('header', "End"))),
-            ('fixed', 6, urwid.Text(('header', "Perms"))),
-            ('fixed', 12, urwid.Text(('header', "Size"))),
-            ('weight', 1, urwid.Text(('header', "Module"))),
-            ('fixed', 15, urwid.Text(('header', "Flags")))
-        ], dividechars=1)
-        lines.append(urwid.AttrMap(header_row, 'header'))
+        header_cols = [
+            (4, "Sel"),
+            (18, "Start"),
+            (18, "End"),
+            (6, "Perms"),
+            (12, "Size"),
+            ('weight', 1, "Module"),
+            (15, "Flags")
+        ]
+        
+        lines.append(self.create_table_header(header_cols))
         lines.append(urwid.Divider('─'))
         
         # region checkboxes for ALL regions (no truncation)
@@ -613,28 +580,8 @@ class W1DumpTUI:
         regions = sorted(self.dump.regions, key=lambda r: r.start)
         
         for i, region in enumerate(regions):
-            flags = []
-            if region.is_stack:
-                flags.append("STACK")
-            if region.is_code:
-                flags.append("CODE")
-            if region.is_data:
-                flags.append("DATA")
-            if region.is_anonymous:
-                flags.append("ANON")
-            if region.data:
-                flags.append("DUMP")
-            
-            flag_str = ",".join(flags)
-            
-            # format size
-            size_str = f"{region.size:,}"
-            if region.size >= 1024*1024*1024:
-                size_str = f"{region.size/(1024*1024*1024):.1f}G"
-            elif region.size >= 1024*1024:
-                size_str = f"{region.size/(1024*1024):.1f}M"
-            elif region.size >= 1024:
-                size_str = f"{region.size/1024:.1f}K"
+            flag_str = self.build_flag_string(region).replace("DUMPED", "DUMP")
+            size_str = self.format_size(region.size)
             
             checkbox = urwid.CheckBox("", state=True, on_state_change=self.region_checkbox_changed, user_data=i)
             self.region_checkboxes.append(checkbox)
@@ -791,9 +738,9 @@ class W1DumpTUI:
         self.update_status_bar()
         
         # refresh search tab if currently active
-        if self.current_tab == 5:  # search tab
-            self.tab_contents[5] = self.create_search_tab()
-            self.main_frame.body = self.tab_contents[5]
+        if self.current_tab == self.TAB_SEARCH:
+            self.tab_contents[self.TAB_SEARCH] = self.create_search_tab()
+            self.main_frame.body = self.tab_contents[self.TAB_SEARCH]
     
     def goto_address(self):
         """show goto address dialog"""
@@ -808,28 +755,17 @@ class W1DumpTUI:
             if module or region:
                 # switch to appropriate tab and highlight the item
                 if module:
-                    # switch to modules tab and find the module
-                    self.switch_tab(None, 2)
-                    # TODO: highlight the specific module in the list
+                    self.switch_tab(None, self.TAB_MODULES)
                     self.show_message(f"Found address in module: {module.name}", "success")
                 elif region:
-                    # switch to memory map tab
-                    self.switch_tab(None, 3)
-                    # TODO: highlight the specific region in the list
+                    self.switch_tab(None, self.TAB_MEMORY)
                     self.show_message(f"Found address in region: {region.start:016x}-{region.end:016x}", "success")
             else:
                 self.show_message(f"Address {address:016x} not found in dump", "error")
         
         dialog = GotoDialog(on_address_entered)
-        
-        # create wrapper that forwards keypresses to dialog
-        class GotoWrapper(urwid.WidgetWrap):
-            def keypress(self, size, key):
-                return dialog.keypress(size, key)
-        
-        wrapper = GotoWrapper(dialog.widget)
         overlay = urwid.Overlay(
-            wrapper,
+            dialog.widget,
             self.main_frame,
             align='center',
             width=30,
@@ -837,7 +773,10 @@ class W1DumpTUI:
             height=5,
         )
         
-        loop = urwid.MainLoop(overlay, self.palette)
+        def dialog_unhandled_input(key):
+            return dialog.keypress(None, key)
+        
+        loop = urwid.MainLoop(overlay, self.palette, unhandled_input=dialog_unhandled_input)
         loop.run()
     
     def next_search_result(self):
@@ -876,16 +815,8 @@ class W1DumpTUI:
             raise urwid.ExitMainLoop()
         
         help_dialog = HelpDialog(close_help)
-        
-        # create a wrapper that handles keypresses
-        class HelpWrapper(urwid.WidgetWrap):
-            def keypress(self, size, key):
-                close_help()
-                return None
-        
-        wrapper = HelpWrapper(help_dialog.widget)
         overlay = urwid.Overlay(
-            wrapper,
+            help_dialog.widget,
             self.main_frame,
             align='center',
             width=60,
@@ -893,52 +824,72 @@ class W1DumpTUI:
             height=30,
         )
         
-        loop = urwid.MainLoop(overlay, self.palette)
+        def help_unhandled_input(key):
+            close_help()
+            return None
+        
+        loop = urwid.MainLoop(overlay, self.palette, unhandled_input=help_unhandled_input)
         loop.run()
-        self.update_status_bar()  # restore status bar
+        self.update_status_bar()
     
     def unhandled_input(self, key):
         """handle global keyboard shortcuts"""
+        # quit commands
         if key in ('q', 'Q', 'ctrl c'):
             raise urwid.ExitMainLoop()
-        elif key in ('h', '?'):
+        
+        # help commands  
+        if key in ('h', '?'):
             self.show_help_dialog()
-        elif key == 'tab':
-            # switch to next tab
+            return
+        
+        # tab navigation
+        if key == 'tab':
             self.switch_tab(None, (self.current_tab + 1) % len(self.tab_names))
-        elif key == 'shift tab':
-            # switch to previous tab
+            return
+        if key == 'shift tab':
             self.switch_tab(None, (self.current_tab - 1) % len(self.tab_names))
-        elif key in ('1', '2', '3', '4', '5', '6'):
-            # direct tab switch
+            return
+        if key in ('1', '2', '3', '4', '5', '6'):
             tab_idx = int(key) - 1
             if 0 <= tab_idx < len(self.tab_names):
                 self.switch_tab(None, tab_idx)
-        elif key == 'g' and self.tab_names[self.current_tab] in ['Modules', 'Memory Map', 'Region Editor']:
-            # goto address
-            self.goto_address()
-        elif key == '/' and self.tab_names[self.current_tab] in ['Modules', 'Memory Map', 'Region Editor']:
-            # switch to search tab and focus input
-            self.switch_tab(None, 5)
-            self.main_frame.set_focus('body')
-        elif key == 'n':
-            # next search result
+            return
+        
+        # search navigation
+        if key == 'n':
             self.next_search_result()
-        elif key == 'p':
-            # previous search result
+            return
+        if key == 'p':
             self.prev_search_result()
-        elif key == 'a' and self.tab_names[self.current_tab] == 'Region Editor':
-            # select all regions
-            self.select_all_regions(None)
-        elif key == 'z' and self.tab_names[self.current_tab] == 'Region Editor':
-            # select no regions
-            self.select_no_regions(None)
-        elif key == 'e' and self.tab_names[self.current_tab] == 'Region Editor':
-            # export selected regions
-            self.export_selected(None)
-        elif key == 'enter' and self.tab_names[self.current_tab] == 'Search':
-            # perform search
+            return
+        
+        # tabs that support goto/search
+        goto_search_tabs = {self.TAB_MODULES, self.TAB_MEMORY, self.TAB_REGION_EDITOR}
+        if self.current_tab in goto_search_tabs:
+            if key == 'g':
+                self.goto_address()
+                return
+            if key == '/':
+                self.switch_tab(None, self.TAB_SEARCH)
+                self.main_frame.set_focus('body')
+                return
+        
+        # region editor specific commands
+        if self.current_tab == self.TAB_REGION_EDITOR:
+            region_commands = {
+                'a': self.select_all_regions,
+                'z': self.select_no_regions, 
+                'e': self.export_selected
+            }
+            if key in region_commands:
+                region_commands[key](None)
+                return
+        
+        # search tab specific commands
+        if self.current_tab == self.TAB_SEARCH and key == 'enter':
             self.perform_search()
+            return
     
     
     def run(self):
