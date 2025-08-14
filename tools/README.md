@@ -2,7 +2,7 @@
 
 utilities for working with w1tn3ss.
 
-## macos-signing
+## macos_signing
 
 code signing tools for injection on macos.
 
@@ -16,12 +16,12 @@ code signing tools for injection on macos.
 
 generate certificate:
 ```sh
-./tools/macos-signing/genkey.sh "w1tn3ss-dev"
+./tools/macos_signing/genkey.sh "w1tn3ss-dev"
 ```
 
 sign w1tool:
 ```sh
-./tools/macos-signing/sign.sh "w1tn3ss-dev" ./build-macos/w1tool
+./tools/macos_signing/sign.sh "w1tn3ss-dev" ./build-macos/w1tool
 ```
 
 ### notes
