@@ -43,6 +43,7 @@ import msgpack
 __all__ = [
     # main functions
     "load_dump",
+    "export_dump",
     # core classes
     "W1Dump",
     "DumpMetadata",
@@ -670,6 +671,98 @@ class W1Dump:
             print(f"\n... {len(regions) - 20} more regions ...\n")
             for region in regions[-10:]:
                 print(region)
+
+
+def export_dump(dump: W1Dump, output_path: Union[str, Path], selected_regions: List[int] = None) -> None:
+    """
+    export a w1dump with optionally filtered regions to a new file
+    
+    args:
+        dump: the W1Dump object to export
+        output_path: path for the new dump file
+        selected_regions: list of region indices to include (None = all regions)
+    
+    raises:
+        IOError: if writing fails
+        ValueError: if invalid region indices provided
+    """
+    import copy
+    from pathlib import Path
+    
+    output_path = Path(output_path)
+    
+    # create a copy of the dump to modify
+    new_dump = copy.deepcopy(dump)
+    
+    # filter regions if specified
+    if selected_regions is not None:
+        if not all(0 <= i < len(dump.regions) for i in selected_regions):
+            raise ValueError(f"invalid region indices provided")
+        
+        # keep only selected regions
+        new_dump.regions = [dump.regions[i] for i in selected_regions]
+    
+    # update timestamp to current time
+    import time
+    new_dump.metadata.timestamp = int(time.time() * 1000)
+    
+    # serialize to MessagePack
+    try:
+        # convert to dict format
+        dump_dict = {
+            "metadata": {
+                "version": new_dump.metadata.version,
+                "timestamp": new_dump.metadata.timestamp,
+                "os": new_dump.metadata.os,
+                "arch": new_dump.metadata.arch,
+                "pointer_size": new_dump.metadata.pointer_size,
+                "pid": new_dump.metadata.pid,
+                "process_name": new_dump.metadata.process_name,
+            },
+            "thread": {
+                "thread_id": new_dump.thread.thread_id,
+                "gpr_values": new_dump.thread.gpr_values,
+                "fpr_values": new_dump.thread.fpr_values,
+            },
+            "regions": [],
+            "modules": []
+        }
+        
+        # serialize regions
+        for region in new_dump.regions:
+            region_dict = {
+                "start": region.start,
+                "end": region.end,
+                "permissions": region.permissions,
+                "module_name": region.module_name,
+                "is_stack": region.is_stack,
+                "is_code": region.is_code,
+                "is_data": region.is_data,
+                "is_anonymous": region.is_anonymous,
+                "data": list(region.data) if region.data else None
+            }
+            dump_dict["regions"].append(region_dict)
+        
+        # serialize modules
+        for module in new_dump.modules:
+            module_dict = {
+                "path": module.path,
+                "name": module.name,
+                "base_address": module.base_address,
+                "size": module.size,
+                "type": module.type,
+                "is_system_library": module.is_system_library,
+                "permissions": module.permissions,
+            }
+            dump_dict["modules"].append(module_dict)
+        
+        # write to file
+        data = msgpack.packb(dump_dict)
+        with open(output_path, 'wb') as f:
+            f.write(data)
+            
+    except Exception as e:
+        raise IOError(f"failed to export dump: {e}")
 
 
 def load_dump(path: Union[str, Path], validate: bool = True) -> W1Dump:
