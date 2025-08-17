@@ -10,6 +10,7 @@
 
 #ifdef _WIN32
 #include <w1common/windows_clean.hpp>
+#include <process.h>
 #else
 #include <unistd.h>
 #endif
@@ -36,7 +37,11 @@ w1dump process_dumper::dump_current(
   dump.metadata.os = get_os_name();
   dump.metadata.arch = get_arch_name();
   dump.metadata.pointer_size = get_pointer_size();
+#ifdef _WIN32
+  dump.metadata.pid = _getpid();
+#else
   dump.metadata.pid = getpid();
+#endif
 
   // get process name
   char process_name[256] = {0};

@@ -17,6 +17,12 @@
 #include "w1tn3ss/util/env_config.hpp"
 #include "QBDIPreload.h"
 
+#ifdef _WIN32
+#include <process.h>
+#else
+#include <unistd.h>
+#endif
+
 // global state
 static QBDI::VM* g_vm = nullptr;
 static std::unique_ptr<w1tn3ss::gadget::gadget_executor> g_executor;
@@ -52,7 +58,11 @@ static const QBDI::rword OFFSET_is_valid_pointer = 0xa38;
 
 // get base address of main executable
 static QBDI::rword get_main_base() {
+#ifdef _WIN32
+  auto maps = QBDI::getRemoteProcessMaps(_getpid());
+#else
   auto maps = QBDI::getRemoteProcessMaps(getpid());
+#endif
 
   // look for the main executable (usually has the lowest address and contains "hook_test_target")
   QBDI::rword lowest_exec = 0;
