@@ -13,7 +13,6 @@
 #else
 #include <unistd.h>
 #endif
-#endif
 
 namespace w1 {
 namespace dump {
