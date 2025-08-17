@@ -3,7 +3,6 @@
 #include "memory_dumper.hpp"
 #include <chrono>
 #include <fstream>
-#include <unistd.h>
 
 #ifdef __APPLE__
 #include <mach-o/dyld.h>
@@ -11,6 +10,9 @@
 
 #ifdef _WIN32
 #include <w1common/windows_clean.hpp>
+#else
+#include <unistd.h>
+#endif
 #endif
 
 namespace w1 {
