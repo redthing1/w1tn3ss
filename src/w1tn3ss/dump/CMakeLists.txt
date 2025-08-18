@@ -10,8 +10,12 @@ target_include_directories(w1tn3ss_dump PUBLIC
 )
 
 target_link_libraries(w1tn3ss_dump PUBLIC
+    w1tn3ss
     common
     redlog
     QBDI::QBDI
     nlohmann_json::nlohmann_json
 )
+
+# Enable PIC for shared library usage
+set_property(TARGET w1tn3ss_dump PROPERTY POSITION_INDEPENDENT_CODE ON)

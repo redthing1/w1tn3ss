@@ -29,7 +29,11 @@ result insert_library_import(const config& cfg) {
   // validate binary exists
   if (!fs::exists(cfg.target_binary)) {
     log.error("binary path does not exist", redlog::field("path", cfg.target_binary));
-    return result{.code = error_code::file_not_found, .error_message = "target binary not found: " + cfg.target_binary};
+    return result{
+        .code = error_code::file_not_found,
+        .error_message = "target binary not found: " + cfg.target_binary,
+        .system_error_code = {}
+    };
   }
 
   // determine output path
@@ -50,7 +54,8 @@ result insert_library_import(const config& cfg) {
     if (!cfg.assume_yes) {
       return result{
           .code = error_code::output_already_exists,
-          .error_message = "output file already exists: " + final_binary_path + " (use overwrite_existing=true)"
+          .error_message = "output file already exists: " + final_binary_path + " (use overwrite_existing=true)",
+          .system_error_code = {}
       };
     } else {
       log.info("overwriting existing output file (assume_yes=true)");
@@ -65,42 +70,49 @@ result insert_library_import(const config& cfg) {
       log.error("failed to parse elf binary", redlog::field("file", cfg.target_binary));
       return result{
           .code = error_code::invalid_binary_format,
-          .error_message = "failed to parse ELF binary - invalid format or corrupted file"
+          .error_message = "failed to parse ELF binary - invalid format or corrupted file",
+          .system_error_code = {}
       };
     }
 
     // validate architecture and type compatibility
     log.dbg(
-        "elf binary details", redlog::field("class", static_cast<int>(elf->header().file_class())),
+        "elf binary details", redlog::field("class", static_cast<int>(elf->header().identity_class())),
         redlog::field("machine", static_cast<int>(elf->header().machine_type())),
         redlog::field("type", static_cast<int>(elf->header().file_type())),
-        redlog::field("is_64bit", elf->header().file_class() == LIEF::ELF::ELF_CLASS::ELFCLASS64)
+        redlog::field("is_64bit", elf->header().identity_class() == LIEF::ELF::Header::CLASS::ELF64)
     );
 
     // check if this is a dynamic executable/shared library
-    if (elf->header().file_type() != LIEF::ELF::E_TYPE::EXEC && elf->header().file_type() != LIEF::ELF::E_TYPE::DYN) {
+    if (elf->header().file_type() != LIEF::ELF::Header::FILE_TYPE::EXEC &&
+        elf->header().file_type() != LIEF::ELF::Header::FILE_TYPE::DYN) {
       log.error("unsupported elf file type", redlog::field("type", static_cast<int>(elf->header().file_type())));
       return result{
           .code = error_code::unsupported_architecture,
-          .error_message = "only dynamic executables and shared libraries are supported for library import insertion"
+          .error_message = "only dynamic executables and shared libraries are supported for library import insertion",
+          .system_error_code = {}
       };
     }
 
     // check for existing library dependency
     bool already_imported = false;
-    for (const auto& library : elf->libraries()) {
-      if (library == cfg.library_path) {
-        already_imported = true;
-        log.trc("duplicate library detected", redlog::field("library", cfg.library_path));
-        if (!cfg.assume_yes) {
-          return result{
-              .code = error_code::duplicate_library,
-              .error_message = "binary already depends on " + cfg.library_path + " (use assume_yes=true to continue)"
-          };
-        } else {
-          log.info("continuing with duplicate library dependency (assume_yes=true)");
+    for (const auto& entry : elf->dynamic_entries()) {
+      if (entry.tag() == LIEF::ELF::DynamicEntry::TAG::NEEDED) {
+        auto* lib_entry = dynamic_cast<const LIEF::ELF::DynamicEntryLibrary*>(&entry);
+        if (lib_entry && lib_entry->name() == cfg.library_path) {
+          already_imported = true;
+          log.trc("duplicate library detected", redlog::field("library", cfg.library_path));
+          if (!cfg.assume_yes) {
+            return result{
+                .code = error_code::duplicate_library,
+                .error_message = "binary already depends on " + cfg.library_path + " (use assume_yes=true to continue)",
+                .system_error_code = {}
+            };
+          } else {
+            log.info("continuing with duplicate library dependency (assume_yes=true)");
+          }
+          break;
         }
-        break;
       }
     }
 
@@ -127,18 +139,16 @@ result insert_library_import(const config& cfg) {
         redlog::field("binary", final_binary_path)
     );
 
-    return result{.code = error_code::success, .error_message = "library import inserted successfully"};
-
-  } catch (const LIEF::exception& e) {
-    log.error("lief error processing elf binary", redlog::field("error", e.what()));
     return result{
-        .code = error_code::invalid_binary_format,
-        .error_message = std::string("LIEF ELF processing error: ") + e.what()
+        .code = error_code::success, .error_message = "library import inserted successfully", .system_error_code = {}
     };
+
   } catch (const std::exception& e) {
     log.error("error processing elf binary", redlog::field("error", e.what()));
     return result{
-        .code = error_code::system_error, .error_message = std::string("ELF binary processing error: ") + e.what()
+        .code = error_code::invalid_binary_format,
+        .error_message = std::string("LIEF ELF processing error: ") + e.what(),
+        .system_error_code = {}
     };
   }
 #endif
