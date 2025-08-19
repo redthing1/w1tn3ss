@@ -68,3 +68,11 @@ if(WITNESS_SCRIPT)
 else()
     message(STATUS "p1ll_core available (scripting disabled)")
 endif()
+
+# p1ll_c api wrapper (optional)
+option(P1LL_BUILD_CAPI "Build C API wrapper for p1ll" OFF)
+
+if(P1LL_BUILD_CAPI)
+    add_subdirectory(capi)
+    message(STATUS "p1ll c api enabled")
+endif()
