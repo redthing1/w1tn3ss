@@ -17,6 +17,7 @@
 #include <sys/sysctl.h>
 #include <unistd.h>
 #include <cerrno>
+#include <libkern/OSCacheControl.h>
 #elif __linux__
 #include <sys/mman.h>
 #include <unistd.h>
@@ -410,6 +411,44 @@ bool memory_scanner::write_memory(uint64_t address, const std::vector<uint8_t>& 
   std::memcpy(reinterpret_cast<void*>(address), data.data(), size);
 #endif
   return true;
+}
+
+bool memory_scanner::flush_instruction_cache(uint64_t address, size_t size) const {
+  if (size == 0) {
+    return true; // nothing to flush
+  }
+
+  log_.dbg("flushing instruction cache", redlog::field("address", to_hex(address)), redlog::field("size", size));
+
+#ifdef __APPLE__
+  // macOS: use sys_icache_invalidate for instruction cache synchronization
+  sys_icache_invalidate(reinterpret_cast<void*>(address), size);
+  return true;
+#elif __linux__
+  // linux: use gcc builtin which handles architecture-specific requirements
+  void* start = reinterpret_cast<void*>(address);
+  void* end = reinterpret_cast<void*>(address + size);
+  __builtin___clear_cache(start, end);
+  return true;
+#elif _WIN32
+  // windows: use FlushInstructionCache API
+  if (!FlushInstructionCache(GetCurrentProcess(), reinterpret_cast<LPCVOID>(address), size)) {
+    log_.err("FlushInstructionCache failed", redlog::field("error", GetLastError()));
+    return false;
+  }
+  return true;
+#else
+// fallback: use gcc builtin if available
+#ifdef __GNUC__
+  void* start = reinterpret_cast<void*>(address);
+  void* end = reinterpret_cast<void*>(address + size);
+  __builtin___clear_cache(start, end);
+  return true;
+#else
+  log_.err("flush_instruction_cache not supported on this platform");
+  return false;
+#endif
+#endif
 }
 
 // --- Private Platform-Specific Implementations ---

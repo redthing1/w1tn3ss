@@ -79,6 +79,10 @@ public:
   // writes data to memory in current process (validates range is in single writable region)
   bool write_memory(uint64_t address, const std::vector<uint8_t>& data) const;
 
+  // --- Cache Management ---
+  // flushes instruction cache to ensure cpu sees modified code
+  bool flush_instruction_cache(uint64_t address, size_t size) const;
+
 private:
   mutable redlog::logger log_;
 
