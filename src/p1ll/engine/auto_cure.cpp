@@ -398,20 +398,19 @@ bool auto_cure::apply_patch_static(
 
   if (patch.signature.single) {
     // use single match enforcement
-    try {
-      auto single_offset = matcher.search_single(file_data.data(), file_data.size());
-      patch_offset = single_offset + patch.offset;
-      log.dbg(
-          "single match found for signature", redlog::field("signature", patch.signature),
-          redlog::field("offset", single_offset)
-      );
-    } catch (const std::runtime_error& e) {
+    auto single_offset_opt = matcher.search_single(file_data.data(), file_data.size());
+    if (!single_offset_opt) {
       log.err(
           "single match enforcement failed", redlog::field("signature", patch.signature),
-          redlog::field("error", e.what())
+          redlog::field("error", "no single match found")
       );
       return false;
     }
+    patch_offset = *single_offset_opt + patch.offset;
+    log.dbg(
+        "single match found for signature", redlog::field("signature", patch.signature),
+        redlog::field("offset", *single_offset_opt)
+    );
   } else {
     // use normal search (first match)
     auto offsets = matcher.search_file(file_data);
