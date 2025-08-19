@@ -138,8 +138,8 @@ if(WITNESS_SCRIPT)
     add_executable(test_p1ll_pattern_matching test_p1ll_pattern_matching.cpp)
     apply_common_compile_options(test_p1ll_pattern_matching)
     apply_windows_definitions(test_p1ll_pattern_matching)
-    target_include_directories(test_p1ll_pattern_matching PRIVATE ${WITNESS_SOURCE_DIR}/src)
-    target_link_libraries(test_p1ll_pattern_matching PRIVATE p1ll redlog::redlog)
+    target_include_directories(test_p1ll_pattern_matching PRIVATE ${WITNESS_SOURCE_DIR}/src/p1ll)
+    target_link_libraries(test_p1ll_pattern_matching PRIVATE p1ll_core redlog::redlog)
     set_target_properties(test_p1ll_pattern_matching PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs
     )
