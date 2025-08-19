@@ -88,6 +88,16 @@ private:
 
   // Platform-specific implementations
   std::optional<std::vector<memory_region>> enumerate_regions() const;
+#ifdef __APPLE__
+  std::optional<std::vector<memory_region>> enumerate_regions_macos() const;
+#endif
+#ifdef __linux__
+  std::optional<std::vector<memory_region>> enumerate_regions_linux() const;
+#endif
+#ifdef _WIN32
+  std::optional<std::vector<memory_region>> enumerate_regions_windows() const;
+#endif
+  std::optional<std::vector<memory_region>> log_and_return_regions(const std::vector<memory_region>& regions) const;
 
   // Protection flag conversion helpers
   std::optional<memory_protection> platform_to_protection(int platform_protection) const;
