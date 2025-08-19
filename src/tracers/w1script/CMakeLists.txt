@@ -17,12 +17,12 @@ if(WITNESS_SCRIPT)
     # Apply LIEF configuration for symbol resolution
     if(WITNESS_BUILD_SHARED)
         configure_target_with_lief(w1script_qbdipreload)
-        target_link_libraries(w1script_qbdipreload PRIVATE p1ll)
+        target_link_libraries(w1script_qbdipreload PRIVATE p1ll_script)
     endif()
     
     if(WITNESS_BUILD_STATIC)
         configure_target_with_lief(w1script_static)
-        target_link_libraries(w1script_static PRIVATE p1ll)
+        target_link_libraries(w1script_static PRIVATE p1ll_script)
     endif()
     
 else()

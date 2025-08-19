@@ -16,6 +16,7 @@ struct platform_key {
   std::string to_string() const { return os + ":" + arch; }
   bool matches(const platform_key& other) const;
   bool operator==(const platform_key& other) const { return os == other.os && arch == other.arch; }
+  bool operator!=(const platform_key& other) const { return !(*this == other); }
 
   static platform_key parse(const std::string& platform_str) {
     if (platform_str.empty()) {

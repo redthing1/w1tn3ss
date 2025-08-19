@@ -21,7 +21,8 @@ if(WITNESS_SCRIPT)
     # link with p1ll library and dependencies
     target_link_libraries(p1llx 
         PRIVATE 
-        p1ll
+        p1ll_core
+        p1ll_script
         w1nj3ct
         redlog::redlog
     )

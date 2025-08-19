@@ -20,7 +20,7 @@ if(WITNESS_SCRIPT)
 
     # link p1ll as static library
     target_link_libraries(p01s0n PRIVATE
-        p1ll
+        p1ll_script
         redlog::redlog
     )
 

@@ -13,6 +13,11 @@ std::string strip_comments_hex_pattern(const std::string& pattern);
 bool is_valid_hex_pattern(const std::string& pattern) {
   std::string normalized = normalize_hex_pattern(pattern);
 
+  // empty patterns are invalid
+  if (normalized.empty()) {
+    return false;
+  }
+
   // check if length is even (each byte needs 2 hex digits or ?? wildcard)
   if (normalized.length() % 2 != 0) {
     return false;

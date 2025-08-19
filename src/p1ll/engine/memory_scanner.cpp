@@ -26,7 +26,7 @@
 #include <cerrno>
 #elif _WIN32
 #define NEED_PSAPI
-#include <w1common/windows_clean.hpp>
+#include "utils/windows_compat.hpp"
 #include <algorithm>
 #endif
 
