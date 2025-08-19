@@ -69,8 +69,6 @@ private:
   // shared patch processing
   cure_result process_patch_results(const std::vector<std::pair<patch_decl, bool>>& patch_results);
 
-  memory_protection calculate_write_protection(memory_protection current_protection, bool is_executable);
-
   bool apply_single_patch_to_address(
       const patch_decl& patch, const std::vector<uint8_t>& patch_bytes, uint64_t patch_address
   );

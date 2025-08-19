@@ -12,8 +12,29 @@
 
 namespace p1ll::engine {
 
-auto_cure::auto_cure(const context& ctx) : context_(ctx), scanner_(std::make_unique<memory_scanner>()) {
+namespace {
 
+// constants for memory alignment
+static constexpr uint64_t MEMORY_ALIGNMENT_MASK = 0xF; // 16-byte alignment
+static constexpr uint64_t MEMORY_ALIGNMENT_SIZE = 16;
+
+// calculate write protection flags with w^x compliance
+static memory_protection calculate_write_protection(memory_protection current_protection, bool is_executable) {
+  if (is_executable) {
+    // w^x compliance: remove execute, add write
+    return static_cast<memory_protection>(
+        (static_cast<int>(current_protection) & ~static_cast<int>(memory_protection::execute)) |
+        static_cast<int>(memory_protection::write)
+    );
+  } else {
+    // just add write permission
+    return current_protection | memory_protection::write;
+  }
+}
+
+} // anonymous namespace
+
+auto_cure::auto_cure(const context& ctx) : context_(ctx), scanner_(std::make_unique<memory_scanner>()) {
   auto log = redlog::get_logger("p1ll.auto_cure");
   log.dbg("initialized auto-cure");
 }
@@ -560,19 +581,6 @@ bool auto_cure::validate_single_signature_constraint(
   return true;
 }
 
-memory_protection auto_cure::calculate_write_protection(memory_protection current_protection, bool is_executable) {
-  if (is_executable) {
-    // W^X compliance: remove execute, add write
-    return static_cast<memory_protection>(
-        (static_cast<int>(current_protection) & ~static_cast<int>(memory_protection::execute)) |
-        static_cast<int>(memory_protection::write)
-    );
-  } else {
-    // Just add write permission
-    return current_protection | memory_protection::write;
-  }
-}
-
 std::vector<uint8_t> auto_cure::extract_patch_bytes(const compiled_patch& compiled_patch) {
   std::vector<uint8_t> patch_bytes;
   for (size_t i = 0; i < compiled_patch.data.size(); ++i) {
@@ -586,7 +594,6 @@ std::vector<uint8_t> auto_cure::extract_patch_bytes(const compiled_patch& compil
 bool auto_cure::apply_single_patch_to_address(
     const patch_decl& patch, const std::vector<uint8_t>& patch_bytes, uint64_t patch_address
 ) {
-
   auto log = redlog::get_logger("p1ll.auto_cure");
 
   // get current memory protection for target address
@@ -638,8 +645,8 @@ bool auto_cure::apply_single_patch_to_address(
 
   // calculate aligned boundaries for context reading
   size_t patch_size = patch_bytes.size();
-  uint64_t aligned_start = patch_address & ~0xF;
-  uint64_t aligned_end = (patch_address + patch_size + 15) & ~0xF;
+  uint64_t aligned_start = patch_address & ~MEMORY_ALIGNMENT_MASK;
+  uint64_t aligned_end = (patch_address + patch_size + MEMORY_ALIGNMENT_SIZE - 1) & ~MEMORY_ALIGNMENT_MASK;
   size_t context_size = aligned_end - aligned_start;
 
   // step 2: try to backup aligned context for better hexdump display
@@ -674,7 +681,7 @@ bool auto_cure::apply_single_patch_to_address(
       patch_success = std::equal(patch_bytes.begin(), patch_bytes.end(), written_bytes.begin());
 
       if (patch_success) {
-        // show beautiful patch hexdump
+        // show patch hexdump at debug level
         if (redlog::get_level() <= redlog::level::debug) {
           if (has_context) {
             // read the modified context

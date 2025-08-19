@@ -4,6 +4,7 @@
 #include <vector>
 #include <array>
 #include <cstdint>
+#include <optional>
 
 namespace p1ll::engine {
 
@@ -15,11 +16,11 @@ public:
   // search in memory region
   std::vector<uint64_t> search(const uint8_t* data, size_t size) const;
 
-  // search expecting exactly one result
+  // search expecting exactly one result, returns uint64_t(-1) if not found
   uint64_t search_one(const uint8_t* data, size_t size) const;
 
-  // search with single match enforcement - throws exception if multiple matches
-  uint64_t search_single(const uint8_t* data, size_t size) const;
+  // search with single match enforcement, returns nullopt if zero or multiple matches
+  std::optional<uint64_t> search_single(const uint8_t* data, size_t size) const;
 
   // search in file data
   std::vector<size_t> search_file(const std::vector<uint8_t>& file_data) const;

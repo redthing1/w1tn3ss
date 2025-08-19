@@ -32,18 +32,20 @@
 
 namespace p1ll::engine {
 
-namespace { // Anonymous namespace for internal helpers
-// Helper to format addresses as hex strings for logging.
+namespace { // anonymous namespace for internal helpers
+
+// formats 64-bit value as hex string for logging
 std::string to_hex(uint64_t val) {
   std::stringstream ss;
   ss << "0x" << std::hex << val;
   return ss.str();
 }
+
 } // namespace
 
 // --- Constructor ---
 memory_scanner::memory_scanner() : log_(redlog::get_logger("p1ll.memory_scanner")) {
-  log_.dbg("initialized memory scanner");
+  log_.dbg("memory scanner initialized");
 }
 
 // --- High-Level Public API ---
@@ -64,7 +66,7 @@ std::optional<std::vector<search_result>> memory_scanner::search(const signature
   pattern_matcher matcher(query.signature);
 
   for (const auto& region : *regions_result) {
-    // Skip regions that are too small or not readable
+    // skip regions that cannot contain the signature or lack read permissions
     if (region.size < query.signature.size() || !has_protection(region.protection, memory_protection::read)) {
       continue;
     }
@@ -76,13 +78,18 @@ std::optional<std::vector<search_result>> memory_scanner::search(const signature
 
     auto data_result = read_memory(region.base_address, region.size);
     if (!data_result) {
-      // This is expected for some regions (e.g. guard pages), so log as debug.
-      log_.dbg("could not read memory region to search", redlog::field("base", to_hex(region.base_address)));
+      // expected for guard pages, unmapped regions, and other non-readable memory areas
+      log_.dbg(
+          "could not read memory region to search", redlog::field("base", to_hex(region.base_address)),
+          redlog::field("region_name", region.name.empty() ? "[anonymous]" : region.name)
+      );
       continue;
     }
 
+    // search for signature pattern within this region's memory
     auto offsets = matcher.search(data_result->data(), data_result->size());
     for (uint64_t offset : offsets) {
+      // extract just the filename for cleaner result reporting
       std::string region_name =
           region.name.empty() ? "[anonymous]" : std::filesystem::path(region.name).filename().string();
       all_results.emplace_back(region.base_address + offset, region_name, "");
@@ -169,7 +176,10 @@ std::optional<memory_region> memory_scanner::get_region_info(uint64_t address) c
   auto prot_res = platform_to_protection(info.protection);
   region.protection = prot_res.value_or(memory_protection::none);
   region.is_executable = has_protection(region.protection, memory_protection::execute);
-  if (proc_regionfilename(getpid(), target_address, region.name.data(), region.name.capacity()) > 0) {
+  // get filename for region (if available)
+  char filename[PATH_MAX] = {0};
+  if (proc_regionfilename(getpid(), target_address, filename, sizeof(filename)) > 0) {
+    region.name = filename;
     region.is_system = is_system_region(region);
   }
   return region;
@@ -216,13 +226,19 @@ bool memory_scanner::set_memory_protection(uint64_t address, size_t size, memory
     log_.err("set_memory_protection: size cannot be zero");
     return false;
   }
+
+  // convert our generic protection flags to platform-specific values
   auto platform_prot_result = protection_to_platform(protection);
   if (!platform_prot_result) {
+    log_.err("failed to convert protection flags to platform format");
     return false;
   }
   int platform_protection = *platform_prot_result;
 
-  log_.dbg("setting memory protection", redlog::field("address", to_hex(address)), redlog::field("size", size));
+  log_.dbg(
+      "setting memory protection", redlog::field("address", to_hex(address)), redlog::field("size", size),
+      redlog::field("protection_flags", static_cast<int>(protection))
+  );
 #ifdef __APPLE__
   kern_return_t kr = mach_vm_protect(mach_task_self(), address, size, FALSE, platform_protection);
   if (kr != KERN_SUCCESS) {
@@ -393,57 +409,79 @@ bool memory_scanner::write_memory(uint64_t address, const std::vector<uint8_t>& 
 }
 
 // --- Private Platform-Specific Implementations ---
-// ... (enumerate_regions, is_system_region, matches_filter, and protection helpers) ...
+
+// enumerates memory regions using platform-specific apis
 std::optional<std::vector<memory_region>> memory_scanner::enumerate_regions() const {
   std::vector<memory_region> regions;
 #ifdef __APPLE__
+  // macOS: Use mach_vm_region_recurse for comprehensive region enumeration
   task_t task = mach_task_self();
   mach_vm_address_t address = 0;
   int pid = getpid();
+
+  // Iterate through all virtual memory regions
   for (;;) {
     mach_vm_size_t size = 0;
     vm_region_submap_info_data_64_t info;
     mach_msg_type_number_t count = VM_REGION_SUBMAP_INFO_COUNT_64;
     uint32_t depth = 1;
+
     kern_return_t kr = mach_vm_region_recurse(task, &address, &size, &depth, (vm_region_recurse_info_t) &info, &count);
     if (kr != KERN_SUCCESS) {
-      break;
+      break; // No more regions to enumerate
     }
+    // Build region info from mach kernel data
     memory_region region;
     region.base_address = address;
     region.size = size;
+
+    // Convert mach protection flags to our generic format
     auto prot_res = platform_to_protection(info.protection);
     region.protection = prot_res.value_or(memory_protection::none);
     region.is_executable = has_protection(region.protection, memory_protection::execute);
+
+    // Get associated filename (if any) for this memory region
     char filename[PATH_MAX] = {0};
     if (proc_regionfilename(pid, address, filename, sizeof(filename)) > 0) {
       region.name = filename;
     }
+
+    // Determine if this is a system library or user code
     region.is_system = is_system_region(region);
     regions.push_back(region);
+
+    // Move to next region
     address += size;
   }
 #elif __linux__
+  // Linux: Parse /proc/self/maps for memory region information
   std::ifstream maps("/proc/self/maps");
   if (!maps) {
     log_.err("failed to open /proc/self/maps", redlog::field("errno", errno));
     return std::nullopt;
   }
+
   std::string line;
   while (std::getline(maps, line)) {
+    // Parse /proc/maps line format: address perms offset dev inode pathname
+    // Example: 7f1234567000-7f123456a000 r-xp 00000000 08:01 123456 /lib/libc.so
     std::stringstream ss(line);
     uint64_t start, end;
     std::string perms_str, offset_str, dev_str, inode_str, path_str;
+
     ss >> std::hex >> start;
     ss.ignore(1, '-');
     ss >> std::hex >> end >> perms_str >> offset_str >> dev_str >> inode_str;
     std::getline(ss, path_str);
-    path_str.erase(0, path_str.find_first_not_of(" \t"));
+    path_str.erase(0, path_str.find_first_not_of(" \t")); // Trim leading whitespace
 
+    // Build region from parsed line data
     memory_region region;
     region.base_address = start;
     region.size = end - start;
     region.name = path_str;
+
+    // Parse permission string (rwxp format)
     int perms = 0;
     if (perms_str.length() > 0 && perms_str[0] == 'r') {
       perms |= static_cast<int>(memory_protection::read);
@@ -454,39 +492,53 @@ std::optional<std::vector<memory_region>> memory_scanner::enumerate_regions() co
     if (perms_str.length() > 2 && perms_str[2] == 'x') {
       perms |= static_cast<int>(memory_protection::execute);
     }
+
     region.protection = static_cast<memory_protection>(perms);
     region.is_executable = has_protection(region.protection, memory_protection::execute);
     region.is_system = is_system_region(region);
     regions.push_back(region);
   }
 #elif _WIN32
+  // Windows: Use VirtualQueryEx to enumerate committed memory regions
   HANDLE process = GetCurrentProcess();
   SYSTEM_INFO si;
   GetSystemInfo(&si);
+
   uint64_t current_address = (uint64_t) si.lpMinimumApplicationAddress;
   uint64_t max_address = (uint64_t) si.lpMaximumApplicationAddress;
+
+  // Walk through address space querying each region
   while (current_address < max_address) {
     MEMORY_BASIC_INFORMATION mbi;
     if (VirtualQueryEx(process, (LPCVOID) current_address, &mbi, sizeof(mbi)) == 0) {
-      break;
+      break; // Query failed
     }
+
+    // Only include committed (allocated and accessible) regions
     if (mbi.State == MEM_COMMIT) {
+      // Build region from Windows memory information
       memory_region region;
       region.base_address = (uint64_t) mbi.BaseAddress;
       region.size = mbi.RegionSize;
+
+      // Convert Windows protection flags to our generic format
       auto prot_res = platform_to_protection(mbi.Protect);
       region.protection = prot_res.value_or(memory_protection::none);
       region.is_executable = has_protection(region.protection, memory_protection::execute);
+
+      // Get mapped file name for non-private memory (DLLs, mapped files)
       char filename[MAX_PATH];
       if (mbi.Type != MEM_PRIVATE && GetMappedFileNameA(process, mbi.BaseAddress, filename, sizeof(filename)) > 0) {
         region.name = filename;
       }
+
       region.is_system = is_system_region(region);
       regions.push_back(region);
     }
+    // Move to next region, with overflow protection
     uint64_t next_address = (uint64_t) mbi.BaseAddress + mbi.RegionSize;
     if (next_address <= current_address) {
-      break;
+      break; // Prevent infinite loop on address wraparound
     }
     current_address = next_address;
   }
@@ -504,31 +556,41 @@ std::optional<std::vector<memory_region>> memory_scanner::enumerate_regions() co
   return regions;
 }
 
+// determines if memory region belongs to system libraries using path heuristics
 bool memory_scanner::is_system_region(const memory_region& region) const {
   if (region.name.empty()) {
-    return false;
+    return false; // Anonymous regions are not system regions
   }
 #ifdef _WIN32
+  // Windows: Check if region is in system directory (e.g., C:\Windows\System32)
   char system_path_buf[MAX_PATH];
   if (GetSystemDirectoryA(system_path_buf, MAX_PATH) == 0) {
-    return false;
+    return false; // Failed to get system directory
   }
+
   std::string system_path_str(system_path_buf);
   std::string module_path_str = region.name;
-  // Normalize paths for case-insensitive comparison
+
+  // Normalize paths for case-insensitive comparison (Windows is case-insensitive)
   std::transform(system_path_str.begin(), system_path_str.end(), system_path_str.begin(), ::tolower);
   std::transform(module_path_str.begin(), module_path_str.end(), module_path_str.begin(), ::tolower);
+
   return module_path_str.rfind(system_path_str, 0) == 0;
 #elif defined(__APPLE__)
-  return region.name.rfind("/System/", 0) == 0 || region.name.rfind("/usr/lib/", 0) == 0;
+  // macOS: Check for system framework and library paths
+  return region.name.rfind("/System/", 0) == 0 ||    // System frameworks
+         region.name.rfind("/usr/lib/", 0) == 0 ||   // System libraries
+         region.name.rfind("/usr/libexec/", 0) == 0; // System executables
 #elif defined(__linux__)
-  return region.name.rfind("/lib/", 0) == 0 || region.name.rfind("/usr/lib/", 0) == 0 ||
-         region.name.rfind("/lib64/", 0) == 0 || region.name.rfind("/usr/lib64/", 0) == 0;
+  // Linux: Check common system library paths
+  return region.name.rfind("/lib/", 0) == 0 ||       // System libraries
+         region.name.rfind("/usr/lib/", 0) == 0 ||   // User system libraries
+         region.name.rfind("/lib64/", 0) == 0 ||     // 64-bit system libraries
+         region.name.rfind("/usr/lib64/", 0) == 0 || // 64-bit user system libraries
+         region.name.rfind("/usr/libexec/", 0) == 0; // System executables
 #else
   return false;
 #endif
-
-  return false;
 }
 
 bool memory_scanner::matches_filter(const memory_region& region, const signature_query_filter& filter) const {

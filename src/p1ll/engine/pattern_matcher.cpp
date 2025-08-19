@@ -68,7 +68,7 @@ void pattern_matcher::build_shift_table() {
     );
   }
 
-  // safety check: ensure minimum shift of 1 (should not be needed with correct algorithm)
+  // ensure minimum shift of 1 to guarantee algorithm progress
   for (size_t i = 0; i < 256; ++i) {
     if (shift_table_[i] == 0) {
       shift_table_[i] = 1;
@@ -135,12 +135,13 @@ uint64_t pattern_matcher::search_one(const uint8_t* data, size_t size) const {
   return results.empty() ? static_cast<uint64_t>(-1) : results[0];
 }
 
-uint64_t pattern_matcher::search_single(const uint8_t* data, size_t size) const {
+std::optional<uint64_t> pattern_matcher::search_single(const uint8_t* data, size_t size) const {
   auto log = redlog::get_logger("p1ll.pattern_matcher");
   auto results = search(data, size);
 
   if (results.empty()) {
-    throw std::runtime_error("signature not found, expected exactly one match");
+    log.dbg("signature not found for single match requirement");
+    return std::nullopt;
   }
 
   if (results.size() > 1) {
@@ -154,10 +155,7 @@ uint64_t pattern_matcher::search_single(const uint8_t* data, size_t size) const 
       log.dbg("match location", redlog::field("index", i + 1), redlog::field("offset", results[i]));
     }
 
-    throw std::runtime_error(
-        "multiple matches found for single signature, expected exactly one match, found " +
-        std::to_string(results.size())
-    );
+    return std::nullopt;
   }
 
   return results[0];
