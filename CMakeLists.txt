@@ -51,6 +51,14 @@ message(STATUS "LIEF Support:          ${WITNESS_LIEF}")
 message(STATUS "Tests:                 ${BUILD_TESTS}")
 message(STATUS "")
 
+# configure qbdi to build as static-only (no shared library)
+set(QBDI_SHARED_LIBRARY OFF CACHE BOOL "build qbdi shared library" FORCE)
+set(QBDI_STATIC_LIBRARY ON CACHE BOOL "build qbdi static library" FORCE)
+set(QBDI_EXAMPLES OFF CACHE BOOL "compile qbdi examples" FORCE)
+set(QBDI_TEST OFF CACHE BOOL "compile qbdi tests" FORCE)
+set(QBDI_BENCHMARK OFF CACHE BOOL "compile qbdi benchmark" FORCE)
+message(STATUS "forcing qbdi static-only build")
+
 # add third-party libraries
 add_subdirectory(src/third_party/qbdi)
 
