@@ -13,7 +13,7 @@ target_link_libraries(w1tn3ss_dump PUBLIC
     w1tn3ss
     common
     redlog
-    QBDI::QBDI
+    QBDI_static
     nlohmann_json::nlohmann_json
 )
 

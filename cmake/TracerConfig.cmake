@@ -34,6 +34,11 @@ function(configure_tracer_target target_name tracer_name)
         target_link_options(${target_name} PRIVATE "LINKER:--whole-archive,$<TARGET_FILE:QBDI_static>,--no-whole-archive")
     endif()
     
+    # on windows only, force inclusion of static library symbols for shared library
+    if(${target_name} MATCHES "_qbdipreload$" AND CMAKE_SYSTEM_NAME STREQUAL "Windows")
+        target_link_options(${target_name} PRIVATE "/WHOLEARCHIVE:$<TARGET_FILE:QBDI_static>")
+    endif()
+    
     # link qbdipreload for shared library version
     if(${target_name} MATCHES "_qbdipreload$")
         target_link_libraries(${target_name} PRIVATE QBDIPreload)
