@@ -32,8 +32,8 @@ void export_trace() {
   }
 
   try {
-    // Force flush of any remaining data
-    g_tracer->get_collector().flush();
+    // shutdown collector to ensure all data is written
+    g_tracer->get_collector().shutdown();
   } catch (...) {
     // signal-safe error reporting
     const char* error_msg = "w1trace: trace export failed\n";

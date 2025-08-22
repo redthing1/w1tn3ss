@@ -3,6 +3,8 @@
 #include <QBDI.h>
 #include <w1tn3ss/engine/tracer_engine.hpp>
 #include <redlog.hpp>
+#include <vector>
+#include <string>
 
 #include "trace_collector.hpp"
 #include "trace_config.hpp"
@@ -19,20 +21,29 @@ public:
 
   QBDI::VMAction on_instruction_preinst(QBDI::VMInstanceRef vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr);
 
-  // Statistics access
+  // static callback for mnemonic events
+  static QBDI::VMAction on_branch_mnemonic(
+      QBDI::VMInstanceRef vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr, void* data
+  );
+
+  // statistics access
   size_t get_instruction_count() const;
-  size_t get_flush_count() const;
-  size_t get_buffer_usage() const;
+  const trace_stats& get_stats() const;
   void print_statistics() const;
 
-  // Collector access for manual flush
+  // collector access
   const trace_collector& get_collector() const;
   trace_collector& get_collector();
 
 private:
+  // register control flow callbacks
+  bool register_control_flow_callbacks(QBDI::VM* vm);
+  std::vector<std::string> get_architecture_mnemonics() const;
+
   trace_config config_;
   trace_collector collector_;
   redlog::logger log_;
+  std::vector<uint32_t> callback_ids_;
 };
 
 } // namespace w1trace
