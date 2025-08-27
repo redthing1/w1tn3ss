@@ -1,0 +1,41 @@
+---
+Checks: >
+  -*,
+  bugprone-dangling-handle,
+  bugprone-suspicious-memory-comparison,
+  bugprone-undefined-memory-manipulation,
+  bugprone-unused-raii,
+  bugprone-use-after-move,
+  clang-analyzer-core.*,
+  clang-analyzer-cplusplus.*,
+  clang-analyzer-security.*,
+  -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,
+  cppcoreguidelines-no-malloc,
+  cppcoreguidelines-owning-memory,
+  modernize-make-shared,
+  modernize-make-unique,
+  modernize-use-nullptr,
+  modernize-use-override,
+  performance-inefficient-vector-operation,
+  performance-move-const-arg,
+  performance-unnecessary-copy-initialization,
+  readability-container-size-empty,
+  readability-misleading-indentation,
+  readability-redundant-smartptr-get
+
+CheckOptions:
+  - key: readability-identifier-naming.ClassCase
+    value: lower_case
+  - key: readability-identifier-naming.FunctionCase
+    value: lower_case
+  - key: readability-identifier-naming.MethodCase
+    value: lower_case
+  - key: readability-identifier-naming.VariableCase
+    value: lower_case
+  - key: readability-identifier-naming.ParameterCase
+    value: lower_case
+  - key: performance-unnecessary-copy-initialization.WarnOnAllAutoCopies
+    value: true
+
+HeaderFilterRegex: '^/Users/salt/Dev/Hek/w1tn3ss/src/.*'
+FormatStyle: file

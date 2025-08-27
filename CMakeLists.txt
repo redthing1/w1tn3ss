@@ -136,5 +136,6 @@ if(WIN32 AND MSVC)
     apply_windows_symbol_resolution_to_all()
 endif()
 
-# code formatting configuration
+# code formatting and analysis
 include(cmake/FormattingConfig.cmake)
+include(cmake/TidyConfig.cmake)
