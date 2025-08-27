@@ -6,6 +6,7 @@
 #include "ext/args.hpp"
 
 #include "commands/cover.hpp"
+#include "commands/debug.hpp"
 #include "commands/dump.hpp"
 #include "commands/inject.hpp"
 #include "commands/insert_library.hpp"
@@ -191,6 +192,19 @@ void cmd_tracer(args::Subparser& parser) {
   );
 }
 
+void cmd_debug(args::Subparser& parser) {
+  cli::apply_verbosity();
+
+  args::ValueFlag<int> pid(parser, "pid", "process ID to attach to", {'p', "pid"});
+  args::Flag spawn(parser, "spawn", "spawn new process for debugging", {'s', "spawn"});
+  args::Flag interactive(parser, "interactive", "interactive debugging mode", {'i', "interactive"});
+  args::Flag suspended(parser, "suspended", "start process in suspended state (only with --spawn)", {"suspended"});
+  args::PositionalList<std::string> args(parser, "args", "binary -- arguments");
+  parser.Parse();
+
+  w1tool::commands::debug(pid, spawn, interactive, suspended, args);
+}
+
 int main(int argc, char* argv[]) {
   // store executable path for library auto-discovery
   g_executable_path = argv[0];
@@ -213,6 +227,7 @@ int main(int argc, char* argv[]) {
   args::Command dump_cmd(commands, "dump", "dump process state to file", &cmd_dump);
   args::Command read_dump_cmd(commands, "read-dump", "analyze process dump files", &cmd_read_dump);
   args::Command tracer_cmd(commands, "tracer", "run arbitrary tracer with flexible configuration", &cmd_tracer);
+  args::Command debug_cmd(commands, "debug", "interactive debugger for process control", &cmd_debug);
 
   try {
     parser.ParseCLI(argc, argv);

@@ -4,6 +4,7 @@ include(${WITNESS_SOURCE_DIR}/cmake/CommonConfig.cmake)
 
 add_executable(w1tool
     main.cpp
+    commands/debug.cpp
     commands/inject.cpp
     commands/insert_library.cpp
     commands/inspect.cpp
@@ -26,6 +27,7 @@ target_link_libraries(w1tool PRIVATE
     w1tn3ss
     w1tn3ss_dump
     w1nj3ct
+    w1debugger
     common
     redlog::redlog
 )

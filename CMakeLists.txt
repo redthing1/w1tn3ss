@@ -115,6 +115,7 @@ add_subdirectory(src/w1common)
 add_subdirectory(src/w1tn3ss)
 add_subdirectory(src/tracers)
 add_subdirectory(src/w1nj3ct)
+add_subdirectory(src/w1debugger)
 add_subdirectory(src/w1tool)
 add_subdirectory(src/p1ll)
 add_subdirectory(src/p1llx)
@@ -147,6 +148,7 @@ if(CLANG_FORMAT_EXECUTABLE)
     file(GLOB_RECURSE ALL_SOURCE_FILES
         "${WITNESS_SOURCE_DIR}/src/w1tn3ss/*.cpp" "${WITNESS_SOURCE_DIR}/src/w1tn3ss/*.hpp"
         "${WITNESS_SOURCE_DIR}/src/w1nj3ct/*.cpp" "${WITNESS_SOURCE_DIR}/src/w1nj3ct/*.hpp"
+        "${WITNESS_SOURCE_DIR}/src/w1debugger/*.cpp" "${WITNESS_SOURCE_DIR}/src/w1debugger/*.hpp"
         "${WITNESS_SOURCE_DIR}/src/w1tool/*.cpp" "${WITNESS_SOURCE_DIR}/src/w1tool/*.hpp"
         "${WITNESS_SOURCE_DIR}/src/tracers/*.cpp" "${WITNESS_SOURCE_DIR}/src/tracers/*.hpp"
         "${WITNESS_SOURCE_DIR}/src/w1common/*.cpp" "${WITNESS_SOURCE_DIR}/src/w1common/*.hpp"
