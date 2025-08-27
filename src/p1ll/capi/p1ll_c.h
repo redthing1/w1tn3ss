@@ -1,7 +1,7 @@
 /**
  * @file p1ll_c.h
  * @brief C API for p1ll binary patching and memory manipulation library
- * 
+ *
  * provides core memory scanning, patching, and pattern matching primitives
  * for use from pure C programs
  */
@@ -17,14 +17,14 @@ extern "C" {
 #include <stddef.h>
 
 // memory protection flags
-#define P1LL_PROT_NONE    0x00
-#define P1LL_PROT_READ    0x01
-#define P1LL_PROT_WRITE   0x02
-#define P1LL_PROT_EXEC    0x04
+#define P1LL_PROT_NONE 0x00
+#define P1LL_PROT_READ 0x01
+#define P1LL_PROT_WRITE 0x02
+#define P1LL_PROT_EXEC 0x04
 
 // return codes
-#define P1LL_SUCCESS  0
-#define P1LL_ERROR   -1
+#define P1LL_SUCCESS 0
+#define P1LL_ERROR -1
 
 // opaque handle types
 typedef struct p1ll_scanner* p1ll_scanner_t;
@@ -33,29 +33,29 @@ typedef struct p1ll_scanner* p1ll_scanner_t;
  * memory region information
  */
 typedef struct {
-    uint64_t base_address;
-    size_t size;
-    int protection;      // P1LL_PROT_* flags
-    char name[256];
-    int is_executable;   // 1 if region contains executable code, 0 otherwise
-    int is_system;       // 1 if system module, 0 otherwise
+  uint64_t base_address;
+  size_t size;
+  int protection; // P1LL_PROT_* flags
+  char name[256];
+  int is_executable; // 1 if region contains executable code, 0 otherwise
+  int is_system;     // 1 if system module, 0 otherwise
 } p1ll_memory_region_t;
 
 /**
  * pattern match result
  */
 typedef struct {
-    uint64_t address;
-    char region_name[256];
+  uint64_t address;
+  char region_name[256];
 } p1ll_match_t;
 
 /**
  * compiled pattern with mask for wildcards
  */
 typedef struct {
-    uint8_t* bytes;
-    uint8_t* mask;  // 1 = exact match, 0 = wildcard
-    size_t size;
+  uint8_t* bytes;
+  uint8_t* mask; // 1 = exact match, 0 = wildcard
+  size_t size;
 } p1ll_compiled_pattern_t;
 
 // --- scanner lifecycle ---
@@ -81,9 +81,7 @@ void p1ll_scanner_destroy(p1ll_scanner_t scanner);
  * @param out_count pointer to receive number of regions
  * @return P1LL_SUCCESS or P1LL_ERROR
  */
-int p1ll_get_memory_regions(p1ll_scanner_t scanner,
-                            p1ll_memory_region_t** out_regions,
-                            size_t* out_count);
+int p1ll_get_memory_regions(p1ll_scanner_t scanner, p1ll_memory_region_t** out_regions, size_t* out_count);
 
 /**
  * get memory region info for specific address
@@ -92,9 +90,7 @@ int p1ll_get_memory_regions(p1ll_scanner_t scanner,
  * @param out_region pointer to receive region info
  * @return P1LL_SUCCESS or P1LL_ERROR
  */
-int p1ll_get_region_at_address(p1ll_scanner_t scanner,
-                               uint64_t address,
-                               p1ll_memory_region_t* out_region);
+int p1ll_get_region_at_address(p1ll_scanner_t scanner, uint64_t address, p1ll_memory_region_t* out_region);
 
 /**
  * free memory regions array
@@ -112,10 +108,7 @@ void p1ll_free_memory_regions(p1ll_memory_region_t* regions);
  * @param protection new protection flags (P1LL_PROT_*)
  * @return P1LL_SUCCESS or P1LL_ERROR
  */
-int p1ll_set_memory_protection(p1ll_scanner_t scanner,
-                               uint64_t address,
-                               size_t size,
-                               int protection);
+int p1ll_set_memory_protection(p1ll_scanner_t scanner, uint64_t address, size_t size, int protection);
 
 /**
  * get system page size
@@ -134,10 +127,7 @@ size_t p1ll_get_page_size(p1ll_scanner_t scanner);
  * @param size number of bytes to read
  * @return P1LL_SUCCESS or P1LL_ERROR
  */
-int p1ll_read_memory(p1ll_scanner_t scanner,
-                     uint64_t address,
-                     uint8_t* buffer,
-                     size_t size);
+int p1ll_read_memory(p1ll_scanner_t scanner, uint64_t address, uint8_t* buffer, size_t size);
 
 /**
  * write memory to process
@@ -147,10 +137,7 @@ int p1ll_read_memory(p1ll_scanner_t scanner,
  * @param size number of bytes to write
  * @return P1LL_SUCCESS or P1LL_ERROR
  */
-int p1ll_write_memory(p1ll_scanner_t scanner,
-                      uint64_t address,
-                      const uint8_t* data,
-                      size_t size);
+int p1ll_write_memory(p1ll_scanner_t scanner, uint64_t address, const uint8_t* data, size_t size);
 
 /**
  * patch memory with hex pattern
@@ -159,9 +146,7 @@ int p1ll_write_memory(p1ll_scanner_t scanner,
  * @param hex_pattern hex pattern like "90 90 eb 00"
  * @return P1LL_SUCCESS or P1LL_ERROR
  */
-int p1ll_patch_memory(p1ll_scanner_t scanner,
-                      uint64_t address,
-                      const char* hex_pattern);
+int p1ll_patch_memory(p1ll_scanner_t scanner, uint64_t address, const char* hex_pattern);
 
 // --- memory allocation ---
 
@@ -172,9 +157,7 @@ int p1ll_patch_memory(p1ll_scanner_t scanner,
  * @param protection protection flags (P1LL_PROT_*)
  * @return allocated address or NULL on failure
  */
-void* p1ll_allocate_memory(p1ll_scanner_t scanner,
-                           size_t size,
-                           int protection);
+void* p1ll_allocate_memory(p1ll_scanner_t scanner, size_t size, int protection);
 
 /**
  * free previously allocated memory
@@ -183,9 +166,7 @@ void* p1ll_allocate_memory(p1ll_scanner_t scanner,
  * @param size size that was allocated
  * @return P1LL_SUCCESS or P1LL_ERROR
  */
-int p1ll_free_memory(p1ll_scanner_t scanner,
-                     void* address,
-                     size_t size);
+int p1ll_free_memory(p1ll_scanner_t scanner, void* address, size_t size);
 
 // --- pattern searching ---
 
@@ -197,10 +178,7 @@ int p1ll_free_memory(p1ll_scanner_t scanner,
  * @param out_count pointer to receive number of matches
  * @return P1LL_SUCCESS or P1LL_ERROR
  */
-int p1ll_search_pattern(p1ll_scanner_t scanner,
-                        const char* hex_pattern,
-                        p1ll_match_t** out_matches,
-                        size_t* out_count);
+int p1ll_search_pattern(p1ll_scanner_t scanner, const char* hex_pattern, p1ll_match_t** out_matches, size_t* out_count);
 
 /**
  * search for hex pattern in specific memory region
@@ -211,11 +189,9 @@ int p1ll_search_pattern(p1ll_scanner_t scanner,
  * @param out_count pointer to receive number of matches
  * @return P1LL_SUCCESS or P1LL_ERROR
  */
-int p1ll_search_in_region(p1ll_scanner_t scanner,
-                          uint64_t region_base,
-                          const char* hex_pattern,
-                          p1ll_match_t** out_matches,
-                          size_t* out_count);
+int p1ll_search_in_region(
+    p1ll_scanner_t scanner, uint64_t region_base, const char* hex_pattern, p1ll_match_t** out_matches, size_t* out_count
+);
 
 /**
  * search for pattern in buffer (no scanner needed)
@@ -226,11 +202,9 @@ int p1ll_search_in_region(p1ll_scanner_t scanner,
  * @param out_count pointer to receive number of matches
  * @return P1LL_SUCCESS or P1LL_ERROR
  */
-int p1ll_search_in_buffer(const uint8_t* buffer,
-                          size_t buffer_size,
-                          const char* hex_pattern,
-                          size_t** out_offsets,
-                          size_t* out_count);
+int p1ll_search_in_buffer(
+    const uint8_t* buffer, size_t buffer_size, const char* hex_pattern, size_t** out_offsets, size_t* out_count
+);
 
 /**
  * free search matches array
@@ -252,8 +226,7 @@ void p1ll_free_offsets(size_t* offsets);
  * @param out_pattern pointer to receive compiled pattern (caller must free)
  * @return P1LL_SUCCESS or P1LL_ERROR
  */
-int p1ll_compile_pattern(const char* hex_pattern,
-                         p1ll_compiled_pattern_t* out_pattern);
+int p1ll_compile_pattern(const char* hex_pattern, p1ll_compiled_pattern_t* out_pattern);
 
 /**
  * free compiled pattern resources
@@ -277,9 +250,7 @@ int p1ll_validate_pattern(const char* hex_pattern);
  * @param out_size pointer to receive array size
  * @return P1LL_SUCCESS or P1LL_ERROR
  */
-int p1ll_hex_string_to_bytes(const char* hex,
-                             uint8_t** out_bytes,
-                             size_t* out_size);
+int p1ll_hex_string_to_bytes(const char* hex, uint8_t** out_bytes, size_t* out_size);
 
 /**
  * convert byte array to hex string
