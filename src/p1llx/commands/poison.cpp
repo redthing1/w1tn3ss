@@ -5,7 +5,7 @@
 #include <cstdlib>
 
 #include <redlog.hpp>
-#include "w1nj3ct.hpp"
+#include <w1nj3ct/w1nj3ct.hpp>
 #include <w1common/platform_utils.hpp>
 
 namespace p1llx::commands {

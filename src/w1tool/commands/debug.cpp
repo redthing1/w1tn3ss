@@ -1,5 +1,5 @@
 #include "debug.hpp"
-#include "w1debugger.hpp"
+#include <w1debugger/w1debugger.hpp>
 #include <redlog.hpp>
 #include <iostream>
 #include <sstream>

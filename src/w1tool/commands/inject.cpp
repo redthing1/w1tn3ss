@@ -1,5 +1,5 @@
 #include "inject.hpp"
-#include "w1nj3ct.hpp"
+#include <w1nj3ct/w1nj3ct.hpp>
 #include <redlog.hpp>
 
 namespace w1tool::commands {

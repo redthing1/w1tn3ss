@@ -9,7 +9,7 @@
 
 #include <w1common/platform_utils.hpp>
 #include "tracer_discovery.hpp"
-#include "w1nj3ct.hpp"
+#include <w1nj3ct/w1nj3ct.hpp>
 #include "w1tn3ss/util/signal_handler.hpp"
 
 // forward declare CLI symbols from main.cpp

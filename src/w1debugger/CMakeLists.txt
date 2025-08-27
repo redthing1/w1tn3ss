@@ -35,7 +35,7 @@ add_library(w1debugger STATIC ${COMMON_SOURCES} ${PLATFORM_SOURCES})
 
 target_include_directories(w1debugger
     PUBLIC 
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}> 
+        $<BUILD_INTERFACE:${WITNESS_SOURCE_DIR}/src>
         $<INSTALL_INTERFACE:include>
     PRIVATE 
         ${CMAKE_CURRENT_SOURCE_DIR}
