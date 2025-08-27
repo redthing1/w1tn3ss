@@ -5,7 +5,7 @@
 
 // include the darwin injection backend
 extern "C" {
-#include "darwin/injector.h"
+#include "impl/injector.h"
 }
 
 #include <crt_externs.h>

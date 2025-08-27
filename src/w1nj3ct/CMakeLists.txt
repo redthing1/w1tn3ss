@@ -9,22 +9,22 @@ set(PLATFORM_SOURCES "")
 if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     list(APPEND PLATFORM_SOURCES
         platform/darwin/darwin_injector.cpp
-        backend/darwin/injector.c backend/darwin/mach.c backend/darwin/ptrace.c
-        backend/darwin/remote_call.c backend/darwin/util.c backend/darwin/exc_handler.c
-        backend/darwin/mach_excServer.c
+        platform/darwin/impl/injector.c platform/darwin/impl/mach.c platform/darwin/impl/ptrace.c
+        platform/darwin/impl/remote_call.c platform/darwin/impl/util.c platform/darwin/impl/exc_handler.c
+        platform/darwin/impl/mach_excServer.c
     )
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     list(APPEND PLATFORM_SOURCES
         platform/linux/linux_injector.cpp
-        backend/linux/injector.c backend/linux/elf.c backend/linux/ptrace.c
-        backend/linux/remote_call.c backend/linux/util.c backend/linux/shellcode.S
+        platform/linux/impl/injector.c platform/linux/impl/elf.c platform/linux/impl/ptrace.c
+        platform/linux/impl/remote_call.c platform/linux/impl/util.c platform/linux/impl/shellcode.S
     )
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     list(APPEND PLATFORM_SOURCES
         platform/windows/windows_injector.cpp platform/windows/error_windows.cpp
-        backend/windows/inject_createremotethread.cpp backend/windows/inject_setwindowshook.cpp
-        backend/windows/inject_rtlcreateuserthread.cpp backend/windows/inject_reflective.cpp
-        backend/windows/inject_launch.cpp backend/windows/auxiliary.cpp
+        platform/windows/impl/inject_createremotethread.cpp platform/windows/impl/inject_setwindowshook.cpp
+        platform/windows/impl/inject_rtlcreateuserthread.cpp platform/windows/impl/inject_reflective.cpp
+        platform/windows/impl/inject_launch.cpp platform/windows/impl/auxiliary.cpp
     )
 endif()
 
@@ -32,7 +32,7 @@ add_library(w1nj3ct STATIC ${COMMON_SOURCES} ${PLATFORM_SOURCES})
 
 target_include_directories(w1nj3ct
     PUBLIC $<BUILD_INTERFACE:${WITNESS_SOURCE_DIR}/src> $<INSTALL_INTERFACE:include>
-    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/backend
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
             ${WITNESS_SOURCE_DIR}/src
 )
 

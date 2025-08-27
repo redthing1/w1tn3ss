@@ -5,7 +5,7 @@
 
 // include the kubo injector backend
 extern "C" {
-#include "backend/linux/injector.h"
+#include "impl/injector.h"
 }
 
 #include <cerrno>

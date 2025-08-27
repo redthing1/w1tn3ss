@@ -2,8 +2,8 @@
 #include "error.hpp"
 
 // include windows injection backend
-#include "backend/windows/auxiliary.hpp"
-#include "backend/windows/inject.hpp"
+#include "impl/auxiliary.hpp"
+#include "impl/inject.hpp"
 
 #include <string>
 
