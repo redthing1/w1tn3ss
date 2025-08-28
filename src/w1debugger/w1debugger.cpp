@@ -4,9 +4,9 @@
 #ifdef __APPLE__
 #include "platform/darwin/darwin_debugger.hpp"
 #elif __linux__
-// #include "platform/linux/linux_debugger.hpp"
+#include "platform/linux/linux_debugger.hpp"
 #elif _WIN32
-// #include "platform/windows/windows_debugger.hpp"
+#include "platform/windows/windows_debugger.hpp"
 #endif
 
 namespace w1::debugger {
