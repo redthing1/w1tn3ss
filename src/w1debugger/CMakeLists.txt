@@ -21,13 +21,9 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     )
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     list(APPEND PLATFORM_SOURCES
-        platform/linux/linux_debugger.cpp
-        platform/linux/ptrace_ops.cpp
     )
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     list(APPEND PLATFORM_SOURCES
-        platform/windows/windows_debugger.cpp
-        platform/windows/debug_api.cpp
     )
 endif()
 
