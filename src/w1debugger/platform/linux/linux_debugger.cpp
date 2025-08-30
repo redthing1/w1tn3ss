@@ -1,7 +1,7 @@
 #include "linux_debugger.hpp"
 #include "../../error.hpp"
 
-namespace w1::debugger::linux {
+namespace w1::debugger::linux_os {
 
 std::unique_ptr<session> session_attach(pid target_pid, const config& cfg, result& out_result) {
   out_result = make_error_result(error_code::not_implemented, "linux debugger not yet implemented");
@@ -21,4 +21,4 @@ bool check_debugger_capability() {
   return false;
 }
 
-} // namespace w1::debugger::linux
+} // namespace w1::debugger::linux_os

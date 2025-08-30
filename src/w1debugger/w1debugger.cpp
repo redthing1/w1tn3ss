@@ -23,7 +23,7 @@ std::unique_ptr<session> session::attach(pid target_pid, const config& cfg, resu
 #ifdef __APPLE__
   return darwin::session_attach(target_pid, cfg, out_result);
 #elif __linux__
-  return linux::session_attach(target_pid, cfg, out_result);
+  return linux_os::session_attach(target_pid, cfg, out_result);
 #elif _WIN32
   return windows::session_attach(target_pid, cfg, out_result);
 #else
@@ -36,7 +36,7 @@ std::unique_ptr<session> session::launch(const std::string& path, const config& 
 #ifdef __APPLE__
   return darwin::session_launch(path, cfg, out_result);
 #elif __linux__
-  return linux::session_launch(path, cfg, out_result);
+  return linux_os::session_launch(path, cfg, out_result);
 #elif _WIN32
   return windows::session_launch(path, cfg, out_result);
 #else
@@ -102,7 +102,7 @@ std::vector<process_info> list_processes() {
 #ifdef __APPLE__
   return darwin::list_processes();
 #elif __linux__
-  return linux::list_processes();
+  return linux_os::list_processes();
 #elif _WIN32
   return windows::list_processes();
 #else
@@ -114,7 +114,7 @@ bool check_debugger_capability() {
 #ifdef __APPLE__
   return darwin::check_debugger_capability();
 #elif __linux__
-  return linux::check_debugger_capability();
+  return linux_os::check_debugger_capability();
 #elif _WIN32
   return windows::check_debugger_capability();
 #else
