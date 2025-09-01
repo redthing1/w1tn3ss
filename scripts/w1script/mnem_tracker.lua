@@ -60,6 +60,9 @@ function tracer.instrument(vm)
                 
                 -- count by the pattern that matched (not the actual mnemonic)
                 mnemonic_counts[mnemonic] = mnemonic_counts[mnemonic] + 1
+
+                -- log
+                w1.log_debug("mnemonic matched: " .. mnemonic .. " (address=" .. address .. ", actual=" .. actual_mnemonic .. ")")
                 
                 return w1.CONTINUE
             end
