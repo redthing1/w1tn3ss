@@ -17,16 +17,14 @@ function tracer.init()
     -- monitor printf with detailed argument analysis
     tracer.register_api_symbol_callback("libsystem_c.dylib", "_printf", function(event)
         if event.type == "call" then
-            local msg = string.format("[printf] called from %s -> %s", w1.format_address(event.source_address),
-                w1.format_address(event.target_address))
-            w1.log_info(msg)
+            w1.log_info(string.format("[printf] called from %s -> %s", w1.format_address(event.source_address),
+                w1.format_address(event.target_address)))
 
             -- show arguments if available
             if #event.arguments > 0 then
                 for i, arg in ipairs(event.arguments) do
-                    local param_info = string.format("  arg[%d] %s: %s (%s)", i, arg.param_name or "param",
-                        arg.interpreted_value, arg.is_pointer and "ptr" or "val")
-                    w1.log_info(param_info)
+                    w1.log_info(string.format("  arg[%d] %s: %s (%s)", i, arg.param_name or "param",
+                        arg.interpreted_value, arg.is_pointer and "ptr" or "val"))
                 end
             end
         elseif event.type == "return" then
@@ -51,7 +49,7 @@ function tracer.init()
                 w1.log_info(string.format("[heap] malloc(%d bytes)", size))
             elseif event.symbol_name == "_free" then
                 local ptr = event.arguments[1] and event.arguments[1].interpreted_value or "null"
-                w1.log_info("[heap] free(" .. ptr .. ")")
+                w1.log_info(string.format("[heap] free(%s)", ptr))
             elseif event.symbol_name == "_calloc" then
                 local count = event.arguments[1] and event.arguments[1].raw_value or 0
                 local size = event.arguments[2] and event.arguments[2].raw_value or 0
@@ -62,7 +60,7 @@ function tracer.init()
                 local ptr = event.return_value.interpreted_value
                 local size = event.arguments[1] and event.arguments[1].raw_value or 0
                 allocations[ptr] = size
-                w1.log_info("[heap] malloc returned " .. ptr)
+                w1.log_info(string.format("[heap] malloc returned %s", ptr))
             end
         end
     end)
@@ -70,20 +68,20 @@ function tracer.init()
     -- monitor file operations
     tracer.register_api_category_callback(w1.API_CATEGORY.FILE_IO, function(event)
         if event.type == "call" then
-            w1.log_info("[file] " .. event.formatted_call)
+            w1.log_info(string.format("[file] %s", event.formatted_call))
         end
     end)
 
     -- monitor string operations (often security-relevant)
     tracer.register_api_symbol_callback("libsystem_c.dylib", "_strcpy", function(event)
         if event.type == "call" then
-            w1.log_info("[string] " .. event.formatted_call .. " (unsafe)")
+            w1.log_info(string.format("[string] %s (unsafe)", event.formatted_call))
         end
     end)
 
     tracer.register_api_symbol_callback("libsystem_c.dylib", "_strncpy", function(event)
         if event.type == "call" then
-            w1.log_info("[string] " .. event.formatted_call)
+            w1.log_info(string.format("[string] %s", event.formatted_call))
         end
     end)
 

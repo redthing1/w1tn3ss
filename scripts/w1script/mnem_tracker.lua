@@ -62,7 +62,7 @@ function tracer.instrument(vm)
                 mnemonic_counts[mnemonic] = mnemonic_counts[mnemonic] + 1
 
                 -- log
-                w1.log_debug("mnemonic matched: " .. mnemonic .. " (address=" .. address .. ", actual=" .. actual_mnemonic .. ")")
+                w1.log_debug(string.format("mnemonic matched: %s (address=0x%016x, actual=%s)", mnemonic, address, actual_mnemonic))
                 
                 return w1.CONTINUE
             end
@@ -105,7 +105,7 @@ function tracer.shutdown()
         w1.log_info("  breakdown by pattern:")
         for _, entry in ipairs(sorted) do
             local pct = matched_instructions > 0 and (entry.count / matched_instructions * 100) or 0
-            w1.log_info("    " .. entry.mnemonic .. ": " .. entry.count .. " (" .. string.format("%.1f%%", pct) .. ")")
+            w1.log_info(string.format("    %s: %d (%.1f%%)", entry.mnemonic, entry.count, pct))
         end
     end
 end

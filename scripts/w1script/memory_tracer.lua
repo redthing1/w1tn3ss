@@ -49,9 +49,9 @@ function tracer.shutdown()
     local total_operations = read_count + write_count
     
     w1.log_info("memory operations summary:")
-    w1.log_info("  reads: " .. read_count)
-    w1.log_info("  writes: " .. write_count)
-    w1.log_info("  total: " .. total_operations)
+    w1.log_info(string.format("  reads: %d", read_count))
+    w1.log_info(string.format("  writes: %d", write_count))
+    w1.log_info(string.format("  total: %d", total_operations))
 end
 
 return tracer

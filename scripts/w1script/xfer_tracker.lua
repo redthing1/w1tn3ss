@@ -48,7 +48,7 @@ function tracer.on_exec_transfer_call(vm, state, gpr, fpr)
     })
     
     -- log the call transfer with module info
-    w1.log_info("call: " .. source_addr .. " (" .. source_module .. ") -> " .. target_addr .. " (" .. target_module .. ") (depth: " .. current_call_depth .. ")")
+    w1.log_info(string.format("call: %s (%s) -> %s (%s) (depth: %d)", source_addr, source_module, target_addr, target_module, current_call_depth))
     
     return w1.VMAction.CONTINUE
 end
@@ -81,9 +81,12 @@ function tracer.on_exec_transfer_return(vm, state, gpr, fpr)
     
     -- log the return transfer with module info
     if call_info then
-        w1.log_info("return: " .. source_addr .. " (" .. source_module .. ") -> " .. target_addr .. " (" .. target_module .. ") (from call " .. call_info.source_module .. " -> " .. call_info.target_module .. " at depth " .. call_info.depth .. ")")
+        w1.log_info(string.format("return: %s (%s) -> %s (%s) (from call %s -> %s at depth %d)", 
+            source_addr, source_module, target_addr, target_module, 
+            call_info.source_module, call_info.target_module, call_info.depth))
     else
-        w1.log_info("return: " .. source_addr .. " (" .. source_module .. ") -> " .. target_addr .. " (" .. target_module .. ") (unmatched return)")
+        w1.log_info(string.format("return: %s (%s) -> %s (%s) (unmatched return)", 
+            source_addr, source_module, target_addr, target_module))
     end
     
     return w1.VMAction.CONTINUE
@@ -113,13 +116,13 @@ function tracer.shutdown()
     -- log module call statistics
     w1.log_info("module call statistics:")
     for module, count in pairs(module_call_stats) do
-        w1.log_info("  " .. module .. ": " .. count .. " calls")
+        w1.log_info(string.format("  %s: %d calls", module, count))
     end
     
     -- log module return statistics  
     w1.log_info("module return statistics:")
     for module, count in pairs(module_return_stats) do
-        w1.log_info("  " .. module .. ": " .. count .. " returns")
+        w1.log_info(string.format("  %s: %d returns", module, count))
     end
 end
 

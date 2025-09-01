@@ -37,7 +37,7 @@ local HOOKS = {{
     types = {"pointer", "pointer", "integer"},
     handler = function(args, vm)
         local name = w1.read_string(vm, args[2].value, 256)
-        return string.format("buffer=0x%x, name='%s', value=%d", args[1].value, name, args[3].value)
+        return string.format("buffer=0x%016x, name='%s', value=%d", args[1].value, name, args[3].value)
     end
 }, {
     name = "allocate_buffer",
@@ -58,7 +58,7 @@ local HOOKS = {{
     types = {"pointer", "pointer"},
     handler = function(args, vm)
         local src = w1.read_string(vm, args[2].value, 256)
-        return string.format("dst=0x%x, src='%s'", args[1].value, src)
+        return string.format("dst=0x%016x, src='%s'", args[1].value, src)
     end,
     warning = true
 }}
@@ -98,7 +98,7 @@ function tracer.init()
         w1.log_error("target not found")
         return
     end
-    w1.log_info(string.format("target: %s @ 0x%x", target.path, target.base_address))
+    w1.log_info(string.format("target: %s @ 0x%016x", target.path, target.base_address))
 
     -- get signatures
     local sigs = SIGNATURES[plat.arch] and SIGNATURES[plat.arch][plat.os]
@@ -121,10 +121,10 @@ function tracer.init()
             else
                 local hook_fn = create_hook(hook_def)
                 if w1.hook_addr(addr, hook_fn) then
-                    w1.log_info(string.format("hooked %s @ 0x%x", hook_def.name, addr))
+                    w1.log_info(string.format("hooked %s @ 0x%016x", hook_def.name, addr))
                     hooked = hooked + 1
                 else
-                    w1.log_error(string.format("failed to hook %s @ 0x%x", hook_def.name, addr))
+                    w1.log_error(string.format("failed to hook %s @ 0x%016x", hook_def.name, addr))
                 end
             end
         end
