@@ -23,6 +23,10 @@ extern "C" {
 #define _POSIX_SPAWN_DISABLE_ASLR 0x100
 #endif
 
+#ifndef POSIX_SPAWN_START_SUSPENDED
+#define POSIX_SPAWN_START_SUSPENDED 0x0080
+#endif
+
 namespace w1::inject::darwin {
 
 result inject_runtime(const config& cfg) {
@@ -315,186 +319,132 @@ result inject_preload(const config& cfg) {
 
   log.debug("environment prepared", redlog::field("vars", env.size()), redlog::field("total_vars", envp.size() - 1));
 
-  pid_t child_pid = -1;
+  // initialize spawn attributes
+  posix_spawnattr_t attrs;
+  int ret = posix_spawnattr_init(&attrs);
+  if (ret != 0) {
+    log.error("posix_spawnattr_init failed", redlog::field("error", strerror(ret)));
+    return make_error_result(error_code::launch_failed, "posix_spawnattr_init failed", ret);
+  }
 
+  // build flags based on configuration
+  short ps_flags = 0;
   if (cfg.disable_aslr) {
-    // use posix_spawn with ASLR disabled
-    log.debug("launching child process with ASLR disabled using posix_spawn");
-
-    posix_spawnattr_t attrs;
-    int ret = posix_spawnattr_init(&attrs);
-    if (ret != 0) {
-      log.error("posix_spawnattr_init failed", redlog::field("error", strerror(ret)));
-      return make_error_result(error_code::launch_failed, "posix_spawnattr_init failed", ret);
-    }
-
-    short ps_flags = 0;
-    ps_flags |= POSIX_SPAWN_SETEXEC;
     ps_flags |= _POSIX_SPAWN_DISABLE_ASLR;
+    log.debug("ASLR will be disabled for spawned process");
+  }
+  if (cfg.suspended) {
+    ps_flags |= POSIX_SPAWN_START_SUSPENDED;
+    log.debug("process will be spawned in suspended state");
+  }
+
+  // set flags if any
+  if (ps_flags != 0) {
     ret = posix_spawnattr_setflags(&attrs, ps_flags);
     if (ret != 0) {
       posix_spawnattr_destroy(&attrs);
       log.error("posix_spawnattr_setflags failed", redlog::field("error", strerror(ret)));
       return make_error_result(error_code::launch_failed, "posix_spawnattr_setflags failed", ret);
     }
-
-    // fork first, then use posix_spawn with SETEXEC in child
-    child_pid = fork();
-    if (child_pid == 0) {
-      // child process, suspend if requested
-      if (cfg.suspended) {
-        fprintf(stderr, "[w1nj3ct.darwin] child: suspending with SIGSTOP\n");
-        fflush(stderr);
-        raise(SIGSTOP);
-        fprintf(stderr, "[w1nj3ct.darwin] child: resumed after SIGSTOP\n");
-        fflush(stderr);
-      }
-
-      // child process, use posix_spawn with SETEXEC
-      log.trace(
-          "child process executing target binary with ASLR disabled", redlog::field("binary_path", *cfg.binary_path)
-      );
-
-      ret = posix_spawnp(
-          NULL, cfg.binary_path->c_str(), NULL, &attrs, const_cast<char**>(argv.data()), const_cast<char**>(envp.data())
-      );
-
-      // posix_spawnp with SETEXEC only returns on error
-      int spawn_errno = errno;
-      fprintf(stderr, "[w1nj3ct.darwin] posix_spawnp failed: %s (errno=%d)\n", strerror(spawn_errno), spawn_errno);
-      _exit(1);
-    }
-
-    posix_spawnattr_destroy(&attrs);
-  } else {
-    // use traditional fork/exec
-    log.debug("forking child process for preload injection");
-    child_pid = fork();
-    if (child_pid == 0) {
-      // child process, suspend if requested
-      if (cfg.suspended) {
-        fprintf(stderr, "[w1nj3ct.darwin] child: suspending with SIGSTOP\n");
-        fflush(stderr);
-        raise(SIGSTOP);
-        fprintf(stderr, "[w1nj3ct.darwin] child: resumed after SIGSTOP\n");
-        fflush(stderr);
-      }
-
-      // child process
-      log.trace("child process executing target binary", redlog::field("binary_path", *cfg.binary_path));
-
-      execve(cfg.binary_path->c_str(), const_cast<char**>(argv.data()), const_cast<char**>(envp.data()));
-
-      // execve only returns on error
-      int exec_errno = errno;
-      fprintf(stderr, "[w1nj3ct.darwin] execve failed: %s (errno=%d)\n", strerror(exec_errno), exec_errno);
-      _exit(1);
-    }
   }
 
-  if (child_pid > 0) {
-    // parent process: wait for child to complete
-    log.info(
-        "preload injection started successfully", redlog::field("pid", child_pid),
-        redlog::field("binary_path", *cfg.binary_path), redlog::field("library_path", cfg.library_path)
+  // spawn the process
+  pid_t child_pid;
+  log.debug("spawning process with posix_spawn", redlog::field("binary_path", *cfg.binary_path));
+
+  ret = posix_spawn(
+      &child_pid, cfg.binary_path->c_str(), NULL, &attrs, const_cast<char**>(argv.data()),
+      const_cast<char**>(envp.data())
+  );
+
+  // clean up spawn attributes
+  posix_spawnattr_destroy(&attrs);
+
+  // check if spawn succeeded
+  if (ret != 0) {
+    log.error(
+        "posix_spawn failed", redlog::field("binary_path", *cfg.binary_path), redlog::field("error", strerror(ret)),
+        redlog::field("errno", ret)
     );
+    return make_error_result(error_code::launch_failed, "posix_spawn failed: " + std::string(strerror(ret)), ret);
+  }
 
-    // handle suspended launch
-    if (cfg.suspended) {
-      log.info("waiting for child process to suspend itself", redlog::field("pid", child_pid));
+  log.info(
+      "preload injection started successfully", redlog::field("pid", child_pid),
+      redlog::field("binary_path", *cfg.binary_path), redlog::field("library_path", cfg.library_path)
+  );
 
-      // wait for child to stop itself with SIGSTOP
-      int status;
-      pid_t wait_result = waitpid(child_pid, &status, WUNTRACED);
+  // handle suspended launch
+  if (cfg.suspended) {
+    log.info("process spawned in suspended state", redlog::field("pid", child_pid));
 
-      if (wait_result == -1) {
-        int wait_errno = errno;
-        log.error(
-            "failed to wait for child process suspension", redlog::field("pid", child_pid),
-            redlog::field("errno", wait_errno), redlog::field("error", strerror(wait_errno))
-        );
-        kill(child_pid, SIGKILL);
-        return make_error_result(error_code::launch_failed, "waitpid failed during suspension", wait_errno);
-      }
+    // output to console for user interaction
+    std::cout << "Process created and suspended (PID: " << child_pid << ")" << std::endl;
+    std::cout << "Binary: " << *cfg.binary_path << std::endl;
+    std::cout << "Library: " << cfg.library_path << std::endl;
+    std::cout << "Attach debugger and press Enter to resume process..." << std::endl;
+    std::cin.get();
 
-      if (WIFSTOPPED(status)) {
-        log.info("child process suspended successfully", redlog::field("pid", child_pid));
+    // resume child process
+    log.info("resuming child process", redlog::field("pid", child_pid));
+    if (kill(child_pid, SIGCONT) == -1) {
+      int kill_errno = errno;
+      log.error(
+          "failed to resume child process", redlog::field("pid", child_pid), redlog::field("errno", kill_errno),
+          redlog::field("error", strerror(kill_errno))
+      );
+      // kill the suspended process to avoid leaving it hanging
+      kill(child_pid, SIGKILL);
+      return make_error_result(error_code::launch_failed, "failed to resume suspended process", kill_errno);
+    }
+    log.debug("child process resumed successfully");
+  }
 
-        // output to console for user interaction
-        std::cout << "Process created and suspended (PID: " << child_pid << ")" << std::endl;
-        std::cout << "Binary: " << *cfg.binary_path << std::endl;
-        std::cout << "Library: " << cfg.library_path << std::endl;
-        std::cout << "Attach debugger and press Enter to resume process..." << std::endl;
-        std::cin.get();
+  // handle wait for completion
+  if (cfg.wait_for_completion) {
+    log.debug("waiting for child process to complete", redlog::field("pid", child_pid));
 
-        // resume child process
-        log.info("resuming child process", redlog::field("pid", child_pid));
-        if (kill(child_pid, SIGCONT) == -1) {
-          int kill_errno = errno;
-          log.error(
-              "failed to resume child process", redlog::field("pid", child_pid), redlog::field("errno", kill_errno),
-              redlog::field("error", strerror(kill_errno))
-          );
-        }
-      } else {
-        log.warn("child process did not stop as expected", redlog::field("pid", child_pid));
-      }
+    int status;
+    pid_t wait_result = waitpid(child_pid, &status, 0);
+
+    if (wait_result == -1) {
+      int wait_errno = errno;
+      log.error(
+          "failed to wait for child process", redlog::field("pid", child_pid), redlog::field("errno", wait_errno),
+          redlog::field("error", strerror(wait_errno))
+      );
+      return make_error_result(error_code::launch_failed, "waitpid failed", wait_errno);
     }
 
-    if (cfg.wait_for_completion) {
-      log.debug("waiting for child process to complete", redlog::field("pid", child_pid));
+    if (WIFEXITED(status)) {
+      int exit_code = WEXITSTATUS(status);
+      log.info(
+          "preload injection completed, child process exited", redlog::field("pid", child_pid),
+          redlog::field("exit_code", exit_code)
+      );
 
-      int status;
-      pid_t wait_result = waitpid(child_pid, &status, 0);
-
-      if (wait_result == -1) {
-        int wait_errno = errno;
-        log.error(
-            "failed to wait for child process", redlog::field("pid", child_pid), redlog::field("errno", wait_errno),
-            redlog::field("error", strerror(wait_errno))
-        );
-        return make_error_result(error_code::launch_failed, "waitpid failed", wait_errno);
-      }
-
-      if (WIFEXITED(status)) {
-        int exit_code = WEXITSTATUS(status);
-        log.info(
-            "preload injection completed, child process exited", redlog::field("pid", child_pid),
-            redlog::field("exit_code", exit_code)
-        );
-
-        // injection was successful regardless of target exit code
-        auto result = make_success_result(child_pid);
-        result.target_exit_code = exit_code;
-        return result;
-      } else if (WIFSIGNALED(status)) {
-        int signal = WTERMSIG(status);
-        log.error(
-            "child process terminated by signal", redlog::field("pid", child_pid), redlog::field("signal", signal),
-            redlog::field("signal_name", strsignal(signal))
-        );
-        return make_error_result(
-            error_code::launch_failed, "child process terminated by signal " + std::to_string(signal)
-        );
-      } else {
-        log.error(
-            "child process exited with unknown status", redlog::field("pid", child_pid), redlog::field("status", status)
-        );
-        return make_error_result(error_code::launch_failed, "child process exited with unknown status");
-      }
+      // injection was successful regardless of target exit code
+      auto result = make_success_result(child_pid);
+      result.target_exit_code = exit_code;
+      return result;
+    } else if (WIFSIGNALED(status)) {
+      int signal = WTERMSIG(status);
+      log.error(
+          "child process terminated by signal", redlog::field("pid", child_pid), redlog::field("signal", signal),
+          redlog::field("signal_name", strsignal(signal))
+      );
+      return make_error_result(
+          error_code::launch_failed, "child process terminated by signal " + std::to_string(signal)
+      );
     } else {
-      log.info("preload injection started successfully, not waiting for completion", redlog::field("pid", child_pid));
-      return make_success_result(child_pid);
+      log.error(
+          "child process exited with unknown status", redlog::field("pid", child_pid), redlog::field("status", status)
+      );
+      return make_error_result(error_code::launch_failed, "child process exited with unknown status");
     }
   } else {
-    // fork failed
-    int fork_errno = errno;
-    log.error(
-        "fork failed during preload injection", redlog::field("binary_path", *cfg.binary_path),
-        redlog::field("errno", fork_errno), redlog::field("error", strerror(fork_errno))
-    );
-
-    return make_error_result(error_code::launch_failed, "fork failed", fork_errno);
+    log.info("preload injection started successfully, not waiting for completion", redlog::field("pid", child_pid));
+    return make_success_result(child_pid);
   }
 }
 
