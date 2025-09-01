@@ -201,7 +201,7 @@ void setup_vm_core(sol::state& lua, sol::table& w1_module) {
                     return QBDI::VMAction::CONTINUE;
                   }
                   try {
-                    auto result = (*callback)(vm, gpr, fpr);
+                    auto result = (*callback)(static_cast<QBDI::VM*>(vm), gpr, fpr);
                     if (result.valid() && result.get_type() == sol::type::number) {
                       return static_cast<QBDI::VMAction>(result.get<int>());
                     }
@@ -237,7 +237,7 @@ void setup_vm_core(sol::state& lua, sol::table& w1_module) {
                     return QBDI::VMAction::CONTINUE;
                   }
                   try {
-                    auto result = (*callback)(vm, gpr, fpr);
+                    auto result = (*callback)(static_cast<QBDI::VM*>(vm), gpr, fpr);
                     if (result.valid() && result.get_type() == sol::type::number) {
                       return static_cast<QBDI::VMAction>(result.get<int>());
                     }
@@ -266,7 +266,7 @@ void setup_vm_core(sol::state& lua, sol::table& w1_module) {
                     return QBDI::VMAction::CONTINUE;
                   }
                   try {
-                    auto result = (*callback)(vm, gpr, fpr);
+                    auto result = (*callback)(static_cast<QBDI::VM*>(vm), gpr, fpr);
                     if (result.valid() && result.get_type() == sol::type::number) {
                       return static_cast<QBDI::VMAction>(result.get<int>());
                     }
