@@ -123,12 +123,12 @@ void setup_vm_core(sol::state& lua, sol::table& w1_module) {
       sol::overload(
           [](QBDI::VM* vm) {
             auto logger = redlog::get_logger("w1.script_vm");
-            logger.trc("script calling vm:getInstAnalysis()");
+            // logger.trc("script calling vm:getInstAnalysis()");
             return vm->getInstAnalysis();
           },
           [](QBDI::VM* vm, QBDI::AnalysisType type) {
             auto logger = redlog::get_logger("w1.script_vm");
-            logger.trc("script calling vm:getInstAnalysis(type)", redlog::field("type", static_cast<int>(type)));
+            // logger.trc("script calling vm:getInstAnalysis(type)", redlog::field("type", static_cast<int>(type)));
             return vm->getInstAnalysis(type);
           }
       ),
