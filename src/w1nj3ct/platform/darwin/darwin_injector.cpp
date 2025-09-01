@@ -10,7 +10,9 @@ extern "C" {
 
 #include <crt_externs.h>
 #include <cstdlib>
+#include <iostream>
 #include <libproc.h>
+#include <signal.h>
 #include <spawn.h>
 #include <sys/sysctl.h>
 #include <sys/types.h>
@@ -339,7 +341,16 @@ result inject_preload(const config& cfg) {
     // fork first, then use posix_spawn with SETEXEC in child
     child_pid = fork();
     if (child_pid == 0) {
-      // child process - use posix_spawn with SETEXEC
+      // child process, suspend if requested
+      if (cfg.suspended) {
+        fprintf(stderr, "[w1nj3ct.darwin] child: suspending with SIGSTOP\n");
+        fflush(stderr);
+        raise(SIGSTOP);
+        fprintf(stderr, "[w1nj3ct.darwin] child: resumed after SIGSTOP\n");
+        fflush(stderr);
+      }
+
+      // child process, use posix_spawn with SETEXEC
       log.trace(
           "child process executing target binary with ASLR disabled", redlog::field("binary_path", *cfg.binary_path)
       );
@@ -360,6 +371,15 @@ result inject_preload(const config& cfg) {
     log.debug("forking child process for preload injection");
     child_pid = fork();
     if (child_pid == 0) {
+      // child process, suspend if requested
+      if (cfg.suspended) {
+        fprintf(stderr, "[w1nj3ct.darwin] child: suspending with SIGSTOP\n");
+        fflush(stderr);
+        raise(SIGSTOP);
+        fprintf(stderr, "[w1nj3ct.darwin] child: resumed after SIGSTOP\n");
+        fflush(stderr);
+      }
+
       // child process
       log.trace("child process executing target binary", redlog::field("binary_path", *cfg.binary_path));
 
@@ -378,6 +398,48 @@ result inject_preload(const config& cfg) {
         "preload injection started successfully", redlog::field("pid", child_pid),
         redlog::field("binary_path", *cfg.binary_path), redlog::field("library_path", cfg.library_path)
     );
+
+    // handle suspended launch
+    if (cfg.suspended) {
+      log.info("waiting for child process to suspend itself", redlog::field("pid", child_pid));
+
+      // wait for child to stop itself with SIGSTOP
+      int status;
+      pid_t wait_result = waitpid(child_pid, &status, WUNTRACED);
+
+      if (wait_result == -1) {
+        int wait_errno = errno;
+        log.error(
+            "failed to wait for child process suspension", redlog::field("pid", child_pid),
+            redlog::field("errno", wait_errno), redlog::field("error", strerror(wait_errno))
+        );
+        kill(child_pid, SIGKILL);
+        return make_error_result(error_code::launch_failed, "waitpid failed during suspension", wait_errno);
+      }
+
+      if (WIFSTOPPED(status)) {
+        log.info("child process suspended successfully", redlog::field("pid", child_pid));
+
+        // output to console for user interaction
+        std::cout << "Process created and suspended (PID: " << child_pid << ")" << std::endl;
+        std::cout << "Binary: " << *cfg.binary_path << std::endl;
+        std::cout << "Library: " << cfg.library_path << std::endl;
+        std::cout << "Attach debugger and press Enter to resume process..." << std::endl;
+        std::cin.get();
+
+        // resume child process
+        log.info("resuming child process", redlog::field("pid", child_pid));
+        if (kill(child_pid, SIGCONT) == -1) {
+          int kill_errno = errno;
+          log.error(
+              "failed to resume child process", redlog::field("pid", child_pid), redlog::field("errno", kill_errno),
+              redlog::field("error", strerror(kill_errno))
+          );
+        }
+      } else {
+        log.warn("child process did not stop as expected", redlog::field("pid", child_pid));
+      }
+    }
 
     if (cfg.wait_for_completion) {
       log.debug("waiting for child process to complete", redlog::field("pid", child_pid));
@@ -421,7 +483,7 @@ result inject_preload(const config& cfg) {
         return make_error_result(error_code::launch_failed, "child process exited with unknown status");
       }
     } else {
-      log.info("preload injection started successfully - not waiting for completion", redlog::field("pid", child_pid));
+      log.info("preload injection started successfully, not waiting for completion", redlog::field("pid", child_pid));
       return make_success_result(child_pid);
     }
   } else {
@@ -549,11 +611,11 @@ bool check_injection_capabilities() {
 
   if (err == INJERR_SUCCESS) {
     injector_detach(injector);
-    log.debug("injection capabilities verified - self-attach successful");
+    log.debug("injection capabilities verified, self-attach successful");
     return true;
   } else {
     log.warn(
-        "injection capabilities limited - self-attach failed", redlog::field("error_code", err),
+        "injection capabilities limited, self-attach failed", redlog::field("error_code", err),
         redlog::field("injector_error", injector_error()), redlog::field("uid", getuid()),
         redlog::field("euid", geteuid())
     );
