@@ -42,26 +42,38 @@ private:
   sol::state lua_;
   sol::table script_table_;
 
-  // callback management
+  // callback management - owned by tracer, not shared
   std::unique_ptr<callback_manager> callback_manager_;
 
-  // api analysis manager
+  // api analysis manager - shared due to enable_shared_from_this requirement
   std::shared_ptr<bindings::api_analysis_manager> api_manager_;
 
-  // module index for api analysis
+  // module index for api analysis - owned by tracer
   std::unique_ptr<w1::util::module_range_index> module_index_;
 
-  // symbol resolver for api analysis
+  // symbol resolver for api analysis - owned by tracer
   std::unique_ptr<w1::symbols::symbol_resolver> symbol_resolver_;
 
-  // hook manager for dynamic hooking
+  // hook manager for dynamic hooking - shared with lua bindings
   std::shared_ptr<w1::hooking::hook_manager> hook_manager_;
 
-  // gadget executor for script-controlled gadget execution
+  // gadget executor for script-controlled gadget execution - shared with lua bindings
   std::shared_ptr<w1tn3ss::gadget::gadget_executor> gadget_executor_;
 
-  // api analysis processor
+  // api analysis processor - owned by tracer
   std::unique_ptr<api_analysis_processor> api_processor_;
+
+  // vm reference for helper methods
+  QBDI::VM* vm_ = nullptr;
+
+  // initialization helper methods
+  bool setup_configuration();
+  bool setup_vm_and_core_components(w1::tracer_engine<script_tracer>& engine);
+  bool initialize_lua_environment();
+  bool load_and_initialize_script();
+  bool setup_module_analysis();
+  bool setup_callback_registration();
+  bool finalize_vm_configuration();
 
 public:
   script_tracer();                           // defined in cpp due to unique_ptr of incomplete type
