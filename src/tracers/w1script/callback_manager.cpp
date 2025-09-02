@@ -1,8 +1,5 @@
 #include "callback_manager.hpp"
-#include "api_analysis_processor.hpp"
 #include "bindings/api_analysis.hpp"
-#include <w1tn3ss/util/module_range_index.hpp>
-#include <w1tn3ss/symbols/symbol_resolver.hpp>
 #include <algorithm>
 
 namespace w1::tracers::script {
@@ -219,12 +216,11 @@ QBDI::VMAction callback_manager::dispatch_vm_event_callback(
     callback_type type, QBDI::VMInstanceRef vm, const QBDI::VMState* state, QBDI::GPRState* gpr, QBDI::FPRState* fpr
 ) {
   // handle api analysis for exec_transfer events before calling lua
-  if (api_processor_ && api_manager_ && module_index_ &&
-      (type == callback_type::exec_transfer_call || type == callback_type::exec_transfer_return)) {
+  if (api_manager_ && (type == callback_type::exec_transfer_call || type == callback_type::exec_transfer_return)) {
     if (type == callback_type::exec_transfer_call) {
-      api_processor_->process_call(vm, state, gpr, fpr, api_manager_, module_index_, symbol_resolver_);
+      api_manager_->process_call(vm, state, gpr, fpr);
     } else {
-      api_processor_->process_return(vm, state, gpr, fpr, api_manager_, module_index_, symbol_resolver_);
+      api_manager_->process_return(vm, state, gpr, fpr);
     }
   }
 

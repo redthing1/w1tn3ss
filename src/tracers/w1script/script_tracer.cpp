@@ -23,30 +23,37 @@ script_tracer::script_tracer(const config& cfg) : cfg_(cfg), logger_(redlog::get
 script_tracer::~script_tracer() = default;
 
 bool script_tracer::initialize(w1::tracer_engine<script_tracer>& engine) {
+  // 1. configuration must come first
   if (!setup_configuration()) {
     return false;
   }
   
+  // 2. core components: vm, hook manager, gadget executor, api manager
   if (!setup_vm_and_core_components(engine)) {
     return false;
   }
   
-  if (!initialize_lua_environment()) {
-    return false;
-  }
-  
-  if (!load_and_initialize_script()) {
-    return false;
-  }
-  
+  // 3. module analysis: needed by api manager
   if (!setup_module_analysis()) {
     return false;
   }
   
+  // 4. lua environment with basic bindings
+  if (!initialize_lua_environment()) {
+    return false;
+  }
+  
+  // 5. load and initialize script
+  if (!load_and_initialize_script()) {
+    return false;
+  }
+  
+  // 6. callback registration based on script
   if (!setup_callback_registration()) {
     return false;
   }
   
+  // 7. final vm configuration based on callbacks
   if (!finalize_vm_configuration()) {
     return false;
   }
@@ -87,8 +94,7 @@ bool script_tracer::setup_vm_and_core_components(w1::tracer_engine<script_tracer
   gadget_executor_ = std::make_shared<w1tn3ss::gadget::gadget_executor>(vm_);
   logger_.inf("gadget executor initialized");
 
-  // create api analysis components
-  api_processor_ = std::make_unique<api_analysis_processor>();
+  // create api analysis manager
   api_manager_ = std::make_shared<bindings::api_analysis_manager>();
   
   return true;
@@ -98,16 +104,17 @@ bool script_tracer::initialize_lua_environment() {
   // initialize lua state with required libraries
   lua_.open_libraries(sol::lib::base, sol::lib::table, sol::lib::string, sol::lib::math, sol::lib::io);
 
-  // setup bindings before loading script (without API analysis yet)
+  // setup core bindings - we'll add script-specific bindings after loading
+  // using a dummy table for now since script isn't loaded yet
   sol::table dummy_table = lua_.create_table();
   setup_qbdi_bindings(lua_, dummy_table, api_manager_, hook_manager_, gadget_executor_);
   
-  logger_.dbg("lua environment initialized with bindings");
+  logger_.dbg("lua environment initialized with core bindings");
   return true;
 }
 
 bool script_tracer::load_and_initialize_script() {
-  // load script using the new loader
+  // load script using the script loader
   script_loader loader;
   auto load_result = loader.load_script(lua_, cfg_);
   if (!load_result.success) {
@@ -116,17 +123,15 @@ bool script_tracer::load_and_initialize_script() {
   }
   script_table_ = load_result.script_table;
 
-  // inject API analysis methods into the script table
-  logger_.dbg("setting up api analysis methods on script table");
+  // setup api analysis methods on the script table
   if (api_manager_) {
+    logger_.dbg("setting up api analysis methods on script table");
     sol::table w1_module = lua_["w1"];
     bindings::setup_api_analysis(lua_, w1_module, script_table_, api_manager_);
     logger_.dbg("api analysis methods setup complete");
-  } else {
-    logger_.wrn("api_manager_ is null, skipping api analysis setup");
   }
 
-  // call the script's init function
+  // call the script's init function if it exists
   sol::optional<sol::function> init_fn = script_table_["init"];
   if (init_fn) {
     try {
@@ -153,10 +158,10 @@ bool script_tracer::setup_module_analysis() {
   symbol_resolver_ = std::make_unique<w1::symbols::symbol_resolver>();
   logger_.dbg("symbol resolver created");
 
-  // initialize api manager if created
+  // initialize api manager with module index and symbol resolver
   if (api_manager_) {
-    logger_.dbg("initializing api manager");
-    api_manager_->initialize(*module_index_);
+    logger_.dbg("initializing api manager with module index");
+    api_manager_->initialize(*module_index_, symbol_resolver_.get());
   }
   
   return true;
@@ -185,10 +190,8 @@ bool script_tracer::setup_callback_registration() {
     logger_.inf("using automatic callback registration");
     callback_manager_->setup_callbacks(script_table_);
 
-    // pass api analysis components to callback manager
-    callback_manager_->set_api_analysis_components(
-        api_processor_.get(), api_manager_.get(), module_index_.get(), symbol_resolver_.get()
-    );
+    // pass api analysis manager to callback manager
+    callback_manager_->set_api_analysis_manager(api_manager_.get());
 
     // register callbacks with qbdi vm
     callback_manager_->register_callbacks(vm_);

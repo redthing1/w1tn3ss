@@ -1,5 +1,7 @@
 #include "api_analysis.hpp"
+#include <w1tn3ss/util/register_access.hpp>
 #include <redlog.hpp>
+#include <chrono>
 
 namespace w1::tracers::script::bindings {
 
@@ -100,12 +102,13 @@ sol::table convert_api_event_to_lua(sol::state_view lua, const abi::api_event& e
 
 // api_analysis_manager implementation
 
-api_analysis_manager::api_analysis_manager() = default;
+api_analysis_manager::api_analysis_manager() : logger_(redlog::get_logger("w1.api_analysis_manager")) {}
 
 api_analysis_manager::~api_analysis_manager() { shutdown(); }
 
-void api_analysis_manager::initialize(const util::module_range_index& index) {
+void api_analysis_manager::initialize(const util::module_range_index& index, symbols::symbol_resolver* resolver) {
   module_index_ = &index;
+  symbol_resolver_ = resolver;
   initialized_ = true;
 
   // initialize listener if it was already created
@@ -135,16 +138,79 @@ void api_analysis_manager::ensure_listener() {
   }
 }
 
-void api_analysis_manager::process_call(const abi::api_context& ctx) {
-  if (listener_) {
-    listener_->process_call(ctx);
+void api_analysis_manager::process_call(
+    QBDI::VM* vm, const QBDI::VMState* state, QBDI::GPRState* gpr, QBDI::FPRState* fpr
+) {
+  if (!module_index_ || !listener_) {
+    return;
   }
+
+  // build api context (absorbed from api_processor)
+  w1::abi::api_context ctx;
+  ctx.vm = vm;
+  ctx.vm_state = state;
+  ctx.gpr_state = gpr;
+  ctx.fpr_state = fpr;
+  ctx.module_index = module_index_;
+  ctx.timestamp = std::chrono::steady_clock::now().time_since_epoch().count();
+
+  // for calls: source is where we're calling from, target is what we're calling
+  ctx.call_address = state->sequenceStart;
+  ctx.target_address = w1::registers::get_pc(gpr);
+
+  // get module and symbol names
+  if (auto module_info = module_index_->find_containing(ctx.target_address)) {
+    ctx.module_name = module_info->name;
+
+    // resolve symbol if we have a resolver
+    if (symbol_resolver_) {
+      if (auto sym_info = symbol_resolver_->resolve_address(ctx.target_address, *module_index_)) {
+        ctx.symbol_name = sym_info->name;
+      }
+    }
+  }
+
+  logger_.dbg(
+      "processing api call", redlog::field("target", ctx.target_address), redlog::field("module", ctx.module_name),
+      redlog::field("symbol", ctx.symbol_name)
+  );
+
+  listener_->process_call(ctx);
 }
 
-void api_analysis_manager::process_return(const abi::api_context& ctx) {
-  if (listener_) {
-    listener_->process_return(ctx);
+void api_analysis_manager::process_return(
+    QBDI::VM* vm, const QBDI::VMState* state, QBDI::GPRState* gpr, QBDI::FPRState* fpr
+) {
+  if (!module_index_ || !listener_) {
+    return;
   }
+
+  // build api context (absorbed from api_processor)
+  w1::abi::api_context ctx;
+  ctx.vm = vm;
+  ctx.vm_state = state;
+  ctx.gpr_state = gpr;
+  ctx.fpr_state = fpr;
+  ctx.module_index = module_index_;
+  ctx.timestamp = std::chrono::steady_clock::now().time_since_epoch().count();
+
+  // for returns: source is what we're returning from, target is where we're returning to
+  ctx.target_address = state->sequenceStart;
+  ctx.call_address = w1::registers::get_pc(gpr);
+
+  // get module and symbol names
+  if (auto module_info = module_index_->find_containing(ctx.target_address)) {
+    ctx.module_name = module_info->name;
+
+    // resolve symbol if we have a resolver
+    if (symbol_resolver_) {
+      if (auto sym_info = symbol_resolver_->resolve_address(ctx.target_address, *module_index_)) {
+        ctx.symbol_name = sym_info->name;
+      }
+    }
+  }
+
+  listener_->process_return(ctx);
 }
 
 void api_analysis_manager::shutdown() {

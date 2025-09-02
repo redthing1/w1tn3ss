@@ -20,7 +20,6 @@ class symbol_resolver;
 namespace w1::tracers::script {
 
 // forward declarations
-class api_analysis_processor;
 namespace bindings {
 class api_analysis_manager;
 }
@@ -77,11 +76,8 @@ private:
   // registered callback IDs from QBDI
   std::vector<uint32_t> registered_callback_ids_;
 
-  // api analysis components (non-owning pointers)
-  api_analysis_processor* api_processor_ = nullptr;
+  // api analysis component (non-owning pointer)
   bindings::api_analysis_manager* api_manager_ = nullptr;
-  w1::util::module_range_index* module_index_ = nullptr;
-  w1::symbols::symbol_resolver* symbol_resolver_ = nullptr;
 
   // helper to convert string to callback type
   static std::optional<callback_type> string_to_callback_type(const std::string& name);
@@ -105,20 +101,11 @@ public:
   void register_callbacks(QBDI::VM* vm);
 
   /**
-   * set api analysis components for exec_transfer callbacks
-   * @param api_processor The API analysis processor
+   * set api analysis manager for exec_transfer callbacks
    * @param api_manager The API analysis manager
-   * @param module_index The module range index
-   * @param symbol_resolver The symbol resolver (may be null)
    */
-  void set_api_analysis_components(
-      api_analysis_processor* api_processor, bindings::api_analysis_manager* api_manager,
-      w1::util::module_range_index* module_index, w1::symbols::symbol_resolver* symbol_resolver
-  ) {
-    api_processor_ = api_processor;
+  void set_api_analysis_manager(bindings::api_analysis_manager* api_manager) {
     api_manager_ = api_manager;
-    module_index_ = module_index;
-    symbol_resolver_ = symbol_resolver;
   }
 
   /**

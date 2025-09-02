@@ -2,7 +2,6 @@
 
 #include "script_config.hpp"
 #include "callback_manager.hpp"
-#include "api_analysis_processor.hpp"
 #include <w1tn3ss/engine/tracer_engine.hpp>
 
 #include <sol/sol.hpp>
@@ -59,9 +58,6 @@ private:
 
   // gadget executor for script-controlled gadget execution - shared with lua bindings
   std::shared_ptr<w1tn3ss::gadget::gadget_executor> gadget_executor_;
-
-  // api analysis processor - owned by tracer
-  std::unique_ptr<api_analysis_processor> api_processor_;
 
   // vm reference for helper methods
   QBDI::VM* vm_ = nullptr;

@@ -2,6 +2,9 @@
 
 #include <sol/sol.hpp>
 #include <w1tn3ss/abi/api_listener.hpp>
+#include <w1tn3ss/symbols/symbol_resolver.hpp>
+#include <QBDI.h>
+#include <redlog.hpp>
 #include <memory>
 
 namespace w1::tracers::script::bindings {
@@ -46,9 +49,9 @@ public:
   api_analysis_manager();
   ~api_analysis_manager();
 
-  // initialize the api_listener with module index
-  // note: the module index must outlive this manager instance
-  void initialize(const util::module_range_index& index);
+  // initialize the api_listener with module index and symbol resolver
+  // note: the module index and symbol resolver must outlive this manager instance
+  void initialize(const util::module_range_index& index, symbols::symbol_resolver* resolver = nullptr);
 
   // ensure api_listener exists (lazy creation)
   void ensure_listener();
@@ -56,9 +59,13 @@ public:
   // get the listener (may be null if not created)
   abi::api_listener* get_listener() { return listener_.get(); }
 
-  // process calls/returns through the listener
-  void process_call(const abi::api_context& ctx);
-  void process_return(const abi::api_context& ctx);
+  // process exec_transfer events directly (absorbed from api_processor)
+  void process_call(
+      QBDI::VM* vm, const QBDI::VMState* state, QBDI::GPRState* gpr, QBDI::FPRState* fpr
+  );
+  void process_return(
+      QBDI::VM* vm, const QBDI::VMState* state, QBDI::GPRState* gpr, QBDI::FPRState* fpr
+  );
 
   // cleanup
   void shutdown();
@@ -66,7 +73,9 @@ public:
 private:
   std::unique_ptr<abi::api_listener> listener_;
   const util::module_range_index* module_index_ = nullptr;
+  symbols::symbol_resolver* symbol_resolver_ = nullptr;
   bool initialized_ = false;
+  redlog::logger logger_;
 };
 
 } // namespace w1::tracers::script::bindings
