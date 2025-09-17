@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cmath>
 #include <iostream>
+#include <iterator>
 
 namespace w1::tracers::script::bindings {
 
@@ -78,6 +79,112 @@ void setup_utilities(sol::state& lua, sol::table& w1_module) {
     }
     return false;
   });
+
+  w1_module.set_function("read_file_text", [](const std::string& filename) -> sol::optional<std::string> {
+    try {
+      std::ifstream file(filename, std::ios::in | std::ios::binary);
+      if (!file.is_open()) {
+        auto log = redlog::get_logger("w1.script_lua");
+        log.err("failed to open file for reading: " + filename);
+        return sol::nullopt;
+      }
+
+      std::ostringstream buffer;
+      buffer << file.rdbuf();
+      return buffer.str();
+    } catch (const std::exception& e) {
+      auto log = redlog::get_logger("w1.script_lua");
+      log.err("read_file_text error: " + std::string(e.what()));
+      return sol::nullopt;
+    }
+  });
+
+  w1_module.set_function("write_file_text", [](const std::string& filename, const std::string& content) -> bool {
+    try {
+      std::ofstream file(filename, std::ios::out | std::ios::binary);
+      if (!file.is_open()) {
+        auto log = redlog::get_logger("w1.script_lua");
+        log.err("failed to open file for writing: " + filename);
+        return false;
+      }
+
+      file.write(content.data(), static_cast<std::streamsize>(content.size()));
+      return file.good();
+    } catch (const std::exception& e) {
+      auto log = redlog::get_logger("w1.script_lua");
+      log.err("write_file_text error: " + std::string(e.what()));
+      return false;
+    }
+  });
+
+  w1_module.set_function(
+      "read_file_bytes",
+      [&lua](const std::string& filename) -> sol::optional<sol::table> {
+        try {
+          std::ifstream file(filename, std::ios::binary);
+          if (!file.is_open()) {
+            auto log = redlog::get_logger("w1.script_lua");
+            log.err("failed to open file for binary read: " + filename);
+            return sol::nullopt;
+          }
+
+          std::vector<uint8_t> buffer((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+          sol::table out = lua.create_table(static_cast<int>(buffer.size()));
+          for (size_t i = 0; i < buffer.size(); ++i) {
+            out[i + 1] = buffer[i];
+          }
+          return out;
+        } catch (const std::exception& e) {
+          auto log = redlog::get_logger("w1.script_lua");
+          log.err("read_file_bytes error: " + std::string(e.what()));
+          return sol::nullopt;
+        }
+      }
+  );
+
+  w1_module.set_function(
+      "write_file_bytes",
+      [](const std::string& filename, sol::object data_obj) -> bool {
+        try {
+          std::vector<uint8_t> buffer;
+
+          if (data_obj.is<std::string>()) {
+            const std::string& str = data_obj.as<const std::string&>();
+            buffer.assign(str.begin(), str.end());
+          } else if (data_obj.is<sol::table>()) {
+            sol::table data = data_obj.as<sol::table>();
+            buffer.reserve(data.size());
+            for (size_t i = 1; i <= data.size(); ++i) {
+              sol::optional<uint32_t> value = data[i];
+              if (!value) {
+                continue;
+              }
+              buffer.push_back(static_cast<uint8_t>(*value & 0xFF));
+            }
+          } else {
+            auto log = redlog::get_logger("w1.script_lua");
+            log.err("write_file_bytes expects table or string data");
+            return false;
+          }
+
+          std::ofstream file(filename, std::ios::binary);
+          if (!file.is_open()) {
+            auto log = redlog::get_logger("w1.script_lua");
+            log.err("failed to open file for binary write: " + filename);
+            return false;
+          }
+
+          if (!buffer.empty()) {
+            file.write(reinterpret_cast<const char*>(buffer.data()), static_cast<std::streamsize>(buffer.size()));
+          }
+          return file.good();
+        } catch (const std::exception& e) {
+          auto log = redlog::get_logger("w1.script_lua");
+          log.err("write_file_bytes error: " + std::string(e.what()));
+          return false;
+        }
+      }
+  );
 
   // === JSON Serialization ===
   // convert Lua tables to JSON strings for structured output
