@@ -31,7 +31,7 @@ enum class calling_convention_id {
 };
 
 // architecture type
-enum class architecture { X86, X86_64, ARM32, AARCH64 };
+enum class architecture { UNKNOWN, X86, X86_64, ARM32, AARCH64 };
 
 // abstract base class for all calling conventions
 class calling_convention_base {
@@ -214,6 +214,8 @@ inline std::string to_string(calling_convention_id id) {
 
 inline std::string to_string(architecture arch) {
   switch (arch) {
+  case architecture::UNKNOWN:
+    return "unknown";
   case architecture::X86:
     return "x86";
   case architecture::X86_64:

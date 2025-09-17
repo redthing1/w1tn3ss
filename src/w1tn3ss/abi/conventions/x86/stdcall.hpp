@@ -4,18 +4,19 @@
 
 #include <optional>
 #include <string>
-#include <vector>
 
 namespace w1::abi::conventions {
 
-class x86_cdecl : public x86_calling_convention {
+class x86_stdcall : public x86_calling_convention {
 public:
-  calling_convention_id get_id() const override { return calling_convention_id::X86_CDECL; }
-  std::string get_name() const override { return "x86 cdecl"; }
+  calling_convention_id get_id() const override { return calling_convention_id::X86_STDCALL; }
+  std::string get_name() const override { return "x86 stdcall"; }
   architecture get_architecture() const override { return architecture::X86; }
-  std::string get_description() const override { return "c calling convention for 32-bit x86"; }
+  std::string get_description() const override {
+    return "stdcall convention (callee cleans stack)";
+  }
 
-  bool supports_varargs() const override { return true; }
+  bool supports_varargs() const override { return false; }
   std::optional<variadic_info> get_variadic_info(
       const extraction_context& ctx, size_t fixed_arg_count
   ) const override;
@@ -23,14 +24,14 @@ public:
   register_info get_register_info() const override;
 
   bool is_native_for_current_platform() const override {
-#if defined(__i386__) && !defined(_WIN32)
+#if defined(_WIN32) && !defined(_WIN64)
     return true;
 #else
     return false;
 #endif
   }
 
-  stack_cleanup get_stack_cleanup() const override { return stack_cleanup::CALLER; }
+  stack_cleanup get_stack_cleanup() const override { return stack_cleanup::CALLEE; }
 };
 
 } // namespace w1::abi::conventions

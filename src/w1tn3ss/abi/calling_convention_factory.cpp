@@ -2,21 +2,23 @@
 #include <redlog.hpp>
 #include <stdexcept>
 
+#include "conventions/placeholder.hpp"
+
 // include platform-specific convention headers
 #if defined(__x86_64__) || defined(_M_X64)
 #include "conventions/x86_64/system_v.hpp"
 #include "conventions/x86_64/microsoft.hpp"
 #elif defined(__i386__) || defined(_M_IX86)
 #include "conventions/x86/cdecl.hpp"
-// todo: add when implemented
-// #include "conventions/x86/stdcall.hpp"
-// #include "conventions/x86/fastcall.hpp"
-// #include "conventions/x86/thiscall.hpp"
+#include "conventions/x86/fastcall.hpp"
+#include "conventions/x86/stdcall.hpp"
+#include "conventions/x86/thiscall.hpp"
+#include "conventions/x86/vectorcall.hpp"
 #elif defined(__aarch64__) || defined(_M_ARM64)
 #include "conventions/arm/aarch64_aapcs.hpp"
+#include "conventions/arm/aarch64_windows.hpp"
 #elif defined(__arm__) || defined(_M_ARM)
-// todo: add when implemented
-// #include "conventions/arm/arm32_aapcs.hpp"
+#include "conventions/arm/arm32_aapcs.hpp"
 #endif
 
 namespace w1::abi {
@@ -125,6 +127,15 @@ bool calling_convention_factory::is_registered(calling_convention_id id) const {
 
 void calling_convention_factory::register_platform_conventions() {
 
+  // Always provide placeholders for unknown/custom ids so lookups never fail.
+  register_convention(calling_convention_id::UNKNOWN, []() {
+    return std::make_shared<conventions::unknown_calling_convention>();
+  });
+
+  register_convention(calling_convention_id::CUSTOM, []() {
+    return std::make_shared<conventions::custom_calling_convention>();
+  });
+
 // Register conventions based on current platform
 #if defined(__x86_64__) || defined(_M_X64)
   register_x86_64_conventions();
@@ -166,31 +177,21 @@ void calling_convention_factory::register_x86_conventions() {
   // cdecl is available on all platforms
   register_convention(calling_convention_id::X86_CDECL, []() { return std::make_shared<conventions::x86_cdecl>(); });
 
-#ifdef _WIN32
-// windows-specific calling conventions
-// TODO: implement these conventions
-/*
-register_convention(
-    calling_convention_id::X86_STDCALL,
-    []() { return std::make_shared<conventions::x86_stdcall>(); }
-);
+  register_convention(calling_convention_id::X86_STDCALL, []() {
+    return std::make_shared<conventions::x86_stdcall>();
+  });
 
-register_convention(
-    calling_convention_id::X86_FASTCALL,
-    []() { return std::make_shared<conventions::x86_fastcall>(); }
-);
+  register_convention(calling_convention_id::X86_FASTCALL, []() {
+    return std::make_shared<conventions::x86_fastcall>();
+  });
 
-register_convention(
-    calling_convention_id::X86_THISCALL,
-    []() { return std::make_shared<conventions::x86_thiscall>(); }
-);
+  register_convention(calling_convention_id::X86_THISCALL, []() {
+    return std::make_shared<conventions::x86_thiscall>();
+  });
 
-register_convention(
-    calling_convention_id::X86_VECTORCALL,
-    []() { return std::make_shared<conventions::x86_vectorcall>(); }
-);
-*/
-#endif
+  register_convention(calling_convention_id::X86_VECTORCALL, []() {
+    return std::make_shared<conventions::x86_vectorcall>();
+  });
 #endif
 }
 
@@ -219,13 +220,9 @@ void calling_convention_factory::register_x86_64_conventions() {
 
 void calling_convention_factory::register_arm_conventions() {
 #if defined(__arm__) || defined(_M_ARM)
-// TODO: implement ARM32 conventions
-/*
-register_convention(
-    calling_convention_id::ARM32_AAPCS,
-    []() { return std::make_shared<conventions::arm32_aapcs>(); }
-);
-*/
+  register_convention(calling_convention_id::ARM32_AAPCS, []() {
+    return std::make_shared<conventions::arm32_aapcs>();
+  });
 #endif
 }
 
@@ -238,7 +235,9 @@ void calling_convention_factory::register_arm64_conventions() {
 
 // windows arm64 has slight variations
 #ifdef _WIN32
-// TODO: implement windows arm64 specific convention if needed
+  register_convention(calling_convention_id::AARCH64_WINDOWS, []() {
+    return std::make_shared<conventions::aarch64_windows>();
+  });
 #endif
 #endif
 }

@@ -17,6 +17,7 @@ add_library(w1tn3ss STATIC
     # new calling convention system
     abi/calling_convention_factory.cpp
     abi/calling_convention_detector.cpp
+    abi/conventions/placeholder.cpp
     # existing abi components
     abi/api_knowledge_db.cpp
     abi/argument_extractor.cpp
@@ -42,20 +43,22 @@ if(QBDI_ARCH STREQUAL "X86_64")
     )
 elseif(QBDI_ARCH STREQUAL "X86")
     target_sources(w1tn3ss PRIVATE
+        abi/conventions/x86/base.cpp
         abi/conventions/x86/cdecl.cpp
-        # abi/conventions/x86/stdcall.cpp
-        # abi/conventions/x86/fastcall.cpp
-        # abi/conventions/x86/thiscall.cpp
+        abi/conventions/x86/stdcall.cpp
+        abi/conventions/x86/fastcall.cpp
+        abi/conventions/x86/thiscall.cpp
+        abi/conventions/x86/vectorcall.cpp
     )
 elseif(QBDI_ARCH STREQUAL "AARCH64")
     target_sources(w1tn3ss PRIVATE
         abi/conventions/arm/aarch64_aapcs.cpp
+        abi/conventions/arm/aarch64_windows.cpp
     )
 elseif(QBDI_ARCH STREQUAL "ARM")
-    # TODO: add ARM32 conventions when implemented
-    # target_sources(w1tn3ss PRIVATE
-    #     abi/conventions/arm/arm32_aapcs.cpp
-    # )
+    target_sources(w1tn3ss PRIVATE
+        abi/conventions/arm/arm32_aapcs.cpp
+    )
 endif()
 
 # Symbol resolution system
