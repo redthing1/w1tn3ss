@@ -9,6 +9,7 @@
 #include <vector>
 #include <algorithm>
 #include <cmath>
+#include <iostream>
 
 namespace w1::tracers::script::bindings {
 
@@ -123,6 +124,26 @@ void setup_utilities(sol::state& lua, sol::table& w1_module) {
     }
     auto end = str.find_last_not_of(" \t\n\r");
     return str.substr(start, end - start + 1);
+  });
+
+  w1_module.set_function("stdin_read_line", [](sol::optional<std::string> prompt) -> sol::optional<std::string> {
+    if (prompt && !prompt->empty()) {
+      std::cout << *prompt;
+      std::cout.flush();
+    }
+
+    std::string line;
+    if (!std::getline(std::cin, line)) {
+      auto log = redlog::get_logger("w1.script_lua");
+      log.wrn("stdin_read_line reached end of input");
+      return sol::nullopt;
+    }
+
+    if (!line.empty() && line.back() == '\r') {
+      line.pop_back();
+    }
+
+    return line;
   });
 
   // === Platform Detection Functions ===
