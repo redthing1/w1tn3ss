@@ -24,6 +24,8 @@ namespace w1::tracers::script::bindings {
  * - write_mem(vm, address, data) - Write memory safely
  * - read_string(vm, address, max_length) - Read null-terminated string
  * - read_wstring(vm, address, max_length) - Read wide string
+ * - read_u/i/f variants for primitive values (e.g. read_u32, read_i32, read_f32)
+ * - write_u/i/f variants for primitive values (e.g. write_u64, write_i16, write_f64, write_ptr)
  *
  * All functions use safe_memory.hpp to validate memory access
  * before performing operations.

@@ -2,8 +2,33 @@
 #include <w1tn3ss/util/safe_memory.hpp>
 #include <redlog.hpp>
 #include <cstring>
+#include <limits>
 
 namespace w1::tracers::script::bindings {
+
+namespace {
+
+template <typename T> bool write_scalar(uint64_t address, const T& value) {
+  if (!w1::util::safe_memory::memory_validator().check_access(
+          address, sizeof(T), w1::util::memory_range_index::WRITE
+      )) {
+    return false;
+  }
+
+  std::memcpy(reinterpret_cast<void*>(address), &value, sizeof(T));
+  return true;
+}
+
+template <typename T, typename Value>
+bool write_integral(uint64_t address, Value value) {
+  if (value < static_cast<Value>(std::numeric_limits<T>::min()) ||
+      value > static_cast<Value>(std::numeric_limits<T>::max())) {
+    return false;
+  }
+  return write_scalar(address, static_cast<T>(value));
+}
+
+} // namespace
 
 void setup_memory_access(sol::state& lua, sol::table& w1_module) {
   auto logger = redlog::get_logger("w1.script_bindings");
@@ -182,6 +207,98 @@ void setup_memory_access(sol::state& lua, sol::table& w1_module) {
       return sol::optional<QBDI::rword>(*result);
     }
     return sol::nullopt;
+  });
+
+  w1_module.set_function("read_i8", [](QBDI::VM* vm, uint64_t address) -> sol::optional<int64_t> {
+    auto result = w1::util::safe_memory::read<int8_t>(vm, address);
+    if (result) {
+      return sol::optional<int64_t>(static_cast<int64_t>(*result));
+    }
+    return sol::nullopt;
+  });
+
+  w1_module.set_function("read_i16", [](QBDI::VM* vm, uint64_t address) -> sol::optional<int64_t> {
+    auto result = w1::util::safe_memory::read<int16_t>(vm, address);
+    if (result) {
+      return sol::optional<int64_t>(static_cast<int64_t>(*result));
+    }
+    return sol::nullopt;
+  });
+
+  w1_module.set_function("read_i32", [](QBDI::VM* vm, uint64_t address) -> sol::optional<int64_t> {
+    auto result = w1::util::safe_memory::read<int32_t>(vm, address);
+    if (result) {
+      return sol::optional<int64_t>(static_cast<int64_t>(*result));
+    }
+    return sol::nullopt;
+  });
+
+  w1_module.set_function("read_i64", [](QBDI::VM* vm, uint64_t address) -> sol::optional<int64_t> {
+    auto result = w1::util::safe_memory::read<int64_t>(vm, address);
+    if (result) {
+      return sol::optional<int64_t>(*result);
+    }
+    return sol::nullopt;
+  });
+
+  w1_module.set_function("read_f32", [](QBDI::VM* vm, uint64_t address) -> sol::optional<double> {
+    auto result = w1::util::safe_memory::read<float>(vm, address);
+    if (result) {
+      return sol::optional<double>(static_cast<double>(*result));
+    }
+    return sol::nullopt;
+  });
+
+  w1_module.set_function("read_f64", [](QBDI::VM* vm, uint64_t address) -> sol::optional<double> {
+    auto result = w1::util::safe_memory::read<double>(vm, address);
+    if (result) {
+      return sol::optional<double>(*result);
+    }
+    return sol::nullopt;
+  });
+
+  w1_module.set_function("write_u8", [](QBDI::VM*, uint64_t address, uint64_t value) -> bool {
+    return write_integral<uint8_t>(address, value);
+  });
+
+  w1_module.set_function("write_u16", [](QBDI::VM*, uint64_t address, uint64_t value) -> bool {
+    return write_integral<uint16_t>(address, value);
+  });
+
+  w1_module.set_function("write_u32", [](QBDI::VM*, uint64_t address, uint64_t value) -> bool {
+    return write_integral<uint32_t>(address, value);
+  });
+
+  w1_module.set_function("write_u64", [](QBDI::VM*, uint64_t address, uint64_t value) -> bool {
+    return write_integral<uint64_t>(address, value);
+  });
+
+  w1_module.set_function("write_i8", [](QBDI::VM*, uint64_t address, int64_t value) -> bool {
+    return write_integral<int8_t>(address, value);
+  });
+
+  w1_module.set_function("write_i16", [](QBDI::VM*, uint64_t address, int64_t value) -> bool {
+    return write_integral<int16_t>(address, value);
+  });
+
+  w1_module.set_function("write_i32", [](QBDI::VM*, uint64_t address, int64_t value) -> bool {
+    return write_integral<int32_t>(address, value);
+  });
+
+  w1_module.set_function("write_i64", [](QBDI::VM*, uint64_t address, int64_t value) -> bool {
+    return write_scalar(address, static_cast<int64_t>(value));
+  });
+
+  w1_module.set_function("write_f32", [](QBDI::VM*, uint64_t address, double value) -> bool {
+    return write_scalar(address, static_cast<float>(value));
+  });
+
+  w1_module.set_function("write_f64", [](QBDI::VM*, uint64_t address, double value) -> bool {
+    return write_scalar(address, static_cast<double>(value));
+  });
+
+  w1_module.set_function("write_ptr", [](QBDI::VM*, uint64_t address, QBDI::rword value) -> bool {
+    return write_scalar(address, value);
   });
 
   logger.dbg("safe memory access functions registered");
