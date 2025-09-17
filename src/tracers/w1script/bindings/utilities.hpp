@@ -10,9 +10,10 @@ namespace w1::tracers::script::bindings {
  *
  * This module provides essential utility functions for Lua scripts, including:
  * - Logging functions (info, debug, error) integrated with the redlog system
- * - File I/O operations (write, append) for output generation
+ * - Text and binary file I/O operations (read, write, append) for data exchange
  * - JSON serialization for converting Lua tables to JSON strings
- * - Timestamp generation for logging and data collection
+ * - Timestamp helpers and flexible date/time formatting utilities
+ * - Basic stdin helpers for interactive scripts
  *
  * These utilities enable Lua scripts to perform common operations like
  * logging messages, saving data to files, and generating structured output.
