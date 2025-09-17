@@ -26,10 +26,10 @@ double x86_vectorcall::get_float_return(const QBDI::FPRState* fpr) const {
   return get_xmm_double(fpr, 0);
 }
 
-typed_arg x86_vectorcall::get_typed_return(
+x86_vectorcall::typed_arg x86_vectorcall::get_typed_return(
     const QBDI::GPRState* gpr, const QBDI::FPRState* fpr, arg_type type
 ) const {
-  typed_arg ret = x86_calling_convention::get_typed_return(gpr, fpr, type);
+  x86_vectorcall::typed_arg ret = x86_calling_convention::get_typed_return(gpr, fpr, type);
   ret.from_stack = false;
   ret.stack_offset = 0;
 
