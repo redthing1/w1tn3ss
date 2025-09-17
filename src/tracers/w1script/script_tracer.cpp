@@ -103,8 +103,23 @@ bool script_tracer::setup_vm_and_core_components(w1::tracer_engine<script_tracer
 bool script_tracer::initialize_lua_environment() {
   // initialize lua state with required libraries
   lua_.open_libraries(
-      sol::lib::base, sol::lib::package, sol::lib::table, sol::lib::string, sol::lib::math, sol::lib::io
+      sol::lib::base, sol::lib::package, sol::lib::table, sol::lib::string, sol::lib::math, sol::lib::bit32,
+      sol::lib::io
   );
+
+  // provide compatibility alias so scripts can require("bit") even on stock lua
+  sol::table bit32 = lua_["bit32"];
+  if (bit32.valid()) {
+    lua_["bit"] = bit32;
+
+    sol::table package = lua_["package"];
+    if (package.valid()) {
+      sol::table preload = package["preload"];
+      if (preload.valid()) {
+        preload.set_function("bit", [bit32]() -> sol::table { return bit32; });
+      }
+    }
+  }
 
   // setup core bindings - we'll add script-specific bindings after loading
   // using a dummy table for now since script isn't loaded yet
