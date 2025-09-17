@@ -102,7 +102,9 @@ bool script_tracer::setup_vm_and_core_components(w1::tracer_engine<script_tracer
 
 bool script_tracer::initialize_lua_environment() {
   // initialize lua state with required libraries
-  lua_.open_libraries(sol::lib::base, sol::lib::table, sol::lib::string, sol::lib::math, sol::lib::io);
+  lua_.open_libraries(
+      sol::lib::base, sol::lib::package, sol::lib::table, sol::lib::string, sol::lib::math, sol::lib::io
+  );
 
   // setup core bindings - we'll add script-specific bindings after loading
   // using a dummy table for now since script isn't loaded yet
