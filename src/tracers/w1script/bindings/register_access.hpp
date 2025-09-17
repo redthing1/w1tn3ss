@@ -4,7 +4,8 @@
  *
  * This module provides comprehensive CPU register access functions for all supported
  * architectures (x86_64, ARM64, ARM32, x86). Includes both getter and setter functions
- * for all general-purpose registers, status registers, and special registers.
+ * for all general-purpose registers plus helper accessors for the x87 floating-point
+ * state on x86/x64 platforms.
  *
  * @author w1tn3ss Development Team
  * @date 2025

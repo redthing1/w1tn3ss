@@ -3,6 +3,7 @@
 #include <redlog.hpp>
 #include <unordered_map>
 #include <string>
+#include <cctype>
 
 namespace w1::tracers::script::bindings {
 
@@ -350,6 +351,106 @@ void setup_register_access(sol::state& lua, sol::table& w1_module) {
     }
     return w1::registers::get_pc(gpr);
   });
+
+  // floating point helpers focus on x87 state used by x86 workloads
+  w1_module.set_function(
+      "get_fpr_word",
+      [](QBDI::FPRState* fpr, const std::string& field) -> sol::optional<uint64_t> {
+        if (!fpr) {
+          return sol::nullopt;
+        }
+
+#if defined(QBDI_ARCH_X86) || defined(QBDI_ARCH_X86_64)
+        std::string lowered;
+        lowered.reserve(field.size());
+        for (unsigned char ch : field) {
+          lowered.push_back(static_cast<char>(std::tolower(ch)));
+        }
+
+        if (lowered == "fcw" || lowered == "rfcw" || lowered == "control") {
+          return static_cast<uint64_t>(fpr->rfcw);
+        }
+        if (lowered == "fsw" || lowered == "rfsw" || lowered == "status") {
+          return static_cast<uint64_t>(fpr->rfsw);
+        }
+        if (lowered == "ftw" || lowered == "tag") {
+          return static_cast<uint64_t>(fpr->ftw);
+        }
+        if (lowered == "fop") {
+          return static_cast<uint64_t>(fpr->fop);
+        }
+        if (lowered == "ip") {
+          return static_cast<uint64_t>(fpr->ip);
+        }
+        if (lowered == "cs") {
+          return static_cast<uint64_t>(fpr->cs);
+        }
+        if (lowered == "dp") {
+          return static_cast<uint64_t>(fpr->dp);
+        }
+        if (lowered == "ds") {
+          return static_cast<uint64_t>(fpr->ds);
+        }
+        if (lowered == "mxcsr") {
+          return static_cast<uint64_t>(fpr->mxcsr);
+        }
+        if (lowered == "mxcsrmask" || lowered == "mxcsr_mask") {
+          return static_cast<uint64_t>(fpr->mxcsrmask);
+        }
+
+        return sol::nullopt;
+#else
+        (void)field;
+        return sol::nullopt;
+#endif
+      }
+  );
+
+  w1_module.set_function(
+      "get_fpr_st_bytes",
+      [](QBDI::FPRState* fpr, uint32_t index) -> sol::optional<std::string> {
+        if (!fpr || index > 7) {
+          return sol::nullopt;
+        }
+
+#if defined(QBDI_ARCH_X86) || defined(QBDI_ARCH_X86_64)
+        const char* data = nullptr;
+        switch (index) {
+        case 0:
+          data = fpr->stmm0.reg;
+          break;
+        case 1:
+          data = fpr->stmm1.reg;
+          break;
+        case 2:
+          data = fpr->stmm2.reg;
+          break;
+        case 3:
+          data = fpr->stmm3.reg;
+          break;
+        case 4:
+          data = fpr->stmm4.reg;
+          break;
+        case 5:
+          data = fpr->stmm5.reg;
+          break;
+        case 6:
+          data = fpr->stmm6.reg;
+          break;
+        case 7:
+          data = fpr->stmm7.reg;
+          break;
+        default:
+          return sol::nullopt;
+        }
+
+        return std::string(data, 10);
+#else
+        (void)index;
+        return sol::nullopt;
+#endif
+      }
+  );
 
   logger.dbg("generic register access functions registered");
 }
