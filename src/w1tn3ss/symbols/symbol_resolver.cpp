@@ -1,6 +1,7 @@
 #include "symbol_resolver.hpp"
 #include "lief_symbol_backend.hpp"
 #include "path_resolver.hpp"
+#include <QBDI.h>
 #include <redlog.hpp>
 #include <memory>
 #include <vector>
@@ -166,25 +167,27 @@ std::optional<symbol_info> symbol_resolver::impl::resolve_address(
   }
 
   // for file-based backends (like lief), we need module context
-  if (auto module = module_index.find_containing(address)) {
-    uint64_t offset = address - module->base_address;
+  const QBDI::rword addr_word = static_cast<QBDI::rword>(address);
+
+  if (auto mod_info = module_index.find_containing(addr_word)) {
+    const QBDI::rword offset = addr_word - mod_info->base_address;
 
     // resolve module path if needed
-    std::string module_path = module->path;
+    std::string module_path = mod_info->path;
     if (path_resolver_) {
-      if (auto resolved = path_resolver_->resolve_library_path(module->path)) {
+      if (auto resolved = path_resolver_->resolve_library_path(mod_info->path)) {
         module_path = *resolved;
       }
     }
 
-    if (auto result = primary_backend_->resolve_in_module(module_path, offset)) {
+    if (auto result = primary_backend_->resolve_in_module(module_path, static_cast<uint64_t>(offset))) {
       cache_hits_++;
       return result;
     }
 
     // try fallback backend
     if (fallback_backend_) {
-      if (auto result = fallback_backend_->resolve_in_module(module_path, offset)) {
+      if (auto result = fallback_backend_->resolve_in_module(module_path, static_cast<uint64_t>(offset))) {
         cache_hits_++;
         return result;
       }

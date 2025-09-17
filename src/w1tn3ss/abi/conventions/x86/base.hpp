@@ -29,6 +29,12 @@ private:
 // shared functionality for 32-bit x86 calling conventions
 class x86_calling_convention : public calling_convention_base {
 protected:
+  using extraction_context = calling_convention_base::extraction_context;
+  using typed_arg = calling_convention_base::typed_arg;
+  using arg_type = calling_convention_base::arg_type;
+  using variadic_info = calling_convention_base::variadic_info;
+  using register_info = calling_convention_base::register_info;
+
   struct register_sources {
     std::vector<uint64_t> integer;
     std::vector<std::array<uint8_t, 16>> vector;

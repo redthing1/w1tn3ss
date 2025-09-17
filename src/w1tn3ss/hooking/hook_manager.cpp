@@ -38,19 +38,19 @@ uint32_t hook_manager::hook_module(const std::string& module_name, QBDI::rword o
   auto modules = scanner.scan_executable_modules();
   util::module_range_index module_index(std::move(modules));
 
-  auto module = find_module_with_extensions(module_index, module_name);
-  if (!module) {
+  auto module_info = find_module_with_extensions(module_index, module_name);
+  if (!module_info) {
     log_.err("module not found", redlog::field("module", module_name));
     return 0;
   }
 
-  QBDI::rword target_address = module->base_address + offset;
+  QBDI::rword target_address = module_info->base_address + offset;
 
   // validate address is within module bounds
-  if (offset >= module->size) {
+  if (offset >= module_info->size) {
     log_.err(
         "offset exceeds module bounds", redlog::field("module", module_name), redlog::field("offset", "0x%lx", offset),
-        redlog::field("module_size", "0x%lx", module->size)
+        redlog::field("module_size", "0x%lx", module_info->size)
     );
     return 0;
   }
@@ -148,9 +148,9 @@ const w1::util::module_info* hook_manager::find_module_with_extensions(
     const w1::util::module_range_index& module_index, const std::string& module_name
 ) const {
   // first try exact match
-  auto module = module_index.find_by_name(module_name);
-  if (module) {
-    return module;
+  auto module_info = module_index.find_by_name(module_name);
+  if (module_info) {
+    return module_info;
   }
 
   // if name already contains a dot, don't try extensions
@@ -175,12 +175,12 @@ const w1::util::module_info* hook_manager::find_module_with_extensions(
 
   // try base extensions first
   for (const auto& ext : extensions) {
-    module = module_index.find_by_name(module_name + ext);
-    if (module) {
+    module_info = module_index.find_by_name(module_name + ext);
+    if (module_info) {
       log_.dbg(
-          "module found with extension", redlog::field("requested", module_name), redlog::field("found", module->name)
+          "module found with extension", redlog::field("requested", module_name), redlog::field("found", module_info->name)
       );
-      return module;
+      return module_info;
     }
   }
 
@@ -190,7 +190,7 @@ const w1::util::module_info* hook_manager::find_module_with_extensions(
 
     // enumerate all modules and find ones that start with our name + base extension
     module_index.visit_all([&](const w1::util::module_info& mod) {
-      if (module) {
+      if (module_info) {
         return; // already found
       }
 
@@ -204,13 +204,13 @@ const w1::util::module_info* hook_manager::find_module_with_extensions(
               "module found with versioned extension", redlog::field("requested", module_name),
               redlog::field("found", mod.name)
           );
-          module = &mod;
+          module_info = &mod;
         }
       }
     });
   }
 
-  return module;
+  return module_info;
 }
 
 } // namespace w1::hooking

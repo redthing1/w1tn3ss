@@ -31,8 +31,8 @@ public:
 
     try {
       // step 1: identify module containing the target address
-      auto module = module_index_->find_containing(ctx.target_address);
-      if (!module) {
+      auto module_info = module_index_->find_containing(ctx.target_address);
+      if (!module_info) {
         result.error_message = "no module found for target address";
         log_.dbg(
             "module not found for target address", redlog::field("address", ctx.target_address),
@@ -41,8 +41,8 @@ public:
         return result;
       }
 
-      result.module_name = module->name;
-      result.module_offset = ctx.target_address - module->base_address;
+      result.module_name = module_info->name;
+      result.module_offset = ctx.target_address - module_info->base_address;
 
       // step 2: use symbol from context if available, otherwise resolve
       if (!ctx.symbol_name.empty()) {
@@ -50,7 +50,7 @@ public:
         // note: demangled_name would need to be passed in context if needed
         log_.dbg("using symbol from context", redlog::field("symbol", result.symbol_name));
       } else if (config_.resolve_symbols) {
-        resolve_symbol(result, ctx.target_address, *module);
+        resolve_symbol(result, ctx.target_address, *module_info);
       }
 
       // step 3: api identification and knowledge lookup
@@ -527,13 +527,13 @@ void api_analyzer::clear_caches() { pimpl->clear_caches(); }
 namespace analysis_utils {
 
 bool is_api_call(uint64_t address, const util::module_range_index& modules) {
-  auto module = modules.find_containing(address);
-  if (!module) {
+  auto module_info = modules.find_containing(address);
+  if (!module_info) {
     return false;
   }
 
   // check if it's a system library
-  return module->is_system_library;
+  return module_info->is_system_library;
 }
 
 std::string format_api_call(const std::string& api_name, const std::vector<extracted_argument>& args) {
