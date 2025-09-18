@@ -13,8 +13,161 @@
 #include <iterator>
 #include <ctime>
 #include <array>
+#include <cctype>
 
 namespace w1::tracers::script::bindings {
+
+namespace {
+
+constexpr char HEX_DIGITS[] = "0123456789abcdef";
+
+std::string format_integer_hex(uint64_t value, size_t width) {
+  std::string hex;
+  if (value == 0) {
+    hex = "0";
+  } else {
+    while (value > 0) {
+      hex.push_back(HEX_DIGITS[value & 0xF]);
+      value >>= 4;
+    }
+    std::reverse(hex.begin(), hex.end());
+  }
+
+  if (hex.size() < width) {
+    hex.insert(hex.begin(), width - hex.size(), '0');
+  }
+
+  return hex;
+}
+
+bool extract_bytes(const sol::object& data_obj, std::vector<uint8_t>& out) {
+  if (data_obj.get_type() == sol::type::string) {
+    const std::string& str = data_obj.as<const std::string&>();
+    out.assign(str.begin(), str.end());
+    return true;
+  }
+
+  if (data_obj.get_type() == sol::type::table) {
+    sol::table table = data_obj.as<sol::table>();
+    out.clear();
+    out.reserve(table.size());
+
+    for (size_t i = 1; i <= table.size(); ++i) {
+      sol::optional<uint32_t> value = table[i];
+      if (!value) {
+        return false;
+      }
+      out.push_back(static_cast<uint8_t>(*value & 0xFF));
+    }
+    return true;
+  }
+
+  return false;
+}
+
+std::string bytes_to_hex(const std::vector<uint8_t>& data, size_t group, const std::string& separator) {
+  if (data.empty()) {
+    return {};
+  }
+
+  std::string result;
+  size_t separator_reserve = 0;
+  if (group > 0) {
+    size_t slots = (data.size() - 1) / group;
+    if (!separator.empty()) {
+      separator_reserve = slots * separator.size();
+    } else {
+      separator_reserve = slots;
+    }
+  }
+
+  result.reserve(data.size() * 2 + separator_reserve);
+
+  for (size_t i = 0; i < data.size(); ++i) {
+    if (group > 0 && i > 0 && (i % group) == 0) {
+      if (!separator.empty()) {
+        result += separator;
+      } else {
+        result.push_back(' ');
+      }
+    }
+
+    uint8_t byte = data[i];
+    result.push_back(HEX_DIGITS[byte >> 4]);
+    result.push_back(HEX_DIGITS[byte & 0x0F]);
+  }
+
+  return result;
+}
+
+size_t auto_address_width(uint64_t base, size_t length) {
+  uint64_t last = length == 0 ? base : base + static_cast<uint64_t>(length - 1);
+  size_t width = 1;
+  while (last >= 16) {
+    last >>= 4;
+    ++width;
+  }
+  return std::clamp(width, static_cast<size_t>(4), static_cast<size_t>(16));
+}
+
+std::string build_hexdump(
+    const std::vector<uint8_t>& data, size_t line_width, size_t group, bool show_ascii, uint64_t base,
+    size_t address_width
+) {
+  if (data.empty()) {
+    return {};
+  }
+
+  size_t effective_width = std::max<size_t>(1, line_width);
+  std::ostringstream oss;
+  oss << std::hex << std::nouppercase;
+
+  size_t resolved_address_width = address_width == 0
+                                      ? auto_address_width(base, data.size())
+                                      : std::clamp(address_width, static_cast<size_t>(1), static_cast<size_t>(16));
+
+  for (size_t offset = 0; offset < data.size(); offset += effective_width) {
+    size_t chunk = std::min(effective_width, data.size() - offset);
+    oss << std::setw(resolved_address_width) << std::setfill('0') << (base + offset) << "  ";
+    oss << std::setfill(' ');
+
+    for (size_t i = 0; i < effective_width; ++i) {
+      if (i < chunk) {
+        uint8_t byte = data[offset + i];
+        oss << HEX_DIGITS[byte >> 4] << HEX_DIGITS[byte & 0x0F];
+      } else {
+        oss << "  ";
+      }
+
+      if (i + 1 < effective_width) {
+        oss << ' ';
+        if (group > 0 && ((i + 1) % group) == 0) {
+          oss << ' ';
+        }
+      }
+    }
+
+    if (show_ascii) {
+      oss << " |";
+      for (size_t i = 0; i < chunk; ++i) {
+        unsigned char c = data[offset + i];
+        oss << (std::isprint(c) ? static_cast<char>(c) : '.');
+      }
+      for (size_t i = chunk; i < effective_width; ++i) {
+        oss << ' ';
+      }
+      oss << '|';
+    }
+
+    if (offset + effective_width < data.size()) {
+      oss << '\n';
+    }
+  }
+
+  return oss.str();
+}
+
+} // namespace
 
 // forward declarations for internal functions
 static std::string serialize_lua_value(const sol::object& value, int depth = 0);
@@ -267,6 +420,101 @@ void setup_utilities(sol::state& lua, sol::table& w1_module) {
     auto end = str.find_last_not_of(" \t\n\r");
     return str.substr(start, end - start + 1);
   });
+
+  // === Formatting Helpers ===
+  // turn numbers and buffers into lowercase hex
+
+  w1_module.set_function(
+      "format_hex", [](sol::object value, sol::optional<sol::table> options) -> sol::optional<std::string> {
+        size_t width = 0;
+        bool prefix = false;
+        size_t group = 0;
+        std::string separator;
+
+        if (options) {
+          if (sol::optional<int64_t> opt_width = (*options)["width"]; opt_width && *opt_width > 0) {
+            width = static_cast<size_t>(*opt_width);
+          }
+          if (sol::optional<bool> opt_prefix = (*options)["prefix"]; opt_prefix) {
+            prefix = *opt_prefix;
+          }
+          if (sol::optional<std::string> opt_sep = (*options)["separator"]; opt_sep) {
+            separator = *opt_sep;
+          }
+          if (sol::optional<int64_t> opt_group = (*options)["group"]; opt_group && *opt_group > 0) {
+            group = static_cast<size_t>(*opt_group);
+          }
+        }
+
+        if (value.get_type() == sol::type::number) {
+          lua_Integer iv = value.as<lua_Integer>();
+          bool negative = iv < 0;
+          uint64_t magnitude = negative ? static_cast<uint64_t>(-iv) : static_cast<uint64_t>(iv);
+          std::string hex = format_integer_hex(magnitude, width);
+          if (prefix) {
+            hex.insert(0, "0x");
+          }
+          if (negative) {
+            hex.insert(hex.begin(), '-');
+          }
+          return sol::optional<std::string>(std::move(hex));
+        }
+
+        std::vector<uint8_t> bytes;
+        if (!extract_bytes(value, bytes)) {
+          return sol::nullopt;
+        }
+
+        size_t effective_group = group;
+        std::string effective_separator = separator;
+        if (effective_group == 0 && !effective_separator.empty()) {
+          effective_group = 1;
+        }
+        if (effective_group > 0 && effective_separator.empty()) {
+          effective_separator = " ";
+        }
+
+        std::string hex = bytes_to_hex(bytes, effective_group, effective_separator);
+        return sol::optional<std::string>(std::move(hex));
+      }
+  );
+
+  w1_module.set_function(
+      "hexdump", [](sol::object data, sol::optional<sol::table> options) -> sol::optional<std::string> {
+        std::vector<uint8_t> bytes;
+        if (!extract_bytes(data, bytes)) {
+          return sol::nullopt;
+        }
+
+        size_t line_width = 16;
+        size_t group = 8;
+        bool show_ascii = true;
+        uint64_t base = 0;
+        size_t address_width = 0;
+
+        if (options) {
+          if (sol::optional<int64_t> opt_width = (*options)["width"]; opt_width && *opt_width > 0) {
+            line_width = static_cast<size_t>(*opt_width);
+          }
+          if (sol::optional<int64_t> opt_group = (*options)["group"]; opt_group && *opt_group > 0) {
+            group = static_cast<size_t>(*opt_group);
+          }
+          if (sol::optional<bool> opt_ascii = (*options)["ascii"]; opt_ascii) {
+            show_ascii = *opt_ascii;
+          }
+          if (sol::optional<int64_t> opt_base = (*options)["base"]; opt_base) {
+            base = static_cast<uint64_t>(std::max<int64_t>(0, *opt_base));
+          }
+          if (sol::optional<int64_t> opt_addr_width = (*options)["address_width"];
+              opt_addr_width && *opt_addr_width > 0) {
+            address_width = static_cast<size_t>(*opt_addr_width);
+          }
+        }
+
+        std::string dump = build_hexdump(bytes, line_width, group, show_ascii, base, address_width);
+        return sol::optional<std::string>(std::move(dump));
+      }
+  );
 
   w1_module.set_function("stdin_read_line", [](sol::optional<std::string> prompt) -> sol::optional<std::string> {
     if (prompt && !prompt->empty()) {

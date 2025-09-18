@@ -13,6 +13,7 @@ namespace w1::tracers::script::bindings {
  * - Text and binary file I/O operations (read, write, append) for data exchange
  * - JSON serialization for converting Lua tables to JSON strings
  * - Timestamp helpers and flexible date/time formatting utilities
+ * - String helpers for escaping, trimming, and lowercase hex formatting/hexdumps
  * - Basic stdin helpers for interactive scripts
  *
  * These utilities enable Lua scripts to perform common operations like
