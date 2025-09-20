@@ -2,6 +2,7 @@
 .vscode/
 claude/
 CLAUDE.md
+AGENTS.md
 
 /*.drcov
 /*.json
