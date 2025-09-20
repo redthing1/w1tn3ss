@@ -2,7 +2,9 @@
 #include <w1tn3ss/formats/drcov.hpp>
 #include <w1tn3ss/util/register_access.hpp>
 #include <redlog.hpp>
+#include <algorithm>
 #include <fstream>
+#include <limits>
 
 namespace w1cov {
 
@@ -96,8 +98,17 @@ QBDI::VMAction coverage_tracer::on_instruction_preinst_manual(
     return QBDI::VMAction::CONTINUE;
   }
 
-  // instruction size is typically small (1-15 bytes on x86)
-  uint16_t inst_size = 1; // default to 1 byte, could be refined with analysis
+  uint16_t inst_size = 1;
+
+  // if (auto* vm_ptr = static_cast<QBDI::VM*>(vm)) {
+  //   const QBDI::InstAnalysis* analysis = vm_ptr->getInstAnalysis(QBDI::ANALYSIS_INSTRUCTION);
+  //   if (analysis && analysis->instSize > 0) {
+  //     inst_size = static_cast<uint16_t>(std::min<uint32_t>(analysis->instSize, std::numeric_limits<uint16_t>::max()));
+  //   }
+  // }
+
+  // let's just use block size 1 to avoid inst analysis overhead
+  // this also is a sentinel value indicating inst trace
 
   record_coverage_at_address(inst_addr, inst_size);
 
