@@ -8,11 +8,8 @@
 
 namespace w1::abi::conventions {
 
-x86_stack_reader::x86_stack_reader(
-    const calling_convention_base::extraction_context& ctx, size_t initial_offset_bytes
-)
-    : ctx_(ctx),
-      base_((static_cast<uint64_t>(ctx.gpr->esp) & 0xFFFFFFFFULL) + initial_offset_bytes) {}
+x86_stack_reader::x86_stack_reader(const calling_convention_base::extraction_context& ctx, size_t initial_offset_bytes)
+    : ctx_(ctx), base_((static_cast<uint64_t>(ctx.gpr->esp) & 0xFFFFFFFFULL) + initial_offset_bytes) {}
 
 uint32_t x86_stack_reader::read_u32(size_t relative_offset) const {
   uint64_t addr = (base_ + relative_offset) & 0xFFFFFFFFULL;
@@ -60,7 +57,7 @@ void x86_stack_reader::pop_bytes(uint8_t* dest, size_t size, size_t* stack_offse
 x86_calling_convention::register_sources x86_calling_convention::collect_registers(
     const extraction_context& ctx
 ) const {
-  (void)ctx;
+  (void) ctx;
   return {};
 }
 
@@ -215,14 +212,14 @@ uint64_t x86_calling_convention::get_integer_return(const QBDI::GPRState* gpr) c
 }
 
 double x86_calling_convention::get_float_return(const QBDI::FPRState* fpr) const {
-  (void)fpr;
+  (void) fpr;
   return 0.0;
 }
 
 calling_convention_base::typed_arg x86_calling_convention::get_typed_return(
     const QBDI::GPRState* gpr, const QBDI::FPRState* fpr, arg_type type
 ) const {
-  (void)fpr;
+  (void) fpr;
 
   typed_arg ret{};
   ret.type = type;
@@ -254,13 +251,9 @@ calling_convention_base::typed_arg x86_calling_convention::get_typed_return(
   return ret;
 }
 
-uint64_t x86_calling_convention::get_stack_pointer(const QBDI::GPRState* gpr) const {
-  return gpr->esp & 0xFFFFFFFFULL;
-}
+uint64_t x86_calling_convention::get_stack_pointer(const QBDI::GPRState* gpr) const { return gpr->esp & 0xFFFFFFFFULL; }
 
-uint64_t x86_calling_convention::get_frame_pointer(const QBDI::GPRState* gpr) const {
-  return gpr->ebp & 0xFFFFFFFFULL;
-}
+uint64_t x86_calling_convention::get_frame_pointer(const QBDI::GPRState* gpr) const { return gpr->ebp & 0xFFFFFFFFULL; }
 
 size_t x86_calling_convention::get_stack_alignment() const { return 4; }
 
@@ -268,9 +261,7 @@ uint64_t x86_calling_convention::get_return_address_location(const QBDI::GPRStat
   return gpr->esp & 0xFFFFFFFFULL;
 }
 
-std::vector<uint64_t> x86_calling_convention::extract_integer_args(
-    const extraction_context& ctx, size_t count
-) const {
+std::vector<uint64_t> x86_calling_convention::extract_integer_args(const extraction_context& ctx, size_t count) const {
   return extract_integer_args_common(ctx, count);
 }
 
@@ -280,22 +271,18 @@ std::vector<calling_convention_base::typed_arg> x86_calling_convention::extract_
   return extract_typed_args_common(ctx, types);
 }
 
-std::vector<double> x86_calling_convention::extract_float_args(
-    const extraction_context& ctx, size_t count
-) const {
+std::vector<double> x86_calling_convention::extract_float_args(const extraction_context& ctx, size_t count) const {
   return extract_float_args_common(ctx, count);
 }
 
 void x86_calling_convention::set_integer_args(
-    QBDI::GPRState*, const std::vector<uint64_t>&,
-    std::function<void(uint64_t, uint64_t)>
+    QBDI::GPRState*, const std::vector<uint64_t>&, std::function<void(uint64_t, uint64_t)>
 ) const {
   throw_unimplemented("setting integer arguments");
 }
 
 void x86_calling_convention::set_typed_args(
-    QBDI::GPRState*, QBDI::FPRState*, const std::vector<typed_arg>&,
-    std::function<void(uint64_t, uint64_t)>
+    QBDI::GPRState*, QBDI::FPRState*, const std::vector<typed_arg>&, std::function<void(uint64_t, uint64_t)>
 ) const {
   throw_unimplemented("setting typed arguments");
 }

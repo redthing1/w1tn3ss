@@ -103,7 +103,8 @@ QBDI::VMAction coverage_tracer::on_instruction_preinst_manual(
   // if (auto* vm_ptr = static_cast<QBDI::VM*>(vm)) {
   //   const QBDI::InstAnalysis* analysis = vm_ptr->getInstAnalysis(QBDI::ANALYSIS_INSTRUCTION);
   //   if (analysis && analysis->instSize > 0) {
-  //     inst_size = static_cast<uint16_t>(std::min<uint32_t>(analysis->instSize, std::numeric_limits<uint16_t>::max()));
+  //     inst_size = static_cast<uint16_t>(std::min<uint32_t>(analysis->instSize,
+  //     std::numeric_limits<uint16_t>::max()));
   //   }
   // }
 

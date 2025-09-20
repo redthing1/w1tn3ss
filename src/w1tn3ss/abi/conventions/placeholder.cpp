@@ -5,11 +5,7 @@
 namespace w1::abi::conventions {
 
 placeholder_calling_convention::placeholder_calling_convention(
-    calling_convention_id id,
-    std::string name,
-    architecture arch,
-    std::string description,
-    stack_cleanup cleanup
+    calling_convention_id id, std::string name, architecture arch, std::string description, stack_cleanup cleanup
 )
     : id_(id), name_(std::move(name)), arch_(arch), description_(std::move(description)), cleanup_(cleanup) {}
 
@@ -21,9 +17,7 @@ architecture placeholder_calling_convention::get_architecture() const { return a
 
 std::string placeholder_calling_convention::get_description() const { return description_; }
 
-std::vector<uint64_t> placeholder_calling_convention::extract_integer_args(
-    const extraction_context&, size_t
-) const {
+std::vector<uint64_t> placeholder_calling_convention::extract_integer_args(const extraction_context&, size_t) const {
   throw_not_supported("extract_integer_args");
 }
 
@@ -73,32 +67,24 @@ std::optional<calling_convention_base::variadic_info> placeholder_calling_conven
   return std::nullopt;
 }
 
-calling_convention_base::register_info placeholder_calling_convention::get_register_info() const {
-  return {};
-}
+calling_convention_base::register_info placeholder_calling_convention::get_register_info() const { return {}; }
 
 bool placeholder_calling_convention::is_native_for_current_platform() const { return false; }
 
-calling_convention_base::stack_cleanup placeholder_calling_convention::get_stack_cleanup() const {
-  return cleanup_;
-}
+calling_convention_base::stack_cleanup placeholder_calling_convention::get_stack_cleanup() const { return cleanup_; }
 
-std::vector<double> placeholder_calling_convention::extract_float_args(
-    const extraction_context&, size_t
-) const {
+std::vector<double> placeholder_calling_convention::extract_float_args(const extraction_context&, size_t) const {
   throw_not_supported("extract_float_args");
 }
 
 void placeholder_calling_convention::set_integer_args(
-    QBDI::GPRState*, const std::vector<uint64_t>&,
-    std::function<void(uint64_t, uint64_t)>
+    QBDI::GPRState*, const std::vector<uint64_t>&, std::function<void(uint64_t, uint64_t)>
 ) const {
   throw_not_supported("set_integer_args");
 }
 
 void placeholder_calling_convention::set_typed_args(
-    QBDI::GPRState*, QBDI::FPRState*, const std::vector<typed_arg>&,
-    std::function<void(uint64_t, uint64_t)>
+    QBDI::GPRState*, QBDI::FPRState*, const std::vector<typed_arg>&, std::function<void(uint64_t, uint64_t)>
 ) const {
   throw_not_supported("set_typed_args");
 }
@@ -119,17 +105,13 @@ void placeholder_calling_convention::set_float_return(QBDI::FPRState*, double) c
 
 unknown_calling_convention::unknown_calling_convention()
     : placeholder_calling_convention(
-          calling_convention_id::UNKNOWN,
-          "unknown calling convention",
-          architecture::UNKNOWN,
+          calling_convention_id::UNKNOWN, "unknown calling convention", architecture::UNKNOWN,
           "Placeholder for unresolved calling conventions"
       ) {}
 
 custom_calling_convention::custom_calling_convention()
     : placeholder_calling_convention(
-          calling_convention_id::CUSTOM,
-          "custom calling convention",
-          architecture::UNKNOWN,
+          calling_convention_id::CUSTOM, "custom calling convention", architecture::UNKNOWN,
           "User-defined calling convention placeholder"
       ) {}
 

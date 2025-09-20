@@ -63,15 +63,13 @@ QBDI::VMAction memory_tracer::on_instruction_postinst(
 
       if (access.type & QBDI::MEMORY_READ) {
         collector_.record_memory_access(
-            instruction_addr, access.accessAddress, access.size, /*access_type=*/1, captured_value,
-            should_report_value
+            instruction_addr, access.accessAddress, access.size, /*access_type=*/1, captured_value, should_report_value
         );
       }
 
       if (access.type & QBDI::MEMORY_WRITE) {
         collector_.record_memory_access(
-            instruction_addr, access.accessAddress, access.size, /*access_type=*/2, captured_value,
-            should_report_value
+            instruction_addr, access.accessAddress, access.size, /*access_type=*/2, captured_value, should_report_value
         );
       }
     }

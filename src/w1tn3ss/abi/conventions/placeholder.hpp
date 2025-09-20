@@ -9,10 +9,7 @@ namespace w1::abi::conventions {
 class placeholder_calling_convention : public calling_convention_base {
 public:
   placeholder_calling_convention(
-      calling_convention_id id,
-      std::string name,
-      architecture arch,
-      std::string description,
+      calling_convention_id id, std::string name, architecture arch, std::string description,
       stack_cleanup cleanup = stack_cleanup::CALLER
   );
 
@@ -39,9 +36,7 @@ public:
   uint64_t get_return_address_location(const QBDI::GPRState* gpr) const override;
 
   bool supports_varargs() const override;
-  std::optional<variadic_info> get_variadic_info(
-      const extraction_context& ctx, size_t fixed_arg_count
-  ) const override;
+  std::optional<variadic_info> get_variadic_info(const extraction_context& ctx, size_t fixed_arg_count) const override;
 
   register_info get_register_info() const override;
   bool is_native_for_current_platform() const override;

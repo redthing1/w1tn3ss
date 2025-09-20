@@ -5,9 +5,7 @@
 
 namespace w1::abi::conventions {
 
-std::vector<uint64_t> arm32_aapcs::extract_integer_args(
-    const extraction_context& ctx, size_t count
-) const {
+std::vector<uint64_t> arm32_aapcs::extract_integer_args(const extraction_context& ctx, size_t count) const {
   std::vector<uint64_t> args;
   args.reserve(count);
 
@@ -102,9 +100,12 @@ std::vector<arm32_aapcs::typed_arg> arm32_aapcs::extract_typed_args(
 
     case arg_type::FLOAT: {
       uint32_t bits = (reg_idx < 4) ? static_cast<uint32_t>(
-                                (reg_idx == 0 ? ctx.gpr->r0 : reg_idx == 1 ? ctx.gpr->r1 : reg_idx == 2 ? ctx.gpr->r2 : ctx.gpr->r3)
-                            )
-                            : read_stack32(arg);
+                                          (reg_idx == 0   ? ctx.gpr->r0
+                                           : reg_idx == 1 ? ctx.gpr->r1
+                                           : reg_idx == 2 ? ctx.gpr->r2
+                                                          : ctx.gpr->r3)
+                                      )
+                                    : read_stack32(arg);
       if (reg_idx < 4) {
         reg_idx++;
       }
@@ -171,9 +172,7 @@ calling_convention_base::typed_arg arm32_aapcs::get_typed_return(
   return ret;
 }
 
-std::optional<arm32_aapcs::variadic_info> arm32_aapcs::get_variadic_info(
-    const extraction_context&, size_t
-) const {
+std::optional<arm32_aapcs::variadic_info> arm32_aapcs::get_variadic_info(const extraction_context&, size_t) const {
   return std::nullopt;
 }
 
@@ -196,9 +195,7 @@ bool arm32_aapcs::is_native_for_current_platform() const {
 #endif
 }
 
-std::vector<double> arm32_aapcs::extract_float_args(
-    const extraction_context& ctx, size_t count
-) const {
+std::vector<double> arm32_aapcs::extract_float_args(const extraction_context& ctx, size_t count) const {
   std::vector<double> result;
   result.reserve(count);
 
@@ -217,29 +214,23 @@ std::vector<double> arm32_aapcs::extract_float_args(
 }
 
 void arm32_aapcs::set_integer_args(
-    QBDI::GPRState*, const std::vector<uint64_t>&,
-    std::function<void(uint64_t, uint64_t)>
+    QBDI::GPRState*, const std::vector<uint64_t>&, std::function<void(uint64_t, uint64_t)>
 ) const {
-  throw std::runtime_error(
-      "arm32 AAPCS calling convention is not yet implemented for gadget execution."
-  );
+  throw std::runtime_error("arm32 AAPCS calling convention is not yet implemented for gadget execution.");
 }
 
 void arm32_aapcs::set_typed_args(
-    QBDI::GPRState*, QBDI::FPRState*, const std::vector<typed_arg>&,
-    std::function<void(uint64_t, uint64_t)>
+    QBDI::GPRState*, QBDI::FPRState*, const std::vector<typed_arg>&, std::function<void(uint64_t, uint64_t)>
 ) const {
-  throw std::runtime_error(
-      "arm32 AAPCS calling convention is not yet implemented for gadget execution."
-  );
+  throw std::runtime_error("arm32 AAPCS calling convention is not yet implemented for gadget execution.");
 }
 
-void arm32_aapcs::set_integer_return(QBDI::GPRState* gpr, uint64_t value) const { gpr->r0 = static_cast<uint32_t>(value); }
+void arm32_aapcs::set_integer_return(QBDI::GPRState* gpr, uint64_t value) const {
+  gpr->r0 = static_cast<uint32_t>(value);
+}
 
 void arm32_aapcs::set_float_return(QBDI::FPRState*, double) const {
-  throw std::runtime_error(
-      "arm32 AAPCS calling convention is not yet implemented for gadget execution."
-  );
+  throw std::runtime_error("arm32 AAPCS calling convention is not yet implemented for gadget execution.");
 }
 
 } // namespace w1::abi::conventions

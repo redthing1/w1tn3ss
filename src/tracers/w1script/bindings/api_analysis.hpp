@@ -60,12 +60,8 @@ public:
   abi::api_listener* get_listener() { return listener_.get(); }
 
   // process exec_transfer events directly (absorbed from api_processor)
-  void process_call(
-      QBDI::VM* vm, const QBDI::VMState* state, QBDI::GPRState* gpr, QBDI::FPRState* fpr
-  );
-  void process_return(
-      QBDI::VM* vm, const QBDI::VMState* state, QBDI::GPRState* gpr, QBDI::FPRState* fpr
-  );
+  void process_call(QBDI::VM* vm, const QBDI::VMState* state, QBDI::GPRState* gpr, QBDI::FPRState* fpr);
+  void process_return(QBDI::VM* vm, const QBDI::VMState* state, QBDI::GPRState* gpr, QBDI::FPRState* fpr);
 
   // cleanup
   void shutdown();

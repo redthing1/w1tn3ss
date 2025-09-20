@@ -19,8 +19,7 @@ template <typename T> bool write_scalar(uint64_t address, const T& value) {
   return true;
 }
 
-template <typename T, typename Value>
-bool write_integral(uint64_t address, Value value) {
+template <typename T, typename Value> bool write_integral(uint64_t address, Value value) {
   if (value < static_cast<Value>(std::numeric_limits<T>::min()) ||
       value > static_cast<Value>(std::numeric_limits<T>::max())) {
     return false;

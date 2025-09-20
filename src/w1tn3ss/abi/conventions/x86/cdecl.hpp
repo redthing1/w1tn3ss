@@ -16,9 +16,7 @@ public:
   std::string get_description() const override { return "c calling convention for 32-bit x86"; }
 
   bool supports_varargs() const override { return true; }
-  std::optional<variadic_info> get_variadic_info(
-      const extraction_context& ctx, size_t fixed_arg_count
-  ) const override;
+  std::optional<variadic_info> get_variadic_info(const extraction_context& ctx, size_t fixed_arg_count) const override;
 
   register_info get_register_info() const override;
 

@@ -121,12 +121,8 @@ void setup_vm_core(sol::state& lua, sol::table& w1_module) {
       // Analysis
       "getInstAnalysis",
       sol::overload(
-          [](QBDI::VM* vm) {
-            return vm->getInstAnalysis();
-          },
-          [](QBDI::VM* vm, QBDI::AnalysisType type) {
-            return vm->getInstAnalysis(type);
-          }
+          [](QBDI::VM* vm) { return vm->getInstAnalysis(); },
+          [](QBDI::VM* vm, QBDI::AnalysisType type) { return vm->getInstAnalysis(type); }
       ),
       "getCachedInstAnalysis",
       sol::overload(

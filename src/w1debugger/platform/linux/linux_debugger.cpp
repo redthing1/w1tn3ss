@@ -13,12 +13,8 @@ std::unique_ptr<session> session_launch(const std::string& path, const config& c
   return nullptr;
 }
 
-std::vector<process_info> list_processes() {
-  return {};
-}
+std::vector<process_info> list_processes() { return {}; }
 
-bool check_debugger_capability() {
-  return false;
-}
+bool check_debugger_capability() { return false; }
 
 } // namespace w1::debugger::linux_os

@@ -12,17 +12,13 @@ public:
   calling_convention_id get_id() const override { return calling_convention_id::X86_VECTORCALL; }
   std::string get_name() const override { return "x86 vectorcall"; }
   architecture get_architecture() const override { return architecture::X86; }
-  std::string get_description() const override {
-    return "vectorcall convention (vector-friendly microsoft extension)";
-  }
+  std::string get_description() const override { return "vectorcall convention (vector-friendly microsoft extension)"; }
 
   double get_float_return(const QBDI::FPRState* fpr) const override;
   typed_arg get_typed_return(const QBDI::GPRState* gpr, const QBDI::FPRState* fpr, arg_type type) const override;
 
   bool supports_varargs() const override { return false; }
-  std::optional<variadic_info> get_variadic_info(
-      const extraction_context& ctx, size_t fixed_arg_count
-  ) const override;
+  std::optional<variadic_info> get_variadic_info(const extraction_context& ctx, size_t fixed_arg_count) const override;
 
   register_info get_register_info() const override;
 

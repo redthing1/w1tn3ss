@@ -2,9 +2,7 @@
 
 namespace w1::abi::conventions {
 
-std::optional<x86_stdcall::variadic_info> x86_stdcall::get_variadic_info(
-    const extraction_context&, size_t
-) const {
+std::optional<x86_stdcall::variadic_info> x86_stdcall::get_variadic_info(const extraction_context&, size_t) const {
   return std::nullopt;
 }
 

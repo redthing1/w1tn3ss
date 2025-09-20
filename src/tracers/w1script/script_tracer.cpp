@@ -27,37 +27,37 @@ bool script_tracer::initialize(w1::tracer_engine<script_tracer>& engine) {
   if (!setup_configuration()) {
     return false;
   }
-  
+
   // 2. core components: vm, hook manager, gadget executor, api manager
   if (!setup_vm_and_core_components(engine)) {
     return false;
   }
-  
+
   // 3. module analysis: needed by api manager
   if (!setup_module_analysis()) {
     return false;
   }
-  
+
   // 4. lua environment with basic bindings
   if (!initialize_lua_environment()) {
     return false;
   }
-  
+
   // 5. load and initialize script
   if (!load_and_initialize_script()) {
     return false;
   }
-  
+
   // 6. callback registration based on script
   if (!setup_callback_registration()) {
     return false;
   }
-  
+
   // 7. final vm configuration based on callbacks
   if (!finalize_vm_configuration()) {
     return false;
   }
-  
+
   logger_.inf("initialization complete");
   return true;
 }
@@ -72,7 +72,7 @@ bool script_tracer::setup_configuration() {
     logger_.err("invalid configuration. W1SCRIPT_SCRIPT must be specified.");
     return false;
   }
-  
+
   logger_.inf("initializing with lua support");
   logger_.inf("script path", redlog::field("path", cfg_.script_path));
   return true;
@@ -96,7 +96,7 @@ bool script_tracer::setup_vm_and_core_components(w1::tracer_engine<script_tracer
 
   // create api analysis manager
   api_manager_ = std::make_shared<bindings::api_analysis_manager>();
-  
+
   return true;
 }
 
@@ -125,7 +125,7 @@ bool script_tracer::initialize_lua_environment() {
   // using a dummy table for now since script isn't loaded yet
   sol::table dummy_table = lua_.create_table();
   setup_qbdi_bindings(lua_, dummy_table, api_manager_, hook_manager_, gadget_executor_);
-  
+
   logger_.dbg("lua environment initialized with core bindings");
   return true;
 }
@@ -159,7 +159,7 @@ bool script_tracer::load_and_initialize_script() {
       return false;
     }
   }
-  
+
   return true;
 }
 
@@ -180,7 +180,7 @@ bool script_tracer::setup_module_analysis() {
     logger_.dbg("initializing api manager with module index");
     api_manager_->initialize(*module_index_, symbol_resolver_.get());
   }
-  
+
   return true;
 }
 
@@ -213,7 +213,7 @@ bool script_tracer::setup_callback_registration() {
     // register callbacks with qbdi vm
     callback_manager_->register_callbacks(vm_);
   }
-  
+
   return true;
 }
 
@@ -222,7 +222,7 @@ bool script_tracer::finalize_vm_configuration() {
   if (callback_manager_->is_callback_enabled(callback_manager::callback_type::memory_read) ||
       callback_manager_->is_callback_enabled(callback_manager::callback_type::memory_write) ||
       callback_manager_->is_callback_enabled(callback_manager::callback_type::memory_read_write)) {
-    
+
     bool memory_recording_enabled = vm_->recordMemoryAccess(QBDI::MEMORY_READ_WRITE);
     if (memory_recording_enabled) {
       logger_.dbg("memory recording enabled for script");
@@ -230,7 +230,7 @@ bool script_tracer::finalize_vm_configuration() {
       logger_.wrn("memory recording not supported on this platform");
     }
   }
-  
+
   return true;
 }
 

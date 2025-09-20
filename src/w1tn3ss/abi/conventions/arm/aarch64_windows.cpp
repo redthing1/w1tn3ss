@@ -4,9 +4,7 @@
 
 namespace w1::abi::conventions {
 
-std::vector<uint64_t> aarch64_windows::extract_integer_args(
-    const extraction_context& ctx, size_t count
-) const {
+std::vector<uint64_t> aarch64_windows::extract_integer_args(const extraction_context& ctx, size_t count) const {
   std::vector<uint64_t> args;
   args.reserve(count);
 
@@ -230,9 +228,7 @@ std::vector<aarch64_windows::typed_arg> aarch64_windows::extract_typed_args(
   return args;
 }
 
-std::vector<double> aarch64_windows::extract_float_args(
-    const extraction_context& ctx, size_t count
-) const {
+std::vector<double> aarch64_windows::extract_float_args(const extraction_context& ctx, size_t count) const {
   std::vector<double> result;
   result.reserve(count);
 
@@ -273,11 +269,14 @@ std::optional<aarch64_windows::variadic_info> aarch64_windows::get_variadic_info
 calling_convention_base::register_info aarch64_windows::get_register_info() const {
   return {
       .callee_saved_gpr = {"x19", "x20", "x21", "x22", "x23", "x24", "x25", "x26", "x27", "x28", "x29"},
-      .caller_saved_gpr = {"x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8", "x9", "x10", "x11", "x12", "x13", "x14", "x15", "x16", "x17", "x18", "lr"},
+      .caller_saved_gpr = {"x0",  "x1",  "x2",  "x3",  "x4",  "x5",  "x6",  "x7",  "x8",  "x9",
+                           "x10", "x11", "x12", "x13", "x14", "x15", "x16", "x17", "x18", "lr"},
       .callee_saved_fpr = {"v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15"},
       .caller_saved_fpr = {"v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7"},
       .return_register = "x0",
-      .argument_registers = {"x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7", "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7"}
+      .argument_registers = {
+          "x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7", "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7"
+      }
   };
 }
 

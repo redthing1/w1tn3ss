@@ -54,9 +54,7 @@ protected:
 public:
   uint64_t get_integer_return(const QBDI::GPRState* gpr) const override;
   double get_float_return(const QBDI::FPRState* fpr) const override;
-  typed_arg get_typed_return(
-      const QBDI::GPRState* gpr, const QBDI::FPRState* fpr, arg_type type
-  ) const override;
+  typed_arg get_typed_return(const QBDI::GPRState* gpr, const QBDI::FPRState* fpr, arg_type type) const override;
 
   uint64_t get_stack_pointer(const QBDI::GPRState* gpr) const override;
   uint64_t get_frame_pointer(const QBDI::GPRState* gpr) const override;

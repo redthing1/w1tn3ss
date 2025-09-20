@@ -6,9 +6,7 @@
 
 namespace w1::abi::conventions {
 
-x86_calling_convention::register_sources x86_vectorcall::collect_registers(
-    const extraction_context& ctx
-) const {
+x86_calling_convention::register_sources x86_vectorcall::collect_registers(const extraction_context& ctx) const {
   register_sources regs{};
   regs.integer.push_back(ctx.gpr->ecx & 0xFFFFFFFFULL);
   regs.integer.push_back(ctx.gpr->edx & 0xFFFFFFFFULL);
@@ -22,9 +20,7 @@ x86_calling_convention::register_sources x86_vectorcall::collect_registers(
   return regs;
 }
 
-double x86_vectorcall::get_float_return(const QBDI::FPRState* fpr) const {
-  return get_xmm_double(fpr, 0);
-}
+double x86_vectorcall::get_float_return(const QBDI::FPRState* fpr) const { return get_xmm_double(fpr, 0); }
 
 x86_vectorcall::typed_arg x86_vectorcall::get_typed_return(
     const QBDI::GPRState* gpr, const QBDI::FPRState* fpr, arg_type type

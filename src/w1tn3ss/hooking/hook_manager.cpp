@@ -178,7 +178,8 @@ const w1::util::module_info* hook_manager::find_module_with_extensions(
     module_info = module_index.find_by_name(module_name + ext);
     if (module_info) {
       log_.dbg(
-          "module found with extension", redlog::field("requested", module_name), redlog::field("found", module_info->name)
+          "module found with extension", redlog::field("requested", module_name),
+          redlog::field("found", module_info->name)
       );
       return module_info;
     }

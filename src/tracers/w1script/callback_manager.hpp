@@ -104,9 +104,7 @@ public:
    * set api analysis manager for exec_transfer callbacks
    * @param api_manager The API analysis manager
    */
-  void set_api_analysis_manager(bindings::api_analysis_manager* api_manager) {
-    api_manager_ = api_manager;
-  }
+  void set_api_analysis_manager(bindings::api_analysis_manager* api_manager) { api_manager_ = api_manager; }
 
   /**
    * check if a callback is enabled

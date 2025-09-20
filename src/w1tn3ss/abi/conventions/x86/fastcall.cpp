@@ -2,18 +2,14 @@
 
 namespace w1::abi::conventions {
 
-x86_calling_convention::register_sources x86_fastcall::collect_registers(
-    const extraction_context& ctx
-) const {
+x86_calling_convention::register_sources x86_fastcall::collect_registers(const extraction_context& ctx) const {
   register_sources regs{};
   regs.integer.push_back(ctx.gpr->ecx & 0xFFFFFFFFULL);
   regs.integer.push_back(ctx.gpr->edx & 0xFFFFFFFFULL);
   return regs;
 }
 
-std::optional<x86_fastcall::variadic_info> x86_fastcall::get_variadic_info(
-    const extraction_context&, size_t
-) const {
+std::optional<x86_fastcall::variadic_info> x86_fastcall::get_variadic_info(const extraction_context&, size_t) const {
   return std::nullopt;
 }
 
