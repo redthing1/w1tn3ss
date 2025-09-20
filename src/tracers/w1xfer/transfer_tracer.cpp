@@ -29,8 +29,8 @@ bool transfer_tracer::initialize(w1::tracer_engine<transfer_tracer>& engine) {
     return false;
   }
 
-  // initialize module tracking for fast module name lookup
-  if (config_.log_call_targets) {
+  // initialize module tracking for features that depend on module metadata
+  if (config_.log_call_targets || config_.analyze_apis) {
     log_.inf("initializing module tracking");
     collector_.initialize_module_tracking();
     log_.inf("module tracking initialized");
