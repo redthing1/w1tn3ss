@@ -13,7 +13,6 @@
 #include "bindings/memory_analysis.hpp"
 #include "bindings/module_analysis.hpp"
 #include "bindings/utilities.hpp"
-#include "bindings/callback_system.hpp"
 #include "bindings/api_analysis.hpp"
 #include "bindings/hooking.hpp"
 #include "bindings/signature_scanning.hpp"
@@ -45,7 +44,6 @@ namespace w1::tracers::script {
  * - VM control and instruction analysis
  * - memory access and analysis
  * - utility functions (logging, file i/o, json, timestamps)
- * - callback system for comprehensive qbdi instrumentation
  * - api analysis for semantic API monitoring
  *
  * the bindings are organized into logical modules to improve maintainability

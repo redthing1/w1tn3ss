@@ -3,6 +3,8 @@
 #include <redlog.hpp>
 #include <cstring>
 #include <limits>
+#include <unordered_map>
+#include <vector>
 
 namespace w1::tracers::script::bindings {
 
@@ -32,6 +34,57 @@ template <typename T, typename Value> bool write_integral(uint64_t address, Valu
 void setup_memory_access(sol::state& lua, sol::table& w1_module) {
   auto logger = redlog::get_logger("w1.script_bindings");
   logger.dbg("setting up safe memory access functions");
+
+  // helper to fetch instruction-scoped memory accesses
+  w1_module.set_function("get_memory_accesses", [&lua](QBDI::VM* vm) -> sol::table {
+    if (vm == nullptr) {
+      throw sol::error("w1.get_memory_accesses called with nil vm");
+    }
+
+    auto log = redlog::get_logger("w1.script_bindings");
+    static std::unordered_map<QBDI::VM*, bool> recording_state;
+
+    auto [it, inserted] = recording_state.emplace(vm, false);
+    if (inserted) {
+      bool enabled = vm->recordMemoryAccess(QBDI::MEMORY_READ_WRITE);
+      it->second = enabled;
+      if (enabled) {
+        log.dbg("enabled memory access recording for vm", redlog::field("vm", reinterpret_cast<uintptr_t>(vm)));
+      }
+    }
+
+    if (!it->second) {
+      throw sol::error("platform does not support memory access recording");
+    }
+
+    std::vector<QBDI::MemoryAccess> accesses = vm->getInstMemoryAccess();
+
+    sol::state_view lua_view = lua.lua_state();
+    sol::table result = lua_view.create_table(accesses.size(), 0);
+    for (size_t i = 0; i < accesses.size(); ++i) {
+      const auto& access = accesses[i];
+      sol::table entry = lua_view.create_table();
+
+      bool is_read = (access.type & QBDI::MEMORY_READ) != 0;
+      bool is_write = (access.type & QBDI::MEMORY_WRITE) != 0;
+      bool value_known = (access.flags & QBDI::MEMORY_UNKNOWN_VALUE) == 0;
+
+      entry["address"] = access.accessAddress;
+      entry["access_address"] = access.accessAddress;
+      entry["inst_address"] = access.instAddress;
+      entry["size"] = static_cast<uint32_t>(access.size);
+      entry["type"] = static_cast<int>(access.type);
+      entry["flags"] = static_cast<int>(access.flags);
+      entry["is_read"] = is_read;
+      entry["is_write"] = is_write;
+      entry["value_known"] = value_known;
+      entry["value"] = value_known ? sol::make_object(lua_view, access.value) : sol::lua_nil;
+
+      result[i + 1] = entry;
+    }
+
+    return result;
+  });
 
   // safe memory read
   w1_module.set_function("read_mem", [&lua](QBDI::VM* vm, uint64_t address, size_t size) -> sol::optional<sol::table> {

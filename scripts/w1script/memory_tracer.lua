@@ -26,7 +26,12 @@ function tracer.on_instruction_postinst(vm, gpr, fpr)
         local instruction = w1.get_disassembly(vm)
         
         for _, access in ipairs(memory_accesses) do
-            local formatted_value = w1.format_memory_value(access.value, access.size)
+            local formatted_value
+            if access.value ~= nil then
+                formatted_value = w1.format_memory_value(access.value, access.size)
+            else
+                formatted_value = "<??>"
+            end
             
             if access.is_read then
                 read_count = read_count + 1
