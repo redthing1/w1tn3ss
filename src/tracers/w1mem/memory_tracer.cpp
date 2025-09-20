@@ -24,7 +24,8 @@ bool memory_tracer::initialize(w1::tracer_engine<memory_tracer>& engine) {
   // enable memory access recording
   memory_recording_enabled_ = vm->recordMemoryAccess(QBDI::MEMORY_READ_WRITE);
   if (!memory_recording_enabled_) {
-    log_.warn("memory recording not supported on this platform, using callback fallback");
+    log_.err("recordMemoryAccess failed, unable to enable memory tracing");
+    return false;
   }
 
   log_.inf(
@@ -56,23 +57,21 @@ QBDI::VMAction memory_tracer::on_instruction_postinst(
 
     // record each memory access
     for (const auto& access : accesses) {
-      uint8_t access_type = 0;
+      bool value_known = !(access.flags & QBDI::MEMORY_UNKNOWN_VALUE);
+      uint64_t captured_value = (config_.record_values && value_known) ? access.value : 0;
+      bool should_report_value = config_.record_values && value_known;
+
       if (access.type & QBDI::MEMORY_READ) {
-        access_type = 1;
-      } else if (access.type & QBDI::MEMORY_WRITE) {
-        access_type = 2;
+        collector_.record_memory_access(
+            instruction_addr, access.accessAddress, access.size, /*access_type=*/1, captured_value,
+            should_report_value
+        );
       }
 
-      if (access_type > 0) {
-        // check if value is valid (not flagged as unknown)
-        bool value_valid = !(access.flags & QBDI::MEMORY_UNKNOWN_VALUE);
-
-        // use default value of 0 if not recording values
-        uint64_t value = config_.record_values ? access.value : 0;
-        bool report_valid = config_.record_values ? value_valid : false;
-
+      if (access.type & QBDI::MEMORY_WRITE) {
         collector_.record_memory_access(
-            instruction_addr, access.accessAddress, access.size, access_type, value, report_valid
+            instruction_addr, access.accessAddress, access.size, /*access_type=*/2, captured_value,
+            should_report_value
         );
       }
     }
