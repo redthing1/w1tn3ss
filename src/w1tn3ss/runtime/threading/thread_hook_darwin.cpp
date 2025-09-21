@@ -4,12 +4,16 @@
 
 #include <redlog.hpp>
 
+#include <array>
 #include <cstring>
 #include <dlfcn.h>
 #include <errno.h>
 #include <mach-o/dyld.h>
 #include <memory>
 #include <pthread.h>
+#if __has_include(<pthread/pthread_spis.h>)
+#include <pthread/pthread_spis.h>
+#endif
 #include <plthook.h>
 
 namespace w1::runtime::threading::hooking {
@@ -17,17 +21,22 @@ namespace w1::runtime::threading::hooking {
 namespace detail {
 
 using pthread_create_fn = int (*)(pthread_t*, const pthread_attr_t*, thread_start_fn, void*);
+using bsdthread_create_fn = int (*)(void*, void*, void*, void*, uint32_t);
 
-pthread_create_fn g_original_pthread_create = nullptr;
-bool g_add_image_callback_registered = false;
+int pthread_create_hook(pthread_t* thread, const pthread_attr_t* attr, thread_start_fn start_routine, void* arg);
+int pthread_create_suspended_np_hook(
+    pthread_t* thread, const pthread_attr_t* attr, thread_start_fn start_routine, void* arg
+);
+int pthread_create_from_mach_thread_hook(
+    pthread_t* thread, const pthread_attr_t* attr, thread_start_fn start_routine, void* arg
+);
+int bsdthread_create_hook(void* func, void* func_arg, void* stack, void* pthread, uint32_t flags);
 
 struct interceptor_context {
   thread_start_interceptor interceptor;
   thread_start_fn start_routine;
   void* arg;
 };
-
-int pthread_create_hook(pthread_t* thread, const pthread_attr_t* attr, thread_start_fn start_routine, void* arg);
 
 void* trampoline_dispatch(void* raw_ctx) {
   std::unique_ptr<interceptor_context> ctx(static_cast<interceptor_context*>(raw_ctx));
@@ -42,23 +51,115 @@ void* trampoline_dispatch(void* raw_ctx) {
   return ctx->interceptor(ctx->start_routine, ctx->arg);
 }
 
-pthread_create_fn resolve_original_pthread_create() {
-  void* handle = dlopen("/usr/lib/system/libsystem_pthread.dylib", RTLD_LAZY | RTLD_NOLOAD);
-  if (!handle) {
-    handle = dlopen("/usr/lib/system/libsystem_pthread.dylib", RTLD_LAZY);
+pthread_create_fn g_original_pthread_create = nullptr;
+pthread_create_fn g_original_pthread_create_suspended_np = nullptr;
+pthread_create_fn g_original_pthread_create_from_mach_thread = nullptr;
+bsdthread_create_fn g_original_bsdthread_create = nullptr;
+bool g_add_image_callback_registered = false;
+
+enum class symbol_library { none, pthread, kernel };
+
+struct hook_spec {
+  const char* tag;
+  void** original_slot;
+  void* replacement;
+  symbol_library library;
+  std::array<const char*, 3> symbols;
+};
+
+static const std::array<hook_spec, 4> kHookSpecs = {{
+    {"pthread_create",
+     reinterpret_cast<void**>(&g_original_pthread_create),
+     reinterpret_cast<void*>(pthread_create_hook),
+     symbol_library::pthread,
+     {"pthread_create", "_pthread_create", nullptr}},
+    {"pthread_create_suspended_np",
+     reinterpret_cast<void**>(&g_original_pthread_create_suspended_np),
+     reinterpret_cast<void*>(pthread_create_suspended_np_hook),
+     symbol_library::pthread,
+     {"pthread_create_suspended_np", "_pthread_create_suspended_np", nullptr}},
+    {"pthread_create_from_mach_thread",
+     reinterpret_cast<void**>(&g_original_pthread_create_from_mach_thread),
+     reinterpret_cast<void*>(pthread_create_from_mach_thread_hook),
+     symbol_library::pthread,
+     {"pthread_create_from_mach_thread", nullptr, nullptr}},
+    {"___bsdthread_create",
+     reinterpret_cast<void**>(&g_original_bsdthread_create),
+     reinterpret_cast<void*>(bsdthread_create_hook),
+     symbol_library::kernel,
+     {"___bsdthread_create", "__bsdthread_create", nullptr}},
+}};
+
+void* resolve_symbol(symbol_library library, const char* symbol) {
+  if (!symbol) {
+    return nullptr;
   }
 
-  pthread_create_fn fn = nullptr;
-  if (handle) {
-    fn = reinterpret_cast<pthread_create_fn>(dlsym(handle, "pthread_create"));
+  const char* image_path = nullptr;
+  switch (library) {
+  case symbol_library::pthread:
+    image_path = "/usr/lib/system/libsystem_pthread.dylib";
+    break;
+  case symbol_library::kernel:
+    image_path = "/usr/lib/system/libsystem_kernel.dylib";
+    break;
+  case symbol_library::none:
+  default:
+    break;
   }
-  if (!fn) {
-    fn = reinterpret_cast<pthread_create_fn>(dlsym(RTLD_DEFAULT, "pthread_create"));
+
+  auto try_lookup = [&](void* handle) -> void* {
+    if (!handle) {
+      return nullptr;
+    }
+    return dlsym(handle, symbol);
+  };
+
+  if (image_path) {
+    void* handle = dlopen(image_path, RTLD_LAZY | RTLD_NOLOAD);
+    if (!handle) {
+      handle = dlopen(image_path, RTLD_LAZY);
+    }
+    if (void* sym = try_lookup(handle)) {
+      return sym;
+    }
   }
-  if (!fn) {
-    fn = reinterpret_cast<pthread_create_fn>(dlsym(RTLD_NEXT, "pthread_create"));
+
+  if (void* sym = try_lookup(RTLD_DEFAULT)) {
+    return sym;
   }
-  return fn;
+  if (void* sym = try_lookup(RTLD_NEXT)) {
+    return sym;
+  }
+  return nullptr;
+}
+
+void ensure_original_symbol(size_t index) {
+  if (index >= kHookSpecs.size()) {
+    return;
+  }
+
+  const hook_spec& spec = kHookSpecs[index];
+  if (!spec.original_slot || *spec.original_slot) {
+    return;
+  }
+
+  for (const char* symbol : spec.symbols) {
+    if (!symbol) {
+      continue;
+    }
+    void* resolved = resolve_symbol(spec.library, symbol);
+    if (resolved) {
+      *spec.original_slot = resolved;
+      return;
+    }
+  }
+}
+
+void ensure_original_symbols() {
+  for (size_t i = 0; i < kHookSpecs.size(); ++i) {
+    ensure_original_symbol(i);
+  }
 }
 
 bool is_system_image(const char* image_name) {
@@ -68,7 +169,7 @@ bool is_system_image(const char* image_name) {
   return std::strncmp(image_name, "/usr/lib/", 9) == 0 || std::strstr(image_name, "/System/") != nullptr;
 }
 
-bool replace_symbol_in_image(const char* image_name, void* new_func, void** old_func) {
+bool patch_image(const char* image_name) {
   if (!image_name || is_system_image(image_name)) {
     return false;
   }
@@ -84,30 +185,40 @@ bool replace_symbol_in_image(const char* image_name, void* new_func, void** old_
     return false;
   }
 
-  auto try_replace = [&](const char* symbol) {
-    void* previous = nullptr;
-    int replace_status = plthook_replace(hook, symbol, new_func, &previous);
-    if (replace_status == 0) {
-      if (previous == new_func) {
-        return true;
-      }
-      if (old_func && previous && !*old_func) {
-        *old_func = previous;
-      }
-      auto log = redlog::get_logger("w1.threading.interpose");
-      log.dbg("patched symbol", redlog::field("symbol", symbol), redlog::field("image", image_name));
-      return true;
-    }
-    return false;
-  };
+  bool patched = false;
+  auto log = redlog::get_logger("w1.threading.interpose");
 
-  bool replaced = try_replace("pthread_create");
-  if (!replaced) {
-    replaced = try_replace("_pthread_create");
+  for (const auto& spec : kHookSpecs) {
+    if (!spec.replacement) {
+      continue;
+    }
+
+    for (const char* symbol : spec.symbols) {
+      if (!symbol) {
+        continue;
+      }
+
+      void* previous = nullptr;
+      int replace_status = plthook_replace(hook, symbol, spec.replacement, &previous);
+      if (replace_status != 0) {
+        continue;
+      }
+      if (previous == spec.replacement) {
+        continue;
+      }
+
+      if (spec.original_slot && previous && !*spec.original_slot) {
+        *spec.original_slot = previous;
+      }
+
+      log.dbg("patched symbol", redlog::field("symbol", symbol), redlog::field("image", image_name));
+      patched = true;
+      break;
+    }
   }
 
   plthook_close(hook);
-  return replaced;
+  return patched;
 }
 
 void image_added_callback(const struct mach_header* header, intptr_t) {
@@ -124,50 +235,107 @@ void image_added_callback(const struct mach_header* header, intptr_t) {
     return;
   }
 
-  replace_symbol_in_image(image_name, reinterpret_cast<void*>(pthread_create_hook), nullptr);
+  patch_image(image_name);
 }
 
-int pthread_create_hook(pthread_t* thread, const pthread_attr_t* attr, thread_start_fn start_routine, void* arg) {
+pthread_create_fn ensure_pthread_original(pthread_create_fn current, const char* symbol) {
+  if (current) {
+    return current;
+  }
+  return reinterpret_cast<pthread_create_fn>(resolve_symbol(symbol_library::pthread, symbol));
+}
+
+bsdthread_create_fn ensure_bsdthread_original(bsdthread_create_fn current) {
+  if (current) {
+    return current;
+  }
+  return reinterpret_cast<bsdthread_create_fn>(resolve_symbol(symbol_library::kernel, "___bsdthread_create"));
+}
+
+int intercept_pthread_create(
+    const char* tag, pthread_create_fn& original, const char* symbol, pthread_t* thread, const pthread_attr_t* attr,
+    thread_start_fn start_routine, void* arg
+) {
   auto log = redlog::get_logger("w1.threading.interpose");
 
-  if (!g_original_pthread_create) {
-    log.err("pthread_create hook invoked without original pointer");
+  if (!original) {
+    original = ensure_pthread_original(original, symbol);
+  }
+
+  if (!original) {
+    log.err("missing original pthread entry", redlog::field("symbol", symbol));
     return EAGAIN;
   }
 
   if (!g_interceptor || !start_routine) {
-    return g_original_pthread_create(thread, attr, start_routine, arg);
+    return original(thread, attr, start_routine, arg);
   }
 
   auto* ctx = new interceptor_context{g_interceptor, start_routine, arg};
-  int result = g_original_pthread_create(thread, attr, trampoline_dispatch, ctx);
+  int result = original(thread, attr, trampoline_dispatch, ctx);
   if (result != 0) {
-    log.err("pthread_create failed", redlog::field("result", result));
+    log.err("pthread variant failed", redlog::field("tag", tag), redlog::field("result", result));
     delete ctx;
   } else {
-    log.dbg("pthread_create intercepted", redlog::field("thread", thread));
+    log.dbg("pthread variant intercepted", redlog::field("tag", tag));
+  }
+  return result;
+}
+
+int pthread_create_hook(pthread_t* thread, const pthread_attr_t* attr, thread_start_fn start_routine, void* arg) {
+  return intercept_pthread_create(
+      "pthread_create", g_original_pthread_create, "pthread_create", thread, attr, start_routine, arg
+  );
+}
+
+int pthread_create_suspended_np_hook(
+    pthread_t* thread, const pthread_attr_t* attr, thread_start_fn start_routine, void* arg
+) {
+  return intercept_pthread_create(
+      "pthread_create_suspended_np", g_original_pthread_create_suspended_np, "pthread_create_suspended_np", thread,
+      attr, start_routine, arg
+  );
+}
+
+int pthread_create_from_mach_thread_hook(
+    pthread_t* thread, const pthread_attr_t* attr, thread_start_fn start_routine, void* arg
+) {
+  return intercept_pthread_create(
+      "pthread_create_from_mach_thread", g_original_pthread_create_from_mach_thread, "pthread_create_from_mach_thread",
+      thread, attr, start_routine, arg
+  );
+}
+
+int bsdthread_create_hook(void* func, void* func_arg, void* stack, void* pthread, uint32_t flags) {
+  auto log = redlog::get_logger("w1.threading.interpose");
+
+  if (!g_original_bsdthread_create) {
+    g_original_bsdthread_create = ensure_bsdthread_original(g_original_bsdthread_create);
+  }
+
+  if (!g_original_bsdthread_create || !func || !g_interceptor) {
+    return g_original_bsdthread_create ? g_original_bsdthread_create(func, func_arg, stack, pthread, flags) : EINVAL;
+  }
+
+  auto* ctx = new interceptor_context{g_interceptor, reinterpret_cast<thread_start_fn>(func), func_arg};
+  int result = g_original_bsdthread_create(reinterpret_cast<void*>(trampoline_dispatch), ctx, stack, pthread, flags);
+  if (result != 0) {
+    log.err("bsdthread_create failed", redlog::field("result", result));
+    delete ctx;
+  } else {
+    log.dbg("bsdthread_create intercepted", redlog::field("flags", static_cast<uint64_t>(flags)));
   }
   return result;
 }
 
 bool install_thread_hooks() {
-  auto log = redlog::get_logger("w1.threading.interpose");
-
-  pthread_create_fn original = resolve_original_pthread_create();
-  if (!original) {
-    log.err("failed to resolve original pthread_create");
-    return false;
-  }
-
-  if (!g_original_pthread_create) {
-    g_original_pthread_create = original;
-  }
+  ensure_original_symbols();
 
   uint32_t image_count = _dyld_image_count();
   size_t patched_images = 0;
   for (uint32_t i = 0; i < image_count; ++i) {
     const char* image_name = _dyld_get_image_name(i);
-    if (replace_symbol_in_image(image_name, reinterpret_cast<void*>(pthread_create_hook), nullptr)) {
+    if (patch_image(image_name)) {
       ++patched_images;
     }
   }
@@ -177,15 +345,12 @@ bool install_thread_hooks() {
     g_add_image_callback_registered = true;
   }
 
-  log.inf("pthread_create hook installed", redlog::field("patched_images", static_cast<uint64_t>(patched_images)));
+  auto log = redlog::get_logger("w1.threading.interpose");
+  log.inf("darwin thread hooks installed", redlog::field("patched_images", static_cast<uint64_t>(patched_images)));
   return patched_images > 0;
 }
 
 void uninstall_thread_hooks() {
-  if (!g_original_pthread_create) {
-    return;
-  }
-
   uint32_t image_count = _dyld_image_count();
   for (uint32_t i = 0; i < image_count; ++i) {
     const char* image_name = _dyld_get_image_name(i);
@@ -198,16 +363,25 @@ void uninstall_thread_hooks() {
       continue;
     }
 
-    auto restore = [&](const char* symbol) {
-      plthook_replace(hook, symbol, reinterpret_cast<void*>(g_original_pthread_create), nullptr);
-    };
+    for (const auto& spec : kHookSpecs) {
+      if (!spec.original_slot || !*spec.original_slot) {
+        continue;
+      }
+      for (const char* symbol : spec.symbols) {
+        if (!symbol) {
+          continue;
+        }
+        plthook_replace(hook, symbol, *spec.original_slot, nullptr);
+      }
+    }
 
-    restore("pthread_create");
-    restore("_pthread_create");
     plthook_close(hook);
   }
 
   g_original_pthread_create = nullptr;
+  g_original_pthread_create_suspended_np = nullptr;
+  g_original_pthread_create_from_mach_thread = nullptr;
+  g_original_bsdthread_create = nullptr;
   g_add_image_callback_registered = false;
 }
 
