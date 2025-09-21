@@ -25,6 +25,9 @@ add_library(w1tn3ss STATIC
     abi/api_listener.cpp
     # hooking system
     hooking/hook_manager.cpp
+    # threading runtime
+    runtime/threading/thread_runtime.cpp
+    runtime/threading/thread_hook.cpp
     # gadget execution
     gadget/gadget_executor.cpp
     # instrumentation management
@@ -107,6 +110,17 @@ else()
     )
 endif()
 
+# Thread interception backends
+if(APPLE)
+    target_sources(w1tn3ss PRIVATE runtime/threading/thread_hook_darwin.cpp)
+elseif(WIN32)
+    target_sources(w1tn3ss PRIVATE runtime/threading/thread_hook_windows.cpp)
+elseif(UNIX)
+    target_sources(w1tn3ss PRIVATE runtime/threading/thread_hook_linux.cpp)
+else()
+    target_sources(w1tn3ss PRIVATE runtime/threading/thread_hook_stub.cpp)
+endif()
+
 # Configure LIEF for import insertion when enabled
 if(WITNESS_LIEF)
     target_compile_definitions(w1tn3ss PRIVATE WITNESS_LIEF_ENABLED=1)
@@ -121,6 +135,14 @@ target_link_libraries(w1tn3ss PUBLIC
     QBDI_static
     redlog::redlog
 )
+
+if(APPLE OR (UNIX AND NOT WIN32))
+    target_link_libraries(w1tn3ss PUBLIC plthook::plthook)
+endif()
+
+if(WIN32)
+    target_link_libraries(w1tn3ss PUBLIC funchook::funchook)
+endif()
 
 apply_common_compile_options(w1tn3ss)
 set_standard_output_dirs(w1tn3ss)

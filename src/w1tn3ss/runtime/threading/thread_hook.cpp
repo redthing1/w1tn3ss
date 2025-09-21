@@ -2,7 +2,7 @@
 
 #include <redlog.hpp>
 
-namespace threadtest::hooking {
+namespace w1::runtime::threading::hooking {
 
 thread_start_interceptor g_interceptor = nullptr;
 namespace {
@@ -36,4 +36,4 @@ void uninstall() {
 
 bool installed() { return g_installed; }
 
-} // namespace threadtest::hooking
+} // namespace w1::runtime::threading::hooking

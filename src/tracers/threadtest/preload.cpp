@@ -5,7 +5,7 @@
 #include "QBDIPreload.h"
 #include <redlog.hpp>
 
-#include <w1tn3ss/engine/tracer_engine.hpp>
+#include <w1tn3ss/runtime/threading/thread_runtime.hpp>
 #include <w1tn3ss/util/signal_handler.hpp>
 #include <w1tn3ss/util/stderr_write.hpp>
 
@@ -13,20 +13,16 @@
 #include <w1common/windows_console.hpp>
 #endif
 
-#include "thread_manager.hpp"
 #include "threadtest_config.hpp"
-#include "threadtest_tracer.hpp"
-#include "thread_hook.hpp"
+#include "threadtest_session.hpp"
 
 namespace {
 
 auto log_preload() { return redlog::get_logger("threadtest.preload"); }
 
-auto log_hook() { return redlog::get_logger("threadtest.interpose"); }
-
-threadtest::thread_context* g_main_context = nullptr;
-threadtest::thread_manager& g_manager = threadtest::thread_manager::instance();
 threadtest::threadtest_config g_config;
+std::shared_ptr<threadtest::threadtest_session_factory> g_factory;
+w1::runtime::threading::thread_context* g_main_context = nullptr;
 
 void shutdown_tracer();
 
@@ -47,58 +43,6 @@ void set_log_level(int verbose) {
   }
 }
 
-threadtest::thread_result_t intercept_thread_start(threadtest::thread_start_fn start_routine, void* arg) {
-  auto& manager = threadtest::thread_manager::instance();
-
-  if (!manager.is_configured() || !start_routine) {
-    log_hook().dbg("thread interception unavailable; executing start routine directly");
-    return start_routine ? start_routine(arg) : threadtest::thread_result_t{};
-  }
-
-  threadtest::thread_context* context = manager.attach_thread(0, "worker");
-  if (!context) {
-    log_hook().wrn("failed to attach thread context; executing start routine directly");
-    return start_routine(arg);
-  }
-
-  context->log.dbg("thread attached", redlog::field("thread_id", context->thread_id));
-
-  bool instrumentation_ready = false;
-  if (context->tracer && context->engine) {
-    instrumentation_ready = context->tracer->initialize(*context->engine);
-    if (instrumentation_ready) {
-      instrumentation_ready = context->engine->instrument();
-    }
-  }
-
-  threadtest::thread_result_t result{};
-
-  if (instrumentation_ready && context->engine) {
-    QBDI::rword retval = 0;
-    std::vector<QBDI::rword> args = {reinterpret_cast<QBDI::rword>(arg)};
-    if (context->engine->call_with_stack(&retval, reinterpret_cast<QBDI::rword>(start_routine), args)) {
-#if defined(_WIN32)
-      result = static_cast<threadtest::thread_result_t>(retval);
-#else
-      result = reinterpret_cast<threadtest::thread_result_t>(retval);
-#endif
-    } else {
-      context->log.wrn("call_with_stack failed; executing start routine directly");
-      result = start_routine(arg);
-    }
-  } else {
-    context->log.dbg("instrumentation unavailable; executing start routine directly");
-    result = start_routine(arg);
-  }
-
-  if (context->tracer) {
-    context->tracer->shutdown();
-  }
-
-  manager.detach_thread(0);
-  return result;
-}
-
 } // namespace
 
 extern "C" {
@@ -111,15 +55,16 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
 
   g_config = threadtest::threadtest_config::from_environment();
   set_log_level(g_config.verbose);
-  g_manager.configure(g_config);
 
-  if (g_config.enable_thread_hooks) {
-    if (!threadtest::hooking::install(intercept_thread_start)) {
-      log.wrn("failed to install thread hooks; worker threads will not be instrumented");
-    }
-  } else {
-    log.wrn("thread hooks disabled via configuration");
-  }
+  w1::runtime::threading::thread_runtime_options options;
+  options.verbose = g_config.verbose;
+  options.enable_thread_hooks = g_config.enable_thread_hooks;
+  options.logger_prefix = "threadtest.thread";
+
+  g_factory = std::make_shared<threadtest::threadtest_session_factory>(g_config);
+
+  auto& service = w1::runtime::threading::thread_service::instance();
+  service.configure(options, g_factory);
 
   w1::tn3ss::signal_handler::config sig_cfg;
   sig_cfg.context_name = "threadtest";
@@ -129,29 +74,20 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
     w1::tn3ss::signal_handler::register_cleanup(shutdown_tracer, 100, "threadtest_shutdown");
   }
 
-  g_main_context = g_manager.register_main_thread(vm);
-  if (!g_main_context || !g_main_context->tracer || !g_main_context->engine) {
-    log.err("failed to create main thread context");
-    return QBDIPRELOAD_ERR_STARTUP_FAILED;
-  }
-
-  if (!g_main_context->tracer->initialize(*g_main_context->engine)) {
-    log.err("main tracer initialization failed");
-    return QBDIPRELOAD_ERR_STARTUP_FAILED;
-  }
-
-  if (!g_main_context->engine->instrument()) {
-    log.err("main engine instrumentation failed");
+  g_main_context = service.register_main_thread(vm, "main");
+  if (!g_main_context || !g_main_context->session) {
+    log.err("failed to initialize main thread session");
     return QBDIPRELOAD_ERR_STARTUP_FAILED;
   }
 
   log.inf(
-      "engine instrumented", redlog::field("thread_id", g_main_context->thread_id),
+      "thread runtime ready", redlog::field("thread_id", g_main_context->thread_id),
       redlog::field("start", "0x%08x", start), redlog::field("stop", "0x%08x", stop)
   );
 
-  if (!g_main_context->engine->run(start, stop)) {
-    log.err("engine run failed");
+  auto* vm_ptr = static_cast<QBDI::VM*>(vm);
+  if (!vm_ptr->run(start, stop)) {
+    log.err("vm run failed");
     return QBDIPRELOAD_ERR_STARTUP_FAILED;
   }
 
@@ -163,7 +99,6 @@ QBDI_EXPORT int qbdipreload_on_exit(int status) {
   log.inf("qbdipreload_on_exit", redlog::field("status", status));
 
   shutdown_tracer();
-  threadtest::hooking::uninstall();
   return QBDIPRELOAD_NO_ERROR;
 }
 
@@ -182,18 +117,17 @@ QBDI_EXPORT int qbdipreload_on_main(int, char**) { return QBDIPRELOAD_NOT_HANDLE
 namespace {
 
 void shutdown_tracer() {
-  if (!g_main_context || !g_main_context->tracer) {
-    return;
-  }
+  auto& service = w1::runtime::threading::thread_service::instance();
 
   try {
-    g_main_context->tracer->shutdown();
+    service.unregister_all();
   } catch (...) {
     const char* message = "threadtest: shutdown failure\n";
     w1::util::stderr_write(message);
   }
 
   g_main_context = nullptr;
+  g_factory.reset();
 }
 
 } // namespace

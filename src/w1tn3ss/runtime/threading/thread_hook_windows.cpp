@@ -9,7 +9,7 @@
 #include <memory>
 #include <process.h>
 
-namespace threadtest::hooking {
+namespace w1::runtime::threading::hooking {
 
 namespace {
 
@@ -56,7 +56,7 @@ HANDLE WINAPI create_thread_hook(
     LPSECURITY_ATTRIBUTES security, SIZE_T stack_size, LPTHREAD_START_ROUTINE start_routine, LPVOID param, DWORD flags,
     LPDWORD thread_id
 ) {
-  auto log = redlog::get_logger("threadtest.interpose");
+  auto log = redlog::get_logger("w1.threading.interpose");
 
   if (!g_real_create_thread) {
     log.err("CreateThread hook invoked without original pointer");
@@ -89,10 +89,11 @@ uintptr_t __stdcall beginthreadex_hook(
     void* security, unsigned stack_size, beginthreadex_start_fn start_routine, void* arglist, unsigned initflag,
     unsigned* thrdaddr
 ) {
-  auto log = redlog::get_logger("threadtest.interpose");
+  auto log = redlog::get_logger("w1.threading.interpose");
 
   if (!g_real_beginthreadex || !start_routine) {
-    return g_real_beginthreadex ? g_real_beginthreadex(security, stack_size, start_routine, arglist, initflag, thrdaddr) : 0;
+    return g_real_beginthreadex ? g_real_beginthreadex(security, stack_size, start_routine, arglist, initflag, thrdaddr)
+                                : 0;
   }
 
   if (!g_interceptor) {
@@ -117,7 +118,8 @@ uintptr_t __stdcall beginthreadex_hook(
 
 beginthreadex_fn resolve_beginthreadex() {
   static const wchar_t* module_candidates[] = {
-      L"ucrtbase.dll", L"msvcrt.dll", L"msvcr120.dll", L"msvcr110.dll", L"msvcr100.dll"};
+      L"ucrtbase.dll", L"msvcrt.dll", L"msvcr120.dll", L"msvcr110.dll", L"msvcr100.dll"
+  };
 
   for (auto module_name : module_candidates) {
     HMODULE module = ::GetModuleHandleW(module_name);
@@ -142,7 +144,7 @@ const char* funchook_error_string(funchook_t* handle) {
 } // namespace
 
 bool install_platform_hooks() {
-  auto log = redlog::get_logger("threadtest.interpose");
+  auto log = redlog::get_logger("w1.threading.interpose");
 
   HMODULE kernel32 = ::GetModuleHandleW(L"KERNEL32.DLL");
   if (!kernel32) {
@@ -208,8 +210,7 @@ bool install_platform_hooks() {
   }
 
   log.inf(
-      "CreateThread hook installed",
-      redlog::field("beginthreadex_hooked", static_cast<bool>(g_real_beginthreadex))
+      "CreateThread hook installed", redlog::field("beginthreadex_hooked", static_cast<bool>(g_real_beginthreadex))
   );
   return true;
 }
@@ -223,7 +224,7 @@ void uninstall_platform_hooks() {
 
   int status = funchook_uninstall(g_funchook, 0);
   if (status != FUNCHOOK_OK) {
-    auto log = redlog::get_logger("threadtest.interpose");
+    auto log = redlog::get_logger("w1.threading.interpose");
     log.wrn(
         "funchook_uninstall failed", redlog::field("status", status),
         redlog::field("error", funchook_error_string(g_funchook))
@@ -236,6 +237,6 @@ void uninstall_platform_hooks() {
   g_real_beginthreadex = nullptr;
 }
 
-} // namespace threadtest::hooking
+} // namespace w1::runtime::threading::hooking
 
 #endif // defined(_WIN32)

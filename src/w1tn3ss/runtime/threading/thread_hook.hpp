@@ -9,14 +9,14 @@
 #include <windows.h>
 #endif
 
-namespace threadtest {
+namespace w1::runtime::threading {
 
 #if defined(_WIN32)
 using thread_result_t = DWORD;
 using thread_start_fn = DWORD(WINAPI*)(void*);
 #else
 using thread_result_t = void*;
-using thread_start_fn = void* (*)(void*);
+using thread_start_fn = void* (*) (void*);
 #endif
 
 using thread_start_interceptor = thread_result_t (*)(thread_start_fn, void*);
@@ -29,4 +29,4 @@ bool installed();
 
 } // namespace hooking
 
-} // namespace threadtest
+} // namespace w1::runtime::threading

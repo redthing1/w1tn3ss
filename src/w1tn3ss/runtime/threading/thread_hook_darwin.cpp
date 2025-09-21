@@ -12,7 +12,7 @@
 #include <pthread.h>
 #include <plthook.h>
 
-namespace threadtest::hooking {
+namespace w1::runtime::threading::hooking {
 
 namespace detail {
 
@@ -76,7 +76,7 @@ bool replace_symbol_in_image(const char* image_name, void* new_func, void** old_
   plthook_t* hook = nullptr;
   int open_status = plthook_open(&hook, image_name);
   if (open_status != 0) {
-    auto log = redlog::get_logger("threadtest.interpose");
+    auto log = redlog::get_logger("w1.threading.interpose");
     log.trc(
         "plthook_open failed", redlog::field("status", open_status), redlog::field("image", image_name),
         redlog::field("error", plthook_error())
@@ -94,7 +94,7 @@ bool replace_symbol_in_image(const char* image_name, void* new_func, void** old_
       if (old_func && previous && !*old_func) {
         *old_func = previous;
       }
-      auto log = redlog::get_logger("threadtest.interpose");
+      auto log = redlog::get_logger("w1.threading.interpose");
       log.dbg("patched symbol", redlog::field("symbol", symbol), redlog::field("image", image_name));
       return true;
     }
@@ -128,7 +128,7 @@ void image_added_callback(const struct mach_header* header, intptr_t) {
 }
 
 int pthread_create_hook(pthread_t* thread, const pthread_attr_t* attr, thread_start_fn start_routine, void* arg) {
-  auto log = redlog::get_logger("threadtest.interpose");
+  auto log = redlog::get_logger("w1.threading.interpose");
 
   if (!g_original_pthread_create) {
     log.err("pthread_create hook invoked without original pointer");
@@ -151,7 +151,7 @@ int pthread_create_hook(pthread_t* thread, const pthread_attr_t* attr, thread_st
 }
 
 bool install_thread_hooks() {
-  auto log = redlog::get_logger("threadtest.interpose");
+  auto log = redlog::get_logger("w1.threading.interpose");
 
   pthread_create_fn original = resolve_original_pthread_create();
   if (!original) {
@@ -228,6 +228,6 @@ void uninstall_platform_hooks() {
   detail::uninstall_syscall_hooks();
 }
 
-} // namespace threadtest::hooking
+} // namespace w1::runtime::threading::hooking
 
 #endif // defined(__APPLE__)

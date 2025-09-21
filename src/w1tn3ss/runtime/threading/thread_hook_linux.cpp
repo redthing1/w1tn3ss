@@ -10,7 +10,7 @@
 #include <pthread.h>
 #include <plthook.h>
 
-namespace threadtest::hooking {
+namespace w1::runtime::threading::hooking {
 
 namespace detail {
 
@@ -56,7 +56,7 @@ pthread_create_fn resolve_original_pthread_create() {
 }
 
 int pthread_create_hook(pthread_t* thread, const pthread_attr_t* attr, thread_start_fn start_routine, void* arg) {
-  auto log = redlog::get_logger("threadtest.interpose");
+  auto log = redlog::get_logger("w1.threading.interpose");
 
   if (!g_original_pthread_create) {
     log.err("pthread_create hook invoked without original pointer");
@@ -79,7 +79,7 @@ int pthread_create_hook(pthread_t* thread, const pthread_attr_t* attr, thread_st
 }
 
 bool install_thread_hooks() {
-  auto log = redlog::get_logger("threadtest.interpose");
+  auto log = redlog::get_logger("w1.threading.interpose");
 
   pthread_create_fn original = resolve_original_pthread_create();
   if (!original) {
@@ -147,6 +147,6 @@ void uninstall_platform_hooks() {
   detail::uninstall_syscall_hooks();
 }
 
-} // namespace threadtest::hooking
+} // namespace w1::runtime::threading::hooking
 
 #endif // defined(__linux__)
