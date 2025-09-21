@@ -47,12 +47,12 @@ void set_log_level(int verbose) {
   }
 }
 
-void* intercept_thread_start(threadtest::thread_start_fn start_routine, void* arg) {
+threadtest::thread_result_t intercept_thread_start(threadtest::thread_start_fn start_routine, void* arg) {
   auto& manager = threadtest::thread_manager::instance();
 
   if (!manager.is_configured() || !start_routine) {
     log_hook().dbg("thread interception unavailable; executing start routine directly");
-    return start_routine ? start_routine(arg) : nullptr;
+    return start_routine ? start_routine(arg) : threadtest::thread_result_t{};
   }
 
   threadtest::thread_context* context = manager.attach_thread(0, "worker");
@@ -71,13 +71,17 @@ void* intercept_thread_start(threadtest::thread_start_fn start_routine, void* ar
     }
   }
 
-  void* result = nullptr;
+  threadtest::thread_result_t result{};
 
   if (instrumentation_ready && context->engine) {
     QBDI::rword retval = 0;
     std::vector<QBDI::rword> args = {reinterpret_cast<QBDI::rword>(arg)};
     if (context->engine->call_with_stack(&retval, reinterpret_cast<QBDI::rword>(start_routine), args)) {
-      result = reinterpret_cast<void*>(retval);
+#if defined(_WIN32)
+      result = static_cast<threadtest::thread_result_t>(retval);
+#else
+      result = reinterpret_cast<threadtest::thread_result_t>(retval);
+#endif
     } else {
       context->log.wrn("call_with_stack failed; executing start routine directly");
       result = start_routine(arg);

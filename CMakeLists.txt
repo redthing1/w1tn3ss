@@ -94,10 +94,23 @@ if(NOT TARGET nlohmann_json::nlohmann_json)
     add_subdirectory(src/third_party/nlohmann_json)
 endif()
 
-# configure plthook for symbol patching
+# configure plthook
 if(NOT TARGET plthook::plthook)
     option(PLTHOOK_BUILD_TESTS "Build plthook tests" OFF)
     add_subdirectory(src/third_party/plthook)
+endif()
+
+# configure funchook
+if(WIN32 AND NOT TARGET funchook::funchook)
+    set(FUNCHOOK_BUILD_TESTS OFF CACHE BOOL "Build funchook tests" FORCE)
+    set(FUNCHOOK_BUILD_SHARED OFF CACHE BOOL "Build funchook shared library" FORCE)
+    set(FUNCHOOK_BUILD_STATIC ON CACHE BOOL "Build funchook static library" FORCE)
+    add_subdirectory(src/third_party/funchook)
+    if(TARGET funchook-static)
+        add_library(funchook::funchook ALIAS funchook-static)
+    elseif(TARGET funchook-shared)
+        add_library(funchook::funchook ALIAS funchook-shared)
+    endif()
 endif()
 
 # add lief if enabled
