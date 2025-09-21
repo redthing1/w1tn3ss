@@ -2,6 +2,7 @@
 #include <w1tn3ss/formats/drcov.hpp>
 #include <redlog.hpp>
 #include <algorithm>
+#include <limits>
 #include <unordered_set>
 
 namespace w1cov {
@@ -21,26 +22,36 @@ uint16_t coverage_collector::add_module(const w1::util::module_info& mod) {
   return static_cast<uint16_t>(modules_.size() - 1);
 }
 
-void coverage_collector::record_coverage_unit(QBDI::rword address, uint16_t size, uint16_t module_id) {
-  // increment hitcount for this address
-  hitcounts_[address]++;
+void coverage_collector::record_coverage_unit(QBDI::rword address, uint16_t size, uint16_t module_id, uint32_t hits) {
+  if (hits == 0) {
+    return;
+  }
 
-  // check if this is a new address
+  auto& hitcount = hitcounts_[address];
+  uint64_t new_total = static_cast<uint64_t>(hitcount) + static_cast<uint64_t>(hits);
+  if (new_total > std::numeric_limits<uint32_t>::max()) {
+    hitcount = std::numeric_limits<uint32_t>::max();
+  } else {
+    hitcount = static_cast<uint32_t>(new_total);
+  }
+
   auto it = address_to_bb_index_.find(address);
   if (it == address_to_bb_index_.end()) {
-    // new basic block
     basic_block_info bb;
     bb.address = address;
     bb.size = size;
     bb.module_id = module_id;
-    bb.hitcount = hitcounts_[address];
+    bb.hitcount = hitcount;
 
     size_t index = basic_blocks_.size();
     basic_blocks_.push_back(bb);
     address_to_bb_index_[address] = index;
   } else {
-    // existing basic block - update hitcount
-    basic_blocks_[it->second].hitcount = hitcounts_[address];
+    auto& existing = basic_blocks_[it->second];
+    if (existing.size == 0 && size != 0) {
+      existing.size = size;
+    }
+    existing.hitcount = hitcount;
   }
 }
 

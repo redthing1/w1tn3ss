@@ -21,7 +21,7 @@ public:
 
   uint16_t add_module(const w1::util::module_info& mod);
 
-  void record_coverage_unit(QBDI::rword address, uint16_t size, uint16_t module_id);
+  void record_coverage_unit(QBDI::rword address, uint16_t size, uint16_t module_id, uint32_t hits = 1);
 
   drcov::coverage_data build_drcov_data() const;
 

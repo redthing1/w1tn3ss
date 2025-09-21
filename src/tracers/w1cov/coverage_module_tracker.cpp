@@ -25,17 +25,20 @@ void coverage_module_tracker::initialize(coverage_collector& collector) {
   }
 
   // register modules with collector and build mapping
-  base_to_module_id_.clear();
-  base_to_module_id_.reserve(traced_modules.size());
+  {
+    std::unique_lock<std::shared_mutex> lock(map_mutex_);
+    module_map_.clear();
+    module_map_.reserve(traced_modules.size());
 
-  for (const auto& mod : traced_modules) {
-    uint16_t module_id = collector_->add_module(mod);
-    base_to_module_id_[mod.base_address] = module_id;
+    for (const auto& mod : traced_modules) {
+      uint16_t module_id = collector_->add_module(mod);
+      module_map_[mod.base_address] = module_id;
 
-    log_.dbg(
-        "registered traced module", redlog::field("module_name", mod.name), redlog::field("module_id", module_id),
-        redlog::field("base_address", "0x%08x", mod.base_address)
-    );
+      log_.ped(
+          "registered traced module", redlog::field("module_name", mod.name), redlog::field("module_id", module_id),
+          redlog::field("base_address", "0x%08x", mod.base_address)
+      );
+    }
   }
 
   // build fast lookup index with traced modules
@@ -89,6 +92,38 @@ void coverage_module_tracker::rebuild_traced_modules() {
 
   // rebuild index with filtered modules
   index_.rebuild_from_modules(std::move(traced_modules));
+}
+
+uint16_t coverage_module_tracker::ensure_module_registered(const w1::util::module_info& mod) {
+  {
+    std::shared_lock<std::shared_mutex> lock(map_mutex_);
+    auto it = module_map_.find(mod.base_address);
+    if (it != module_map_.end()) {
+      return it->second;
+    }
+  }
+
+  std::unique_lock<std::shared_mutex> lock(map_mutex_);
+
+  auto it = module_map_.find(mod.base_address);
+  if (it != module_map_.end()) {
+    return it->second;
+  }
+
+  if (!collector_) {
+    log_.err("collector unavailable during module registration");
+    return 0;
+  }
+
+  uint16_t module_id = collector_->add_module(mod);
+  module_map_[mod.base_address] = module_id;
+
+  log_.ped(
+      "added new traced module", redlog::field("module_name", mod.name), redlog::field("module_id", module_id),
+      redlog::field("base_address", "0x%08x", mod.base_address)
+  );
+
+  return module_id;
 }
 
 } // namespace w1cov
