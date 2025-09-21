@@ -25,3 +25,6 @@
 [submodule "src/third_party/funchook"]
 	path = src/third_party/funchook
 	url = https://github.com/redthing1/funchook
+[submodule "src/third_party/plthook"]
+	path = src/third_party/plthook
+	url = https://github.com/redthing1/plthook

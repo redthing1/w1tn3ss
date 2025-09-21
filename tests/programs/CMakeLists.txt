@@ -57,6 +57,14 @@ set_target_properties(simple_demo PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs
 )
 
+# thread test demo program
+add_executable(threadtest_demo threadtest_demo.c)
+apply_common_compile_options(threadtest_demo)
+apply_windows_definitions(threadtest_demo)
+set_target_properties(threadtest_demo PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs
+)
+
 # hook test target program for testing signature-based hooking
 add_executable(hook_test_target hook_test_target.c)
 apply_common_compile_options(hook_test_target)
@@ -122,6 +130,7 @@ elseif(UNIX)
     # link pthread for unix systems
     target_link_libraries(multi_threaded_target PRIVATE pthread)
     target_link_libraries(runtime_injection_target PRIVATE pthread)
+    target_link_libraries(threadtest_demo PRIVATE pthread)
 endif()
 
 # p1ll test programs (only build when lua scripting is enabled)
@@ -146,7 +155,7 @@ if(WITNESS_SCRIPT)
 endif()
 
 # install targets
-set(PROGRAM_TARGETS multi_threaded_target control_flow_1 runtime_injection_target simple_demo hook_test_target)
+set(PROGRAM_TARGETS multi_threaded_target control_flow_1 runtime_injection_target simple_demo threadtest_demo hook_test_target)
 
 # add p1ll targets to install list when scripting is enabled
 if(WITNESS_SCRIPT)

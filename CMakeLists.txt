@@ -94,6 +94,12 @@ if(NOT TARGET nlohmann_json::nlohmann_json)
     add_subdirectory(src/third_party/nlohmann_json)
 endif()
 
+# configure plthook for symbol patching
+if(NOT TARGET plthook::plthook)
+    option(PLTHOOK_BUILD_TESTS "Build plthook tests" OFF)
+    add_subdirectory(src/third_party/plthook)
+endif()
+
 # add lief if enabled
 if(WITNESS_LIEF)
     add_subdirectory(src/third_party/lief)
