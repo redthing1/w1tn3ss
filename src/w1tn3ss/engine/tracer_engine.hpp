@@ -621,7 +621,7 @@ private:
         log_.error("failed to register callback", redlog::field("callback", #name), redlog::field("id", id));          \
       }                                                                                                                \
     } else {                                                                                                           \
-      log_.trc("not requested", redlog::field("callback", #name));                                                     \
+      log_.ped("not requested", redlog::field("callback", #name));                                                     \
     }                                                                                                                  \
   }
 
@@ -646,7 +646,7 @@ private:
         log_.error("failed to register callback", redlog::field("callback", #name), redlog::field("id", id));          \
       }                                                                                                                \
     } else {                                                                                                           \
-      log_.trc("not requested", redlog::field("callback", #name));                                                     \
+      log_.ped("not requested", redlog::field("callback", #name));                                                     \
     }                                                                                                                  \
   }
 
@@ -670,7 +670,7 @@ private:
         log_.error("failed to register callback", redlog::field("callback", #name), redlog::field("id", id));          \
       }                                                                                                                \
     } else {                                                                                                           \
-      log_.trc("not requested", redlog::field("callback", #name));                                                     \
+      log_.ped("not requested", redlog::field("callback", #name));                                                     \
     }                                                                                                                  \
   }
 
