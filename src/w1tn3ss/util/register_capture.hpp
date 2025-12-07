@@ -46,6 +46,9 @@ public:
   // get all registers as name->value map
   std::unordered_map<std::string, uint64_t> get_all_registers() const;
 
+  // direct const access used for delta calculations to avoid copies
+  const std::unordered_map<std::string, uint64_t>& get_register_map() const { return registers_; }
+
   // internal: populated by register_capturer
   friend class register_capturer;
 

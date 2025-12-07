@@ -42,7 +42,12 @@ static void* worker_thread(void* arg) {
 }
 
 int main(void) {
-  srand((unsigned int) time(NULL));
+  unsigned int seed = 1;
+  const char* seed_env = getenv("THREADTEST_SEED");
+  if (seed_env != NULL) {
+    seed = (unsigned int) strtoul(seed_env, NULL, 0);
+  }
+  srand(seed);
 
   const int thread_count = 3;
   pthread_t threads[thread_count];

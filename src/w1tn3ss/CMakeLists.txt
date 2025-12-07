@@ -28,6 +28,9 @@ add_library(w1tn3ss STATIC
     # threading runtime
     runtime/threading/thread_runtime.cpp
     runtime/threading/thread_hook.cpp
+    runtime/rewind/binary_trace_sink.cpp
+    runtime/rewind/binary_trace_source.cpp
+    runtime/rewind/trace_validator.cpp
     # gadget execution
     gadget/gadget_executor.cpp
     # instrumentation management

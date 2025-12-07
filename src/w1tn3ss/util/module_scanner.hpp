@@ -20,6 +20,13 @@ public:
   module_scanner();
 
   /**
+   * @brief scan process modules, optionally filtering to executable mappings
+   * @param executable_only when true, restricts results to executable mappings
+   * @param include_anonymous when false, skip anonymous/unnamed mappings (e.g., stacks/heaps)
+   */
+  std::vector<module_info> scan_modules(bool executable_only, bool include_anonymous = true);
+
+  /**
    * @brief scan all executable modules from current process
    * @return vector of discovered executable modules
    */

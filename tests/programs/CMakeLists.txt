@@ -57,6 +57,42 @@ set_target_properties(simple_demo PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs
 )
 
+# rewind tracer demos
+add_executable(rewind_demo_basic rewind_demo_basic.c)
+apply_common_compile_options(rewind_demo_basic)
+apply_windows_definitions(rewind_demo_basic)
+set_target_properties(rewind_demo_basic PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs
+)
+
+add_executable(rewind_demo_calls rewind_demo_calls.c)
+apply_common_compile_options(rewind_demo_calls)
+apply_windows_definitions(rewind_demo_calls)
+set_target_properties(rewind_demo_calls PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs
+)
+
+add_executable(rewind_demo_memops rewind_demo_memops.c)
+apply_common_compile_options(rewind_demo_memops)
+apply_windows_definitions(rewind_demo_memops)
+set_target_properties(rewind_demo_memops PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs
+)
+
+add_executable(rewind_demo_io rewind_demo_io.c)
+apply_common_compile_options(rewind_demo_io)
+apply_windows_definitions(rewind_demo_io)
+set_target_properties(rewind_demo_io PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs
+)
+
+add_executable(rewind_demo_algorithms rewind_demo_algorithms.c)
+apply_common_compile_options(rewind_demo_algorithms)
+apply_windows_definitions(rewind_demo_algorithms)
+set_target_properties(rewind_demo_algorithms PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs
+)
+
 # thread test demo program
 add_executable(threadtest_demo threadtest_demo.c)
 apply_common_compile_options(threadtest_demo)
@@ -111,6 +147,21 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT WIN32)
     
     target_compile_options(runtime_injection_target PRIVATE ${SANITIZER_FLAGS})
     target_link_options(runtime_injection_target PRIVATE ${SANITIZER_FLAGS})
+
+    target_compile_options(rewind_demo_basic PRIVATE ${SANITIZER_FLAGS})
+    target_link_options(rewind_demo_basic PRIVATE ${SANITIZER_FLAGS})
+
+    target_compile_options(rewind_demo_calls PRIVATE ${SANITIZER_FLAGS})
+    target_link_options(rewind_demo_calls PRIVATE ${SANITIZER_FLAGS})
+
+    target_compile_options(rewind_demo_memops PRIVATE ${SANITIZER_FLAGS})
+    target_link_options(rewind_demo_memops PRIVATE ${SANITIZER_FLAGS})
+
+    target_compile_options(rewind_demo_io PRIVATE ${SANITIZER_FLAGS})
+    target_link_options(rewind_demo_io PRIVATE ${SANITIZER_FLAGS})
+
+    target_compile_options(rewind_demo_algorithms PRIVATE ${SANITIZER_FLAGS})
+    target_link_options(rewind_demo_algorithms PRIVATE ${SANITIZER_FLAGS})
     
     # p1ll test targets (when scripting is enabled)
     if(WITNESS_SCRIPT)
@@ -164,7 +215,20 @@ if(WITNESS_SCRIPT)
 endif()
 
 # install targets
-set(PROGRAM_TARGETS multi_threaded_target control_flow_1 runtime_injection_target simple_demo threadtest_demo threadtest_evasive_demo hook_test_target)
+set(PROGRAM_TARGETS
+    multi_threaded_target
+    control_flow_1
+    runtime_injection_target
+    simple_demo
+    rewind_demo_basic
+    rewind_demo_calls
+    rewind_demo_memops
+    rewind_demo_io
+    rewind_demo_algorithms
+    threadtest_demo
+    threadtest_evasive_demo
+    hook_test_target
+)
 
 # add p1ll targets to install list when scripting is enabled
 if(WITNESS_SCRIPT)

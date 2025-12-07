@@ -3,6 +3,7 @@
 claude/
 CLAUDE.md
 AGENTS.md
+STATUS.md
 
 /*.drcov
 /*.json

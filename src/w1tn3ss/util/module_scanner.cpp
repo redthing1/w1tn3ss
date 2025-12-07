@@ -7,16 +7,19 @@ namespace util {
 
 module_scanner::module_scanner() {}
 
-std::vector<module_info> module_scanner::scan_executable_modules() {
-  log_.vrb("scanning executable modules");
+std::vector<module_info> module_scanner::scan_modules(bool executable_only, bool include_anonymous) {
+  log_.vrb(executable_only ? "scanning executable modules" : "scanning process modules (all mappings)");
 
   std::vector<module_info> modules;
 
   try {
-    auto maps = get_executable_maps();
+    auto maps = executable_only ? get_executable_maps() : QBDI::getCurrentProcessMaps(false);
     modules.reserve(maps.size());
 
     for (const auto& map : maps) {
+      if (!include_anonymous && map.name.empty()) {
+        continue;
+      }
       modules.push_back(build_module_info(map));
     }
 
@@ -27,6 +30,10 @@ std::vector<module_info> module_scanner::scan_executable_modules() {
   }
 
   return modules;
+}
+
+std::vector<module_info> module_scanner::scan_executable_modules() {
+  return scan_modules(true);
 }
 
 std::vector<module_info> module_scanner::scan_user_modules() const {
