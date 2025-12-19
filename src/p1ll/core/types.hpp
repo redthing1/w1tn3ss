@@ -14,22 +14,8 @@ struct platform_key {
   std::string arch; // "x64", "arm64", "*" (wildcard)
 
   std::string to_string() const { return os + ":" + arch; }
-  bool matches(const platform_key& other) const;
   bool operator==(const platform_key& other) const { return os == other.os && arch == other.arch; }
   bool operator!=(const platform_key& other) const { return !(*this == other); }
-
-  static platform_key parse(const std::string& platform_str) {
-    if (platform_str.empty()) {
-      return {"*", "*"};
-    }
-
-    auto colon_pos = platform_str.find(':');
-    if (colon_pos == std::string::npos) {
-      return {platform_str, "*"};
-    }
-
-    return {platform_str.substr(0, colon_pos), platform_str.substr(colon_pos + 1)};
-  }
 };
 
 // signature types

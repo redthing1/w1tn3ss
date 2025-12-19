@@ -10,6 +10,7 @@
 #include "p1ll/core/context.hpp"
 #include "p1ll/engine/auto_cure.hpp"
 #include "p1ll/engine/memory_scanner.hpp"
+#include "p1ll/engine/signature_scanner.hpp"
 
 namespace p1ll::scripting::js {
 
@@ -254,15 +255,14 @@ struct p1ll_api {
         return {};
       }
 
-      // create memory scanner and perform search
-      engine::memory_scanner scanner;
-      signature_query query;
-      query.signature = *compiled_sig;
+      engine::process_address_space space;
+      engine::signature_scanner scanner(space);
+      signature_query_filter filter;
       if (!filter_pattern.empty()) {
-        query.filter.pattern = filter_pattern;
+        filter.pattern = filter_pattern;
       }
 
-      auto search_results_opt = scanner.search(query);
+      auto search_results_opt = scanner.scan(*compiled_sig, filter);
       if (!search_results_opt) {
         log.err("search failed", redlog::field("pattern", pattern));
         return {};

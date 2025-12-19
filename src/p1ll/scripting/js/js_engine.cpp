@@ -9,6 +9,17 @@ namespace p1ll::scripting::js {
 cure_result extract_cure_result(const jnjs::value& js_result) {
   cure_result result;
 
+  if (js_result.is<cure_result_wrapper*>()) {
+    auto wrapper = js_result.as<cure_result_wrapper*>();
+    if (wrapper) {
+      result.success = wrapper->get_success();
+      result.patches_applied = wrapper->get_patches_applied();
+      result.patches_failed = wrapper->get_patches_failed();
+      result.error_messages = wrapper->get_error_messages();
+      return result;
+    }
+  }
+
   if (js_result["success"].is<bool>()) {
     result.success = js_result["success"].as<bool>();
   } else {

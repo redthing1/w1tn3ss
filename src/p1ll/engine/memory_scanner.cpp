@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <regex>
 #include <iomanip> // For std::hex
+#include "utils/memory_align.hpp"
 
 // --- Platform-specific includes ---
 #ifdef __APPLE__
@@ -233,6 +234,26 @@ bool memory_scanner::set_memory_protection(uint64_t address, size_t size, memory
     return false;
   }
 
+  auto page_size_result = get_page_size();
+  if (!page_size_result) {
+    log_.err("set_memory_protection: failed to get page size");
+    return false;
+  }
+  size_t page_size = *page_size_result;
+
+  if (address > UINT64_MAX - size) {
+    log_.err("set_memory_protection: address range overflow", redlog::field("address", to_hex(address)));
+    return false;
+  }
+
+  uint64_t aligned_start = utils::align_down(address, page_size);
+  uint64_t aligned_end = utils::align_up(address + size, page_size);
+  if (aligned_end < aligned_start) {
+    log_.err("set_memory_protection: alignment overflow", redlog::field("address", to_hex(address)));
+    return false;
+  }
+  size_t aligned_size = static_cast<size_t>(aligned_end - aligned_start);
+
   // convert our generic protection flags to platform-specific values
   auto platform_prot_result = protection_to_platform(protection);
   if (!platform_prot_result) {
@@ -243,22 +264,23 @@ bool memory_scanner::set_memory_protection(uint64_t address, size_t size, memory
 
   log_.dbg(
       "setting memory protection", redlog::field("address", to_hex(address)), redlog::field("size", size),
+      redlog::field("aligned_address", to_hex(aligned_start)), redlog::field("aligned_size", aligned_size),
       redlog::field("protection_flags", static_cast<int>(protection))
   );
 #ifdef __APPLE__
-  kern_return_t kr = mach_vm_protect(mach_task_self(), address, size, FALSE, platform_protection);
+  kern_return_t kr = mach_vm_protect(mach_task_self(), aligned_start, aligned_size, FALSE, platform_protection);
   if (kr != KERN_SUCCESS) {
     log_.err("mach_vm_protect failed", redlog::field("error", mach_error_string(kr)), redlog::field("kr", kr));
     return false;
   }
 #elif __linux__
-  if (mprotect(reinterpret_cast<void*>(address), size, platform_protection) == -1) {
+  if (mprotect(reinterpret_cast<void*>(aligned_start), aligned_size, platform_protection) == -1) {
     log_.err("mprotect failed", redlog::field("errno", errno));
     return false;
   }
 #elif _WIN32
   DWORD old_protect;
-  if (!VirtualProtect(reinterpret_cast<LPVOID>(address), size, platform_protection, &old_protect)) {
+  if (!VirtualProtect(reinterpret_cast<LPVOID>(aligned_start), aligned_size, platform_protection, &old_protect)) {
     log_.err("VirtualProtect failed", redlog::field("error", GetLastError()));
     return false;
   }

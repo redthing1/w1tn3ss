@@ -49,18 +49,15 @@ int cure(
     // execute static cure with buffer
     std::unique_ptr<p1ll::context> context;
     if (!platform_override.empty()) {
-      // parse platform override
-      try {
-        auto platform_key = p1ll::platform_key::parse(platform_override);
-        log.inf("using platform override", redlog::field("platform", platform_key.to_string()));
-        context = p1ll::context::create_static(platform_key);
-      } catch (const std::exception& e) {
-        log.err(
-            "invalid platform override", redlog::field("platform", platform_override), redlog::field("error", e.what())
-        );
-        std::cerr << "invalid platform override '" << platform_override << "': " << e.what() << std::endl;
+      auto& detector = p1ll::get_platform_detector();
+      auto platform_key = detector.parse_platform_key(platform_override);
+      if (!detector.is_valid_platform_key(platform_key)) {
+        log.err("invalid platform override", redlog::field("platform", platform_override));
+        std::cerr << "invalid platform override '" << platform_override << "'" << std::endl;
         return 1;
       }
+      log.inf("using platform override", redlog::field("platform", platform_key.to_string()));
+      context = p1ll::context::create_static(platform_key);
     } else {
       context = p1ll::context::create_static();
     }

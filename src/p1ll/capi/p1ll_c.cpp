@@ -6,6 +6,9 @@
 #include "p1ll_c.h"
 #include "../p1ll.hpp"
 #include "../engine/memory_scanner.hpp"
+#include "../engine/address_space.hpp"
+#include "../engine/patch_executor.hpp"
+#include "../engine/signature_scanner.hpp"
 #include "../engine/pattern_matcher.hpp"
 #include "../core/signature.hpp"
 #include "../utils/hex_utils.hpp"
@@ -275,9 +278,27 @@ int p1ll_patch_memory(p1ll_scanner_t scanner, uint64_t address, const char* hex_
       return P1LL_ERROR;
     }
 
-    bool success = scanner->scanner->write_memory(address, compiled->data);
-    if (!success) {
-      set_error("failed to patch memory");
+    p1ll::patch_decl decl;
+    decl.signature = p1ll::signature_decl("capi_patch");
+    decl.offset = 0;
+    decl.pattern = hex_pattern;
+    decl.required = true;
+
+    p1ll::engine::process_address_space space(*scanner->scanner);
+    p1ll::engine::patch_executor executor(space);
+    p1ll::engine::patch_plan_entry entry;
+    entry.decl = decl;
+    entry.address = address;
+    entry.patch = *compiled;
+    entry.description = "capi_patch";
+
+    auto exec_result = executor.apply(entry);
+    if (!exec_result.success) {
+      if (!exec_result.error_messages.empty()) {
+        set_error("failed to patch memory: " + exec_result.error_messages.front());
+      } else {
+        set_error("failed to patch memory");
+      }
       return P1LL_ERROR;
     }
 
@@ -351,7 +372,9 @@ int p1ll_search_pattern(
       return P1LL_ERROR;
     }
 
-    auto results = scanner->scanner->search(*query);
+    p1ll::engine::process_address_space space(*scanner->scanner);
+    p1ll::engine::signature_scanner sig_scanner(space);
+    auto results = sig_scanner.scan(query->signature, query->filter);
     if (!results.has_value()) {
       set_error("search failed");
       return P1LL_ERROR;

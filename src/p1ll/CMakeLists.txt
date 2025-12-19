@@ -2,6 +2,10 @@
 
 # core library sources
 set(P1LL_CORE_SOURCES
+    engine/address_space.cpp
+    engine/cure_planner.cpp
+    engine/patch_executor.cpp
+    engine/signature_scanner.cpp
     core/platform.cpp
     core/signature.cpp
     core/context.cpp

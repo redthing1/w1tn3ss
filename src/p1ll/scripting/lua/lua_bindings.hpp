@@ -11,6 +11,7 @@
 #include "p1ll/core/context.hpp"
 #include "p1ll/core/signature.hpp"
 #include "p1ll/engine/auto_cure.hpp"
+#include "p1ll/engine/signature_scanner.hpp"
 #include "p1ll/engine/memory_scanner.hpp"
 #include "p1ll/utils/hex_utils.hpp"
 
@@ -312,8 +313,27 @@ inline void setup_manual_api(sol::state& lua, sol::table& p1_module) {
       }
     }
 
-    // get_modules functionality moved to engine::memory_scanner
-    return {};
+    engine::memory_scanner scanner;
+    auto regions_opt = scanner.get_memory_regions(filter);
+    std::vector<module_info> result;
+    if (regions_opt) {
+      for (const auto& region : *regions_opt) {
+        if (!region.is_executable || region.name.empty()) {
+          continue;
+        }
+        module_info mod;
+        mod.name = region.name;
+        mod.path = region.name;
+        mod.base_address = region.base_address;
+        mod.size = region.size;
+        mod.permissions = std::string("r") +
+                          (has_protection(region.protection, engine::memory_protection::write) ? "w" : "-") +
+                          (has_protection(region.protection, engine::memory_protection::execute) ? "x" : "-");
+        mod.is_system_module = region.is_system;
+        result.push_back(mod);
+      }
+    }
+    return result;
   });
 
   // p1.search_sig(pattern, opts) - search for signature with options
@@ -361,13 +381,9 @@ inline void setup_manual_api(sol::state& lua, sol::table& p1_module) {
           return sol::lua_nil;
         }
 
-        // create memory scanner and perform search
-        engine::memory_scanner scanner;
-        signature_query query;
-        query.signature = *compiled_sig;
-        query.filter = filter;
-
-        auto search_results_opt = scanner.search(query);
+        engine::process_address_space space;
+        engine::signature_scanner scanner(space);
+        auto search_results_opt = scanner.scan(*compiled_sig, filter);
         if (!search_results_opt) {
           log.err("search_sig: search failed", redlog::field("pattern", pattern));
           return sol::lua_nil;
