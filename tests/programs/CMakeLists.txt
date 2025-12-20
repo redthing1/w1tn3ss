@@ -1,5 +1,6 @@
 # test programs for injection testing
 
+add_subdirectory(instraware)
 
 # multi-threaded target program
 add_executable(multi_threaded_target multi_threaded_target.c)
@@ -164,7 +165,19 @@ if(WITNESS_SCRIPT)
 endif()
 
 # install targets
-set(PROGRAM_TARGETS multi_threaded_target control_flow_1 runtime_injection_target simple_demo threadtest_demo threadtest_evasive_demo hook_test_target)
+set(PROGRAM_TARGETS
+    multi_threaded_target
+    control_flow_1
+    runtime_injection_target
+    simple_demo
+    threadtest_demo
+    threadtest_evasive_demo
+    hook_test_target
+    instraware_qbdi_rai
+    instraware_qbdi_stack
+    instraware_qbdi_smc
+    instraware_qbdi_fault
+)
 
 # add p1ll targets to install list when scripting is enabled
 if(WITNESS_SCRIPT)
