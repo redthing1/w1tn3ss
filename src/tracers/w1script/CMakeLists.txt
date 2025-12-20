@@ -8,7 +8,7 @@ if(WITNESS_SCRIPT)
     message(STATUS "building w1script tracer with lua support")
     
     create_tracer_targets(w1script
-        "preload.cpp;script_tracer.cpp;script_bindings.cpp;script_loader.cpp;callback_manager.cpp;bindings/core_types.cpp;bindings/register_access.cpp;bindings/vm_control.cpp;bindings/vm_core.cpp;bindings/memory_access.cpp;bindings/memory_analysis.cpp;bindings/module_analysis.cpp;bindings/utilities.cpp;bindings/api_analysis.cpp;bindings/hooking.cpp;bindings/signature_scanning.cpp;bindings/calling_convention.cpp;bindings/symbol_resolution.cpp;bindings/output.cpp;bindings/gadget_execution.cpp;bindings/process_dumping.cpp"
+        "preload.cpp;script_tracer.cpp;runtime/api_manager.cpp;runtime/callback_registry.cpp;runtime/lua_runtime.cpp;runtime/output_state.cpp;runtime/script_context.cpp;bindings/w1_bindings.cpp;bindings/root.cpp;bindings/util.cpp;bindings/inst.cpp;bindings/mem.cpp;bindings/reg.cpp;bindings/module.cpp;bindings/symbol.cpp;bindings/api.cpp;bindings/hook.cpp;bindings/abi.cpp;bindings/dump.cpp;bindings/gadget.cpp;bindings/output.cpp;bindings/p1ll.cpp;bindings/vm.cpp"
     )
     
     configure_target_with_lua(w1script_qbdipreload)

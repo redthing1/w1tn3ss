@@ -4,35 +4,39 @@
 local tracer = {}
 local dumped = false
 
-function tracer.on_vm_start(vm)
-    w1.log_info("dump demo: vm started")
-    return w1.VMAction.CONTINUE
+local function on_vm_start(vm)
+    w1.log.info("dump demo: vm started")
+    return w1.enum.vm_action.CONTINUE
 end
 
-function tracer.on_instruction_preinst(vm, gpr, fpr)
-    if not dumped then
-        dumped = true
-        
-        -- get module name for filter
-        local module_name = w1.module_get_name(w1.get_reg_pc(gpr))
-        w1.log_info("dumping process (module: " .. module_name .. ")")
-        
-        -- equivalent to the canonical dump command
-        w1.dump_process(vm, gpr, fpr, {
-            output = "process.w1dump",
-            dump_memory = true,                     -- --memory flag
-            filters = {
-                "all:" .. module_name,              -- --filter all:simple_demo
-                "data:_anon"                        -- --filter data:_anon
-            },
-            max_region_size = 5 * 1024 * 1024      -- --max-region-size 5M
-        })
-        
-        w1.log_info("dump complete, stopping")
-        return w1.VMAction.STOP
+local function on_instruction(vm, gpr, fpr)
+    if dumped then
+        return w1.enum.vm_action.CONTINUE
     end
-    
-    return w1.VMAction.CONTINUE
+
+    dumped = true
+
+    local pc = w1.reg.pc(gpr) or 0
+    local module_name = w1.module.name(pc)
+    w1.log.info("dumping process (module: " .. module_name .. ")")
+
+    w1.dump.process(vm, gpr, fpr, {
+        output = "process.w1dump",
+        dump_memory = true,
+        filters = {
+            "all:" .. module_name,
+            "data:_anon"
+        },
+        max_region_size = 5 * 1024 * 1024
+    })
+
+    w1.log.info("dump complete, stopping")
+    return w1.enum.vm_action.STOP
+end
+
+function tracer.init()
+    w1.on(w1.event.VM_START, on_vm_start)
+    w1.on(w1.event.INSTRUCTION_PRE, on_instruction)
 end
 
 return tracer

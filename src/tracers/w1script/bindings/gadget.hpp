@@ -6,6 +6,6 @@
 
 namespace w1::tracers::script::bindings {
 
-void setup_output_bindings(sol::state& lua, sol::table& w1_module, runtime::script_context& context);
+void setup_gadget_bindings(sol::state& lua, sol::table& w1_module, runtime::script_context& context);
 
 } // namespace w1::tracers::script::bindings

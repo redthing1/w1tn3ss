@@ -24,12 +24,20 @@ struct config : public w1::instrumentation_config {
     cfg.include_system_modules = loader.get<bool>("INCLUDE_SYSTEM", false);
     cfg.script_path = loader.get<std::string>("SCRIPT", "");
     cfg.verbose = loader.get<bool>("VERBOSE", false);
+    cfg.module_filter = loader.get_list("MODULE_FILTER");
+    cfg.force_include = loader.get_list("FORCE_INCLUDE");
+    cfg.force_exclude = loader.get_list("FORCE_EXCLUDE");
+    cfg.use_default_conflicts = loader.get<bool>("USE_DEFAULT_CONFLICTS", true);
+    cfg.use_default_criticals = loader.get<bool>("USE_DEFAULT_CRITICALS", true);
+    cfg.verbose_instrumentation = loader.get<bool>("VERBOSE_INSTRUMENTATION", false);
 
     // collect all W1SCRIPT_* environment variables for the script
     auto env_vars = w1::util::env_enumerator::get_vars_with_prefix("W1SCRIPT_");
     for (const auto& [key, value] : env_vars) {
       // skip the built-in ones
-      if (key != "SCRIPT" && key != "VERBOSE") {
+      if (key != "SCRIPT" && key != "VERBOSE" && key != "INCLUDE_SYSTEM" && key != "MODULE_FILTER" &&
+          key != "FORCE_INCLUDE" && key != "FORCE_EXCLUDE" && key != "USE_DEFAULT_CONFLICTS" &&
+          key != "USE_DEFAULT_CRITICALS" && key != "VERBOSE_INSTRUMENTATION") {
         // convert key to lowercase for consistency
         std::string lower_key = key;
         std::transform(lower_key.begin(), lower_key.end(), lower_key.begin(), [](unsigned char c) {

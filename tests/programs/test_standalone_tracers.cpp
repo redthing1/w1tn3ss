@@ -216,8 +216,7 @@ local function on_instruction(vm, gpr, fpr)
     -- only log first N instructions to avoid spam
     if instruction_count <= max_instructions then
         local pc = w1.reg.pc(gpr) or 0
-        local analysis = vm:getInstAnalysis(w1.enum.analysis_type.ANALYSIS_DISASSEMBLY)
-        local disasm = analysis and analysis.disassembly or "<unknown>"
+        local disasm = w1.inst.disasm(vm) or "<unknown>"
 
         w1.log.info(w1.util.format_address(pc) .. ": " .. disasm)
     end

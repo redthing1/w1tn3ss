@@ -9,65 +9,68 @@ local stats = {
 }
 
 function tracer.init()
-    local output_file = config.output or "trace.jsonl"
-    w1.log_info("initializing jsonl tracer, output file: " .. output_file)
-    w1.output.init(output_file, {
+    local output_file = w1.config.output or "trace.jsonl"
+    w1.log.info("initializing jsonl tracer, output file: " .. output_file)
+    w1.output.open(output_file, {
         tracer = "jsonl_tracer",
         version = "1.0"
     })
-end
 
-function tracer.on_basic_block_entry(vm, state, gpr, fpr)
-    stats.blocks = stats.blocks + 1
+    w1.on(w1.event.BASIC_BLOCK_ENTRY, function(vm, state, gpr, fpr)
+        stats.blocks = stats.blocks + 1
 
-    -- write block events for new blocks only
-    if stats.blocks <= 100 then
-        w1.output.write_event({
-            type = "block",
-            address = w1.format_address(state.basicBlockStart),
-            size = state.basicBlockEnd - state.basicBlockStart
+        if stats.blocks <= 100 then
+            w1.output.write({
+                type = "block",
+                address = w1.util.format_address(state.basicBlockStart),
+                size = state.basicBlockEnd - state.basicBlockStart
+            })
+        end
+
+        return w1.enum.vm_action.CONTINUE
+    end)
+
+    w1.on(w1.event.EXEC_TRANSFER_CALL, function(vm, state, gpr, fpr)
+        stats.calls = stats.calls + 1
+
+        local pc = w1.reg.pc(gpr) or 0
+        w1.output.write({
+            type = "call",
+            from = w1.util.format_address(state.sequenceStart),
+            to = w1.util.format_address(pc),
+            from_module = w1.module.name(state.sequenceStart),
+            to_module = w1.module.name(pc)
         })
-    end
 
-    return w1.VMAction.CONTINUE
-end
+        return w1.enum.vm_action.CONTINUE
+    end)
 
-function tracer.on_exec_transfer_call(vm, state, gpr, fpr)
-    stats.calls = stats.calls + 1
+    w1.on(w1.event.EXEC_TRANSFER_RETURN, function(vm, state, gpr, fpr)
+        stats.returns = stats.returns + 1
 
-    w1.output.write_event({
-        type = "call",
-        from = w1.format_address(state.sequenceStart),
-        to = w1.format_address(w1.get_reg_pc(gpr)),
-        from_module = w1.module_get_name(state.sequenceStart),
-        to_module = w1.module_get_name(w1.get_reg_pc(gpr))
-    })
+        local pc = w1.reg.pc(gpr) or 0
+        w1.output.write({
+            type = "return",
+            from = w1.util.format_address(state.sequenceStart),
+            to = w1.util.format_address(pc),
+            from_module = w1.module.name(state.sequenceStart)
+        })
 
-    return w1.VMAction.CONTINUE
-end
-
-function tracer.on_exec_transfer_return(vm, state, gpr, fpr)
-    stats.returns = stats.returns + 1
-
-    w1.output.write_event({
-        type = "return",
-        from = w1.format_address(state.sequenceStart),
-        to = w1.format_address(w1.get_reg_pc(gpr)),
-        from_module = w1.module_get_name(state.sequenceStart)
-    })
-
-    return w1.VMAction.CONTINUE
+        return w1.enum.vm_action.CONTINUE
+    end)
 end
 
 function tracer.shutdown()
-    w1.output.write_event({
+    w1.output.write({
         type = "stats",
         total_blocks = stats.blocks,
         total_calls = stats.calls,
         total_returns = stats.returns
     })
 
-    w1.log_info("trace complete: " .. stats.blocks .. " blocks, " .. stats.calls .. " calls, " .. stats.returns ..
+    w1.output.close()
+
+    w1.log.info("trace complete: " .. stats.blocks .. " blocks, " .. stats.calls .. " calls, " .. stats.returns ..
                     " returns")
 end
 
