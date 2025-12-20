@@ -22,6 +22,9 @@ add_library(w1tn3ss STATIC
     abi/api_knowledge_db.cpp
     abi/argument_extractor.cpp
     abi/api_analyzer.cpp
+    abi/api_call_tracker.cpp
+    abi/api_event_builder.cpp
+    abi/api_dispatcher.cpp
     abi/api_listener.cpp
     # hooking system
     hooking/hook_manager.cpp
@@ -66,6 +69,7 @@ endif()
 
 # Symbol resolution system
 target_sources(w1tn3ss PRIVATE
+    symbols/symbol_lookup.cpp
     symbols/symbol_resolver.cpp
 )
 

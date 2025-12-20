@@ -17,6 +17,7 @@ local function on_call(vm, state, gpr, fpr)
     local pc = w1.reg.pc(gpr) or 0
     local source_addr = w1.util.format_address(state.sequenceStart)
     local target_addr = w1.util.format_address(pc)
+    local thread_id = w1.util.thread_id() or 0
 
     local source_module = w1.module.name(state.sequenceStart)
     local target_module = w1.module.name(pc)
@@ -42,8 +43,8 @@ local function on_call(vm, state, gpr, fpr)
         depth = current_call_depth
     })
 
-    w1.log.info(string.format("call: %s (%s) -> %s (%s) (depth: %d)",
-        source_addr, source_module, target_addr, target_module, current_call_depth))
+    w1.log.info(string.format("call: %s (%s) -> %s (%s) (depth: %d, tid: %d)",
+        source_addr, source_module, target_addr, target_module, current_call_depth, thread_id))
 
     return w1.enum.vm_action.CONTINUE
 end
@@ -52,6 +53,7 @@ local function on_return(vm, state, gpr, fpr)
     local pc = w1.reg.pc(gpr) or 0
     local source_addr = w1.util.format_address(state.sequenceStart)
     local target_addr = w1.util.format_address(pc)
+    local thread_id = w1.util.thread_id() or 0
 
     local source_module = w1.module.name(state.sequenceStart)
     local target_module = w1.module.name(pc)
@@ -72,13 +74,13 @@ local function on_return(vm, state, gpr, fpr)
 
     if call_info then
         w1.log.info(string.format(
-            "return: %s (%s) -> %s (%s) (from call %s -> %s at depth %d)",
+            "return: %s (%s) -> %s (%s) (from call %s -> %s at depth %d, tid: %d)",
             source_addr, source_module, target_addr, target_module,
-            call_info.source_module, call_info.target_module, call_info.depth
+            call_info.source_module, call_info.target_module, call_info.depth, thread_id
         ))
     else
-        w1.log.info(string.format("return: %s (%s) -> %s (%s) (unmatched return)",
-            source_addr, source_module, target_addr, target_module))
+        w1.log.info(string.format("return: %s (%s) -> %s (%s) (unmatched return, tid: %d)",
+            source_addr, source_module, target_addr, target_module, thread_id))
     end
 
     return w1.enum.vm_action.CONTINUE

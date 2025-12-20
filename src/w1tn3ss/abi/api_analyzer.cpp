@@ -16,12 +16,16 @@ public:
       symbols::symbol_resolver::config sym_cfg;
       sym_cfg.max_cache_size = 50;
       sym_cfg.prepopulate_exports = true;
-      symbol_resolver_ = std::make_unique<symbols::symbol_resolver>(sym_cfg);
+      sym_cfg.resolve_imports = true;
+      symbol_lookup_ = std::make_unique<symbols::symbol_lookup>(sym_cfg);
     }
   }
 
   void initialize(const util::module_range_index& module_index) {
     module_index_ = &module_index;
+    if (symbol_lookup_) {
+      symbol_lookup_->initialize(module_index);
+    }
     log_.dbg("initialized with module index", redlog::field("module_count", module_index.size()));
   }
 
@@ -30,6 +34,11 @@ public:
     stats_.calls_analyzed++;
 
     try {
+      if (!module_index_) {
+        result.error_message = "module index not initialized";
+        return result;
+      }
+
       // step 1: identify module containing the target address
       auto module_info = module_index_->find_containing(ctx.target_address);
       if (!module_info) {
@@ -62,6 +71,8 @@ public:
           result.behavior_flags = api_info->flags;
           result.description = api_info->description;
           result.found_in_knowledge_db = true;
+          result.return_param = api_info->return_value;
+          result.has_return_value = (api_info->return_value.param_type != param_info::type::VOID);
           stats_.apis_identified++;
 
           log_.dbg(
@@ -84,6 +95,13 @@ public:
         } else {
           log_.dbg("api not found in knowledge db", redlog::field("symbol", result.symbol_name));
           result.found_in_knowledge_db = false;
+          if (!result.symbol_name.empty()) {
+            param_info generic_return;
+            generic_return.name = "return";
+            generic_return.param_type = param_info::type::UNKNOWN;
+            result.return_param = generic_return;
+            result.has_return_value = true;
+          }
         }
       }
 
@@ -250,56 +268,36 @@ public:
     }
 
     try {
-      // extract return value based on api info
-      if (auto api_info = api_db_->lookup(result.symbol_name)) {
-        // detect calling convention for return value extraction
-        auto convention = detector_->detect(result.module_name, result.symbol_name);
-        uint64_t ret_val = convention->get_integer_return(ctx.gpr_state);
-
-        // create safe memory reader for return value extraction
-        util::safe_memory::memory_validator().refresh();
-
-        result.return_value =
-            argument_extractor_.extract_argument(api_info->return_value, ret_val, util::safe_memory_reader{ctx.vm});
-
-        // log return value analysis with formatted output
-        if (api_info->return_value.param_type != param_info::type::VOID) {
-          std::string return_str;
-
-          // format return value based on type for display
-          if (!result.return_value.string_preview.empty()) {
-            util::value_formatter::format_options opts;
-            opts.quote_strings = false; // we add quotes manually
-            return_str = "\"" + util::value_formatter::format_string(result.return_value.string_preview, opts) + "\"";
-          } else if (result.return_value.is_null_pointer) {
-            return_str = "NULL";
-          } else if (result.return_value.param_type == param_info::type::BOOLEAN) {
-            return_str = result.return_value.raw_value ? "true" : "false";
-          } else if (result.return_value.param_type == param_info::type::ERROR_CODE) {
-            std::stringstream ss;
-            ss << "0x" << std::hex << result.return_value.raw_value << " ("
-               << static_cast<int64_t>(result.return_value.raw_value) << ")";
-            return_str = ss.str();
-          } else if (result.return_value.param_type == param_info::type::POINTER) {
-            std::stringstream ss;
-            ss << "0x" << std::hex << result.return_value.raw_value;
-            return_str = ss.str();
-          } else {
-            return_str = std::to_string(static_cast<int64_t>(result.return_value.raw_value));
-          }
-
-          // build formatted return string and log it
-          std::string formatted_return = result.symbol_name + "() = " + return_str;
-
-          log_.vrb(
-              "analyzed api return", redlog::field("return", formatted_return),
-              redlog::field("raw_value", result.return_value.raw_value), redlog::field("module", result.module_name)
-          );
+      param_info return_param = result.return_param;
+      if (return_param.param_type == param_info::type::UNKNOWN && !result.symbol_name.empty()) {
+        if (auto api_info = api_db_->lookup(result.symbol_name)) {
+          return_param = api_info->return_value;
         }
       }
+
+      if (return_param.param_type == param_info::type::VOID) {
+        result.has_return_value = false;
+        return;
+      }
+
+      result.return_value = extract_return_value(ctx, return_param);
+      result.has_return_value = true;
     } catch (const std::exception& e) {
       log_.err("return analysis failed", redlog::field("error", e.what()));
     }
+  }
+
+  extracted_argument extract_return_value(const api_context& ctx, const param_info& return_param) {
+    param_info param = return_param;
+    if (param.name.empty()) {
+      param.name = "return";
+    }
+
+    auto convention = detector_->detect(ctx.module_name, ctx.symbol_name);
+    uint64_t ret_val = convention->get_integer_return(ctx.gpr_state);
+
+    util::safe_memory::memory_validator().refresh();
+    return argument_extractor_.extract_argument(param, ret_val, util::safe_memory_reader{ctx.vm});
   }
 
   const api_knowledge_db& get_api_db() const { return *api_db_; }
@@ -307,28 +305,24 @@ public:
   stats get_stats() const { return stats_; }
 
   void clear_caches() {
-    if (symbol_resolver_) {
-      symbol_resolver_->clear_cache();
+    if (symbol_lookup_) {
+      symbol_lookup_->clear_cache();
     }
   }
 
 private:
   void resolve_symbol(api_analysis_result& result, uint64_t address, const util::module_info& module) {
-    if (!symbol_resolver_) {
+    if (!symbol_lookup_) {
       return;
     }
 
-    if (auto symbol = symbol_resolver_->resolve_in_module(module.path, result.module_offset)) {
-      result.symbol_name = symbol->name;
+    if (auto symbol = symbol_lookup_->resolve(address)) {
+      result.symbol_name = symbol->symbol_name;
       result.demangled_name = symbol->demangled_name;
       stats_.symbols_resolved++;
-
-      log_.dbg(
-          "resolved symbol", redlog::field("address", address), redlog::field("symbol", symbol->name),
-          redlog::field("demangled", symbol->demangled_name)
-      );
+      return;
     }
-    // fallback: use module name + offset when lief is not available
+
     std::stringstream ss;
     ss << module.name << "+0x" << std::hex << result.module_offset;
     result.symbol_name = ss.str();
@@ -497,7 +491,7 @@ private:
   std::shared_ptr<calling_convention_detector> detector_;
   argument_extractor argument_extractor_;
 
-  std::unique_ptr<symbols::symbol_resolver> symbol_resolver_;
+  std::unique_ptr<symbols::symbol_lookup> symbol_lookup_;
 
   mutable stats stats_;
 };
@@ -521,6 +515,10 @@ const api_knowledge_db& api_analyzer::get_api_db() const { return pimpl->get_api
 api_analyzer::stats api_analyzer::get_stats() const { return pimpl->get_stats(); }
 
 void api_analyzer::clear_caches() { pimpl->clear_caches(); }
+
+extracted_argument api_analyzer::extract_return_value(const api_context& ctx, const param_info& return_param) {
+  return pimpl->extract_return_value(ctx, return_param);
+}
 
 // helper functions implementation
 

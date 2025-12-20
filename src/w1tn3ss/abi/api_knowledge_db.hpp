@@ -216,4 +216,7 @@ param_info::type infer_param_type(const std::string& param_name, const std::stri
 // format api signature for display
 std::string format_api_signature(const api_info& info);
 
+std::string to_string(api_info::category category);
+std::string to_string(param_info::type type);
+
 } // namespace w1::abi

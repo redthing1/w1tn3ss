@@ -18,7 +18,7 @@ bool lua_runtime::initialize() {
   }
 
   api_manager_.set_lua_state(lua_.lua_state());
-  api_manager_.initialize(context_.module_index(), &context_.symbol_resolver());
+  api_manager_.initialize(context_.module_index(), &context_.symbol_lookup());
 
   configure_package_paths();
 

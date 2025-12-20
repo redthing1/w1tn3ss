@@ -163,13 +163,14 @@ int test_w1xfer(int verbose_level = 0) {
   std::cout << "\n=== testing w1xfer tracer ===\n";
 
   w1xfer::transfer_config config;
-  config.output_file = "test_w1xfer.jsonl";
+  config.output.path = "test_w1xfer.jsonl";
 
   // enable all features for comprehensive tracing
-  config.log_registers = true;
-  config.log_stack_info = true;
-  config.log_call_targets = true;
-  config.analyze_apis = true;
+  config.capture.registers = true;
+  config.capture.stack = true;
+  config.enrich.modules = true;
+  config.enrich.symbols = true;
+  config.enrich.analyze_apis = true;
   config.verbose = verbose_level;
 
   w1xfer::session session(config);
@@ -195,7 +196,7 @@ int test_w1xfer(int verbose_level = 0) {
   std::cout << "  unique return sources: " << stats.unique_return_sources << "\n";
   std::cout << "  max call depth: " << stats.max_call_depth << "\n";
 
-  std::cout << "w1xfer test completed (output in " << config.output_file << ")\n";
+  std::cout << "w1xfer test completed (output in " << config.output.path << ")\n";
   return 0;
 }
 

@@ -1,6 +1,7 @@
 #include "util.hpp"
 
 #include <w1common/platform_utils.hpp>
+#include <w1tn3ss/runtime/threading/thread_runtime.hpp>
 #include <redlog.hpp>
 #include <QBDI.h>
 
@@ -465,6 +466,10 @@ void setup_util_bindings(sol::state& lua, sol::table& w1_module) {
   util.set_function("millisecond_timestamp", []() -> int64_t {
     auto now = std::chrono::system_clock::now();
     return std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+  });
+
+  util.set_function("thread_id", []() -> uint64_t {
+    return w1::runtime::threading::current_native_thread_id();
   });
 
   util.set_function(

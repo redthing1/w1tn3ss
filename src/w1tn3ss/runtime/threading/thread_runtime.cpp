@@ -17,6 +17,17 @@ namespace {
 
 thread_local thread_context* t_tls_context = nullptr;
 
+thread_result_t thread_start_dispatch(thread_start_fn start_routine, void* arg) {
+  return thread_service::instance().handle_thread_start(start_routine, arg);
+}
+
+} // namespace
+
+thread_service& thread_service::instance() {
+  static thread_service service;
+  return service;
+}
+
 uint64_t current_native_thread_id() {
 #if defined(__APPLE__)
   uint64_t tid = 0;
@@ -31,17 +42,6 @@ uint64_t current_native_thread_id() {
 #else
   return 0;
 #endif
-}
-
-thread_result_t thread_start_dispatch(thread_start_fn start_routine, void* arg) {
-  return thread_service::instance().handle_thread_start(start_routine, arg);
-}
-
-} // namespace
-
-thread_service& thread_service::instance() {
-  static thread_service service;
-  return service;
 }
 
 void thread_service::configure(thread_runtime_options options, std::shared_ptr<thread_session_factory> factory) {

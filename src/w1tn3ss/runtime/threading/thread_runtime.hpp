@@ -93,4 +93,6 @@ private:
   redlog::logger log_ = redlog::get_logger("w1.threading.service");
 };
 
+uint64_t current_native_thread_id();
+
 } // namespace w1::runtime::threading

@@ -8,9 +8,9 @@ namespace w1::tracers::script::runtime {
 
 api_manager::api_manager() : logger_(redlog::get_logger("w1.script_api")) {}
 
-void api_manager::initialize(const w1::util::module_range_index& index, w1::symbols::symbol_resolver* resolver) {
+void api_manager::initialize(const w1::util::module_range_index& index, w1::symbols::symbol_lookup* lookup) {
   module_index_ = &index;
-  symbol_resolver_ = resolver;
+  symbol_lookup_ = lookup;
   initialized_ = true;
 
   if (listener_) {
@@ -57,6 +57,7 @@ sol::table api_manager::to_lua_event(const w1::abi::api_event& event) const {
   result["description"] = event.description;
   result["formatted_call"] = event.formatted_call;
   result["analysis_complete"] = event.analysis_complete;
+  result["has_return_value"] = event.has_return_value;
 
   sol::table args_table = lua.create_table();
   for (size_t i = 0; i < event.arguments.size(); ++i) {
@@ -78,6 +79,7 @@ sol::table api_manager::to_lua_event(const w1::abi::api_event& event) const {
     ret_table["param_type"] = static_cast<int>(ret.param_type);
     ret_table["interpreted_value"] = ret.interpreted_value;
     ret_table["is_pointer"] = ret.is_pointer;
+    ret_table["is_null"] = (ret.interpreted_value == "NULL");
     result["return_value"] = ret_table;
   }
 
@@ -164,9 +166,9 @@ void api_manager::process_call(QBDI::VM* vm, const QBDI::VMState* state, QBDI::G
 
   if (auto module_info = module_index_->find_containing(ctx.target_address)) {
     ctx.module_name = module_info->name;
-    if (symbol_resolver_) {
-      if (auto sym_info = symbol_resolver_->resolve_address(ctx.target_address, *module_index_)) {
-        ctx.symbol_name = sym_info->name;
+    if (symbol_lookup_) {
+      if (auto sym_info = symbol_lookup_->resolve(ctx.target_address)) {
+        ctx.symbol_name = sym_info->symbol_name;
       }
     }
   }
@@ -194,9 +196,9 @@ void api_manager::process_return(
 
   if (auto module_info = module_index_->find_containing(ctx.target_address)) {
     ctx.module_name = module_info->name;
-    if (symbol_resolver_) {
-      if (auto sym_info = symbol_resolver_->resolve_address(ctx.target_address, *module_index_)) {
-        ctx.symbol_name = sym_info->name;
+    if (symbol_lookup_) {
+      if (auto sym_info = symbol_lookup_->resolve(ctx.target_address)) {
+        ctx.symbol_name = sym_info->symbol_name;
       }
     }
   }

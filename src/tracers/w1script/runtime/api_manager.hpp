@@ -4,7 +4,7 @@
 
 #include <w1tn3ss/abi/api_listener.hpp>
 #include <w1tn3ss/util/module_range_index.hpp>
-#include <w1tn3ss/symbols/symbol_resolver.hpp>
+#include <w1tn3ss/symbols/symbol_lookup.hpp>
 
 #include <QBDI.h>
 #include <redlog.hpp>
@@ -20,7 +20,7 @@ public:
 
   void set_lua_state(lua_State* state) { lua_state_ = state; }
 
-  void initialize(const w1::util::module_range_index& index, w1::symbols::symbol_resolver* resolver);
+  void initialize(const w1::util::module_range_index& index, w1::symbols::symbol_lookup* lookup);
   void refresh_modules(const w1::util::module_range_index& index);
 
   void register_symbol_callback(
@@ -42,7 +42,7 @@ private:
 
   std::unique_ptr<w1::abi::api_listener> listener_;
   const w1::util::module_range_index* module_index_ = nullptr;
-  w1::symbols::symbol_resolver* symbol_resolver_ = nullptr;
+  w1::symbols::symbol_lookup* symbol_lookup_ = nullptr;
   lua_State* lua_state_ = nullptr;
   size_t callback_count_ = 0;
   bool initialized_ = false;

@@ -1,9 +1,8 @@
 #pragma once
 
-#include "argument_extractor.hpp"
-#include "api_knowledge_db.hpp"
+#include "api_types.hpp"
 #include "calling_convention_detector.hpp"
-#include "symbols/symbol_resolver.hpp"
+#include "symbols/symbol_lookup.hpp"
 #include "util/safe_memory.hpp"
 #include "util/module_range_index.hpp"
 #include <QBDI.h>
@@ -12,57 +11,6 @@
 #include <string>
 
 namespace w1::abi {
-
-// context for api analysis
-struct api_context {
-  // basic call information
-  uint64_t call_address;
-  uint64_t target_address;
-  std::string module_name;
-  std::string symbol_name;
-
-  // qbdi context
-  QBDI::VMInstanceRef vm;
-  const QBDI::VMState* vm_state;
-  QBDI::GPRState* gpr_state;
-  QBDI::FPRState* fpr_state;
-
-  // module information
-  const util::module_range_index* module_index;
-
-  // timing
-  uint64_t timestamp;
-};
-
-// result of api analysis
-struct api_analysis_result {
-  // symbol information
-  std::string symbol_name;
-  std::string demangled_name;
-  std::string module_name;
-  uint64_t module_offset;
-
-  // api semantics
-  api_info::category category = api_info::category::UNKNOWN;
-  uint32_t behavior_flags = 0;
-  std::string description;
-
-  // extracted arguments
-  std::vector<extracted_argument> arguments;
-
-  // for return analysis
-  extracted_argument return_value;
-
-  // formatted call string
-  std::string formatted_call;
-
-  // tracking
-  bool found_in_knowledge_db = false;
-
-  // error information
-  bool analysis_complete = false;
-  std::string error_message;
-};
 
 // configuration for api analyzer
 struct analyzer_config {
@@ -95,6 +43,9 @@ public:
 
   // analyze return from api call
   void analyze_return(api_analysis_result& result, const api_context& ctx);
+
+  // extract return value using explicit return metadata
+  extracted_argument extract_return_value(const api_context& ctx, const param_info& return_param);
 
   // get api database for queries
   const api_knowledge_db& get_api_db() const;

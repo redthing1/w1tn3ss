@@ -383,4 +383,136 @@ std::string format_api_signature(const api_info& info) {
   return sig;
 }
 
+std::string to_string(api_info::category category) {
+  switch (category) {
+  case api_info::category::FILE_IO:
+    return "FILE_IO";
+  case api_info::category::FILE_MANAGEMENT:
+    return "FILE_MANAGEMENT";
+  case api_info::category::STDIO:
+    return "STDIO";
+  case api_info::category::DEVICE_IO:
+    return "DEVICE_IO";
+  case api_info::category::PROCESS_CONTROL:
+    return "PROCESS_CONTROL";
+  case api_info::category::THREAD_CONTROL:
+    return "THREAD_CONTROL";
+  case api_info::category::THREADING:
+    return "THREADING";
+  case api_info::category::MEMORY_MANAGEMENT:
+    return "MEMORY_MANAGEMENT";
+  case api_info::category::HEAP_MANAGEMENT:
+    return "HEAP_MANAGEMENT";
+  case api_info::category::SYNCHRONIZATION:
+    return "SYNCHRONIZATION";
+  case api_info::category::MUTEX:
+    return "MUTEX";
+  case api_info::category::EVENT:
+    return "EVENT";
+  case api_info::category::SEMAPHORE:
+    return "SEMAPHORE";
+  case api_info::category::NETWORK_SOCKET:
+    return "NETWORK_SOCKET";
+  case api_info::category::NETWORK_DNS:
+    return "NETWORK_DNS";
+  case api_info::category::NETWORK_HTTP:
+    return "NETWORK_HTTP";
+  case api_info::category::REGISTRY:
+    return "REGISTRY";
+  case api_info::category::SECURITY:
+    return "SECURITY";
+  case api_info::category::CRYPTO:
+    return "CRYPTO";
+  case api_info::category::SYSTEM_INFO:
+    return "SYSTEM_INFO";
+  case api_info::category::TIME:
+    return "TIME";
+  case api_info::category::ENVIRONMENT:
+    return "ENVIRONMENT";
+  case api_info::category::STRING_MANIPULATION:
+    return "STRING_MANIPULATION";
+  case api_info::category::LOCALE:
+    return "LOCALE";
+  case api_info::category::LIBRARY_LOADING:
+    return "LIBRARY_LOADING";
+  case api_info::category::IPC:
+    return "IPC";
+  case api_info::category::PIPE:
+    return "PIPE";
+  case api_info::category::SHARED_MEMORY:
+    return "SHARED_MEMORY";
+  case api_info::category::UI:
+    return "UI";
+  case api_info::category::WINDOW:
+    return "WINDOW";
+  case api_info::category::SYSTEM_HOOK:
+    return "SYSTEM_HOOK";
+  case api_info::category::MATH:
+    return "MATH";
+  case api_info::category::SORTING:
+    return "SORTING";
+  case api_info::category::MISC:
+    return "MISC";
+  case api_info::category::UNKNOWN:
+  default:
+    return "UNKNOWN";
+  }
+}
+
+std::string to_string(param_info::type type) {
+  switch (type) {
+  case param_info::type::INTEGER:
+    return "INTEGER";
+  case param_info::type::UNSIGNED:
+    return "UNSIGNED";
+  case param_info::type::POINTER:
+    return "POINTER";
+  case param_info::type::SIZE:
+    return "SIZE";
+  case param_info::type::COUNT:
+    return "COUNT";
+  case param_info::type::FLAGS:
+    return "FLAGS";
+  case param_info::type::BOOLEAN:
+    return "BOOLEAN";
+  case param_info::type::FLOAT:
+    return "FLOAT";
+  case param_info::type::DOUBLE:
+    return "DOUBLE";
+  case param_info::type::FLOATING_POINT:
+    return "FLOATING_POINT";
+  case param_info::type::HANDLE:
+    return "HANDLE";
+  case param_info::type::FILE_DESCRIPTOR:
+    return "FILE_DESCRIPTOR";
+  case param_info::type::STRING:
+    return "STRING";
+  case param_info::type::WSTRING:
+    return "WSTRING";
+  case param_info::type::BUFFER:
+    return "BUFFER";
+  case param_info::type::STRUCT:
+    return "STRUCT";
+  case param_info::type::CALLBACK:
+    return "CALLBACK";
+  case param_info::type::VOID:
+    return "VOID";
+  case param_info::type::PATH:
+    return "PATH";
+  case param_info::type::URL:
+    return "URL";
+  case param_info::type::REGISTRY_KEY:
+    return "REGISTRY_KEY";
+  case param_info::type::PROCESS_ID:
+    return "PROCESS_ID";
+  case param_info::type::THREAD_ID:
+    return "THREAD_ID";
+  case param_info::type::ERROR_CODE:
+    return "ERROR_CODE";
+  case param_info::type::UNKNOWN:
+  default:
+    return "UNKNOWN";
+  }
+}
+
 } // namespace w1::abi

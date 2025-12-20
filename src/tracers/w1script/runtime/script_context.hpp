@@ -6,6 +6,7 @@
 #include <w1tn3ss/util/module_range_index.hpp>
 #include <w1tn3ss/util/module_scanner.hpp>
 #include <w1tn3ss/symbols/symbol_resolver.hpp>
+#include <w1tn3ss/symbols/symbol_lookup.hpp>
 #include <w1tn3ss/hooking/hook_manager.hpp>
 #include <w1tn3ss/gadget/gadget_executor.hpp>
 
@@ -31,6 +32,8 @@ public:
 
   w1::symbols::symbol_resolver& symbol_resolver() { return *symbol_resolver_; }
   const w1::symbols::symbol_resolver& symbol_resolver() const { return *symbol_resolver_; }
+  w1::symbols::symbol_lookup& symbol_lookup() { return *symbol_lookup_; }
+  const w1::symbols::symbol_lookup& symbol_lookup() const { return *symbol_lookup_; }
 
   std::shared_ptr<w1::hooking::hook_manager> hook_manager() { return hook_manager_; }
   std::shared_ptr<w1tn3ss::gadget::gadget_executor> gadget_executor() { return gadget_executor_; }
@@ -48,6 +51,7 @@ private:
   w1::util::module_scanner module_scanner_;
   w1::util::module_range_index module_index_;
   std::unique_ptr<w1::symbols::symbol_resolver> symbol_resolver_;
+  std::unique_ptr<w1::symbols::symbol_lookup> symbol_lookup_;
 
   std::shared_ptr<w1::hooking::hook_manager> hook_manager_;
   std::shared_ptr<w1tn3ss::gadget::gadget_executor> gadget_executor_;
