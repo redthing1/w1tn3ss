@@ -101,7 +101,9 @@ void cmd_cover(args::Subparser& parser) {
   args::ValueFlag<int> pid(parser, "pid", "process ID to attach to", {'p', "pid"});
   args::ValueFlag<std::string> name(parser, "name", "process name to attach to", {'n', "name"});
   args::ValueFlag<std::string> output(parser, "path", "output file path", {'o', "output"});
-  args::Flag include_system(parser, "include-system", "include system libraries", {"include-system"});
+  args::ValueFlag<std::string> system_policy(
+      parser, "policy", "system module policy (exclude_all, include_critical, include_all)", {"system-policy"}
+  );
   args::Flag inst_trace(parser, "inst-trace", "enable instruction-level tracing (default: basic block)", {"inst"});
   args::ValueFlag<std::string> module_filter(
       parser, "modules", "comma-separated list of modules to filter", {'m', "module-filter"}
@@ -114,7 +116,7 @@ void cmd_cover(args::Subparser& parser) {
   parser.Parse();
 
   w1tool::commands::cover(
-      library, spawn, pid, name, output, include_system, inst_trace, module_filter, debug_level, format, suspended,
+      library, spawn, pid, name, output, system_policy, inst_trace, module_filter, debug_level, format, suspended,
       no_aslr, args, g_executable_path
   );
 }

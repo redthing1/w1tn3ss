@@ -86,7 +86,7 @@ int read_dump(
       size_t user_modules = 0;
       size_t system_modules = 0;
       for (const auto& mod : dump.modules) {
-        if (mod.is_system_library) {
+        if (mod.is_system) {
           system_modules++;
         } else {
           user_modules++;
@@ -159,13 +159,13 @@ int read_dump(
       std::cout << "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
 
       // collect modules by type for better organization
-      std::vector<const module_info_serializable*> user_mods, system_mods;
+      std::vector<const module_info*> user_mods, system_mods;
       for (const auto& mod : dump.modules) {
         if (!module_filter.empty() && mod.name.find(module_filter) == std::string::npos) {
           continue;
         }
 
-        if (mod.is_system_library) {
+        if (mod.is_system) {
           system_mods.push_back(&mod);
         } else {
           user_mods.push_back(&mod);
@@ -173,7 +173,7 @@ int read_dump(
       }
 
       // compact module display
-      auto print_module_line = [](const module_info_serializable* mod, bool show_system) {
+      auto print_module_line = [](const module_info* mod, bool show_system) {
         std::cout << std::hex << std::setw(12) << mod->base_address << std::dec << " " << std::setw(8) << std::right
                   << format_bytes_dump(mod->size) << " " << std::setw(3) << format_permissions(mod->permissions) << " "
                   << std::left << std::setw(32) << mod->name;

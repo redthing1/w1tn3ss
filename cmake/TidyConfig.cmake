@@ -30,7 +30,9 @@ if(CLANG_TIDY_EXECUTABLE)
         "${WITNESS_SOURCE_DIR}/src/p1ll/*.cpp" "${WITNESS_SOURCE_DIR}/src/p1ll/*.hpp"
         "${WITNESS_SOURCE_DIR}/src/p1llx/*.cpp" "${WITNESS_SOURCE_DIR}/src/p1llx/*.hpp"
         "${WITNESS_SOURCE_DIR}/src/p01s0n/*.cpp" "${WITNESS_SOURCE_DIR}/src/p01s0n/*.hpp"
+        "${WITNESS_SOURCE_DIR}/samples/*.cpp" "${WITNESS_SOURCE_DIR}/samples/*.hpp"
         "${WITNESS_SOURCE_DIR}/tests/*.cpp" "${WITNESS_SOURCE_DIR}/tests/*.hpp"
+        "${WITNESS_SOURCE_DIR}/test/*.cpp" "${WITNESS_SOURCE_DIR}/test/*.hpp"
     )
     
     list(FILTER ALL_TIDY_FILES EXCLUDE REGEX ".*/build-.*/.*")

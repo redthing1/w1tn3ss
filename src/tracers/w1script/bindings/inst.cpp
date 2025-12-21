@@ -1,7 +1,6 @@
 #include "inst.hpp"
 
 #include <QBDI.h>
-#include <redlog.hpp>
 
 namespace w1::tracers::script::bindings {
 
@@ -12,12 +11,9 @@ constexpr QBDI::AnalysisType k_default_analysis = QBDI::AnalysisType::ANALYSIS_I
 } // namespace
 
 void setup_inst_bindings(sol::state& lua, sol::table& w1_module) {
-  auto logger = redlog::get_logger("w1.script_bindings");
-  logger.dbg("setting up inst bindings");
+  sol::table inst = lua.create_table();
 
-  sol::table inst_module = lua.create_table();
-
-  inst_module.set_function(
+  inst.set_function(
       "current",
       [](QBDI::VM* vm, sol::optional<QBDI::AnalysisType> analysis_type) -> const QBDI::InstAnalysis* {
         if (!vm) {
@@ -27,7 +23,7 @@ void setup_inst_bindings(sol::state& lua, sol::table& w1_module) {
       }
   );
 
-  inst_module.set_function("disasm", [](QBDI::VM* vm) -> sol::optional<std::string> {
+  inst.set_function("disasm", [](QBDI::VM* vm) -> sol::optional<std::string> {
     if (!vm) {
       return sol::nullopt;
     }
@@ -39,7 +35,7 @@ void setup_inst_bindings(sol::state& lua, sol::table& w1_module) {
     return std::string(analysis->disassembly);
   });
 
-  w1_module["inst"] = inst_module;
+  w1_module["inst"] = inst;
 }
 
 } // namespace w1::tracers::script::bindings

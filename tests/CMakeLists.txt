@@ -1,7 +1,6 @@
 # w1nj3ct test suite
 
-# build test programs and libraries
-add_subdirectory(programs)
+# build test libraries
 add_subdirectory(libraries)
 
 # enable CMake testing framework
@@ -20,12 +19,49 @@ else()
     endif()
 endif()
 
+# standalone tracers test program
+add_executable(test_standalone_tracers test_standalone_tracers.cpp)
+apply_common_compile_options(test_standalone_tracers)
+apply_windows_definitions(test_standalone_tracers)
+target_include_directories(test_standalone_tracers PRIVATE ${WITNESS_SOURCE_DIR}/src)
+target_link_libraries(test_standalone_tracers PRIVATE w1cov_static w1xfer_static w1tn3ss redlog::redlog)
+
+# conditionally link w1script if enabled
+if(WITNESS_SCRIPT)
+    include(${WITNESS_SOURCE_DIR}/cmake/LuaConfig.cmake)
+    configure_target_with_lua(test_standalone_tracers)
+    target_link_libraries(test_standalone_tracers PRIVATE w1script_static)
+endif()
+
+# apply windows symbol resolution after all libraries are linked
+if(WIN32 AND MSVC)
+    include(${WITNESS_SOURCE_DIR}/cmake/WindowsSymbolConfig.cmake)
+    configure_windows_symbol_resolution(test_standalone_tracers)
+endif()
+
+set_target_properties(test_standalone_tracers PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests
+)
+
 # add p1ll pattern matching unit tests
 if(WITNESS_SCRIPT)
+    add_executable(test_p1ll_pattern_matching test_p1ll_pattern_matching.cpp)
+    apply_common_compile_options(test_p1ll_pattern_matching)
+    apply_windows_definitions(test_p1ll_pattern_matching)
+    target_include_directories(test_p1ll_pattern_matching PRIVATE ${WITNESS_SOURCE_DIR}/src)
+    target_link_libraries(test_p1ll_pattern_matching PRIVATE p1ll_core redlog::redlog)
+    set_target_properties(test_p1ll_pattern_matching PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests
+    )
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT WIN32)
+        target_compile_options(test_p1ll_pattern_matching PRIVATE ${SANITIZER_FLAGS})
+        target_link_options(test_p1ll_pattern_matching PRIVATE ${SANITIZER_FLAGS})
+    endif()
+
     add_test(
         NAME p1ll_pattern_matching_tests
         COMMAND test_p1ll_pattern_matching
-        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/programs
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests
     )
     set_tests_properties(p1ll_pattern_matching_tests PROPERTIES
         LABELS "unit;p1ll;pattern_matching"

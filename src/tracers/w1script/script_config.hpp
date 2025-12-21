@@ -1,53 +1,114 @@
 #pragma once
 
-#include <w1tn3ss/util/env_config.hpp>
-#include <w1tn3ss/util/env_enumerator.hpp>
-#include <w1tn3ss/engine/instrumentation_config.hpp>
-#include <string>
-#include <unordered_map>
 #include <algorithm>
 #include <cctype>
+#include <string>
+#include <string_view>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
+
+#include "w1tn3ss/core/instrumentation_policy.hpp"
+#include "w1tn3ss/util/env_config.hpp"
+
+#if defined(_WIN32)
+extern "C" char** _environ;
+#else
+extern "C" char** environ;
+#endif
 
 namespace w1::tracers::script {
 
-struct config : public w1::instrumentation_config {
+struct script_config {
+  w1::core::instrumentation_policy instrumentation{};
+  bool exclude_self = true;
   std::string script_path;
-  bool verbose = false;
+  int verbose = 0;
+  std::unordered_map<std::string, std::string> script_args;
 
-  // raw config values that can be passed to the script
-  std::unordered_map<std::string, std::string> script_config;
+  static script_config from_environment() {
+    w1::util::env_config loader("W1SCRIPT");
 
-  static config from_environment() {
-    w1::util::env_config loader("W1SCRIPT_");
+    script_config config;
+    using system_policy = w1::core::system_module_policy;
+    system_policy policy = system_policy::exclude_all;
+    policy = loader.get_enum<system_policy>(
+        {
+            {"exclude", system_policy::exclude_all},
+            {"exclude_all", system_policy::exclude_all},
+            {"none", system_policy::exclude_all},
+            {"critical", system_policy::include_critical},
+            {"include_critical", system_policy::include_critical},
+            {"all", system_policy::include_all},
+            {"include_all", system_policy::include_all},
+            {"include", system_policy::include_all},
+        },
+        "SYSTEM_POLICY",
+        policy
+    );
+    config.instrumentation.system_policy = policy;
+    config.instrumentation.include_unnamed_modules = loader.get<bool>("INCLUDE_UNNAMED", false);
+    config.instrumentation.use_default_excludes = loader.get<bool>("USE_DEFAULT_EXCLUDES", true);
+    config.instrumentation.include_modules = loader.get_list("INCLUDE");
+    config.instrumentation.exclude_modules = loader.get_list("EXCLUDE");
+    config.exclude_self = loader.get<bool>("EXCLUDE_SELF", true);
 
-    config cfg;
-    cfg.include_system_modules = loader.get<bool>("INCLUDE_SYSTEM", false);
-    cfg.script_path = loader.get<std::string>("SCRIPT", "");
-    cfg.verbose = loader.get<bool>("VERBOSE", false);
-    cfg.module_filter = loader.get_list("MODULE_FILTER");
-    cfg.force_include = loader.get_list("FORCE_INCLUDE");
-    cfg.force_exclude = loader.get_list("FORCE_EXCLUDE");
-    cfg.use_default_conflicts = loader.get<bool>("USE_DEFAULT_CONFLICTS", true);
-    cfg.use_default_criticals = loader.get<bool>("USE_DEFAULT_CRITICALS", true);
-    cfg.verbose_instrumentation = loader.get<bool>("VERBOSE_INSTRUMENTATION", false);
+    config.script_path = loader.get<std::string>("SCRIPT", "");
+    config.verbose = loader.get<int>("VERBOSE", 0);
 
-    // collect all W1SCRIPT_* environment variables for the script
-    auto env_vars = w1::util::env_enumerator::get_vars_with_prefix("W1SCRIPT_");
-    for (const auto& [key, value] : env_vars) {
-      // skip the built-in ones
-      if (key != "SCRIPT" && key != "VERBOSE" && key != "INCLUDE_SYSTEM" && key != "MODULE_FILTER" &&
-          key != "FORCE_INCLUDE" && key != "FORCE_EXCLUDE" && key != "USE_DEFAULT_CONFLICTS" &&
-          key != "USE_DEFAULT_CRITICALS" && key != "VERBOSE_INSTRUMENTATION") {
-        // convert key to lowercase for consistency
-        std::string lower_key = key;
-        std::transform(lower_key.begin(), lower_key.end(), lower_key.begin(), [](unsigned char c) {
-          return std::tolower(c);
-        });
-        cfg.script_config[lower_key] = value;
+    const std::unordered_set<std::string> reserved = {
+        "SCRIPT",
+        "VERBOSE",
+        "SYSTEM_POLICY",
+        "INCLUDE_UNNAMED",
+        "USE_DEFAULT_EXCLUDES",
+        "INCLUDE",
+        "EXCLUDE",
+        "EXCLUDE_SELF",
+    };
+
+    auto env_vars = []() -> std::vector<std::string_view> {
+      std::vector<std::string_view> values;
+#if defined(_WIN32)
+      char** env = ::_environ;
+#else
+      char** env = ::environ;
+#endif
+      if (!env) {
+        return values;
       }
+      for (char** entry = env; *entry != nullptr; ++entry) {
+        values.emplace_back(*entry);
+      }
+      return values;
+    }();
+
+    for (const auto& entry : env_vars) {
+      auto pos = entry.find('=');
+      if (pos == std::string_view::npos) {
+        continue;
+      }
+      std::string_view key = entry.substr(0, pos);
+      std::string_view value = entry.substr(pos + 1);
+
+      constexpr std::string_view prefix = "W1SCRIPT_";
+      if (key.size() <= prefix.size() || key.substr(0, prefix.size()) != prefix) {
+        continue;
+      }
+
+      std::string suffix(key.substr(prefix.size()));
+      if (reserved.find(suffix) != reserved.end()) {
+        continue;
+      }
+
+      std::string lower_key = suffix;
+      std::transform(lower_key.begin(), lower_key.end(), lower_key.begin(), [](unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+      });
+      config.script_args[lower_key] = std::string(value);
     }
 
-    return cfg;
+    return config;
   }
 
   bool is_valid() const { return !script_path.empty(); }

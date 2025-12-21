@@ -1,32 +1,33 @@
 #pragma once
 
-#include <QBDI.h>
-#include <string>
-#include "dump_format.hpp"
-#include "memory_dumper.hpp"
+#include "w1tn3ss/dump/dump_format.hpp"
+#include "w1tn3ss/dump/memory_dumper.hpp"
 
-namespace w1 {
-namespace dump {
+#include <QBDI.h>
+#include <redlog.hpp>
+
+#include <string>
+
+namespace w1::dump {
 
 class process_dumper {
 public:
-  // dump current process state
-  static w1dump dump_current(
-      QBDI::VMInstanceRef vm, const QBDI::GPRState& gpr, const QBDI::FPRState& fpr, const dump_options& options = {}
+  static process_dump dump_current(
+      QBDI::VMInstanceRef vm, const util::memory_reader& memory, uint64_t thread_id, const QBDI::GPRState& gpr,
+      const QBDI::FPRState& fpr, const dump_options& options = {}
   );
 
-  // save/load using msgpack
-  static void save_dump(const w1dump& dump, const std::string& path);
-  static w1dump load_dump(const std::string& path);
+  static void save_dump(const process_dump& dump, const std::string& path);
+  static process_dump load_dump(const std::string& path);
 
 private:
   static redlog::logger log_;
 
-  // get platform info
   static std::string get_os_name();
   static std::string get_arch_name();
   static uint32_t get_pointer_size();
+  static std::string get_process_name();
+  static uint64_t get_pid();
 };
 
-} // namespace dump
-} // namespace w1
+} // namespace w1::dump

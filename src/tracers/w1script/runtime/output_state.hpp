@@ -1,10 +1,11 @@
 #pragma once
 
-#include <w1tn3ss/util/jsonl_writer.hpp>
-#include <redlog.hpp>
+#include "w1tn3ss/io/jsonl_writer.hpp"
 
 #include <memory>
 #include <string>
+
+#include <redlog.hpp>
 
 namespace w1::tracers::script::runtime {
 
@@ -20,7 +21,7 @@ public:
   size_t event_count() const { return event_count_; }
 
 private:
-  std::shared_ptr<w1::util::jsonl_writer> writer_;
+  std::unique_ptr<w1::io::jsonl_writer> writer_;
   size_t event_count_ = 0;
   bool initialized_ = false;
   redlog::logger logger_;

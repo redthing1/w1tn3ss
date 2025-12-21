@@ -21,11 +21,6 @@ local function on_instruction(vm, gpr, fpr)
         first_run = false
 
         w1.log.info("symbol backend: " .. w1.symbol.backend())
-
-        local malloc_addr = w1.symbol.resolve_name("malloc")
-        if malloc_addr then
-            w1.log.info(string.format("malloc @ %s", w1.util.format_address(malloc_addr)))
-        end
     end
 
     return w1.enum.vm_action.CONTINUE

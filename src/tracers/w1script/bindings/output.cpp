@@ -2,8 +2,6 @@
 
 #include "util.hpp"
 
-#include <redlog.hpp>
-
 #include <chrono>
 #include <iomanip>
 #include <sstream>
@@ -26,9 +24,6 @@ std::string format_timestamp() {
 } // namespace
 
 void setup_output_bindings(sol::state& lua, sol::table& w1_module, runtime::script_context& context) {
-  auto logger = redlog::get_logger("w1.script_bindings");
-  logger.dbg("setting up output bindings");
-
   sol::table output = lua.create_table();
 
   output.set_function(
@@ -66,9 +61,7 @@ void setup_output_bindings(sol::state& lua, sol::table& w1_module, runtime::scri
   );
 
   output.set_function("close", [&context]() { context.output().close(); });
-
   output.set_function("is_open", [&context]() { return context.output().is_open(); });
-
   output.set_function("count", [&context]() { return context.output().event_count(); });
 
   w1_module["output"] = output;

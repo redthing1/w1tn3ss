@@ -7,18 +7,12 @@
 namespace w1::tracers::script::runtime {
 
 lua_runtime::lua_runtime(script_context& context)
-    : context_(context),
-      api_manager_(),
-      callback_registry_(context, api_manager_),
-      logger_(redlog::get_logger("w1.script_runtime")) {}
+    : context_(context), logger_(redlog::get_logger("w1script.runtime")) {}
 
 bool lua_runtime::initialize() {
   if (!open_libraries()) {
     return false;
   }
-
-  api_manager_.set_lua_state(lua_.lua_state());
-  api_manager_.initialize(context_.module_index(), &context_.symbol_lookup());
 
   configure_package_paths();
 
@@ -50,13 +44,75 @@ void lua_runtime::shutdown() {
   }
 
   context_.shutdown();
-  api_manager_.shutdown();
   callback_registry_.shutdown();
-  vm_callback_store_.clear();
 }
 
-QBDI::VMAction lua_runtime::dispatch_vm_start(QBDI::VMInstanceRef vm) {
-  return callback_registry_.dispatch_vm_start(vm);
+QBDI::VMAction lua_runtime::dispatch_thread_start(const w1::thread_event& event) {
+  return callback_registry_.dispatch_thread_start(event);
+}
+
+QBDI::VMAction lua_runtime::dispatch_thread_stop(const w1::thread_event& event) {
+  return callback_registry_.dispatch_thread_stop(event);
+}
+
+QBDI::VMAction lua_runtime::dispatch_vm_start(
+    const w1::sequence_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state, QBDI::GPRState* gpr,
+    QBDI::FPRState* fpr
+) {
+  return callback_registry_.dispatch_vm_start(event, vm, state, gpr, fpr);
+}
+
+QBDI::VMAction lua_runtime::dispatch_vm_stop(
+    const w1::sequence_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state, QBDI::GPRState* gpr,
+    QBDI::FPRState* fpr
+) {
+  return callback_registry_.dispatch_vm_stop(event, vm, state, gpr, fpr);
+}
+
+QBDI::VMAction lua_runtime::dispatch_instruction_pre(
+    const w1::instruction_event& event, QBDI::VMInstanceRef vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr
+) {
+  return callback_registry_.dispatch_instruction_pre(event, vm, gpr, fpr);
+}
+
+QBDI::VMAction lua_runtime::dispatch_instruction_post(
+    const w1::instruction_event& event, QBDI::VMInstanceRef vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr
+) {
+  return callback_registry_.dispatch_instruction_post(event, vm, gpr, fpr);
+}
+
+QBDI::VMAction lua_runtime::dispatch_basic_block_entry(
+    const w1::basic_block_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state, QBDI::GPRState* gpr,
+    QBDI::FPRState* fpr
+) {
+  return callback_registry_.dispatch_basic_block_entry(event, vm, state, gpr, fpr);
+}
+
+QBDI::VMAction lua_runtime::dispatch_basic_block_exit(
+    const w1::basic_block_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state, QBDI::GPRState* gpr,
+    QBDI::FPRState* fpr
+) {
+  return callback_registry_.dispatch_basic_block_exit(event, vm, state, gpr, fpr);
+}
+
+QBDI::VMAction lua_runtime::dispatch_exec_transfer_call(
+    const w1::exec_transfer_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state, QBDI::GPRState* gpr,
+    QBDI::FPRState* fpr
+) {
+  return callback_registry_.dispatch_exec_transfer_call(event, vm, state, gpr, fpr);
+}
+
+QBDI::VMAction lua_runtime::dispatch_exec_transfer_return(
+    const w1::exec_transfer_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state, QBDI::GPRState* gpr,
+    QBDI::FPRState* fpr
+) {
+  return callback_registry_.dispatch_exec_transfer_return(event, vm, state, gpr, fpr);
+}
+
+QBDI::VMAction lua_runtime::dispatch_memory(
+    const w1::memory_event& event, QBDI::VMInstanceRef vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr
+) {
+  return callback_registry_.dispatch_memory(event, vm, gpr, fpr);
 }
 
 bool lua_runtime::open_libraries() {
@@ -81,11 +137,11 @@ bool lua_runtime::open_libraries() {
 }
 
 void lua_runtime::configure_package_paths() {
-  if (context_.cfg().script_path.empty()) {
+  if (context_.config().script_path.empty()) {
     return;
   }
 
-  std::filesystem::path script_path(context_.cfg().script_path);
+  std::filesystem::path script_path(context_.config().script_path);
   auto script_dir = script_path.parent_path();
   if (script_dir.empty()) {
     return;
@@ -128,16 +184,16 @@ void lua_runtime::configure_package_paths() {
 }
 
 bool lua_runtime::register_bindings() {
-  return bindings::setup_w1_bindings(lua_, context_, callback_registry_, api_manager_, vm_callback_store_);
+  return bindings::setup_w1_bindings(lua_, context_, callback_registry_);
 }
 
 bool lua_runtime::load_script() {
-  if (context_.cfg().script_path.empty()) {
+  if (context_.config().script_path.empty()) {
     logger_.err("script path is empty");
     return false;
   }
 
-  sol::load_result script = lua_.load_file(context_.cfg().script_path);
+  sol::load_result script = lua_.load_file(context_.config().script_path);
   if (!script.valid()) {
     sol::error err = script;
     logger_.err("failed to load script", redlog::field("error", err.what()));
@@ -151,7 +207,7 @@ bool lua_runtime::load_script() {
     return false;
   }
 
-  if (exec_result.return_count() == 0 || exec_result.get_type() == sol::type::nil) {
+  if (exec_result.return_count() == 0 || exec_result.get_type() == sol::type::lua_nil) {
     script_table_ = lua_.create_table();
     return true;
   }

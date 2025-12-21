@@ -6,13 +6,13 @@ fully supports **linux**, **macos**, **windows** for `x86`, `x64`, and `arm64`.
 ## features
 
 + framework for writing dynamic tracers (`w1tn3ss`)
-+ built-in tracers: coverage (`w1cov`), call tracing (`w1xfer`), memory (`w1mem`), instructions (`w1inst`)
-+ real-time library call interception with argument extraction (`api_analyzer`)
++ built-in tracers: coverage (`w1cov`), call tracing (`w1xfer`), memory (`w1mem`), instructions (`w1inst`), instruction flow (`w1trace`), scripting (`w1script`), dumps (`w1dump`)
++ real-time library call interception with argument extraction (`w1xfer`)
 + signature scanning and binary patching (`p1ll`/`p1llx`)
 + scriptable tracing and patching with with [luajit](https://luajit.org/)
 + cross-platform injection library with multiple techniques (`w1nj3ct`)
 + symbol resolution and calling convention modeling for intercepting arguments and return values
-+ **hooking**, **scanning**, **patching**, **gadgeting**, control execution, and more
++ **scanning**, **patching**, **gadgeting**, control execution, and more
 
 ## build
 
@@ -38,9 +38,9 @@ my other project [covtool](https://github.com/redthing1/covtool) provides a powe
 collect coverage in drcov format using `w1cov`:
 ```sh
 # macos/linux
-./build-release/w1tool cover -s ./build-release/tests/programs/simple_demo
+./build-release/w1tool cover -s ./build-release/samples/programs/simple_demo
 # windows
-.\build-release\w1tool.exe cover -s .\build-release\tests\programs\simple_demo.exe
+.\build-release\w1tool.exe cover -s .\build-release\samples\programs\simple_demo.exe
 ```
 
 output will resemble:
@@ -56,23 +56,23 @@ you can also trace coverage in the same drcov format by passing `--inst` to `cov
 for a more primitive form of tracing which simply records the instruction pointer, use `w1trace`:
 ```sh
 # macos/linux
-./build-release/w1tool tracer -n w1trace -c output=simple_demo_trace.txt -s ./build-release/tests/programs/simple_dem
+./build-release/w1tool tracer -n w1trace -c output=simple_demo_trace.txt -s ./build-release/samples/programs/simple_demo
 # windows
-.\build-release\w1tool.exe tracer -n w1trace -c output=simple_demo_trace.txt -s .\build-release\tests\programs\simple_demo.exe
+.\build-release\w1tool.exe tracer -n w1trace -c output=simple_demo_trace.txt -s .\build-release\samples\programs\simple_demo.exe
 ```
 
 ### real-time api call analysis
 
 often it is valuable to learn what system library apis a program is called. for example, we can learn a lot about the behavior of a program by observing its calls to `libc`. the `w1xfer` tracer, powered by qbdi's [`ExecBroker`](https://qbdi.readthedocs.io/en/stable/tutorial_ExecBrokerEvent.html) mechanism, can intercept and observe calls from and returns back to instrumented code.
 
-in addition to detecting calls crossing the instrumentation boundary, `w1xfer` also contains an `api_analyzer` system, which resolves the symbols of these calls, and extracts function arguments based on platform-specific calling convention models. this allows for very rich interception and tracing of the arguments and return values of common library apis. this can be extended by adding to the `api_knowledge_db` component.
+in addition to detecting calls crossing the instrumentation boundary, `w1xfer` resolves the symbols of these calls, and extracts function arguments based on platform-specific calling convention models. this allows for very rich interception and tracing of the arguments and return values of common library apis.
 
 trace api calls in real time with `w1xfer`:
 ```sh
 # macos/linux
-./build-release/w1tool -v tracer -n w1xfer -c analyze_apis=true -c output=test_transfers.jsonl -s ./build-release/tests/programs/simple_demo
+./build-release/w1tool -v tracer -n w1xfer -c analyze_apis=true -c output=test_transfers.jsonl -s ./build-release/samples/programs/simple_demo
 # windows
-.\build-release\w1tool.exe -v tracer -n w1xfer -c analyze_apis=true -c output=test_transfers.jsonl -s .\build-release\tests\programs\simple_demo.exe
+.\build-release\w1tool.exe -v tracer -n w1xfer -c analyze_apis=true -c output=test_transfers.jsonl -s .\build-release\samples\programs\simple_demo.exe
 ```
 
 output will resemble:
@@ -125,14 +125,14 @@ return tracer
 run it:
 ```sh
 # macos/linux
-./build-release/w1tool tracer -n w1script -c script=./scripts/w1script/instruction_tracer.lua -s ./build-release/tests/programs/simple_demo
+./build-release/w1tool tracer -n w1script -c script=./scripts/w1script/instruction_tracer.lua -s ./build-release/samples/programs/simple_demo
 # windows
-.\build-release\w1tool.exe tracer -n w1script -c script=./scripts/w1script/instruction_tracer.lua -s .\build-release\tests\programs\simple_demo.exe
+.\build-release\w1tool.exe tracer -n w1script -c script=./scripts/w1script/instruction_tracer.lua -s .\build-release\samples\programs\simple_demo.exe
 ```
 
 this will produce a trace of disassembled instructions as they are executed.
 
-see the [example scripts](./scripts/w1script/), which demonstrate memory tracing, function hooking, coverage collection, and api interception.
+see the [example scripts](./scripts/w1script/), which demonstrate memory tracing, coverage collection, and api interception.
 
 ## `p1ll` guide
 

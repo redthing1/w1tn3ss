@@ -15,7 +15,7 @@ local default_mnemonics = {
 local tracer = {}
 
 local function register_mnemonic(pattern)
-    w1.on(w1.event.MNEMONIC, function(vm, gpr, fpr)
+    w1.on(w1.event.INSTRUCTION_PRE, function(vm, gpr, fpr)
         local analysis = w1.inst.current(vm)
         if not analysis then
             return w1.enum.vm_action.CONTINUE
@@ -36,8 +36,7 @@ local function register_mnemonic(pattern)
 
         return w1.enum.vm_action.CONTINUE
     end, {
-        mnemonic = pattern,
-        position = w1.enum.inst_position.PREINST
+        mnemonic = pattern
     })
 end
 

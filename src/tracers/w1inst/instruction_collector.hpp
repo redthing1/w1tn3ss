@@ -1,66 +1,64 @@
 #pragma once
 
-#include <vector>
-#include <unordered_set>
 #include <cstdint>
-#include <string>
 #include <memory>
-#include <w1common/ext/jsonstruct.hpp>
-#include <w1tn3ss/util/jsonl_writer.hpp>
-#include <w1tn3ss/util/module_scanner.hpp>
-#include <w1tn3ss/util/module_range_index.hpp>
+#include <string>
+#include <string_view>
+#include <unordered_set>
+#include <vector>
+
 #include <redlog.hpp>
+
+#include "w1tn3ss/io/jsonl_writer.hpp"
+#include "w1tn3ss/runtime/module_registry.hpp"
+
+#include "instruction_config.hpp"
 
 namespace w1inst {
 
 struct mnemonic_entry {
-  uint64_t address;
+  uint64_t address = 0;
   std::string mnemonic;
   std::string disassembly;
   std::string module_name;
-
-  JS_OBJECT(JS_MEMBER(address), JS_MEMBER(mnemonic), JS_MEMBER(disassembly), JS_MEMBER(module_name));
 };
 
 struct mnemonic_stats {
-  uint64_t matched_instructions;
-  uint64_t unique_sites;
+  uint64_t matched_instructions = 0;
+  uint64_t unique_sites = 0;
   std::vector<std::string> target_mnemonics;
-
-  JS_OBJECT(JS_MEMBER(matched_instructions), JS_MEMBER(unique_sites), JS_MEMBER(target_mnemonics));
 };
 
 class mnemonic_collector {
 public:
-  explicit mnemonic_collector(const std::string& output_file, const std::vector<std::string>& target_mnemonics);
+  explicit mnemonic_collector(const instruction_config& config);
+  ~mnemonic_collector();
 
-  void record_mnemonic(uint64_t address, const std::string& mnemonic, const std::string& disassembly);
+  void record_mnemonic(
+      const w1::runtime::module_registry& modules, uint64_t address, std::string_view mnemonic,
+      std::string_view disassembly
+  );
 
   const mnemonic_stats& get_stats() const { return stats_; }
+  void shutdown();
 
 private:
-  mnemonic_stats stats_;
-  std::unordered_set<std::string> target_mnemonic_set_;
-  std::unordered_set<uint64_t> unique_addresses_;
-
-  uint64_t matched_count_;
-
-  // jsonl output
-  std::unique_ptr<w1::util::jsonl_writer> jsonl_writer_;
-  bool metadata_written_;
-
-  // module tracking
-  w1::util::module_scanner scanner_;
-  w1::util::module_range_index index_;
-  bool modules_initialized_;
-
-  redlog::logger log_ = redlog::get_logger("w1.inst.collector");
-
-  void ensure_metadata_written();
+  void ensure_metadata_written(const w1::runtime::module_registry& modules);
   void write_metadata();
   void write_event(const mnemonic_entry& entry);
-  void initialize_module_tracking();
-  std::string get_module_name(uint64_t address) const;
+  std::string get_module_name(const w1::runtime::module_registry& modules, uint64_t address) const;
+
+  instruction_config config_{};
+  mnemonic_stats stats_;
+  std::unordered_set<uint64_t> unique_addresses_;
+  std::unique_ptr<w1::io::jsonl_writer> jsonl_writer_;
+  bool metadata_written_ = false;
+  bool shutdown_called_ = false;
+
+  std::vector<w1::runtime::module_info> modules_{};
+  bool modules_cached_ = false;
+
+  redlog::logger log_ = redlog::get_logger("w1inst.collector");
 };
 
 } // namespace w1inst

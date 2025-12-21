@@ -1,8 +1,7 @@
 #include "transfer_writer_jsonl.hpp"
 
 #include <sstream>
-
-#include <w1tn3ss/util/value_formatter.hpp>
+#include <string_view>
 
 namespace w1xfer {
 namespace {
@@ -15,8 +14,47 @@ void append_field(std::stringstream& json, bool& first, const std::string& field
   first = false;
 }
 
-std::string escape(const std::string& value) {
-  return w1::util::value_formatter::escape_json_string(value);
+std::string escape(std::string_view value) {
+  std::string out;
+  out.reserve(value.size());
+  for (char ch : value) {
+    switch (ch) {
+      case '"':
+        out += "\\\"";
+        break;
+      case '\\':
+        out += "\\\\";
+        break;
+      case '\b':
+        out += "\\b";
+        break;
+      case '\f':
+        out += "\\f";
+        break;
+      case '\n':
+        out += "\\n";
+        break;
+      case '\r':
+        out += "\\r";
+        break;
+      case '\t':
+        out += "\\t";
+        break;
+      default: {
+        unsigned char uch = static_cast<unsigned char>(ch);
+        if (uch < 0x20) {
+          constexpr char hex[] = "0123456789abcdef";
+          out += "\\u00";
+          out += hex[(uch >> 4) & 0xF];
+          out += hex[uch & 0xF];
+        } else {
+          out += ch;
+        }
+        break;
+      }
+    }
+  }
+  return out;
 }
 
 } // namespace
@@ -24,7 +62,7 @@ std::string escape(const std::string& value) {
 transfer_writer_jsonl::transfer_writer_jsonl(const std::string& output_path, bool emit_metadata)
     : emit_metadata_(emit_metadata) {
   if (!output_path.empty()) {
-    writer_ = std::make_unique<w1::util::jsonl_writer>(output_path);
+    writer_ = std::make_unique<w1::io::jsonl_writer>(output_path);
     if (!writer_->is_open()) {
       writer_.reset();
     }
@@ -33,12 +71,12 @@ transfer_writer_jsonl::transfer_writer_jsonl(const std::string& output_path, boo
 
 bool transfer_writer_jsonl::is_open() const { return writer_ && writer_->is_open(); }
 
-void transfer_writer_jsonl::ensure_metadata(const w1::util::module_range_index& index) {
+void transfer_writer_jsonl::ensure_metadata(const w1::runtime::module_registry& modules) {
   if (!emit_metadata_ || metadata_written_ || !is_open()) {
     return;
   }
 
-  write_metadata(index);
+  write_metadata(modules);
   metadata_written_ = true;
 }
 
@@ -50,7 +88,7 @@ void transfer_writer_jsonl::write_record(const transfer_record& record) {
   write_event(record);
 }
 
-void transfer_writer_jsonl::write_metadata(const w1::util::module_range_index& index) {
+void transfer_writer_jsonl::write_metadata(const w1::runtime::module_registry& modules) {
   if (!is_open()) {
     return;
   }
@@ -61,7 +99,7 @@ void transfer_writer_jsonl::write_metadata(const w1::util::module_range_index& i
 
   bool first = true;
   size_t module_id = 0;
-  index.visit_all([&](const w1::util::module_info& mod) {
+  for (const auto& mod : modules.list_modules()) {
     if (!first) {
       json << ",";
     }
@@ -69,10 +107,9 @@ void transfer_writer_jsonl::write_metadata(const w1::util::module_range_index& i
 
     json << "{\"id\":" << module_id++ << ",\"name\":\"" << escape(mod.name) << "\""
          << ",\"path\":\"" << escape(mod.path) << "\""
-         << ",\"base\":" << mod.base_address << ",\"size\":" << mod.size << ",\"type\":\""
-         << (mod.type == w1::util::module_type::MAIN_EXECUTABLE ? "main" : "library") << "\""
-         << ",\"is_system\":" << (mod.is_system_library ? "true" : "false") << "}";
-  });
+         << ",\"base\":" << mod.base_address << ",\"size\":" << mod.size
+         << ",\"is_system\":" << (mod.is_system ? "true" : "false") << "}";
+  }
 
   json << "]}";
   writer_->write_line(json.str());

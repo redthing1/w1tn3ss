@@ -1,16 +1,28 @@
 #include "coverage_collector.hpp"
-#include <w1tn3ss/formats/drcov.hpp>
-#include <redlog.hpp>
+
 #include <algorithm>
+#include <iomanip>
 #include <limits>
+#include <sstream>
 #include <unordered_set>
 
+#include <redlog.hpp>
+
 namespace w1cov {
+namespace {
+
+std::string format_hex(uint64_t value) {
+  std::ostringstream oss;
+  oss << "0x" << std::hex << std::setw(static_cast<int>(sizeof(uint64_t) * 2)) << std::setfill('0') << value;
+  return oss.str();
+}
+
+} // namespace
 
 coverage_collector::coverage_collector() {}
 
-uint16_t coverage_collector::add_module(const w1::util::module_info& mod) {
-  auto it = std::find_if(modules_.begin(), modules_.end(), [&mod](const w1::util::module_info& existing) {
+uint16_t coverage_collector::add_module(const w1::runtime::module_info& mod) {
+  auto it = std::find_if(modules_.begin(), modules_.end(), [&mod](const w1::runtime::module_info& existing) {
     return existing.base_address == mod.base_address;
   });
 
@@ -108,7 +120,7 @@ drcov::coverage_data coverage_collector::build_drcov_data() const {
     if (used_module_ids.count(static_cast<uint16_t>(i)) == 0) {
       log.ped(
           "skipping module without coverage", redlog::field("id", i), redlog::field("name", modules_[i].name),
-          redlog::field("base", "0x%08x", modules_[i].base_address)
+          redlog::field("base", format_hex(modules_[i].base_address))
       );
       skipped_modules++;
       continue;
@@ -118,10 +130,11 @@ drcov::coverage_data coverage_collector::build_drcov_data() const {
 
     try {
       // validate module data before adding
-      if (mod.base_address >= mod.base_address + mod.size) {
+      uint64_t module_end = mod.base_address + mod.size;
+      if (mod.base_address >= module_end) {
         log.wrn(
             "invalid module address range detected", redlog::field("id", i), redlog::field("name", mod.name),
-            redlog::field("base", mod.base_address), redlog::field("end", mod.base_address + mod.size)
+            redlog::field("base", mod.base_address), redlog::field("end", module_end)
         );
         invalid_modules++;
         continue;
@@ -141,7 +154,7 @@ drcov::coverage_data coverage_collector::build_drcov_data() const {
 
       log.dbg(
           "added module to drcov", redlog::field("old_id", i), redlog::field("new_id", module_id_remap[i]),
-          redlog::field("name", mod.name), redlog::field("base", "0x%08x", mod.base_address),
+          redlog::field("name", mod.name), redlog::field("base", format_hex(mod.base_address)),
           redlog::field("size", mod.size)
       );
 
@@ -172,7 +185,7 @@ drcov::coverage_data coverage_collector::build_drcov_data() const {
       if (bb.module_id >= modules_.size()) {
         log.wrn(
             "coverage unit references unknown module", redlog::field("module_id", bb.module_id),
-            redlog::field("address", "0x%08x", bb.address)
+            redlog::field("address", format_hex(bb.address))
         );
         orphaned_units++;
         continue;
@@ -184,7 +197,7 @@ drcov::coverage_data coverage_collector::build_drcov_data() const {
         // this shouldn't happen since we built the remap from basic blocks
         log.err(
             "coverage unit references module not in remap", redlog::field("module_id", bb.module_id),
-            redlog::field("address", "0x%08x", bb.address)
+            redlog::field("address", format_hex(bb.address))
         );
         invalid_units++;
         continue;
@@ -197,8 +210,9 @@ drcov::coverage_data coverage_collector::build_drcov_data() const {
       if (bb.address < module.base_address || bb.address >= module.base_address + module.size) {
         log.wrn(
             "coverage unit address outside module bounds", redlog::field("module_id", bb.module_id),
-            redlog::field("address", "0x%08x", bb.address), redlog::field("base", "0x%08x", module.base_address),
-            redlog::field("end", "0x%08x", module.base_address + module.size)
+            redlog::field("address", format_hex(bb.address)),
+            redlog::field("base", format_hex(module.base_address)),
+            redlog::field("end", format_hex(module.base_address + module.size))
         );
         invalid_units++;
         continue;
@@ -235,7 +249,7 @@ drcov::coverage_data coverage_collector::build_drcov_data() const {
     } catch (const std::exception& e) {
       log.err(
           "failed to add coverage unit to drcov builder", redlog::field("module_id", bb.module_id),
-          redlog::field("address", "0x%08x", bb.address), redlog::field("error", e.what())
+          redlog::field("address", format_hex(bb.address)), redlog::field("error", e.what())
       );
       invalid_units++;
     }
@@ -283,7 +297,7 @@ uint32_t coverage_collector::get_hitcount(QBDI::rword address) const {
   return (it != hitcounts_.end()) ? it->second : 0;
 }
 
-const w1::util::module_info* coverage_collector::find_module_by_id(uint16_t id) const {
+const w1::runtime::module_info* coverage_collector::find_module_by_id(uint16_t id) const {
   if (id >= modules_.size()) {
     return nullptr;
   }

@@ -1,7 +1,6 @@
 #pragma once
 
 #include <sol/sol.hpp>
-#include <QBDI.h>
 
 namespace w1::tracers::script::bindings {
 

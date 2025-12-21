@@ -1,45 +1,35 @@
 #include <memory>
-#include <vector>
-#include <cstring>
+#include <utility>
 
 #include "QBDIPreload.h"
 #include <redlog.hpp>
-
-#include <w1tn3ss/runtime/threading/thread_runtime.hpp>
-#include <w1tn3ss/util/signal_handler.hpp>
-#include <w1tn3ss/util/stderr_write.hpp>
 
 #if defined(_WIN32) || defined(WIN32)
 #include <w1common/windows_console.hpp>
 #endif
 
+#include "w1tn3ss/tracer/trace_session.hpp"
+#include "w1tn3ss/util/self_exclude.hpp"
+
 #include "threadtest_config.hpp"
-#include "threadtest_session.hpp"
+#include "threadtest_tracer.hpp"
+
+static std::unique_ptr<w1::trace_session<threadtest::threadtest_tracer>> g_session;
+static threadtest::threadtest_config g_config;
 
 namespace {
 
-auto log_preload() { return redlog::get_logger("threadtest.preload"); }
-
-threadtest::threadtest_config g_config;
-std::shared_ptr<threadtest::threadtest_session_factory> g_factory;
-w1::runtime::threading::thread_context* g_main_context = nullptr;
-
-void shutdown_tracer();
-
-void set_log_level(int verbose) {
-  using level = redlog::level;
-  if (verbose >= 5) {
-    redlog::set_level(level::annoying);
-  } else if (verbose >= 4) {
-    redlog::set_level(level::pedantic);
+void configure_logging(int verbose) {
+  if (verbose >= 4) {
+    redlog::set_level(redlog::level::pedantic);
   } else if (verbose >= 3) {
-    redlog::set_level(level::debug);
+    redlog::set_level(redlog::level::debug);
   } else if (verbose >= 2) {
-    redlog::set_level(level::trace);
+    redlog::set_level(redlog::level::trace);
   } else if (verbose >= 1) {
-    redlog::set_level(level::verbose);
+    redlog::set_level(redlog::level::verbose);
   } else {
-    redlog::set_level(level::info);
+    redlog::set_level(redlog::level::info);
   }
 }
 
@@ -50,44 +40,30 @@ extern "C" {
 QBDIPRELOAD_INIT;
 
 QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QBDI::rword stop) {
-  auto log = log_preload();
-  log.inf("qbdipreload_on_run");
+  auto log = redlog::get_logger("threadtest.preload");
 
   g_config = threadtest::threadtest_config::from_environment();
-  set_log_level(g_config.verbose);
-
-  w1::runtime::threading::thread_runtime_options options;
-  options.verbose = g_config.verbose;
-  options.enable_thread_hooks = g_config.enable_thread_hooks;
-  options.logger_prefix = "threadtest.thread";
-
-  g_factory = std::make_shared<threadtest::threadtest_session_factory>(g_config);
-
-  auto& service = w1::runtime::threading::thread_service::instance();
-  service.configure(options, g_factory);
-
-  w1::tn3ss::signal_handler::config sig_cfg;
-  sig_cfg.context_name = "threadtest";
-  sig_cfg.log_signals = g_config.verbose >= 2;
-
-  if (w1::tn3ss::signal_handler::initialize(sig_cfg)) {
-    w1::tn3ss::signal_handler::register_cleanup(shutdown_tracer, 100, "threadtest_shutdown");
+  configure_logging(g_config.verbose);
+  if (g_config.exclude_self) {
+    w1::util::append_self_excludes(g_config.instrumentation, reinterpret_cast<const void*>(&qbdipreload_on_run));
   }
 
-  g_main_context = service.register_main_thread(vm, "main");
-  if (!g_main_context || !g_main_context->session) {
-    log.err("failed to initialize main thread session");
-    return QBDIPRELOAD_ERR_STARTUP_FAILED;
-  }
+  w1::trace_session_config session_config;
+  session_config.instrumentation = g_config.instrumentation;
+  session_config.thread_id = 1;
+  session_config.thread_name = "main";
 
-  log.inf(
-      "thread runtime ready", redlog::field("thread_id", g_main_context->thread_id),
-      redlog::field("start", "0x%08x", start), redlog::field("stop", "0x%08x", stop)
+  g_session = std::make_unique<w1::trace_session<threadtest::threadtest_tracer>>(
+      session_config, vm, std::in_place, g_config
   );
 
-  auto* vm_ptr = static_cast<QBDI::VM*>(vm);
-  if (!vm_ptr->run(start, stop)) {
-    log.err("vm run failed");
+  log.inf(
+      "starting threadtest session", redlog::field("start", "0x%llx", static_cast<unsigned long long>(start)),
+      redlog::field("stop", "0x%llx", static_cast<unsigned long long>(stop))
+  );
+
+  if (!g_session->run(static_cast<uint64_t>(start), static_cast<uint64_t>(stop))) {
+    log.err("threadtest session run failed");
     return QBDIPRELOAD_ERR_STARTUP_FAILED;
   }
 
@@ -95,39 +71,36 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
 }
 
 QBDI_EXPORT int qbdipreload_on_exit(int status) {
-  auto log = log_preload();
-  log.inf("qbdipreload_on_exit", redlog::field("status", status));
+  auto log = redlog::get_logger("threadtest.preload");
+  log.inf("qbdipreload_on_exit called", redlog::field("status", status));
 
-  shutdown_tracer();
+  if (g_session) {
+    g_session->shutdown(false);
+    g_session.reset();
+  }
+
+  log.inf("qbdipreload_on_exit completed");
   return QBDIPRELOAD_NO_ERROR;
 }
 
 QBDI_EXPORT int qbdipreload_on_start(void* main) {
+  (void) main;
 #if defined(_WIN32) || defined(WIN32)
   w1::common::allocate_windows_console();
 #endif
   return QBDIPRELOAD_NOT_HANDLED;
 }
 
-QBDI_EXPORT int qbdipreload_on_premain(void*, void*) { return QBDIPRELOAD_NOT_HANDLED; }
-QBDI_EXPORT int qbdipreload_on_main(int, char**) { return QBDIPRELOAD_NOT_HANDLED; }
-
-} // extern "C"
-
-namespace {
-
-void shutdown_tracer() {
-  auto& service = w1::runtime::threading::thread_service::instance();
-
-  try {
-    service.unregister_all();
-  } catch (...) {
-    const char* message = "threadtest: shutdown failure\n";
-    w1::util::stderr_write(message);
-  }
-
-  g_main_context = nullptr;
-  g_factory.reset();
+QBDI_EXPORT int qbdipreload_on_premain(void* gpr_ctx, void* fpu_ctx) {
+  (void) gpr_ctx;
+  (void) fpu_ctx;
+  return QBDIPRELOAD_NOT_HANDLED;
 }
 
-} // namespace
+QBDI_EXPORT int qbdipreload_on_main(int argc, char** argv) {
+  (void) argc;
+  (void) argv;
+  return QBDIPRELOAD_NOT_HANDLED;
+}
+
+} // extern "C"

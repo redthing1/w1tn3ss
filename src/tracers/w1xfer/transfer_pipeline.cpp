@@ -1,12 +1,8 @@
 #include "transfer_pipeline.hpp"
 
 #include <chrono>
+#include <string>
 #include <utility>
-
-#include <w1tn3ss/abi/api_knowledge_db.hpp>
-#include <w1tn3ss/runtime/threading/thread_runtime.hpp>
-#include <w1tn3ss/util/register_capture.hpp>
-#include <w1tn3ss/util/stack_capture.hpp>
 
 namespace w1xfer {
 namespace {
@@ -18,18 +14,18 @@ uint64_t current_timestamp() {
                                    .count());
 }
 
-uint64_t read_link_register(QBDI::GPRState* gpr) {
+uint64_t read_link_register(const QBDI::GPRState* gpr) {
 #if defined(QBDI_ARCH_AARCH64)
-  return gpr->lr;
+  return gpr ? gpr->lr : 0;
 #elif defined(QBDI_ARCH_ARM)
-  return gpr->r14;
+  return gpr ? gpr->r14 : 0;
 #else
-  (void)gpr;
+  (void) gpr;
   return 0;
 #endif
 }
 
-uint64_t resolve_callsite(QBDI::GPRState* gpr, const std::optional<w1::util::stack_info>& stack_info) {
+uint64_t resolve_callsite(const QBDI::GPRState* gpr, const std::optional<w1::util::stack_info>& stack_info) {
   uint64_t link = read_link_register(gpr);
   if (link != 0) {
     return link;
@@ -60,76 +56,38 @@ transfer_stack to_stack(const w1::util::stack_info& stack) {
   return out;
 }
 
-transfer_api_info to_api_info(const w1::abi::api_event& event) {
-  transfer_api_info info;
-  info.category = w1::abi::to_string(event.category);
-  info.description = event.description;
-  info.formatted_call = event.formatted_call;
-  info.analysis_complete = event.analysis_complete;
-  info.has_return_value = event.has_return_value;
-
-  info.arguments.reserve(event.arguments.size());
-  for (const auto& arg : event.arguments) {
-    transfer_api_argument out;
-    out.raw_value = arg.raw_value;
-    out.name = arg.param_name;
-    out.type = w1::abi::to_string(arg.param_type);
-    out.interpreted_value = arg.interpreted_value;
-    out.is_pointer = arg.is_pointer;
-    info.arguments.push_back(std::move(out));
-  }
-
-  if (event.return_value.has_value()) {
-    const auto& ret = event.return_value.value();
-    transfer_api_return out;
-    out.raw_value = ret.raw_value;
-    out.type = w1::abi::to_string(ret.param_type);
-    out.interpreted_value = ret.interpreted_value;
-    out.is_pointer = ret.is_pointer;
-    out.is_null = (ret.interpreted_value == "NULL");
-    info.return_value = out;
-  }
-
-  return info;
-}
-
 } // namespace
 
 transfer_pipeline::transfer_pipeline(const transfer_config& config) : config_(config) {
   if (!config_.output.path.empty()) {
     writer_ = std::make_unique<transfer_writer_jsonl>(config_.output.path, config_.output.emit_metadata);
   }
-
-  if (config_.enrich.analyze_apis) {
-    w1::abi::analyzer_config cfg;
-    cfg.extract_arguments = true;
-    cfg.format_calls = true;
-    cfg.max_string_length = 256;
-    api_dispatcher_ = std::make_unique<w1::abi::api_dispatcher>(cfg);
-  }
 }
 
-void transfer_pipeline::initialize_modules() {
-  if (modules_initialized_) {
+void transfer_pipeline::initialize(const w1::trace_context& ctx) {
+  if (initialized_) {
     return;
   }
 
-  auto modules = scanner_.scan_executable_modules();
-  module_index_.rebuild_from_modules(std::move(modules));
-  symbol_lookup_.initialize(module_index_);
+  modules_ = &ctx.modules();
+  memory_ = &ctx.memory();
 
-  if (api_dispatcher_) {
-    api_dispatcher_->initialize(module_index_);
+  if (config_.enrich.modules || config_.enrich.symbols || config_.output.emit_metadata || config_.enrich.analyze_apis) {
+    symbol_lookup_.set_module_registry(modules_);
   }
 
-  modules_initialized_ = true;
+  if (config_.enrich.analyze_apis) {
+    w1::analysis::abi_dispatcher_config cfg;
+    cfg.enable_stack_reads = true;
+    abi_dispatcher_ = std::make_unique<w1::analysis::abi_dispatcher>(cfg);
+  }
+
+  initialized_ = true;
 }
 
-void transfer_pipeline::ensure_modules_initialized() {
-  bool needs_modules = config_.enrich.modules || config_.enrich.symbols || config_.enrich.analyze_apis;
-  bool needs_metadata = writer_ && config_.output.emit_metadata;
-  if (!modules_initialized_ && (needs_modules || needs_metadata)) {
-    initialize_modules();
+void transfer_pipeline::ensure_initialized(const w1::trace_context& ctx) {
+  if (!initialized_) {
+    initialize(ctx);
   }
 }
 
@@ -145,17 +103,21 @@ void transfer_pipeline::update_call_depth(transfer_type type) {
 }
 
 void transfer_pipeline::record_call(
-    uint64_t source_addr, uint64_t target_addr, QBDI::VMInstanceRef vm, const QBDI::VMState* state,
-    QBDI::GPRState* gpr, QBDI::FPRState* fpr
+    const w1::trace_context& ctx, const w1::exec_transfer_event& event, QBDI::GPRState* gpr, QBDI::FPRState* fpr
 ) {
-  record_transfer(transfer_type::CALL, source_addr, target_addr, vm, state, gpr, fpr);
+  (void) fpr;
+  record_transfer(transfer_type::CALL, ctx, event, gpr, fpr);
 }
 
 void transfer_pipeline::record_return(
-    uint64_t source_addr, uint64_t target_addr, QBDI::VMInstanceRef vm, const QBDI::VMState* state,
-    QBDI::GPRState* gpr, QBDI::FPRState* fpr
+    const w1::trace_context& ctx, const w1::exec_transfer_event& event, QBDI::GPRState* gpr, QBDI::FPRState* fpr
 ) {
-  record_transfer(transfer_type::RETURN, source_addr, target_addr, vm, state, gpr, fpr);
+  (void) fpr;
+  record_transfer(transfer_type::RETURN, ctx, event, gpr, fpr);
+}
+
+std::optional<transfer_endpoint> transfer_pipeline::resolve_endpoint(uint64_t address) const {
+  return build_endpoint(address);
 }
 
 void transfer_pipeline::maybe_write_record(const transfer_record& record) {
@@ -163,49 +125,43 @@ void transfer_pipeline::maybe_write_record(const transfer_record& record) {
     return;
   }
 
-  if (config_.output.emit_metadata) {
-    ensure_modules_initialized();
-    writer_->ensure_metadata(module_index_);
+  if (config_.output.emit_metadata && modules_) {
+    writer_->ensure_metadata(*modules_);
   }
 
   writer_->write_record(record);
 }
 
 void transfer_pipeline::record_transfer(
-    transfer_type type, uint64_t source_addr, uint64_t target_addr, QBDI::VMInstanceRef vm, const QBDI::VMState* state,
-    QBDI::GPRState* gpr, QBDI::FPRState* fpr
+    transfer_type type, const w1::trace_context& ctx, const w1::exec_transfer_event& event, QBDI::GPRState* gpr,
+    QBDI::FPRState* fpr
 ) {
   if (type == transfer_type::CALL) {
     stats_.total_calls++;
     update_call_depth(transfer_type::CALL);
-
-    unique_call_targets_.insert(target_addr);
+    unique_call_targets_.insert(event.target_address);
     stats_.unique_call_targets = unique_call_targets_.size();
   } else {
     stats_.total_returns++;
     update_call_depth(transfer_type::RETURN);
-
-    unique_return_sources_.insert(source_addr);
+    unique_return_sources_.insert(event.source_address);
     stats_.unique_return_sources = unique_return_sources_.size();
   }
 
-  ensure_modules_initialized();
+  ensure_initialized(ctx);
 
-  std::optional<w1::util::register_state> util_regs;
-  if (config_.capture.registers || config_.capture.stack) {
-    util_regs = w1::util::register_capturer::capture(gpr);
+  std::optional<w1::util::register_state> regs;
+  if (config_.capture.registers || config_.capture.stack || config_.enrich.analyze_apis) {
+    regs = w1::util::register_capturer::capture(gpr);
   }
 
   std::optional<w1::util::stack_info> stack_info;
-  if (config_.capture.stack && util_regs) {
-    stack_info = w1::util::stack_capturer::capture(vm, *util_regs);
-    uint64_t link = read_link_register(gpr);
-    if (link != 0) {
-      stack_info->return_address = link;
-    }
+  if (config_.capture.stack && regs && memory_ &&
+      regs->get_architecture() != w1::util::register_state::architecture::unknown) {
+    stack_info = w1::util::stack_capturer::capture(*memory_, *regs);
   }
 
-  uint64_t resolved_source = source_addr;
+  uint64_t resolved_source = event.source_address;
   if (type == transfer_type::CALL) {
     uint64_t callsite = resolve_callsite(gpr, stack_info);
     if (callsite != 0) {
@@ -216,14 +172,14 @@ void transfer_pipeline::record_transfer(
   transfer_record record;
   record.event.type = type;
   record.event.source_address = resolved_source;
-  record.event.target_address = target_addr;
+  record.event.target_address = event.target_address;
   record.event.instruction_index = instruction_index_++;
   record.event.timestamp = current_timestamp();
-  record.event.thread_id = w1::runtime::threading::current_native_thread_id();
+  record.event.thread_id = ctx.thread_id();
   record.event.call_depth = stats_.current_call_depth;
 
-  if (config_.capture.registers && util_regs) {
-    record.registers = to_registers(*util_regs);
+  if (config_.capture.registers && regs) {
+    record.registers = to_registers(*regs);
   }
 
   if (config_.capture.stack && stack_info) {
@@ -232,19 +188,18 @@ void transfer_pipeline::record_transfer(
 
   if (config_.enrich.modules || config_.enrich.symbols) {
     record.source = build_endpoint(resolved_source);
-    record.target = build_endpoint(target_addr);
+    record.target = build_endpoint(event.target_address);
   }
 
   if (config_.enrich.analyze_apis) {
-    record.api =
-        analyze_api_event(type, resolved_source, target_addr, vm, state, gpr, fpr, record.source, record.target);
+    record.api = analyze_api_event(type, ctx, resolved_source, event.target_address, gpr);
   }
 
   maybe_write_record(record);
 }
 
 std::optional<transfer_endpoint> transfer_pipeline::build_endpoint(uint64_t address) const {
-  if (!modules_initialized_) {
+  if (!modules_) {
     return std::nullopt;
   }
 
@@ -255,16 +210,15 @@ std::optional<transfer_endpoint> transfer_pipeline::build_endpoint(uint64_t addr
   transfer_endpoint endpoint;
   endpoint.address = address;
 
-  const w1::util::module_info* module_info = module_index_.find_containing(address);
-  if (module_info) {
+  if (const auto* module = modules_->find_containing(address)) {
     if (config_.enrich.modules) {
-      endpoint.module_name = module_info->name;
-      endpoint.module_offset = address - module_info->base_address;
+      endpoint.module_name = module->name;
+      endpoint.module_offset = address - module->base_address;
     }
   }
 
   if (config_.enrich.symbols) {
-    if (auto symbol = symbol_lookup_.resolve(address)) {
+    if (auto symbol = symbol_lookup_.resolve(address); symbol && symbol->has_symbol) {
       transfer_symbol out;
       out.module_name = symbol->module_name;
       out.symbol_name = symbol->symbol_name;
@@ -290,55 +244,74 @@ std::optional<transfer_endpoint> transfer_pipeline::build_endpoint(uint64_t addr
 }
 
 std::optional<transfer_api_info> transfer_pipeline::analyze_api_event(
-    transfer_type type, uint64_t source_addr, uint64_t target_addr, QBDI::VMInstanceRef vm,
-    const QBDI::VMState* state, QBDI::GPRState* gpr, QBDI::FPRState* fpr,
-    const std::optional<transfer_endpoint>& source,
-    const std::optional<transfer_endpoint>& target
+    transfer_type type, const w1::trace_context& ctx, uint64_t source_addr, uint64_t target_addr, QBDI::GPRState* gpr
 ) {
-  if (!api_dispatcher_) {
+  (void) ctx;
+  (void) source_addr;
+  (void) target_addr;
+
+  if (!abi_dispatcher_ || !memory_ || !gpr) {
     return std::nullopt;
   }
 
-  w1::abi::api_context ctx;
-  ctx.vm = vm;
-  ctx.vm_state = state;
-  ctx.gpr_state = gpr;
-  ctx.fpr_state = fpr;
-  ctx.module_index = &module_index_;
-  ctx.timestamp = static_cast<uint64_t>(std::chrono::steady_clock::now().time_since_epoch().count());
+  transfer_api_info info;
+  info.category = "raw";
+  info.description = "raw abi values";
+  info.analysis_complete = false;
+  info.formatted_call = "";
 
   if (type == transfer_type::CALL) {
-    ctx.call_address = source_addr;
-    ctx.target_address = target_addr;
-    if (target) {
-      ctx.module_name = target->module_name;
-      if (target->symbol) {
-        ctx.symbol_name = target->symbol->symbol_name;
+    size_t arg_count = config_.enrich.api_argument_count;
+    if (arg_count == 0) {
+      arg_count = default_argument_count();
+    }
+
+    auto args = abi_dispatcher_->extract_arguments(*memory_, gpr, arg_count);
+    info.arguments.reserve(args.size());
+    for (size_t i = 0; i < args.size(); ++i) {
+      const auto& arg = args[i];
+      if (!arg.is_valid) {
+        continue;
       }
+      transfer_api_argument out;
+      out.raw_value = arg.raw_value;
+      out.name = "arg" + std::to_string(i);
+      out.type = "raw";
+      out.interpreted_value = "";
+      out.is_pointer = false;
+      info.arguments.push_back(std::move(out));
     }
-
-    auto event = api_dispatcher_->analyze_call(ctx);
-    if (event) {
-      return to_api_info(*event);
-    }
-
   } else {
-    ctx.call_address = target_addr;
-    ctx.target_address = source_addr;
-    if (source) {
-      ctx.module_name = source->module_name;
-      if (source->symbol) {
-        ctx.symbol_name = source->symbol->symbol_name;
-      }
-    }
-
-    auto event = api_dispatcher_->analyze_return(ctx);
-    if (event) {
-      return to_api_info(*event);
-    }
+    transfer_api_return ret;
+    ret.raw_value = abi_dispatcher_->extract_return_value(gpr);
+    ret.type = "raw";
+    ret.interpreted_value = "";
+    ret.is_pointer = false;
+    ret.is_null = ret.raw_value == 0;
+    info.return_value = ret;
+    info.has_return_value = true;
   }
 
-  return std::nullopt;
+  return info;
+}
+
+size_t transfer_pipeline::default_argument_count() const {
+  if (!abi_dispatcher_) {
+    return 0;
+  }
+
+  switch (abi_dispatcher_->kind()) {
+    case w1::analysis::abi_kind::system_v_amd64:
+      return 6;
+    case w1::analysis::abi_kind::windows_amd64:
+      return 4;
+    case w1::analysis::abi_kind::aarch64:
+      return 8;
+    case w1::analysis::abi_kind::x86:
+      return 4;
+    default:
+      return 0;
+  }
 }
 
 } // namespace w1xfer

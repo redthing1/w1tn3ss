@@ -3,8 +3,8 @@
 #include <memory>
 #include <string>
 
-#include <w1tn3ss/util/jsonl_writer.hpp>
-#include <w1tn3ss/util/module_range_index.hpp>
+#include "w1tn3ss/io/jsonl_writer.hpp"
+#include "w1tn3ss/runtime/module_registry.hpp"
 
 #include "transfer_types.hpp"
 
@@ -16,15 +16,15 @@ public:
 
   bool is_open() const;
 
-  void ensure_metadata(const w1::util::module_range_index& index);
+  void ensure_metadata(const w1::runtime::module_registry& modules);
   void write_record(const transfer_record& record);
 
 private:
-  std::unique_ptr<w1::util::jsonl_writer> writer_;
+  std::unique_ptr<w1::io::jsonl_writer> writer_;
   bool emit_metadata_ = true;
   bool metadata_written_ = false;
 
-  void write_metadata(const w1::util::module_range_index& index);
+  void write_metadata(const w1::runtime::module_registry& modules);
   void write_event(const transfer_record& record);
 };
 

@@ -2,29 +2,16 @@ cmake_minimum_required(VERSION 3.16)
 
 include(${WITNESS_SOURCE_DIR}/cmake/TracerConfig.cmake)
 include(${WITNESS_SOURCE_DIR}/cmake/LuaConfig.cmake)
-include(${WITNESS_SOURCE_DIR}/cmake/LIEFConfig.cmake)
 
 if(WITNESS_SCRIPT)
     message(STATUS "building w1script tracer with lua support")
-    
+
     create_tracer_targets(w1script
-        "preload.cpp;script_tracer.cpp;runtime/api_manager.cpp;runtime/callback_registry.cpp;runtime/lua_runtime.cpp;runtime/output_state.cpp;runtime/script_context.cpp;bindings/w1_bindings.cpp;bindings/root.cpp;bindings/util.cpp;bindings/inst.cpp;bindings/mem.cpp;bindings/reg.cpp;bindings/module.cpp;bindings/symbol.cpp;bindings/api.cpp;bindings/hook.cpp;bindings/abi.cpp;bindings/dump.cpp;bindings/gadget.cpp;bindings/output.cpp;bindings/p1ll.cpp;bindings/vm.cpp"
+        "preload.cpp;script_tracer.cpp;runtime/lua_runtime.cpp;runtime/callback_registry.cpp;runtime/output_state.cpp;runtime/script_context.cpp;bindings/w1_bindings.cpp;bindings/root.cpp;bindings/util.cpp;bindings/inst.cpp;bindings/mem.cpp;bindings/reg.cpp;bindings/module.cpp;bindings/symbol.cpp;bindings/output.cpp;bindings/abi.cpp"
     )
-    
+
     configure_target_with_lua(w1script_qbdipreload)
     configure_target_with_lua(w1script_static)
-    
-    # Apply LIEF configuration for symbol resolution
-    if(WITNESS_BUILD_SHARED)
-        configure_target_with_lief(w1script_qbdipreload)
-        target_link_libraries(w1script_qbdipreload PRIVATE p1ll_script)
-    endif()
-    
-    if(WITNESS_BUILD_STATIC)
-        configure_target_with_lief(w1script_static)
-        target_link_libraries(w1script_static PRIVATE p1ll_script)
-    endif()
-    
 else()
     message(STATUS "w1script tracer disabled (WITNESS_SCRIPT=OFF)")
 endif()

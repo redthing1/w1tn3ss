@@ -7,7 +7,6 @@
 
 #ifdef WITNESS_LIEF_ENABLED
 #include <LIEF/LIEF.hpp>
-#include <w1tn3ss/symbols/lief_symbol_backend.hpp>
 #endif
 
 namespace fs = std::filesystem;

@@ -1,13 +1,12 @@
 #pragma once
 
-#include "api_manager.hpp"
-#include "script_context.hpp"
-
-#include <sol/sol.hpp>
+#include "w1tn3ss/tracer/types.hpp"
 
 #include <QBDI.h>
 #include <redlog.hpp>
+#include <sol/sol.hpp>
 
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -19,83 +18,119 @@ namespace w1::tracers::script::runtime {
 class callback_registry {
 public:
   enum class event_type {
+    thread_start,
+    thread_stop,
     vm_start,
+    vm_stop,
     instruction_pre,
     instruction_post,
-    sequence_entry,
-    sequence_exit,
     basic_block_entry,
     basic_block_exit,
-    basic_block_new,
     exec_transfer_call,
     exec_transfer_return,
-    syscall_entry,
-    syscall_exit,
-    signal,
     memory_read,
     memory_write,
-    memory_read_write,
-    code_addr,
-    code_range,
-    mnemonic,
-    memory_addr,
-    memory_range
+    memory_read_write
   };
 
   struct registration_options {
-    std::optional<QBDI::rword> address;
-    std::optional<QBDI::rword> start;
-    std::optional<QBDI::rword> end;
-    std::optional<QBDI::InstPosition> position;
+    std::optional<uint64_t> address;
+    std::optional<uint64_t> start;
+    std::optional<uint64_t> end;
     std::optional<QBDI::MemoryAccessType> access_type;
-    std::optional<int> priority;
     std::string mnemonic;
   };
 
-  callback_registry(script_context& context, api_manager& api_manager);
+  callback_registry();
 
   uint64_t register_callback(event_type event, sol::protected_function callback, const registration_options& options);
   bool remove_callback(uint64_t handle);
   void shutdown();
 
-  QBDI::VMAction dispatch_vm_start(QBDI::VMInstanceRef vm);
+  QBDI::VMAction dispatch_thread_start(const w1::thread_event& event);
+  QBDI::VMAction dispatch_thread_stop(const w1::thread_event& event);
 
-  bool ensure_event_enabled(event_type event);
-  bool is_event_enabled(event_type event) const;
+  QBDI::VMAction dispatch_vm_start(
+      const w1::sequence_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state, QBDI::GPRState* gpr,
+      QBDI::FPRState* fpr
+  );
+  QBDI::VMAction dispatch_vm_stop(
+      const w1::sequence_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state, QBDI::GPRState* gpr,
+      QBDI::FPRState* fpr
+  );
+
+  QBDI::VMAction dispatch_instruction_pre(
+      const w1::instruction_event& event, QBDI::VMInstanceRef vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr
+  );
+  QBDI::VMAction dispatch_instruction_post(
+      const w1::instruction_event& event, QBDI::VMInstanceRef vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr
+  );
+
+  QBDI::VMAction dispatch_basic_block_entry(
+      const w1::basic_block_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state, QBDI::GPRState* gpr,
+      QBDI::FPRState* fpr
+  );
+  QBDI::VMAction dispatch_basic_block_exit(
+      const w1::basic_block_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state, QBDI::GPRState* gpr,
+      QBDI::FPRState* fpr
+  );
+
+  QBDI::VMAction dispatch_exec_transfer_call(
+      const w1::exec_transfer_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state, QBDI::GPRState* gpr,
+      QBDI::FPRState* fpr
+  );
+  QBDI::VMAction dispatch_exec_transfer_return(
+      const w1::exec_transfer_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state, QBDI::GPRState* gpr,
+      QBDI::FPRState* fpr
+  );
+
+  QBDI::VMAction dispatch_memory(
+      const w1::memory_event& event, QBDI::VMInstanceRef vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr
+  );
 
 private:
-  struct callback_entry {
-    uint64_t id = 0;
-    event_type event;
-    registration_options options;
-    sol::protected_function callback;
-    uint32_t qbdi_id = QBDI::INVALID_EVENTID;
+  struct event_hash {
+    size_t operator()(event_type value) const { return static_cast<size_t>(value); }
   };
 
-  QBDI::VMAction dispatch_simple(event_type event, QBDI::VMInstanceRef vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr);
-  QBDI::VMAction dispatch_vm_event(
-      event_type event, QBDI::VMInstanceRef vm, const QBDI::VMState* state, QBDI::GPRState* gpr, QBDI::FPRState* fpr
+  struct callback_entry {
+    uint64_t id = 0;
+    event_type event{};
+    registration_options options{};
+    sol::protected_function callback{};
+  };
+
+  QBDI::VMAction dispatch_instruction(
+      event_type event_type, const w1::instruction_event& event, QBDI::VMInstanceRef vm, QBDI::GPRState* gpr,
+      QBDI::FPRState* fpr
   );
-  QBDI::VMAction dispatch_single(uint64_t id, QBDI::VMInstanceRef vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr);
+  QBDI::VMAction dispatch_basic_block(
+      event_type event_type, const w1::basic_block_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state,
+      QBDI::GPRState* gpr, QBDI::FPRState* fpr
+  );
+  QBDI::VMAction dispatch_exec_transfer(
+      event_type event_type, const w1::exec_transfer_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state,
+      QBDI::GPRState* gpr, QBDI::FPRState* fpr
+  );
+  QBDI::VMAction dispatch_sequence(
+      event_type event_type, const w1::sequence_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state,
+      QBDI::GPRState* gpr, QBDI::FPRState* fpr
+  );
+  QBDI::VMAction dispatch_thread(event_type event_type, const w1::thread_event& event);
 
-  void enable_memory_recording();
+  QBDI::VMAction dispatch_memory_event(
+      event_type event_type, const w1::memory_event& event, QBDI::VMInstanceRef vm, QBDI::GPRState* gpr,
+      QBDI::FPRState* fpr
+  );
 
-  bool register_instruction_callback(event_type event, QBDI::InstPosition position);
-  bool register_vm_event_callback(event_type event, QBDI::VMEvent qbdi_event);
-  bool register_memory_callback(event_type event, QBDI::MemoryAccessType type);
-
-  QBDI::VMAction resolve_action(const sol::protected_function_result& result) const;
-
-  script_context& context_;
-  api_manager& api_manager_;
-  redlog::logger logger_;
+  QBDI::VMAction resolve_action(const sol::protected_function_result& result);
+  bool is_mnemonic_match(std::string_view pattern, std::string_view mnemonic) const;
+  bool matches_address(const registration_options& options, uint64_t address) const;
 
   uint64_t next_id_ = 1;
-  bool memory_recording_enabled_ = false;
-
   std::unordered_map<uint64_t, callback_entry> callbacks_;
-  std::unordered_map<event_type, std::vector<uint64_t>> event_handlers_;
-  std::unordered_map<event_type, uint32_t> event_qbdi_ids_;
+  std::unordered_map<event_type, std::vector<uint64_t>, event_hash> event_handlers_;
+  redlog::logger logger_;
 };
 
 } // namespace w1::tracers::script::runtime

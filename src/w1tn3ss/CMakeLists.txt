@@ -3,102 +3,44 @@ cmake_minimum_required(VERSION 3.16)
 include(${WITNESS_SOURCE_DIR}/cmake/CommonConfig.cmake)
 
 add_library(w1tn3ss STATIC
-    util/env_config.cpp
-    util/env_enumerator.cpp
-    util/module_scanner.cpp
-    util/module_range_index.cpp
-    util/memory_range_index.cpp
-    util/signal_handler.cpp
-    util/safe_memory.cpp
-    util/register_capture.cpp
-    util/stack_capture.cpp
-    util/value_formatter.cpp
-    util/jsonl_writer.cpp
-    # new calling convention system
-    abi/calling_convention_factory.cpp
-    abi/calling_convention_detector.cpp
-    abi/conventions/placeholder.cpp
-    # existing abi components
-    abi/api_knowledge_db.cpp
-    abi/argument_extractor.cpp
-    abi/api_analyzer.cpp
-    abi/api_call_tracker.cpp
-    abi/api_event_builder.cpp
-    abi/api_dispatcher.cpp
-    abi/api_listener.cpp
-    # hooking system
-    hooking/hook_manager.cpp
-    # threading runtime
-    runtime/threading/thread_runtime.cpp
-    runtime/threading/thread_hook.cpp
-    # gadget execution
+    w1tn3ss.cpp
+    analysis/abi_dispatcher.cpp
+    analysis/symbol_lookup.cpp
+    core/instrumentation_policy.cpp
+    core/vm_controller.cpp
+    dump/memory_dumper.cpp
+    dump/process_dumper.cpp
+    dump/register_dumper.cpp
     gadget/gadget_executor.cpp
-    # instrumentation management
-    engine/instrumentation_lists.cpp
-    engine/instrumentation_manager.cpp
-    # import insertion
     import_insertion/import_insertion.cpp
+    io/jsonl_writer.cpp
+    util/env_config.cpp
+    util/module_identity.cpp
+    util/memory_reader.cpp
+    util/register_capture.cpp
+    util/signal_handler.cpp
+    util/stack_capture.cpp
+    runtime/module_registry.cpp
 )
 
-# Add platform-specific calling convention implementations
-# Use QBDI_ARCH which is properly set based on target architecture
-if(QBDI_ARCH STREQUAL "X86_64")
-    target_sources(w1tn3ss PRIVATE
-        abi/conventions/x86_64/system_v.cpp
-        abi/conventions/x86_64/microsoft.cpp
-    )
-elseif(QBDI_ARCH STREQUAL "X86")
-    target_sources(w1tn3ss PRIVATE
-        abi/conventions/x86/base.cpp
-        abi/conventions/x86/cdecl.cpp
-        abi/conventions/x86/stdcall.cpp
-        abi/conventions/x86/fastcall.cpp
-        abi/conventions/x86/thiscall.cpp
-        abi/conventions/x86/vectorcall.cpp
-    )
-elseif(QBDI_ARCH STREQUAL "AARCH64")
-    target_sources(w1tn3ss PRIVATE
-        abi/conventions/arm/aarch64_aapcs.cpp
-        abi/conventions/arm/aarch64_windows.cpp
-    )
-elseif(QBDI_ARCH STREQUAL "ARM")
-    target_sources(w1tn3ss PRIVATE
-        abi/conventions/arm/arm32_aapcs.cpp
-    )
-endif()
-
-# Symbol resolution system
-target_sources(w1tn3ss PRIVATE
-    symbols/symbol_lookup.cpp
-    symbols/symbol_resolver.cpp
+target_include_directories(w1tn3ss PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${WITNESS_SOURCE_DIR}/src
 )
 
-# Platform-specific symbol backends
-if(WIN32)
-    target_sources(w1tn3ss PRIVATE
-        symbols/windows_symbol_backend.cpp
-        symbols/windows_path_resolver.cpp
-    )
-else()
-    target_sources(w1tn3ss PRIVATE
-        symbols/posix_symbol_backend.cpp
-    )
-    
-    if(APPLE)
-        target_sources(w1tn3ss PRIVATE
-            symbols/macos_dyld_resolver.cpp
-        )
-    endif()
-endif()
+target_link_libraries(w1tn3ss PUBLIC
+    QBDI_static
+    redlog::redlog
+    nlohmann_json::nlohmann_json
+)
 
-# LIEF symbol backend when enabled
-if(WITNESS_LIEF)
-    target_sources(w1tn3ss PRIVATE
-        symbols/lief_symbol_backend.cpp
-    )
-endif()
+apply_common_compile_options(w1tn3ss)
+set_standard_output_dirs(w1tn3ss)
+apply_platform_linking(w1tn3ss)
+configure_target_with_lief(w1tn3ss)
 
-# Platform-specific import insertion implementations
+set_target_properties(w1tn3ss PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
 if(APPLE)
     target_sources(w1tn3ss PRIVATE
         import_insertion/platform/macos/macos_import_inserter.cpp
@@ -113,53 +55,3 @@ else()
         import_insertion/platform/linux/linux_import_inserter.cpp
     )
 endif()
-
-# Thread interception backends
-if(APPLE)
-    target_sources(w1tn3ss PRIVATE runtime/threading/thread_hook_darwin.cpp)
-elseif(WIN32)
-    target_sources(w1tn3ss PRIVATE runtime/threading/thread_hook_windows.cpp)
-elseif(UNIX)
-    target_sources(w1tn3ss PRIVATE runtime/threading/thread_hook_linux.cpp)
-else()
-    target_sources(w1tn3ss PRIVATE runtime/threading/thread_hook_stub.cpp)
-endif()
-
-# Configure LIEF for import insertion when enabled
-if(WITNESS_LIEF)
-    target_compile_definitions(w1tn3ss PRIVATE WITNESS_LIEF_ENABLED=1)
-endif()
-
-target_include_directories(w1tn3ss PUBLIC 
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ${WITNESS_SOURCE_DIR}/src
-)
-
-target_link_libraries(w1tn3ss PUBLIC
-    QBDI_static
-    redlog::redlog
-)
-
-if(APPLE OR (UNIX AND NOT WIN32))
-    target_link_libraries(w1tn3ss PUBLIC plthook::plthook)
-endif()
-
-if(WIN32)
-    target_link_libraries(w1tn3ss PUBLIC funchook::funchook)
-endif()
-
-apply_common_compile_options(w1tn3ss)
-set_standard_output_dirs(w1tn3ss)
-apply_platform_linking(w1tn3ss)
-configure_target_with_lief(w1tn3ss)
-
-# Set position independent code for shared library linking
-set_target_properties(w1tn3ss PROPERTIES POSITION_INDEPENDENT_CODE ON)
-
-# Add dump subdirectory
-add_subdirectory(dump)
-
-# Link dump library
-target_link_libraries(w1tn3ss PUBLIC
-    w1tn3ss_dump
-)

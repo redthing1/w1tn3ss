@@ -21,14 +21,14 @@ std::string format_timestamp() {
 
 } // namespace
 
-output_state::output_state() : logger_(redlog::get_logger("w1.script_output")) {}
+output_state::output_state() : logger_(redlog::get_logger("w1script.output")) {}
 
 bool output_state::open(const std::string& filename, const std::string& metadata_json) {
   if (initialized_) {
     close();
   }
 
-  writer_ = std::make_shared<w1::util::jsonl_writer>(filename);
+  writer_ = std::make_unique<w1::io::jsonl_writer>(filename);
   if (!writer_->is_open()) {
     logger_.err("failed to open output file", redlog::field("filename", filename));
     writer_.reset();
@@ -61,10 +61,6 @@ bool output_state::write_event(const std::string& json_line) {
   }
 
   event_count_++;
-  if (event_count_ % 10000 == 0) {
-    writer_->flush();
-  }
-
   return true;
 }
 
