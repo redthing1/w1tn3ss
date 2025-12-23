@@ -6,6 +6,7 @@
 #include <unordered_map>
 
 #include <QBDI/Memory.hpp>
+#include <mutex>
 
 namespace w1::runtime {
 namespace {
