@@ -4,6 +4,7 @@
 #include <cstring>
 
 #include "w1tn3ss/util/interval.hpp"
+#include <mutex>
 
 namespace w1::util {
 
