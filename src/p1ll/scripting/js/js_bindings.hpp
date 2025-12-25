@@ -148,6 +148,36 @@ struct patch_wrapper {
   }
 };
 
+struct search_options {
+  signature_query_filter filter;
+  bool single = false;
+};
+
+inline search_options parse_search_options(const std::optional<jnjs::value>& options) {
+  search_options opts;
+
+  if (!options || options->is<jnjs::undefined>() || options->is<jnjs::null>()) {
+    return opts;
+  }
+
+  if (options->is<std::string>()) {
+    opts.filter.pattern = options->as<std::string>();
+    return opts;
+  }
+
+  auto filter_val = (*options)["filter"];
+  if (filter_val.is<std::string>()) {
+    opts.filter.pattern = filter_val.as<std::string>();
+  }
+
+  auto single_val = (*options)["single"];
+  if (single_val.is<bool>()) {
+    opts.single = single_val.as<bool>();
+  }
+
+  return opts;
+}
+
 // main p1ll api class
 struct p1ll_api {
   const p1ll::context* p1ll_ctx;
@@ -191,8 +221,20 @@ struct p1ll_api {
   }
 
   // patch creation
-  patch_wrapper* patch(signature_wrapper* sig, uint64_t offset, const std::string& replace_pattern) {
-    return new patch_wrapper(sig, offset, replace_pattern);
+  patch_wrapper* patch(
+      signature_wrapper* sig, uint64_t offset, const std::string& replace_pattern,
+      std::optional<jnjs::value> options = std::nullopt
+  ) {
+    auto* wrapper = new patch_wrapper(sig, offset, replace_pattern);
+
+    if (options && !options->is<jnjs::undefined>() && !options->is<jnjs::null>()) {
+      auto required_val = (*options)["required"];
+      if (required_val.is<bool>()) {
+        wrapper->patch_decl_obj.required = required_val.as<bool>();
+      }
+    }
+
+    return wrapper;
   }
 
   // auto_cure
@@ -201,6 +243,11 @@ struct p1ll_api {
   // get_modules with optional filter
   std::vector<module_info_wrapper*> get_modules(const std::string& filter_pattern = "") {
     auto log = redlog::get_logger("p1ll.js");
+
+    if (!dynamic_mode) {
+      log.dbg("get_modules is unavailable in static mode");
+      return {};
+    }
 
     try {
       signature_query_filter filter;
@@ -241,13 +288,36 @@ struct p1ll_api {
     }
   }
 
+  std::optional<std::vector<search_result>> scan_signature(
+      const compiled_signature& signature, const signature_query_filter& filter
+  ) {
+    auto log = redlog::get_logger("p1ll.js");
+
+    if (dynamic_mode) {
+      engine::process_address_space space;
+      engine::signature_scanner scanner(space);
+      return scanner.scan(signature, filter);
+    }
+
+    if (!buffer_data) {
+      log.err("static mode signature scan missing buffer");
+      return std::nullopt;
+    }
+
+    engine::buffer_address_space space(*buffer_data);
+    engine::signature_scanner scanner(space);
+    return scanner.scan(signature, filter);
+  }
+
   // search_sig_multiple: returns array of results
   std::vector<search_result_wrapper*> search_sig_multiple(
-      const std::string& pattern, const std::string& filter_pattern = ""
+      const std::string& pattern, std::optional<jnjs::value> options = std::nullopt
   ) {
     auto log = redlog::get_logger("p1ll.js");
 
     try {
+      auto opts = parse_search_options(options);
+
       // compile signature pattern
       auto compiled_sig = compile_signature(pattern);
       if (!compiled_sig) {
@@ -255,14 +325,7 @@ struct p1ll_api {
         return {};
       }
 
-      engine::process_address_space space;
-      engine::signature_scanner scanner(space);
-      signature_query_filter filter;
-      if (!filter_pattern.empty()) {
-        filter.pattern = filter_pattern;
-      }
-
-      auto search_results_opt = scanner.scan(*compiled_sig, filter);
+      auto search_results_opt = scan_signature(*compiled_sig, opts.filter);
       if (!search_results_opt) {
         log.err("search failed", redlog::field("pattern", pattern));
         return {};
@@ -283,16 +346,39 @@ struct p1ll_api {
   }
 
   // search_sig single result: returns address or 0
-  uint64_t search_sig(const std::string& pattern, const std::string& filter_pattern = "") {
-    auto results = search_sig_multiple(pattern, filter_pattern);
+  uint64_t search_sig(const std::string& pattern, std::optional<jnjs::value> options = std::nullopt) {
+    auto log = redlog::get_logger("p1ll.js");
+    auto opts = parse_search_options(options);
+
+    // compile signature pattern
+    auto compiled_sig = compile_signature(pattern);
+    if (!compiled_sig) {
+      log.err("failed to compile signature pattern", redlog::field("pattern", pattern));
+      return 0;
+    }
+
+    auto search_results_opt = scan_signature(*compiled_sig, opts.filter);
+    if (!search_results_opt) {
+      log.err("search failed", redlog::field("pattern", pattern));
+      return 0;
+    }
+
+    auto& results = *search_results_opt;
+
+    if (opts.single && results.size() != 1) {
+      log.err("single match required but search returned unexpected count", redlog::field("count", results.size()));
+      return 0;
+    }
+
     if (results.empty()) {
       return 0;
     }
+
     if (results.size() > 1) {
-      auto log = redlog::get_logger("p1ll.js");
       log.wrn("multiple matches, returning first", redlog::field("count", results.size()));
     }
-    return results[0] ? results[0]->address : 0;
+
+    return results[0].address;
   }
 
   // utilities
@@ -390,6 +476,13 @@ inline cure_result_wrapper* p1ll_api::auto_cure(jnjs::value meta_obj) {
       return result;
     }
 
+    if (!dynamic_mode && !buffer_data) {
+      log.err("static mode auto_cure missing buffer");
+      auto result = new cure_result_wrapper();
+      result->error_messages.push_back("static mode auto_cure missing buffer");
+      return result;
+    }
+
     // basic validation of metadata object
     if (meta_obj.is<jnjs::undefined>() || meta_obj.is<jnjs::null>()) {
       log.err("auto_cure called with invalid metadata object");
@@ -401,6 +494,34 @@ inline cure_result_wrapper* p1ll_api::auto_cure(jnjs::value meta_obj) {
     auto meta = parse_metadata(meta_obj);
     auto sig_map = parse_signatures(meta_obj);
     auto patch_map = parse_patches(meta_obj);
+
+    auto sigs_val = meta_obj["sigs"];
+    auto patches_val = meta_obj["patches"];
+    bool sigs_present = !(sigs_val.is<jnjs::undefined>() || sigs_val.is<jnjs::null>());
+    bool patches_present = !(patches_val.is<jnjs::undefined>() || patches_val.is<jnjs::null>());
+
+    if (!patches_present) {
+      log.err("meta.patches is required");
+      auto result = new cure_result_wrapper();
+      result->error_messages.push_back("meta.patches is required");
+      return result;
+    }
+
+    size_t patch_total = 0;
+    for (const auto& entry : patch_map) {
+      patch_total += entry.second.size();
+    }
+
+    if (patch_total == 0) {
+      log.err("meta.patches is empty or invalid");
+      auto result = new cure_result_wrapper();
+      result->error_messages.push_back("meta.patches is empty or invalid");
+      return result;
+    }
+
+    if (sigs_present && sig_map.empty()) {
+      log.wrn("meta.sigs provided but parsed empty");
+    }
 
     log.inf("executing auto_cure");
 
