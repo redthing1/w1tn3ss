@@ -3,15 +3,16 @@
 # core library sources
 set(P1LL_CORE_SOURCES
     engine/address_space.cpp
-    engine/cure_planner.cpp
-    engine/patch_executor.cpp
-    engine/signature_scanner.cpp
-    core/platform.cpp
-    core/signature.cpp
-    core/context.cpp
+    engine/apply.cpp
+    engine/pattern.cpp
     engine/pattern_matcher.cpp
-    engine/memory_scanner.cpp
-    engine/auto_cure.cpp
+    engine/plan_builder.cpp
+    engine/scanner.cpp
+    engine/session.cpp
+    engine/platform/platform.cpp
+    engine/platform/process_memory_macos.cpp
+    engine/platform/process_memory_linux.cpp
+    engine/platform/process_memory_windows.cpp
     utils/hex_utils.cpp
     utils/hex_pattern.cpp
     utils/file_utils.cpp

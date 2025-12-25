@@ -18,7 +18,7 @@ target_include_directories(p1ll_c
 
 # ensure c++ standard for implementation
 set_target_properties(p1ll_c PROPERTIES
-    CXX_STANDARD 17
+    CXX_STANDARD 20
     CXX_STANDARD_REQUIRED ON
     ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
     POSITION_INDEPENDENT_CODE ON

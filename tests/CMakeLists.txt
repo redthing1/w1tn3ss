@@ -43,31 +43,6 @@ set_target_properties(test_standalone_tracers PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests
 )
 
-# add p1ll pattern matching unit tests
-if(WITNESS_SCRIPT)
-    add_executable(test_p1ll_pattern_matching test_p1ll_pattern_matching.cpp)
-    apply_common_compile_options(test_p1ll_pattern_matching)
-    apply_windows_definitions(test_p1ll_pattern_matching)
-    target_include_directories(test_p1ll_pattern_matching PRIVATE ${WITNESS_SOURCE_DIR}/src)
-    target_link_libraries(test_p1ll_pattern_matching PRIVATE p1ll_core redlog::redlog)
-    set_target_properties(test_p1ll_pattern_matching PROPERTIES
-        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests
-    )
-    if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT WIN32)
-        target_compile_options(test_p1ll_pattern_matching PRIVATE ${SANITIZER_FLAGS})
-        target_link_options(test_p1ll_pattern_matching PRIVATE ${SANITIZER_FLAGS})
-    endif()
-
-    add_test(
-        NAME p1ll_pattern_matching_tests
-        COMMAND test_p1ll_pattern_matching
-        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests
-    )
-    set_tests_properties(p1ll_pattern_matching_tests PROPERTIES
-        LABELS "unit;p1ll;pattern_matching"
-    )
-endif()
-
 # gadget executor test
 add_executable(test_gadget_executor test_gadget_executor.cpp)
 apply_common_compile_options(test_gadget_executor)

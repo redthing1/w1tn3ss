@@ -1,577 +1,303 @@
 /**
  * @file p1ll_c.cpp
- * @brief C API implementation wrapping p1ll C++ functionality
+ * @brief C API implementation wrapping the p1ll engine session
  */
 
 #include "p1ll_c.h"
 #include "../p1ll.hpp"
-#include "../engine/memory_scanner.hpp"
-#include "../engine/address_space.hpp"
-#include "../engine/patch_executor.hpp"
-#include "../engine/signature_scanner.hpp"
-#include "../engine/pattern_matcher.hpp"
-#include "../core/signature.hpp"
+#include "../engine/platform/platform.hpp"
+#include "../engine/pattern.hpp"
 #include "../utils/hex_utils.hpp"
 
-#include <memory>
-#include <vector>
-#include <string>
 #include <cstring>
-#include <cstdlib>
+#include <memory>
+#include <span>
+#include <string>
+#include <vector>
 
-// thread-local error storage
 thread_local std::string last_error;
 
-// internal helper to set error message
 static void set_error(const std::string& msg) { last_error = msg; }
-
-// internal helper to clear error
 static void clear_error() { last_error.clear(); }
 
-// convert c++ memory protection to c flags
-static int cpp_protection_to_c(p1ll::engine::memory_protection prot) {
-  int flags = P1LL_PROT_NONE;
-  if (p1ll::engine::has_protection(prot, p1ll::engine::memory_protection::read)) {
-    flags |= P1LL_PROT_READ;
-  }
-  if (p1ll::engine::has_protection(prot, p1ll::engine::memory_protection::write)) {
-    flags |= P1LL_PROT_WRITE;
-  }
-  if (p1ll::engine::has_protection(prot, p1ll::engine::memory_protection::execute)) {
-    flags |= P1LL_PROT_EXEC;
-  }
-  return flags;
-}
-
-// convert c flags to c++ memory protection
-static p1ll::engine::memory_protection c_protection_to_cpp(int flags) {
-  auto prot = p1ll::engine::memory_protection::none;
-  if (flags & P1LL_PROT_READ) {
-    prot = prot | p1ll::engine::memory_protection::read;
-  }
-  if (flags & P1LL_PROT_WRITE) {
-    prot = prot | p1ll::engine::memory_protection::write;
-  }
-  if (flags & P1LL_PROT_EXEC) {
-    prot = prot | p1ll::engine::memory_protection::execute;
-  }
-  return prot;
-}
-
-// internal scanner wrapper
-struct p1ll_scanner {
-  std::unique_ptr<p1ll::engine::memory_scanner> scanner;
-
-  p1ll_scanner() : scanner(std::make_unique<p1ll::engine::memory_scanner>()) {}
+struct p1ll_session {
+  std::unique_ptr<p1ll::engine::session> session;
 };
 
-// --- scanner lifecycle ---
+static p1ll::engine::scan_options convert_scan_options(const p1ll_scan_options_t* options) {
+  p1ll::engine::scan_options out;
+  if (!options) {
+    return out;
+  }
+  if (options->filter.name_regex) {
+    out.filter.name_regex = options->filter.name_regex;
+  }
+  out.filter.only_executable = options->filter.only_executable != 0;
+  out.filter.exclude_system = options->filter.exclude_system != 0;
+  out.filter.min_size = options->filter.min_size;
+  if (options->filter.has_min_address) {
+    out.filter.min_address = options->filter.min_address;
+  }
+  if (options->filter.has_max_address) {
+    out.filter.max_address = options->filter.max_address;
+  }
+  out.single = options->single != 0;
+  out.max_matches = options->max_matches;
+  return out;
+}
 
-p1ll_scanner_t p1ll_scanner_create(void) {
+static std::vector<std::string> convert_platforms(const char** platforms, size_t count) {
+  std::vector<std::string> result;
+  if (!platforms) {
+    return result;
+  }
+  for (size_t i = 0; i < count; ++i) {
+    if (platforms[i]) {
+      result.push_back(platforms[i]);
+    }
+  }
+  return result;
+}
+
+static p1ll::engine::signature_spec convert_signature_spec(const p1ll_signature_spec_t& spec) {
+  p1ll::engine::signature_spec out;
+  if (spec.pattern) {
+    out.pattern = spec.pattern;
+  }
+  out.options = convert_scan_options(&spec.options);
+  out.platforms = convert_platforms(spec.platforms, spec.platform_count);
+  out.required = spec.required != 0;
+  return out;
+}
+
+static p1ll::engine::patch_spec convert_patch_spec(const p1ll_patch_spec_t& spec) {
+  p1ll::engine::patch_spec out;
+  out.signature = convert_signature_spec(spec.signature);
+  out.offset = spec.offset;
+  if (spec.patch) {
+    out.patch = spec.patch;
+  }
+  out.platforms = convert_platforms(spec.platforms, spec.platform_count);
+  out.required = spec.required != 0;
+  return out;
+}
+
+p1ll_session_t p1ll_session_create_process(void) {
   try {
     clear_error();
-    return new p1ll_scanner();
+    auto session = std::make_unique<p1ll::engine::session>(p1ll::engine::session::for_process());
+    return new p1ll_session{std::move(session)};
   } catch (const std::exception& e) {
-    set_error("failed to create scanner: " + std::string(e.what()));
+    set_error("failed to create process session: " + std::string(e.what()));
     return nullptr;
   }
 }
 
-void p1ll_scanner_destroy(p1ll_scanner_t scanner) {
-  if (scanner) {
-    delete scanner;
-  }
-}
-
-// --- memory region enumeration ---
-
-int p1ll_get_memory_regions(p1ll_scanner_t scanner, p1ll_memory_region_t** out_regions, size_t* out_count) {
-  if (!scanner || !out_regions || !out_count) {
-    set_error("invalid parameters");
-    return P1LL_ERROR;
-  }
-
-  try {
-    clear_error();
-    auto regions = scanner->scanner->get_memory_regions();
-    if (!regions.has_value()) {
-      set_error("failed to get memory regions");
-      return P1LL_ERROR;
-    }
-
-    *out_count = regions->size();
-    if (*out_count == 0) {
-      *out_regions = nullptr;
-      return P1LL_SUCCESS;
-    }
-
-    // allocate c array
-    *out_regions = static_cast<p1ll_memory_region_t*>(calloc(*out_count, sizeof(p1ll_memory_region_t)));
-
-    if (!*out_regions) {
-      set_error("failed to allocate memory regions array");
-      return P1LL_ERROR;
-    }
-
-    // copy region data
-    for (size_t i = 0; i < *out_count; ++i) {
-      const auto& cpp_region = (*regions)[i];
-      auto& c_region = (*out_regions)[i];
-
-      c_region.base_address = cpp_region.base_address;
-      c_region.size = cpp_region.size;
-      c_region.protection = cpp_protection_to_c(cpp_region.protection);
-      c_region.is_executable = cpp_region.is_executable ? 1 : 0;
-      c_region.is_system = cpp_region.is_system ? 1 : 0;
-
-      // copy name, truncate if necessary
-      strncpy(c_region.name, cpp_region.name.c_str(), sizeof(c_region.name) - 1);
-      c_region.name[sizeof(c_region.name) - 1] = '\0';
-    }
-
-    return P1LL_SUCCESS;
-  } catch (const std::exception& e) {
-    set_error("exception in get_memory_regions: " + std::string(e.what()));
-    return P1LL_ERROR;
-  }
-}
-
-int p1ll_get_region_at_address(p1ll_scanner_t scanner, uint64_t address, p1ll_memory_region_t* out_region) {
-  if (!scanner || !out_region) {
-    set_error("invalid parameters");
-    return P1LL_ERROR;
-  }
-
-  try {
-    clear_error();
-    auto region = scanner->scanner->get_region_info(address);
-    if (!region.has_value()) {
-      set_error("no region found at address");
-      return P1LL_ERROR;
-    }
-
-    out_region->base_address = region->base_address;
-    out_region->size = region->size;
-    out_region->protection = cpp_protection_to_c(region->protection);
-    out_region->is_executable = region->is_executable ? 1 : 0;
-    out_region->is_system = region->is_system ? 1 : 0;
-
-    strncpy(out_region->name, region->name.c_str(), sizeof(out_region->name) - 1);
-    out_region->name[sizeof(out_region->name) - 1] = '\0';
-
-    return P1LL_SUCCESS;
-  } catch (const std::exception& e) {
-    set_error("exception in get_region_at_address: " + std::string(e.what()));
-    return P1LL_ERROR;
-  }
-}
-
-void p1ll_free_memory_regions(p1ll_memory_region_t* regions) { free(regions); }
-
-// --- memory protection management ---
-
-int p1ll_set_memory_protection(p1ll_scanner_t scanner, uint64_t address, size_t size, int protection) {
-  if (!scanner) {
-    set_error("invalid scanner");
-    return P1LL_ERROR;
-  }
-
-  try {
-    clear_error();
-    auto cpp_prot = c_protection_to_cpp(protection);
-    bool success = scanner->scanner->set_memory_protection(address, size, cpp_prot);
-    if (!success) {
-      set_error("failed to set memory protection");
-      return P1LL_ERROR;
-    }
-
-    return P1LL_SUCCESS;
-  } catch (const std::exception& e) {
-    set_error("exception in set_memory_protection: " + std::string(e.what()));
-    return P1LL_ERROR;
-  }
-}
-
-size_t p1ll_get_page_size(p1ll_scanner_t scanner) {
-  if (!scanner) {
-    set_error("invalid scanner");
-    return 0;
-  }
-
-  try {
-    clear_error();
-    auto page_size = scanner->scanner->get_page_size();
-    if (!page_size.has_value()) {
-      set_error("failed to get page size");
-      return 0;
-    }
-
-    return *page_size;
-  } catch (const std::exception& e) {
-    set_error("exception in get_page_size: " + std::string(e.what()));
-    return 0;
-  }
-}
-
-// --- direct memory access ---
-
-int p1ll_read_memory(p1ll_scanner_t scanner, uint64_t address, uint8_t* buffer, size_t size) {
-  if (!scanner || !buffer) {
-    set_error("invalid parameters");
-    return P1LL_ERROR;
-  }
-
-  try {
-    clear_error();
-    auto data = scanner->scanner->read_memory(address, size);
-    if (!data.has_value()) {
-      set_error("failed to read memory");
-      return P1LL_ERROR;
-    }
-
-    if (data->size() != size) {
-      set_error("partial read");
-      return P1LL_ERROR;
-    }
-
-    std::memcpy(buffer, data->data(), size);
-    return P1LL_SUCCESS;
-  } catch (const std::exception& e) {
-    set_error("exception in read_memory: " + std::string(e.what()));
-    return P1LL_ERROR;
-  }
-}
-
-int p1ll_write_memory(p1ll_scanner_t scanner, uint64_t address, const uint8_t* data, size_t size) {
-  if (!scanner || !data) {
-    set_error("invalid parameters");
-    return P1LL_ERROR;
-  }
-
-  try {
-    clear_error();
-    std::vector<uint8_t> write_data(data, data + size);
-    bool success = scanner->scanner->write_memory(address, write_data);
-    if (!success) {
-      set_error("failed to write memory");
-      return P1LL_ERROR;
-    }
-
-    return P1LL_SUCCESS;
-  } catch (const std::exception& e) {
-    set_error("exception in write_memory: " + std::string(e.what()));
-    return P1LL_ERROR;
-  }
-}
-
-int p1ll_patch_memory(p1ll_scanner_t scanner, uint64_t address, const char* hex_pattern) {
-  if (!scanner || !hex_pattern) {
-    set_error("invalid parameters");
-    return P1LL_ERROR;
-  }
-
-  try {
-    clear_error();
-    auto compiled = p1ll::compile_patch(hex_pattern);
-    if (!compiled.has_value()) {
-      set_error("invalid patch pattern");
-      return P1LL_ERROR;
-    }
-
-    p1ll::patch_decl decl;
-    decl.signature = p1ll::signature_decl("capi_patch");
-    decl.offset = 0;
-    decl.pattern = hex_pattern;
-    decl.required = true;
-
-    p1ll::engine::process_address_space space(*scanner->scanner);
-    p1ll::engine::patch_executor executor(space);
-    p1ll::engine::patch_plan_entry entry;
-    entry.decl = decl;
-    entry.address = address;
-    entry.patch = *compiled;
-    entry.description = "capi_patch";
-
-    auto exec_result = executor.apply(entry);
-    if (!exec_result.success) {
-      if (!exec_result.error_messages.empty()) {
-        set_error("failed to patch memory: " + exec_result.error_messages.front());
-      } else {
-        set_error("failed to patch memory");
-      }
-      return P1LL_ERROR;
-    }
-
-    return P1LL_SUCCESS;
-  } catch (const std::exception& e) {
-    set_error("exception in patch_memory: " + std::string(e.what()));
-    return P1LL_ERROR;
-  }
-}
-
-// --- memory allocation ---
-
-void* p1ll_allocate_memory(p1ll_scanner_t scanner, size_t size, int protection) {
-  if (!scanner) {
-    set_error("invalid scanner");
+p1ll_session_t p1ll_session_create_buffer(uint8_t* buffer, size_t size) {
+  if (!buffer || size == 0) {
+    set_error("invalid buffer");
     return nullptr;
   }
-
   try {
     clear_error();
-    auto cpp_prot = c_protection_to_cpp(protection);
-    auto result = scanner->scanner->allocate_memory(size, cpp_prot);
-    if (!result.has_value()) {
-      set_error("failed to allocate memory");
+    auto session = std::make_unique<p1ll::engine::session>(
+        p1ll::engine::session::for_buffer(std::span<uint8_t>(buffer, size))
+    );
+    return new p1ll_session{std::move(session)};
+  } catch (const std::exception& e) {
+    set_error("failed to create buffer session: " + std::string(e.what()));
+    return nullptr;
+  }
+}
+
+p1ll_session_t p1ll_session_create_buffer_with_platform(uint8_t* buffer, size_t size, const char* platform_key) {
+  if (!buffer || size == 0) {
+    set_error("invalid buffer");
+    return nullptr;
+  }
+  if (!platform_key) {
+    set_error("invalid platform key");
+    return nullptr;
+  }
+  try {
+    clear_error();
+    auto parsed = p1ll::engine::platform::parse_platform(platform_key);
+    if (!parsed.ok()) {
+      set_error(parsed.status.message.empty() ? "invalid platform key" : parsed.status.message);
       return nullptr;
     }
-
-    return *result;
+    auto session = std::make_unique<p1ll::engine::session>(
+        p1ll::engine::session::for_buffer(std::span<uint8_t>(buffer, size), parsed.value)
+    );
+    return new p1ll_session{std::move(session)};
   } catch (const std::exception& e) {
-    set_error("exception in allocate_memory: " + std::string(e.what()));
+    set_error("failed to create buffer session: " + std::string(e.what()));
     return nullptr;
   }
 }
 
-int p1ll_free_memory(p1ll_scanner_t scanner, void* address, size_t size) {
-  if (!scanner || !address) {
-    set_error("invalid parameters");
-    return P1LL_ERROR;
-  }
-
-  try {
-    clear_error();
-    bool success = scanner->scanner->free_memory(address, size);
-    if (!success) {
-      set_error("failed to free memory");
-      return P1LL_ERROR;
-    }
-
-    return P1LL_SUCCESS;
-  } catch (const std::exception& e) {
-    set_error("exception in free_memory: " + std::string(e.what()));
-    return P1LL_ERROR;
+void p1ll_session_destroy(p1ll_session_t session) {
+  if (session) {
+    delete session;
   }
 }
 
-// --- pattern searching ---
-
-int p1ll_search_pattern(
-    p1ll_scanner_t scanner, const char* hex_pattern, p1ll_match_t** out_matches, size_t* out_count
+int p1ll_scan(
+    p1ll_session_t session, const char* pattern, const p1ll_scan_options_t* options, p1ll_scan_result_t** out_results,
+    size_t* out_count
 ) {
-  if (!scanner || !hex_pattern || !out_matches || !out_count) {
+  if (!session || !pattern || !out_results || !out_count) {
     set_error("invalid parameters");
     return P1LL_ERROR;
   }
 
   try {
     clear_error();
-    auto query = p1ll::create_signature_query(hex_pattern);
-    if (!query.has_value()) {
-      set_error("invalid signature pattern");
+    auto scan_opts = convert_scan_options(options);
+    auto result = session->session->scan(pattern, scan_opts);
+    if (!result.ok()) {
+      set_error(result.status.message.empty() ? "scan failed" : result.status.message);
       return P1LL_ERROR;
     }
 
-    p1ll::engine::process_address_space space(*scanner->scanner);
-    p1ll::engine::signature_scanner sig_scanner(space);
-    auto results = sig_scanner.scan(query->signature, query->filter);
-    if (!results.has_value()) {
-      set_error("search failed");
-      return P1LL_ERROR;
-    }
-
-    *out_count = results->size();
+    *out_count = result.value.size();
     if (*out_count == 0) {
-      *out_matches = nullptr;
+      *out_results = nullptr;
       return P1LL_SUCCESS;
     }
 
-    *out_matches = static_cast<p1ll_match_t*>(calloc(*out_count, sizeof(p1ll_match_t)));
-
-    if (!*out_matches) {
-      set_error("failed to allocate matches array");
+    *out_results = static_cast<p1ll_scan_result_t*>(calloc(*out_count, sizeof(p1ll_scan_result_t)));
+    if (!*out_results) {
+      set_error("failed to allocate scan results");
       return P1LL_ERROR;
     }
 
     for (size_t i = 0; i < *out_count; ++i) {
-      const auto& cpp_result = (*results)[i];
-      auto& c_match = (*out_matches)[i];
-
-      c_match.address = cpp_result.address;
-      strncpy(c_match.region_name, cpp_result.region_name.c_str(), sizeof(c_match.region_name) - 1);
-      c_match.region_name[sizeof(c_match.region_name) - 1] = '\0';
+      (*out_results)[i].address = result.value[i].address;
+      strncpy((*out_results)[i].region_name, result.value[i].region_name.c_str(), sizeof((*out_results)[i].region_name) - 1);
+      (*out_results)[i].region_name[sizeof((*out_results)[i].region_name) - 1] = '\0';
     }
 
     return P1LL_SUCCESS;
   } catch (const std::exception& e) {
-    set_error("exception in search_pattern: " + std::string(e.what()));
+    set_error("exception in scan: " + std::string(e.what()));
     return P1LL_ERROR;
   }
 }
 
-int p1ll_search_in_region(
-    p1ll_scanner_t scanner, uint64_t region_base, const char* hex_pattern, p1ll_match_t** out_matches, size_t* out_count
-) {
-  if (!scanner || !hex_pattern || !out_matches || !out_count) {
+void p1ll_free_scan_results(p1ll_scan_result_t* results) { free(results); }
+
+int p1ll_plan(p1ll_session_t session, const p1ll_recipe_t* recipe, p1ll_plan_entry_t** out_entries, size_t* out_count) {
+  if (!session || !recipe || !out_entries || !out_count) {
     set_error("invalid parameters");
     return P1LL_ERROR;
   }
 
   try {
     clear_error();
+    p1ll::engine::recipe plan_recipe;
+    if (recipe->name) {
+      plan_recipe.name = recipe->name;
+    }
+    plan_recipe.platforms = convert_platforms(recipe->platforms, recipe->platform_count);
 
-    // get the region to search in
-    auto region = scanner->scanner->get_region_info(region_base);
-    if (!region.has_value()) {
-      set_error("region not found");
+    for (size_t i = 0; i < recipe->validation_count; ++i) {
+      plan_recipe.validations.push_back(convert_signature_spec(recipe->validations[i]));
+    }
+    for (size_t i = 0; i < recipe->patch_count; ++i) {
+      plan_recipe.patches.push_back(convert_patch_spec(recipe->patches[i]));
+    }
+
+    auto plan = session->session->plan(plan_recipe);
+    if (!plan.ok()) {
+      set_error(plan.status.message.empty() ? "plan failed" : plan.status.message);
       return P1LL_ERROR;
     }
 
-    // read region memory
-    auto memory_data = scanner->scanner->read_memory(region->base_address, region->size);
-    if (!memory_data.has_value()) {
-      set_error("failed to read region memory");
-      return P1LL_ERROR;
-    }
-
-    // search in buffer
-    size_t* offsets;
-    size_t offset_count;
-    int result = p1ll_search_in_buffer(memory_data->data(), memory_data->size(), hex_pattern, &offsets, &offset_count);
-    if (result != P1LL_SUCCESS) {
-      return result;
-    }
-
-    // convert offsets to matches
-    *out_count = offset_count;
+    *out_count = plan.value.size();
     if (*out_count == 0) {
-      *out_matches = nullptr;
-      p1ll_free_offsets(offsets);
+      *out_entries = nullptr;
       return P1LL_SUCCESS;
     }
 
-    *out_matches = static_cast<p1ll_match_t*>(calloc(*out_count, sizeof(p1ll_match_t)));
-
-    if (!*out_matches) {
-      p1ll_free_offsets(offsets);
-      set_error("failed to allocate matches array");
+    *out_entries = static_cast<p1ll_plan_entry_t*>(calloc(*out_count, sizeof(p1ll_plan_entry_t)));
+    if (!*out_entries) {
+      set_error("failed to allocate plan entries");
       return P1LL_ERROR;
     }
 
     for (size_t i = 0; i < *out_count; ++i) {
-      (*out_matches)[i].address = region->base_address + offsets[i];
-      strncpy((*out_matches)[i].region_name, region->name.c_str(), sizeof((*out_matches)[i].region_name) - 1);
-      (*out_matches)[i].region_name[sizeof((*out_matches)[i].region_name) - 1] = '\0';
+      const auto& entry = plan.value[i];
+      auto& out = (*out_entries)[i];
+      out.address = entry.address;
+      out.size = entry.patch_bytes.size();
+      out.required = entry.spec.required ? 1 : 0;
+
+      out.patch_bytes = static_cast<uint8_t*>(malloc(out.size));
+      out.patch_mask = static_cast<uint8_t*>(malloc(out.size));
+      if (!out.patch_bytes || !out.patch_mask) {
+        p1ll_free_plan_entries(*out_entries, i + 1);
+        *out_entries = nullptr;
+        *out_count = 0;
+        set_error("failed to allocate patch bytes");
+        return P1LL_ERROR;
+      }
+
+      std::memcpy(out.patch_bytes, entry.patch_bytes.data(), out.size);
+      std::memcpy(out.patch_mask, entry.patch_mask.data(), out.size);
     }
 
-    p1ll_free_offsets(offsets);
     return P1LL_SUCCESS;
   } catch (const std::exception& e) {
-    set_error("exception in search_in_region: " + std::string(e.what()));
+    set_error("exception in plan: " + std::string(e.what()));
     return P1LL_ERROR;
   }
 }
 
-int p1ll_search_in_buffer(
-    const uint8_t* buffer, size_t buffer_size, const char* hex_pattern, size_t** out_offsets, size_t* out_count
-) {
-  if (!buffer || !hex_pattern || !out_offsets || !out_count) {
+void p1ll_free_plan_entries(p1ll_plan_entry_t* entries, size_t count) {
+  if (!entries) {
+    return;
+  }
+  for (size_t i = 0; i < count; ++i) {
+    free(entries[i].patch_bytes);
+    free(entries[i].patch_mask);
+  }
+  free(entries);
+}
+
+int p1ll_apply(p1ll_session_t session, const p1ll_plan_entry_t* entries, size_t count, p1ll_apply_report_t* out_report) {
+  if (!session || !entries || !out_report) {
     set_error("invalid parameters");
     return P1LL_ERROR;
   }
 
   try {
     clear_error();
-    auto compiled = p1ll::compile_signature(hex_pattern);
-    if (!compiled.has_value()) {
-      set_error("invalid signature pattern");
+    std::vector<p1ll::engine::plan_entry> plan_entries;
+    plan_entries.reserve(count);
+    for (size_t i = 0; i < count; ++i) {
+      p1ll::engine::plan_entry entry;
+      entry.address = entries[i].address;
+      entry.patch_bytes.assign(entries[i].patch_bytes, entries[i].patch_bytes + entries[i].size);
+      entry.patch_mask.assign(entries[i].patch_mask, entries[i].patch_mask + entries[i].size);
+      entry.spec.required = entries[i].required != 0;
+      plan_entries.push_back(std::move(entry));
+    }
+
+    auto applied = session->session->apply(plan_entries);
+    out_report->success = applied.value.success ? 1 : 0;
+    out_report->applied = applied.value.applied;
+    out_report->failed = applied.value.failed;
+
+    if (!applied.ok()) {
+      set_error(applied.status.message.empty() ? "apply failed" : applied.status.message);
       return P1LL_ERROR;
-    }
-
-    p1ll::engine::pattern_matcher matcher(*compiled);
-    auto offsets = matcher.search(buffer, buffer_size);
-
-    *out_count = offsets.size();
-    if (*out_count == 0) {
-      *out_offsets = nullptr;
-      return P1LL_SUCCESS;
-    }
-
-    *out_offsets = static_cast<size_t*>(malloc(*out_count * sizeof(size_t)));
-
-    if (!*out_offsets) {
-      set_error("failed to allocate offsets array");
-      return P1LL_ERROR;
-    }
-
-    for (size_t i = 0; i < *out_count; ++i) {
-      (*out_offsets)[i] = static_cast<size_t>(offsets[i]);
     }
 
     return P1LL_SUCCESS;
   } catch (const std::exception& e) {
-    set_error("exception in search_in_buffer: " + std::string(e.what()));
+    set_error("exception in apply: " + std::string(e.what()));
     return P1LL_ERROR;
-  }
-}
-
-void p1ll_free_matches(p1ll_match_t* matches) { free(matches); }
-
-void p1ll_free_offsets(size_t* offsets) { free(offsets); }
-
-// --- pattern compilation & validation ---
-
-int p1ll_compile_pattern(const char* hex_pattern, p1ll_compiled_pattern_t* out_pattern) {
-  if (!hex_pattern || !out_pattern) {
-    set_error("invalid parameters");
-    return P1LL_ERROR;
-  }
-
-  try {
-    clear_error();
-    auto compiled = p1ll::compile_signature(hex_pattern);
-    if (!compiled.has_value()) {
-      set_error("invalid signature pattern");
-      return P1LL_ERROR;
-    }
-
-    out_pattern->size = compiled->size();
-
-    // allocate bytes array
-    out_pattern->bytes = static_cast<uint8_t*>(malloc(compiled->size()));
-    if (!out_pattern->bytes) {
-      set_error("failed to allocate bytes array");
-      return P1LL_ERROR;
-    }
-
-    // allocate mask array
-    out_pattern->mask = static_cast<uint8_t*>(malloc(compiled->size()));
-    if (!out_pattern->mask) {
-      free(out_pattern->bytes);
-      set_error("failed to allocate mask array");
-      return P1LL_ERROR;
-    }
-
-    // copy data
-    std::memcpy(out_pattern->bytes, compiled->pattern.data(), compiled->size());
-    for (size_t i = 0; i < compiled->size(); ++i) {
-      out_pattern->mask[i] = compiled->mask[i] ? 1 : 0;
-    }
-
-    return P1LL_SUCCESS;
-  } catch (const std::exception& e) {
-    set_error("exception in compile_pattern: " + std::string(e.what()));
-    return P1LL_ERROR;
-  }
-}
-
-void p1ll_free_compiled_pattern(p1ll_compiled_pattern_t* pattern) {
-  if (pattern) {
-    free(pattern->bytes);
-    free(pattern->mask);
-    pattern->bytes = nullptr;
-    pattern->mask = nullptr;
-    pattern->size = 0;
   }
 }
 
@@ -579,15 +305,9 @@ int p1ll_validate_pattern(const char* hex_pattern) {
   if (!hex_pattern) {
     return 0;
   }
-
-  try {
-    return p1ll::validate_signature_pattern(hex_pattern) ? 1 : 0;
-  } catch (...) {
-    return 0;
-  }
+  auto parsed = p1ll::engine::parse_signature(hex_pattern);
+  return parsed.ok() ? 1 : 0;
 }
-
-// --- utility functions ---
 
 int p1ll_hex_string_to_bytes(const char* hex, uint8_t** out_bytes, size_t* out_size) {
   if (!hex || !out_bytes || !out_size) {
@@ -598,8 +318,6 @@ int p1ll_hex_string_to_bytes(const char* hex, uint8_t** out_bytes, size_t* out_s
   try {
     clear_error();
     std::string hex_str = hex;
-
-    // remove spaces and validate
     std::string clean_hex;
     for (char c : hex_str) {
       if (c != ' ') {
@@ -681,13 +399,8 @@ char* p1ll_format_address(uint64_t address) {
 }
 
 void p1ll_free_bytes(uint8_t* bytes) { free(bytes); }
-
 void p1ll_free_string(char* str) { free(str); }
 
-// --- error handling ---
+int p1ll_has_scripting_support(void) { return p1ll::has_scripting_support() ? 1 : 0; }
 
 const char* p1ll_get_last_error(void) { return last_error.c_str(); }
-
-// --- capability queries ---
-
-int p1ll_has_scripting_support(void) { return p1ll::has_scripting_support() ? 1 : 0; }

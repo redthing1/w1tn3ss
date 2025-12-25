@@ -1,6 +1,5 @@
 #include "patch.hpp"
 #include <p1ll/p1ll.hpp>
-#include <p1ll/core/signature.hpp>
 #include <redlog.hpp>
 #include <fstream>
 #include <iostream>
@@ -57,20 +56,18 @@ int patch(
     }
 
     // compile patch
-    auto compiled_patch_opt = p1ll::compile_patch(replace_data);
-    if (!compiled_patch_opt) {
+    auto parsed_patch = p1ll::engine::parse_patch(replace_data);
+    if (!parsed_patch.ok()) {
       log.err("failed to compile patch", redlog::field("pattern", replace_data));
       std::cerr << "error: failed to compile patch pattern: " << replace_data << std::endl;
       return 1;
     }
 
-    auto compiled_patch = *compiled_patch_opt;
-
     // check bounds
-    if (address + compiled_patch.data.size() > file_data.size()) {
+    if (address + parsed_patch.value.bytes.size() > file_data.size()) {
       log.err(
           "patch would exceed file bounds", redlog::field("address", address),
-          redlog::field("patch_size", compiled_patch.data.size()), redlog::field("file_size", file_data.size())
+          redlog::field("patch_size", parsed_patch.value.bytes.size()), redlog::field("file_size", file_data.size())
       );
       std::cerr << "error: patch would exceed file bounds" << std::endl;
       return 1;
@@ -78,9 +75,9 @@ int patch(
 
     // apply patch
     size_t bytes_patched = 0;
-    for (size_t i = 0; i < compiled_patch.data.size(); ++i) {
-      if (compiled_patch.mask[i]) {
-        file_data[address + i] = compiled_patch.data[i];
+    for (size_t i = 0; i < parsed_patch.value.bytes.size(); ++i) {
+      if (parsed_patch.value.mask[i]) {
+        file_data[address + i] = parsed_patch.value.bytes[i];
         bytes_patched++;
       }
     }

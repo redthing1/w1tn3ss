@@ -1,130 +1,86 @@
+#include "p1ll/p1ll.hpp"
+#include <cstdlib>
 #include <iostream>
+#include <span>
 #include <vector>
-#include <cassert>
-#include <p1ll.hpp>
+
+namespace {
+
+void expect(bool condition, const char* message) {
+  if (!condition) {
+    std::cerr << "test failed: " << message << std::endl;
+    std::exit(1);
+  }
+}
+
+} // namespace
 
 int main() {
-  std::cout << "=== p1ll core standalone test ===" << std::endl;
+  std::vector<uint8_t> buffer(256, 0x90);
 
-  try {
-    // test capabilities
-    std::cout << "scripting support: " << (p1ll::has_scripting_support() ? "yes" : "no") << std::endl;
+  // unique validation signature
+  buffer[32] = 0xde;
+  buffer[33] = 0xad;
+  buffer[34] = 0xbe;
+  buffer[35] = 0xef;
 
-    // test context creation and properties
-    auto static_ctx = p1ll::context::create_static();
-    assert(static_ctx->is_static());
-    assert(!static_ctx->is_dynamic());
-    std::cout << "✓ static context created and verified" << std::endl;
+  // repeated signature for scan tests
+  buffer[64] = 0x48;
+  buffer[65] = 0x89;
+  buffer[66] = 0xe5;
+  buffer[128] = 0x48;
+  buffer[129] = 0x89;
+  buffer[130] = 0xe5;
 
-    auto dynamic_ctx = p1ll::context::create_dynamic();
-    assert(dynamic_ctx->is_dynamic());
-    assert(!dynamic_ctx->is_static());
-    std::cout << "✓ dynamic context created and verified" << std::endl;
+  auto session = p1ll::engine::session::for_buffer(std::span<uint8_t>(buffer.data(), buffer.size()));
 
-    // test platform key parsing and matching
-    auto darwin_arm = p1ll::platform_key::parse("darwin:arm64");
-    auto linux_x64 = p1ll::platform_key::parse("linux:x64");
-    auto wildcard = p1ll::platform_key::parse("*:*");
+  p1ll::engine::scan_options scan_opts;
+  auto scan_results = session.scan("48 89 e5", scan_opts);
+  expect(scan_results.ok(), "scan failed");
+  expect(scan_results.value.size() >= 2, "expected multiple matches");
 
-    assert(darwin_arm.os == "darwin" && darwin_arm.arch == "arm64");
-    assert(linux_x64.os == "linux" && linux_x64.arch == "x64");
-    assert(wildcard.os == "*" && wildcard.arch == "*");
-    assert(darwin_arm != linux_x64);
-    std::cout << "✓ platform key parsing and comparison" << std::endl;
+  p1ll::engine::scan_options single_opts;
+  single_opts.single = true;
+  auto single_results = session.scan("48 89 e5", single_opts);
+  expect(!single_results.ok(), "single scan should fail on multiple matches");
 
-    // test hex utilities with various patterns
-    std::vector<uint8_t> prologue = {0x48, 0x89, 0xe5}; // mov rbp, rsp
-    std::vector<uint8_t> nops = {0x90, 0x90, 0x90, 0x90};
-    std::vector<uint8_t> mixed = {0xff, 0xd0, 0x85, 0xc0, 0x74, 0x05}; // call rax; test eax, eax; jz +5
+  p1ll::engine::signature_spec validation;
+  validation.pattern = "de ad be ef";
+  validation.options.single = true;
 
-    auto prologue_hex = p1ll::utils::format_bytes(prologue);
-    auto nops_hex = p1ll::utils::format_bytes(nops);
-    auto mixed_hex = p1ll::utils::format_bytes(mixed);
+  p1ll::engine::patch_spec patch;
+  patch.signature = validation;
+  patch.offset = 0;
+  patch.patch = "11 22 33 44";
+  patch.required = true;
 
-    assert(!prologue_hex.empty());
-    assert(!nops_hex.empty());
-    assert(!mixed_hex.empty());
-    std::cout << "✓ hex formatting: " << prologue_hex << ", " << nops_hex << ", " << mixed_hex << std::endl;
+  p1ll::engine::patch_spec optional_patch;
+  optional_patch.signature.pattern = "00 11 22 33";
+  optional_patch.signature.options.single = true;
+  optional_patch.patch = "ff ff ff ff";
+  optional_patch.required = false;
 
-    // test address formatting
-    auto addr1 = p1ll::utils::format_address(0x7fff12345678);
-    auto addr2 = p1ll::utils::format_address(0x1000);
-    assert(!addr1.empty() && !addr2.empty());
-    std::cout << "✓ address formatting: " << addr1 << ", " << addr2 << std::endl;
+  p1ll::engine::recipe recipe;
+  recipe.name = "buffer_patch";
+  recipe.validations.push_back(validation);
+  recipe.patches.push_back(patch);
+  recipe.patches.push_back(optional_patch);
 
-    // test signature pattern compilation with various patterns
-    std::vector<std::string> test_patterns = {
-        "48 89 e5",          // simple pattern
-        "48 89 e5 ?? 90",    // pattern with wildcard
-        "ff d0 ?? ?? 74 ??", // multiple wildcards
-        "90 90 90 90"        // nop sled
-    };
+  auto plan = session.plan(recipe);
+  expect(plan.ok(), "plan failed");
+  expect(plan.value.size() == 1, "expected one plan entry");
 
-    for (const auto& pattern : test_patterns) {
-      auto compiled = p1ll::compile_signature(pattern);
-      assert(compiled.has_value());
-      assert(!compiled->empty());
-      assert(compiled->pattern.size() == compiled->mask.size());
-      std::cout << "✓ compiled pattern '" << pattern << "' -> " << compiled->size() << " bytes" << std::endl;
-    }
+  auto applied = session.apply(plan.value);
+  expect(applied.ok(), "apply failed");
+  expect(applied.value.success, "apply did not report success");
+  expect(applied.value.applied == 1, "expected one applied entry");
+  expect(applied.value.failed == 0, "expected zero failed entries");
 
-    // test invalid pattern handling
-    std::vector<std::string> invalid_patterns = {
-        "zz 90", // invalid hex
-        "4",     // incomplete byte
-        "",      // empty pattern
-    };
+  expect(buffer[32] == 0x11, "patch byte 0 mismatch");
+  expect(buffer[33] == 0x22, "patch byte 1 mismatch");
+  expect(buffer[34] == 0x33, "patch byte 2 mismatch");
+  expect(buffer[35] == 0x44, "patch byte 3 mismatch");
 
-    for (const auto& pattern : invalid_patterns) {
-      auto compiled = p1ll::compile_signature(pattern);
-      if (compiled.has_value()) {
-        std::cout << "✗ pattern '" << pattern << "' should have been invalid but compiled" << std::endl;
-        return 1;
-      }
-    }
-    std::cout << "✓ invalid pattern rejection" << std::endl;
-
-    // test signature validation
-    assert(p1ll::validate_signature_pattern("48 89 e5"));
-    assert(p1ll::validate_signature_pattern("ff d0 ?? 74"));
-    assert(!p1ll::validate_signature_pattern("zz 90"));
-    assert(!p1ll::validate_signature_pattern(""));
-    std::cout << "✓ signature pattern validation" << std::endl;
-
-    // test patch compilation
-    auto patch = p1ll::compile_patch("90 90 eb 00");
-    assert(patch.has_value());
-    assert(patch->size() == 4);
-    std::cout << "✓ patch pattern compilation" << std::endl;
-
-    // test memory scanner creation
-    p1ll::engine::memory_scanner scanner;
-    std::cout << "✓ memory scanner instantiated" << std::endl;
-
-    // test hex digit utilities
-    assert(p1ll::utils::is_hex_digit('0'));
-    assert(p1ll::utils::is_hex_digit('9'));
-    assert(p1ll::utils::is_hex_digit('a'));
-    assert(p1ll::utils::is_hex_digit('F'));
-    assert(!p1ll::utils::is_hex_digit('g'));
-    assert(!p1ll::utils::is_hex_digit(' '));
-    std::cout << "✓ hex digit validation" << std::endl;
-
-    // test hex parsing
-    assert(p1ll::utils::parse_hex_digit('0') == 0);
-    assert(p1ll::utils::parse_hex_digit('9') == 9);
-    assert(p1ll::utils::parse_hex_digit('a') == 10);
-    assert(p1ll::utils::parse_hex_digit('F') == 15);
-    std::cout << "✓ hex digit parsing" << std::endl;
-
-    std::cout << "=== all p1ll core tests passed! ===" << std::endl;
-    return 0;
-
-  } catch (const std::exception& e) {
-    std::cout << "✗ exception: " << e.what() << std::endl;
-    return 1;
-  } catch (...) {
-    std::cout << "✗ unknown exception" << std::endl;
-    return 1;
-  }
+  std::cout << "p1ll standalone test ok" << std::endl;
+  return 0;
 }

@@ -1,7 +1,8 @@
 #pragma once
 
-#include "core/types.hpp"
-#include "core/context.hpp"
+#include "engine/result.hpp"
+#include "engine/session.hpp"
+#include "engine/types.hpp"
 #include <string>
 #include <memory>
 
@@ -12,12 +13,9 @@ class IScriptEngine {
 public:
   virtual ~IScriptEngine() = default;
 
-  // execute cure script from string content
-  virtual cure_result execute_script(const context& context, const std::string& script_content) = 0;
-
-  // execute cure script with explicit buffer (for static mode)
-  virtual cure_result execute_script_content_with_buffer(
-      const context& context, const std::string& script_content, std::vector<uint8_t>& buffer_data
+  // execute script with an active session (process or buffer)
+  virtual engine::result<engine::apply_report> execute_script(
+      engine::session& session, const std::string& script_content
   ) = 0;
 };
 

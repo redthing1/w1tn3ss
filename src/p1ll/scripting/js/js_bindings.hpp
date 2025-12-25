@@ -2,67 +2,79 @@
 
 #include <jnjs/jnjs.h>
 #include <redlog.hpp>
+#include <filesystem>
+#include <optional>
+#include <string>
 #include <unordered_map>
+#include <vector>
 
+#include "p1ll/engine/result.hpp"
+#include "p1ll/engine/session.hpp"
+#include "p1ll/engine/types.hpp"
 #include "p1ll/utils/hex_utils.hpp"
-#include "p1ll/core/signature.hpp"
-#include "p1ll/core/types.hpp"
-#include "p1ll/core/context.hpp"
-#include "p1ll/engine/auto_cure.hpp"
-#include "p1ll/engine/memory_scanner.hpp"
-#include "p1ll/engine/signature_scanner.hpp"
 
 namespace p1ll::scripting::js {
 
 using namespace jnjs;
 
-// result wrapper classes
-struct cure_result_wrapper {
-  bool success;
-  int patches_applied;
-  int patches_failed;
+// result wrapper for script-friendly return values
+struct apply_report_wrapper {
+  bool success = false;
+  int applied = 0;
+  int failed = 0;
   std::vector<std::string> error_messages;
+  std::vector<engine::status> diagnostics;
 
-  cure_result_wrapper() : success(false), patches_applied(0), patches_failed(0) {}
-  cure_result_wrapper(const cure_result& result)
-      : success(result.success), patches_applied(result.patches_applied), patches_failed(result.patches_failed),
-        error_messages(result.error_messages) {}
+  apply_report_wrapper() = default;
+  apply_report_wrapper(const engine::apply_report& report)
+      : success(report.success), applied(static_cast<int>(report.applied)), failed(static_cast<int>(report.failed)) {
+    diagnostics = report.diagnostics;
+    for (const auto& diag : report.diagnostics) {
+      if (!diag.message.empty()) {
+        error_messages.push_back(diag.message);
+      }
+    }
+  }
+
+  void add_error(const std::string& message) {
+    error_messages.push_back(message);
+    diagnostics.push_back(engine::make_status(engine::error_code::invalid_argument, message));
+    success = false;
+  }
 
   bool get_success() { return success; }
-  int get_patches_applied() { return patches_applied; }
-  int get_patches_failed() { return patches_failed; }
+  int get_applied() { return applied; }
+  int get_failed() { return failed; }
   std::vector<std::string> get_error_messages() { return error_messages; }
+  std::vector<engine::status> get_diagnostics() { return diagnostics; }
   bool has_errors() { return !error_messages.empty(); }
 
-  constexpr static wrapped_class_builder<cure_result_wrapper> build_js_class() {
-    wrapped_class_builder<cure_result_wrapper> builder("cure_result");
-    builder.bind_function<&cure_result_wrapper::get_success>("get_success");
-    builder.bind_function<&cure_result_wrapper::get_patches_applied>("get_patches_applied");
-    builder.bind_function<&cure_result_wrapper::get_patches_failed>("get_patches_failed");
-    builder.bind_function<&cure_result_wrapper::get_error_messages>("get_error_messages");
-    builder.bind_function<&cure_result_wrapper::has_errors>("has_errors");
+  constexpr static wrapped_class_builder<apply_report_wrapper> build_js_class() {
+    wrapped_class_builder<apply_report_wrapper> builder("apply_report");
+    builder.bind_function<&apply_report_wrapper::get_success>("get_success");
+    builder.bind_function<&apply_report_wrapper::get_applied>("get_applied");
+    builder.bind_function<&apply_report_wrapper::get_failed>("get_failed");
+    builder.bind_function<&apply_report_wrapper::get_error_messages>("get_error_messages");
+    builder.bind_function<&apply_report_wrapper::has_errors>("has_errors");
     return builder;
   }
 };
 
-struct search_result_wrapper {
-  uint64_t address;
+struct scan_result_wrapper {
+  uint64_t address = 0;
   std::string region_name;
-  std::string section_name;
 
-  search_result_wrapper() : address(0) {}
-  search_result_wrapper(const search_result& result)
-      : address(result.address), region_name(result.region_name), section_name(result.section_name) {}
+  scan_result_wrapper() = default;
+  scan_result_wrapper(const engine::scan_result& result)
+      : address(result.address), region_name(result.region_name) {}
 
   uint64_t get_address() { return address; }
   std::string get_region_name() { return region_name; }
-  std::string get_section_name() { return section_name; }
 
-  constexpr static wrapped_class_builder<search_result_wrapper> build_js_class() {
-    wrapped_class_builder<search_result_wrapper> builder("search_result");
-    builder.bind_function<&search_result_wrapper::get_address>("get_address");
-    builder.bind_function<&search_result_wrapper::get_region_name>("get_region_name");
-    builder.bind_function<&search_result_wrapper::get_section_name>("get_section_name");
+  constexpr static wrapped_class_builder<scan_result_wrapper> build_js_class() {
+    wrapped_class_builder<scan_result_wrapper> builder("scan_result");
+    builder.bind_function<&scan_result_wrapper::get_address>("get_address");
+    builder.bind_function<&scan_result_wrapper::get_region_name>("get_region_name");
     return builder;
   }
 };
@@ -70,15 +82,10 @@ struct search_result_wrapper {
 struct module_info_wrapper {
   std::string name;
   std::string path;
-  uint64_t base_address;
-  uint64_t size;
+  uint64_t base_address = 0;
+  uint64_t size = 0;
   std::string permissions;
-  bool is_system_module;
-
-  module_info_wrapper() : base_address(0), size(0), is_system_module(false) {}
-  module_info_wrapper(const module_info& info)
-      : name(info.name), path(info.path), base_address(info.base_address), size(info.size),
-        permissions(info.permissions), is_system_module(info.is_system_module) {}
+  bool is_system_module = false;
 
   std::string get_name() { return name; }
   std::string get_path() { return path; }
@@ -99,44 +106,31 @@ struct module_info_wrapper {
   }
 };
 
-// signature wrapper class
 struct signature_wrapper {
-  signature_decl sig_decl;
+  engine::signature_spec spec;
 
-  signature_wrapper() {}
-  signature_wrapper(const std::string& pat) : sig_decl(pat) {}
-  signature_wrapper(const signature_decl& decl) : sig_decl(decl) {}
+  signature_wrapper() = default;
+  explicit signature_wrapper(engine::signature_spec spec_in) : spec(std::move(spec_in)) {}
 
-  std::string get_pattern() { return sig_decl.pattern; }
-  std::string to_string() { return sig_decl.to_string(); }
+  std::string get_pattern() { return spec.pattern; }
 
   constexpr static wrapped_class_builder<signature_wrapper> build_js_class() {
     wrapped_class_builder<signature_wrapper> builder("signature");
     builder.bind_function<&signature_wrapper::get_pattern>("get_pattern");
-    builder.bind_function<&signature_wrapper::to_string>("to_string");
     return builder;
   }
 };
 
-// patch wrapper class
 struct patch_wrapper {
-  patch_decl patch_decl_obj;
+  engine::patch_spec spec;
 
-  patch_wrapper() { patch_decl_obj.required = true; }
-  patch_wrapper(signature_wrapper* sig, uint64_t off, const std::string& pattern) {
-    if (sig) {
-      patch_decl_obj.signature = sig->sig_decl;
-    }
-    patch_decl_obj.offset = off;
-    patch_decl_obj.pattern = pattern;
-    patch_decl_obj.required = true;
-  }
-  patch_wrapper(const patch_decl& decl) : patch_decl_obj(decl) {}
+  patch_wrapper() = default;
+  explicit patch_wrapper(engine::patch_spec spec_in) : spec(std::move(spec_in)) {}
 
-  signature_wrapper* get_signature() { return new signature_wrapper(patch_decl_obj.signature); }
-  uint64_t get_offset() { return patch_decl_obj.offset; }
-  std::string get_pattern() { return patch_decl_obj.pattern; }
-  bool is_required() { return patch_decl_obj.required; }
+  signature_wrapper* get_signature() { return new signature_wrapper(spec.signature); }
+  int64_t get_offset() { return spec.offset; }
+  std::string get_pattern() { return spec.patch; }
+  bool is_required() { return spec.required; }
 
   constexpr static wrapped_class_builder<patch_wrapper> build_js_class() {
     wrapped_class_builder<patch_wrapper> builder("patch");
@@ -148,243 +142,231 @@ struct patch_wrapper {
   }
 };
 
-struct search_options {
-  signature_query_filter filter;
-  bool single = false;
-};
-
-inline search_options parse_search_options(const std::optional<jnjs::value>& options) {
-  search_options opts;
-
-  if (!options || options->is<jnjs::undefined>() || options->is<jnjs::null>()) {
-    return opts;
-  }
-
-  if (options->is<std::string>()) {
-    opts.filter.pattern = options->as<std::string>();
-    return opts;
-  }
-
-  auto filter_val = (*options)["filter"];
-  if (filter_val.is<std::string>()) {
-    opts.filter.pattern = filter_val.as<std::string>();
-  }
-
-  auto single_val = (*options)["single"];
-  if (single_val.is<bool>()) {
-    opts.single = single_val.as<bool>();
-  }
-
-  return opts;
+inline bool is_defined(const jnjs::value& value) {
+  return !(value.is<jnjs::undefined>() || value.is<jnjs::null>());
 }
 
-// main p1ll api class
-struct p1ll_api {
-  const p1ll::context* p1ll_ctx;
-  std::vector<uint8_t>* buffer_data;
-  bool dynamic_mode;
-
-  p1ll_api(const p1ll::context* ctx, bool is_dynamic = true)
-      : p1ll_ctx(ctx), buffer_data(nullptr), dynamic_mode(is_dynamic) {}
-  p1ll_api(const p1ll::context* ctx, std::vector<uint8_t>* buf)
-      : p1ll_ctx(ctx), buffer_data(buf), dynamic_mode(false) {}
-
-  // utilities
-  std::string str2hex(const std::string& str) { return p1ll::utils::str2hex(str); }
-
-  std::string hex2str(const std::string& hex) { return p1ll::utils::hex2str(hex); }
-
-  // signature creation
-  signature_wrapper* sig(const std::string& pattern, std::optional<jnjs::value> options = std::nullopt) {
-    if (!options || options->is<undefined>()) {
-      return new signature_wrapper(pattern);
+inline std::optional<uint64_t> parse_u64(const jnjs::value& value) {
+  if (value.is<uint64_t>()) {
+    return value.as<uint64_t>();
+  }
+  if (value.is<int64_t>()) {
+    int64_t v = value.as<int64_t>();
+    if (v < 0) {
+      return std::nullopt;
     }
-
-    signature_query_filter filter;
-    bool single = false;
-
-    // extract filter from options
-    auto filter_val = (*options)["filter"];
-    if (filter_val.is<std::string>()) {
-      filter.pattern = filter_val.as<std::string>();
+    return static_cast<uint64_t>(v);
+  }
+  if (value.is<int>()) {
+    int v = value.as<int>();
+    if (v < 0) {
+      return std::nullopt;
     }
+    return static_cast<uint64_t>(v);
+  }
+  return std::nullopt;
+}
 
-    // extract single from options
-    auto single_val = (*options)["single"];
-    if (single_val.is<bool>()) {
-      single = single_val.as<bool>();
-    }
-
-    // create signature_decl with options
-    signature_decl sig_decl(pattern, filter, single);
-    return new signature_wrapper(sig_decl);
+inline void apply_scan_options(engine::scan_options& options, const jnjs::value& obj) {
+  auto filter_val = obj["filter"];
+  if (filter_val.is<std::string>()) {
+    options.filter.name_regex = filter_val.as<std::string>();
   }
 
-  // patch creation
-  patch_wrapper* patch(
-      signature_wrapper* sig, uint64_t offset, const std::string& replace_pattern,
-      std::optional<jnjs::value> options = std::nullopt
-  ) {
-    auto* wrapper = new patch_wrapper(sig, offset, replace_pattern);
+  auto single_val = obj["single"];
+  if (single_val.is<bool>()) {
+    options.single = single_val.as<bool>();
+  }
 
-    if (options && !options->is<jnjs::undefined>() && !options->is<jnjs::null>()) {
+  auto max_val = obj["max_matches"];
+  if (max_val.is<int>()) {
+    options.max_matches = static_cast<size_t>(max_val.as<int>());
+  }
+
+  auto exec_val = obj["only_executable"];
+  if (exec_val.is<bool>()) {
+    options.filter.only_executable = exec_val.as<bool>();
+  }
+
+  auto sys_val = obj["exclude_system"];
+  if (sys_val.is<bool>()) {
+    options.filter.exclude_system = sys_val.as<bool>();
+  }
+
+  auto min_size = obj["min_size"];
+  if (min_size.is<int>()) {
+    options.filter.min_size = static_cast<size_t>(min_size.as<int>());
+  }
+
+  auto min_addr = obj["min_address"];
+  if (is_defined(min_addr)) {
+    auto parsed = parse_u64(min_addr);
+    if (parsed.has_value()) {
+      options.filter.min_address = parsed;
+    }
+  }
+
+  auto max_addr = obj["max_address"];
+  if (is_defined(max_addr)) {
+    auto parsed = parse_u64(max_addr);
+    if (parsed.has_value()) {
+      options.filter.max_address = parsed;
+    }
+  }
+}
+
+inline std::vector<std::string> parse_platform_list(const jnjs::value& value) {
+  if (value.is<std::vector<std::string>>()) {
+    return value.as<std::vector<std::string>>();
+  }
+  return {};
+}
+
+// main api exposed to scripts
+struct p1ll_api {
+  engine::session* session = nullptr;
+
+  explicit p1ll_api(engine::session* session_in) : session(session_in) {}
+
+  std::string str2hex(const std::string& str) { return p1ll::utils::str2hex(str); }
+  std::string hex2str(const std::string& hex) { return p1ll::utils::hex2str(hex); }
+  std::string format_address(uint64_t address) { return p1ll::utils::format_address(address); }
+
+  signature_wrapper* sig(const std::string& pattern, std::optional<jnjs::value> options = std::nullopt) {
+    engine::signature_spec spec;
+    spec.pattern = pattern;
+
+    if (options && is_defined(*options)) {
+      apply_scan_options(spec.options, *options);
+
       auto required_val = (*options)["required"];
       if (required_val.is<bool>()) {
-        wrapper->patch_decl_obj.required = required_val.as<bool>();
+        spec.required = required_val.as<bool>();
+      }
+
+      auto platforms_val = (*options)["platforms"];
+      if (is_defined(platforms_val)) {
+        spec.platforms = parse_platform_list(platforms_val);
       }
     }
 
-    return wrapper;
+    return new signature_wrapper(spec);
   }
 
-  // auto_cure
-  cure_result_wrapper* auto_cure(jnjs::value meta_obj);
+  patch_wrapper* patch(
+      signature_wrapper* sig, int64_t offset, const std::string& patch_pattern,
+      std::optional<jnjs::value> options = std::nullopt
+  ) {
+    engine::patch_spec spec;
+    if (sig) {
+      spec.signature = sig->spec;
+    }
+    spec.offset = offset;
+    spec.patch = patch_pattern;
+    spec.required = true;
 
-  // get_modules with optional filter
+    if (options && is_defined(*options)) {
+      auto required_val = (*options)["required"];
+      if (required_val.is<bool>()) {
+        spec.required = required_val.as<bool>();
+      }
+
+      auto platforms_val = (*options)["platforms"];
+      if (is_defined(platforms_val)) {
+        spec.platforms = parse_platform_list(platforms_val);
+      }
+    }
+
+    return new patch_wrapper(spec);
+  }
+
+  apply_report_wrapper* auto_cure(jnjs::value meta_obj);
+
   std::vector<module_info_wrapper*> get_modules(const std::string& filter_pattern = "") {
     auto log = redlog::get_logger("p1ll.js");
 
-    if (!dynamic_mode) {
-      log.dbg("get_modules is unavailable in static mode");
+    if (!session || !session->is_dynamic()) {
+      log.dbg("get_modules unavailable in static mode");
       return {};
     }
 
-    try {
-      signature_query_filter filter;
-      if (!filter_pattern.empty()) {
-        filter.pattern = filter_pattern;
-      }
+    engine::scan_filter filter;
+    if (!filter_pattern.empty()) {
+      filter.name_regex = filter_pattern;
+    }
 
-      // use memory scanner to get memory regions and convert to modules
-      engine::memory_scanner scanner;
-      auto regions_opt = scanner.get_memory_regions(filter);
-
-      std::vector<module_info_wrapper*> result;
-      if (regions_opt) {
-        for (const auto& region : *regions_opt) {
-          if (region.is_executable && !region.name.empty()) {
-            // create module info from memory region
-            module_info mod;
-            mod.name = region.name;
-            mod.path = region.name; // use name as path fallback
-            mod.base_address = region.base_address;
-            mod.size = region.size;
-            mod.permissions = std::string("r") +
-                              (has_protection(region.protection, engine::memory_protection::write) ? "w" : "-") +
-                              (has_protection(region.protection, engine::memory_protection::execute) ? "x" : "-");
-            mod.is_system_module = region.is_system;
-
-            result.push_back(new module_info_wrapper(mod));
-          }
-        }
-      }
-
-      log.dbg("found modules", redlog::field("count", result.size()));
-      return result;
-
-    } catch (const std::exception& e) {
-      log.err("get_modules failed", redlog::field("error", e.what()));
+    auto regions = session->regions(filter);
+    if (!regions.ok()) {
       return {};
     }
-  }
 
-  std::optional<std::vector<search_result>> scan_signature(
-      const compiled_signature& signature, const signature_query_filter& filter
-  ) {
-    auto log = redlog::get_logger("p1ll.js");
+    std::vector<module_info_wrapper*> result;
+    for (const auto& region : regions.value) {
+      if (!region.is_executable || region.name.empty()) {
+        continue;
+      }
 
-    if (dynamic_mode) {
-      engine::process_address_space space;
-      engine::signature_scanner scanner(space);
-      return scanner.scan(signature, filter);
+      auto* mod = new module_info_wrapper();
+      mod->name = std::filesystem::path(region.name).filename().string();
+      mod->path = region.name;
+      mod->base_address = region.base_address;
+      mod->size = region.size;
+      mod->permissions = std::string("r") +
+                         (engine::has_protection(region.protection, engine::memory_protection::write) ? "w" : "-") +
+                         (engine::has_protection(region.protection, engine::memory_protection::execute) ? "x" : "-");
+      mod->is_system_module = region.is_system;
+      result.push_back(mod);
     }
 
-    if (!buffer_data) {
-      log.err("static mode signature scan missing buffer");
-      return std::nullopt;
-    }
-
-    engine::buffer_address_space space(*buffer_data);
-    engine::signature_scanner scanner(space);
-    return scanner.scan(signature, filter);
+    return result;
   }
 
-  // search_sig_multiple: returns array of results
-  std::vector<search_result_wrapper*> search_sig_multiple(
+  std::vector<scan_result_wrapper*> search_sig_multiple(
       const std::string& pattern, std::optional<jnjs::value> options = std::nullopt
   ) {
-    auto log = redlog::get_logger("p1ll.js");
-
-    try {
-      auto opts = parse_search_options(options);
-
-      // compile signature pattern
-      auto compiled_sig = compile_signature(pattern);
-      if (!compiled_sig) {
-        log.err("failed to compile signature pattern", redlog::field("pattern", pattern));
-        return {};
-      }
-
-      auto search_results_opt = scan_signature(*compiled_sig, opts.filter);
-      if (!search_results_opt) {
-        log.err("search failed", redlog::field("pattern", pattern));
-        return {};
-      }
-
-      std::vector<search_result_wrapper*> result;
-      for (const auto& search_result : *search_results_opt) {
-        result.push_back(new search_result_wrapper(search_result));
-      }
-
-      log.dbg("search completed", redlog::field("results", result.size()));
-      return result;
-
-    } catch (const std::exception& e) {
-      log.err("search failed", redlog::field("error", e.what()));
+    if (!session) {
       return {};
     }
+
+    engine::scan_options scan_opts;
+    if (options && is_defined(*options)) {
+      apply_scan_options(scan_opts, *options);
+    }
+
+    auto results = session->scan(pattern, scan_opts);
+    if (!results.ok()) {
+      return {};
+    }
+
+    std::vector<scan_result_wrapper*> output;
+    for (const auto& result : results.value) {
+      output.push_back(new scan_result_wrapper(result));
+    }
+    return output;
   }
 
-  // search_sig single result: returns address or 0
   uint64_t search_sig(const std::string& pattern, std::optional<jnjs::value> options = std::nullopt) {
-    auto log = redlog::get_logger("p1ll.js");
-    auto opts = parse_search_options(options);
-
-    // compile signature pattern
-    auto compiled_sig = compile_signature(pattern);
-    if (!compiled_sig) {
-      log.err("failed to compile signature pattern", redlog::field("pattern", pattern));
+    if (!session) {
       return 0;
     }
 
-    auto search_results_opt = scan_signature(*compiled_sig, opts.filter);
-    if (!search_results_opt) {
-      log.err("search failed", redlog::field("pattern", pattern));
+    engine::scan_options scan_opts;
+    if (options && is_defined(*options)) {
+      apply_scan_options(scan_opts, *options);
+    }
+
+    auto results = session->scan(pattern, scan_opts);
+    if (!results.ok() || results.value.empty()) {
       return 0;
     }
 
-    auto& results = *search_results_opt;
-
-    if (opts.single && results.size() != 1) {
-      log.err("single match required but search returned unexpected count", redlog::field("count", results.size()));
+    if (scan_opts.single && results.value.size() != 1) {
       return 0;
     }
 
-    if (results.empty()) {
-      return 0;
-    }
-
-    if (results.size() > 1) {
-      log.wrn("multiple matches, returning first", redlog::field("count", results.size()));
-    }
-
-    return results[0].address;
+    return results.value.front().address;
   }
 
-  // utilities
-  std::string format_address(uint64_t address) { return p1ll::utils::format_address(address); }
-
-  // logging
   void log_info(const std::string& msg) { redlog::get_logger("p1ll.js").inf(msg); }
   void log_debug(const std::string& msg) { redlog::get_logger("p1ll.js").dbg(msg); }
   void log_warn(const std::string& msg) { redlog::get_logger("p1ll.js").wrn(msg); }
@@ -394,13 +376,13 @@ struct p1ll_api {
     wrapped_class_builder<p1ll_api> builder("p1ll_api");
     builder.bind_function<&p1ll_api::str2hex>("str2hex");
     builder.bind_function<&p1ll_api::hex2str>("hex2str");
+    builder.bind_function<&p1ll_api::format_address>("format_address");
     builder.bind_function<&p1ll_api::sig>("sig");
     builder.bind_function<&p1ll_api::patch>("patch");
     builder.bind_function<&p1ll_api::auto_cure>("auto_cure");
     builder.bind_function<&p1ll_api::get_modules>("get_modules");
     builder.bind_function<&p1ll_api::search_sig>("search_sig");
     builder.bind_function<&p1ll_api::search_sig_multiple>("search_sig_multiple");
-    builder.bind_function<&p1ll_api::format_address>("format_address");
     builder.bind_function<&p1ll_api::log_info>("log_info");
     builder.bind_function<&p1ll_api::log_debug>("log_debug");
     builder.bind_function<&p1ll_api::log_warn>("log_warn");
@@ -409,171 +391,138 @@ struct p1ll_api {
   }
 };
 
-// helper functions for parsing js objects
-inline platform_signature_map parse_signatures(const jnjs::value& meta_obj) {
-  platform_signature_map sig_map;
-  auto sigs_val = meta_obj["sigs"];
-
-  if (sigs_val.is<std::unordered_map<std::string, std::vector<signature_wrapper*>>>()) {
-    auto sigs_map = sigs_val.as<std::unordered_map<std::string, std::vector<signature_wrapper*>>>();
-    for (const auto& [platform_key, js_sigs] : sigs_map) {
-      std::vector<signature_decl> sig_decls;
-      for (auto* js_sig : js_sigs) {
-        if (js_sig) {
-          sig_decls.push_back(js_sig->sig_decl);
-        }
+inline void append_signatures_from_map(
+    std::vector<engine::signature_spec>& out,
+    const std::unordered_map<std::string, std::vector<signature_wrapper*>>& sigs_map
+) {
+  for (const auto& [platform_key, sigs] : sigs_map) {
+    for (auto* sig : sigs) {
+      if (!sig) {
+        continue;
       }
-      sig_map[platform_key] = sig_decls;
+      engine::signature_spec spec = sig->spec;
+      spec.platforms.clear();
+      if (platform_key != "*" && platform_key != "*:*") {
+        spec.platforms.push_back(platform_key);
+      }
+      out.push_back(spec);
     }
   }
-  return sig_map;
 }
 
-inline platform_patch_map parse_patches(const jnjs::value& meta_obj) {
-  platform_patch_map patch_map;
-  auto patches_val = meta_obj["patches"];
-
-  if (patches_val.is<std::unordered_map<std::string, std::vector<patch_wrapper*>>>()) {
-    auto patches_map = patches_val.as<std::unordered_map<std::string, std::vector<patch_wrapper*>>>();
-    for (const auto& [platform_key, js_patches] : patches_map) {
-      std::vector<patch_decl> patch_decls;
-      for (auto* js_patch : js_patches) {
-        if (js_patch) {
-          patch_decls.push_back(js_patch->patch_decl_obj);
-        }
+inline void append_patches_from_map(
+    std::vector<engine::patch_spec>& out,
+    const std::unordered_map<std::string, std::vector<patch_wrapper*>>& patch_map
+) {
+  for (const auto& [platform_key, patches] : patch_map) {
+    for (auto* patch : patches) {
+      if (!patch) {
+        continue;
       }
-      patch_map[platform_key] = patch_decls;
+      engine::patch_spec spec = patch->spec;
+      spec.platforms.clear();
+      if (platform_key != "*" && platform_key != "*:*") {
+        spec.platforms.push_back(platform_key);
+      }
+      out.push_back(spec);
     }
   }
-  return patch_map;
 }
 
-inline cure_metadata parse_metadata(const jnjs::value& meta_obj) {
-  cure_metadata meta;
+inline engine::recipe parse_recipe(const jnjs::value& meta_obj) {
+  engine::recipe recipe;
 
   auto name_val = meta_obj["name"];
   if (name_val.is<std::string>()) {
-    meta.name = name_val.as<std::string>();
+    recipe.name = name_val.as<std::string>();
   }
 
   auto platforms_val = meta_obj["platforms"];
   if (platforms_val.is<std::vector<std::string>>()) {
-    meta.platforms = platforms_val.as<std::vector<std::string>>();
+    recipe.platforms = platforms_val.as<std::vector<std::string>>();
   }
 
-  return meta;
+  auto validations_val = meta_obj["validations"];
+  if (validations_val.is<std::vector<signature_wrapper*>>()) {
+    for (auto* sig : validations_val.as<std::vector<signature_wrapper*>>()) {
+      if (sig) {
+        recipe.validations.push_back(sig->spec);
+      }
+    }
+  }
+
+  auto sigs_val = meta_obj["sigs"];
+  if (sigs_val.is<std::unordered_map<std::string, std::vector<signature_wrapper*>>>()) {
+    append_signatures_from_map(
+        recipe.validations, sigs_val.as<std::unordered_map<std::string, std::vector<signature_wrapper*>>>()
+    );
+  }
+
+  auto patches_val = meta_obj["patches"];
+  if (patches_val.is<std::vector<patch_wrapper*>>()) {
+    for (auto* patch : patches_val.as<std::vector<patch_wrapper*>>()) {
+      if (patch) {
+        recipe.patches.push_back(patch->spec);
+      }
+    }
+  } else if (patches_val.is<std::unordered_map<std::string, std::vector<patch_wrapper*>>>()) {
+    append_patches_from_map(
+        recipe.patches, patches_val.as<std::unordered_map<std::string, std::vector<patch_wrapper*>>>()
+    );
+  }
+
+  return recipe;
 }
 
-// implementation of p1ll_api::auto_cure after helper functions
-inline cure_result_wrapper* p1ll_api::auto_cure(jnjs::value meta_obj) {
+inline apply_report_wrapper* p1ll_api::auto_cure(jnjs::value meta_obj) {
   auto log = redlog::get_logger("p1ll.js.auto_cure");
 
-  try {
-    if (!p1ll_ctx) {
-      log.err("no p1ll context available");
-      auto result = new cure_result_wrapper();
-      result->error_messages.push_back("no p1ll context");
-      return result;
-    }
-
-    if (!dynamic_mode && !buffer_data) {
-      log.err("static mode auto_cure missing buffer");
-      auto result = new cure_result_wrapper();
-      result->error_messages.push_back("static mode auto_cure missing buffer");
-      return result;
-    }
-
-    // basic validation of metadata object
-    if (meta_obj.is<jnjs::undefined>() || meta_obj.is<jnjs::null>()) {
-      log.err("auto_cure called with invalid metadata object");
-      auto result = new cure_result_wrapper();
-      result->error_messages.push_back("invalid metadata object");
-      return result;
-    }
-
-    auto meta = parse_metadata(meta_obj);
-    auto sig_map = parse_signatures(meta_obj);
-    auto patch_map = parse_patches(meta_obj);
-
-    auto sigs_val = meta_obj["sigs"];
-    auto patches_val = meta_obj["patches"];
-    bool sigs_present = !(sigs_val.is<jnjs::undefined>() || sigs_val.is<jnjs::null>());
-    bool patches_present = !(patches_val.is<jnjs::undefined>() || patches_val.is<jnjs::null>());
-
-    if (!patches_present) {
-      log.err("meta.patches is required");
-      auto result = new cure_result_wrapper();
-      result->error_messages.push_back("meta.patches is required");
-      return result;
-    }
-
-    size_t patch_total = 0;
-    for (const auto& entry : patch_map) {
-      patch_total += entry.second.size();
-    }
-
-    if (patch_total == 0) {
-      log.err("meta.patches is empty or invalid");
-      auto result = new cure_result_wrapper();
-      result->error_messages.push_back("meta.patches is empty or invalid");
-      return result;
-    }
-
-    if (sigs_present && sig_map.empty()) {
-      log.wrn("meta.sigs provided but parsed empty");
-    }
-
-    log.inf("executing auto_cure");
-
-    engine::auto_cure cure(*p1ll_ctx);
-    cure_config config{meta, sig_map, patch_map};
-
-    cure_result result;
-    if (dynamic_mode) {
-      result = cure.execute_dynamic(config);
-    } else {
-      result = cure.execute_static(*buffer_data, config);
-    }
-
-    return new cure_result_wrapper(result);
-
-  } catch (const std::exception& e) {
-    log.err("auto_cure failed", redlog::field("error", e.what()));
-    auto result = new cure_result_wrapper();
-    result->error_messages.push_back("auto_cure failed: " + std::string(e.what()));
-    return result;
+  if (!session) {
+    auto* report = new apply_report_wrapper();
+    report->add_error("no session available");
+    return report;
   }
+
+  if (!is_defined(meta_obj)) {
+    auto* report = new apply_report_wrapper();
+    report->add_error("invalid metadata object");
+    return report;
+  }
+
+  auto recipe = parse_recipe(meta_obj);
+  if (recipe.patches.empty()) {
+    auto* report = new apply_report_wrapper();
+    report->add_error("recipe.patches is required");
+    return report;
+  }
+
+  auto plan = session->plan(recipe);
+  if (!plan.ok()) {
+    auto* report = new apply_report_wrapper();
+    report->add_error(plan.status.message.empty() ? "plan failed" : plan.status.message);
+    return report;
+  }
+
+  auto applied = session->apply(plan.value);
+  auto* report = new apply_report_wrapper(applied.value);
+  if (!applied.ok()) {
+    if (!applied.status.message.empty()) {
+      report->add_error(applied.status.message);
+    }
+  }
+  return report;
 }
 
-inline void install_classes(jnjs::context& js_ctx) {
-  js_ctx.install_class<cure_result_wrapper>();
-  js_ctx.install_class<search_result_wrapper>();
+inline void setup_p1ll_js_bindings(jnjs::context& js_ctx, engine::session& session) {
+  js_ctx.install_class<apply_report_wrapper>();
+  js_ctx.install_class<scan_result_wrapper>();
   js_ctx.install_class<module_info_wrapper>();
   js_ctx.install_class<signature_wrapper>();
   js_ctx.install_class<patch_wrapper>();
   js_ctx.install_class<p1ll_api>();
-}
 
-inline void setup_p1ll_js_bindings(jnjs::context& js_ctx, const p1ll::context& p1ll_ctx) {
-  auto log = redlog::get_logger("p1ll.js_bindings");
-  log.inf("setting up js bindings for dynamic patching");
-
-  install_classes(js_ctx);
-  js_ctx.set_global("p1", new p1ll_api(&p1ll_ctx));
-
-  log.inf("js bindings registered");
-}
-
-inline void setup_p1ll_js_bindings_with_buffer(
-    jnjs::context& js_ctx, const p1ll::context& p1ll_ctx, std::vector<uint8_t>& buffer_data
-) {
-  auto log = redlog::get_logger("p1ll.js_bindings");
-  log.inf("setting up js bindings for static patching");
-
-  install_classes(js_ctx);
-  js_ctx.set_global("p1", new p1ll_api(&p1ll_ctx, &buffer_data));
-
-  log.inf("js bindings registered");
+  auto api = new p1ll_api(&session);
+  js_ctx.set_global("p1", api);
 }
 
 } // namespace p1ll::scripting::js
