@@ -1,8 +1,14 @@
 #pragma once
 
 #include <sol/sol.hpp>
+#include <redlog.hpp>
+#include <algorithm>
+#include <cctype>
 #include <filesystem>
+#include <limits>
+#include <regex>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "p1ll/engine/result.hpp"
@@ -12,16 +18,75 @@
 
 namespace p1ll::scripting::lua {
 
+inline const char* error_code_name(engine::error_code code) {
+  switch (code) {
+    case engine::error_code::ok:
+      return "ok";
+    case engine::error_code::invalid_argument:
+      return "invalid_argument";
+    case engine::error_code::invalid_pattern:
+      return "invalid_pattern";
+    case engine::error_code::not_found:
+      return "not_found";
+    case engine::error_code::multiple_matches:
+      return "multiple_matches";
+    case engine::error_code::io_error:
+      return "io_error";
+    case engine::error_code::protection_error:
+      return "protection_error";
+    case engine::error_code::verification_failed:
+      return "verification_failed";
+    case engine::error_code::platform_mismatch:
+      return "platform_mismatch";
+    case engine::error_code::overlap:
+      return "overlap";
+    case engine::error_code::unsupported:
+      return "unsupported";
+    case engine::error_code::invalid_context:
+      return "invalid_context";
+    case engine::error_code::internal_error:
+      return "internal_error";
+  }
+  return "unknown";
+}
+
+inline std::string format_status(const engine::status& status) {
+  std::string label = error_code_name(status.code);
+  if (status.message.empty()) {
+    return label;
+  }
+  return label + ": " + status.message;
+}
+
+inline bool looks_like_path(const std::string& value) {
+  return value.find('/') != std::string::npos || value.find('\\') != std::string::npos;
+}
+
+inline std::string module_key_for_path(const std::string& path) {
+#ifdef _WIN32
+  std::string key = path;
+  std::replace(key.begin(), key.end(), '/', '\\');
+  std::transform(key.begin(), key.end(), key.begin(), [](unsigned char c) {
+    return static_cast<char>(std::tolower(c));
+  });
+  return key;
+#else
+  return path;
+#endif
+}
+
 struct apply_report_wrapper {
   bool success = false;
   int applied = 0;
   int failed = 0;
   std::vector<std::string> error_messages;
+  std::vector<std::string> diagnostics;
 
   apply_report_wrapper() = default;
   explicit apply_report_wrapper(const engine::apply_report& report)
       : success(report.success), applied(static_cast<int>(report.applied)), failed(static_cast<int>(report.failed)) {
     for (const auto& diag : report.diagnostics) {
+      diagnostics.push_back(format_status(diag));
       if (!diag.message.empty()) {
         error_messages.push_back(diag.message);
       }
@@ -30,6 +95,7 @@ struct apply_report_wrapper {
 
   void add_error(const std::string& message) {
     error_messages.push_back(message);
+    diagnostics.push_back(format_status(engine::make_status(engine::error_code::invalid_argument, message)));
     success = false;
   }
 };
@@ -196,7 +262,9 @@ inline void setup_p1ll_bindings(sol::state& lua, engine::session& session) {
       "failed",
       &apply_report_wrapper::failed,
       "error_messages",
-      &apply_report_wrapper::error_messages
+      &apply_report_wrapper::error_messages,
+      "diagnostics",
+      &apply_report_wrapper::diagnostics
   );
 
   lua.new_usertype<scan_result_wrapper>(
@@ -304,55 +372,110 @@ inline void setup_p1ll_bindings(sol::state& lua, engine::session& session) {
 
   p1_module.set_function("get_modules", [&session](sol::optional<std::string> filter_pattern) {
     std::vector<module_info_wrapper> result;
+    auto log = redlog::get_logger("p1ll.lua");
     if (!session.is_dynamic()) {
       return result;
     }
 
-    engine::scan_filter filter;
-    if (filter_pattern) {
-      filter.name_regex = *filter_pattern;
-    }
-
-    auto regions = session.regions(filter);
+    auto regions = session.regions(engine::scan_filter{});
     if (!regions.ok()) {
       return result;
     }
 
+    std::optional<std::regex> filter_regex;
+    if (filter_pattern && !filter_pattern->empty()) {
+      try {
+        filter_regex.emplace(*filter_pattern);
+      } catch (const std::regex_error&) {
+        log.err("invalid module filter regex");
+        return result;
+      }
+    }
+
+    struct module_accumulator {
+      std::string path;
+      uint64_t base_address = std::numeric_limits<uint64_t>::max();
+      uint64_t end_address = 0;
+      engine::memory_protection protection = engine::memory_protection::none;
+      bool has_executable = false;
+      bool is_system = false;
+    };
+
+    std::unordered_map<std::string, module_accumulator> modules;
     for (const auto& region : regions.value) {
-      if (!region.is_executable || region.name.empty()) {
+      if (region.name.empty() || !looks_like_path(region.name)) {
+        continue;
+      }
+
+      auto& entry = modules[module_key_for_path(region.name)];
+      if (entry.path.empty()) {
+        entry.path = region.name;
+      }
+
+      entry.base_address = std::min(entry.base_address, region.base_address);
+      uint64_t region_end = region.base_address + region.size;
+      if (region_end >= region.base_address) {
+        entry.end_address = std::max(entry.end_address, region_end);
+      }
+      entry.protection = entry.protection | region.protection;
+      entry.has_executable = entry.has_executable || region.is_executable;
+      entry.is_system = entry.is_system || region.is_system;
+    }
+
+    result.reserve(modules.size());
+    for (const auto& [path, entry] : modules) {
+      if (!entry.has_executable || entry.base_address == std::numeric_limits<uint64_t>::max()) {
+        continue;
+      }
+
+      std::string name = std::filesystem::path(entry.path).filename().string();
+      if (filter_regex) {
+        if (!std::regex_search(entry.path, *filter_regex) && !std::regex_search(name, *filter_regex)) {
+          continue;
+        }
+      }
+
+      if (entry.end_address < entry.base_address) {
         continue;
       }
 
       module_info_wrapper mod;
-      mod.name = std::filesystem::path(region.name).filename().string();
-      mod.path = region.name;
-      mod.base_address = region.base_address;
-      mod.size = region.size;
-      mod.permissions = std::string("r") +
-                        (engine::has_protection(region.protection, engine::memory_protection::write) ? "w" : "-") +
-                        (engine::has_protection(region.protection, engine::memory_protection::execute) ? "x" : "-");
-      mod.is_system_module = region.is_system;
+      mod.name = name;
+      mod.path = entry.path;
+      mod.base_address = entry.base_address;
+      mod.size = entry.end_address - entry.base_address;
+      mod.permissions = std::string(engine::has_protection(entry.protection, engine::memory_protection::read) ? "r" : "-") +
+                        (engine::has_protection(entry.protection, engine::memory_protection::write) ? "w" : "-") +
+                        (engine::has_protection(entry.protection, engine::memory_protection::execute) ? "x" : "-");
+      mod.is_system_module = entry.is_system;
       result.push_back(mod);
     }
+
+    std::sort(result.begin(), result.end(), [](const module_info_wrapper& a, const module_info_wrapper& b) {
+      return a.base_address < b.base_address;
+    });
 
     return result;
   });
 
   p1_module.set_function(
       "search_sig",
-      [&session](const std::string& pattern, sol::optional<sol::table> opts) -> uint64_t {
+      [&session, &lua](const std::string& pattern, sol::optional<sol::table> opts) -> sol::object {
         engine::scan_options options;
         if (opts) {
           apply_scan_options(options, *opts);
         }
         auto results = session.scan(pattern, options);
         if (!results.ok() || results.value.empty()) {
-          return 0;
+          return sol::make_object(lua, sol::lua_nil);
         }
         if (options.single && results.value.size() != 1) {
-          return 0;
+          return sol::make_object(lua, sol::lua_nil);
         }
-        return results.value.front().address;
+        scan_result_wrapper wrapper;
+        wrapper.address = results.value.front().address;
+        wrapper.region_name = results.value.front().region_name;
+        return sol::make_object(lua, wrapper);
       }
   );
 

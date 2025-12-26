@@ -16,7 +16,7 @@ engine::apply_report extract_apply_report(const jnjs::value& js_result) {
       report.success = wrapper->get_success();
       report.applied = wrapper->get_applied();
       report.failed = wrapper->get_failed();
-      report.diagnostics = wrapper->get_diagnostics();
+      report.diagnostics = wrapper->get_statuses();
       return report;
     }
   }
