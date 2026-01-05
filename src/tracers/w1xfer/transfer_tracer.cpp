@@ -71,8 +71,8 @@ void transfer_tracer::on_thread_stop(w1::trace_context& ctx, const w1::thread_ev
 }
 
 void transfer_tracer::on_exec_transfer_call(
-    w1::trace_context& ctx, const w1::exec_transfer_event& event, QBDI::VMInstanceRef vm,
-    const QBDI::VMState* state, QBDI::GPRState* gpr, QBDI::FPRState* fpr
+    w1::trace_context& ctx, const w1::exec_transfer_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state,
+    QBDI::GPRState* gpr, QBDI::FPRState* fpr
 ) {
   (void) vm;
   (void) state;
@@ -114,9 +114,9 @@ void transfer_tracer::on_exec_transfer_call(
     if (!source_module.empty() || !target_module.empty() || !source_symbol.empty() || !target_symbol.empty()) {
       log_.vrb(
           "call transfer detected", redlog::field("source", "0x%016llx", event.source_address),
-          redlog::field("target", "0x%016llx", event.target_address),
-          redlog::field("source_module", source_module), redlog::field("source_symbol", source_symbol),
-          redlog::field("target_module", target_module), redlog::field("target_symbol", target_symbol)
+          redlog::field("target", "0x%016llx", event.target_address), redlog::field("source_module", source_module),
+          redlog::field("source_symbol", source_symbol), redlog::field("target_module", target_module),
+          redlog::field("target_symbol", target_symbol)
       );
     } else {
       log_.vrb(
@@ -128,8 +128,8 @@ void transfer_tracer::on_exec_transfer_call(
 }
 
 void transfer_tracer::on_exec_transfer_return(
-    w1::trace_context& ctx, const w1::exec_transfer_event& event, QBDI::VMInstanceRef vm,
-    const QBDI::VMState* state, QBDI::GPRState* gpr, QBDI::FPRState* fpr
+    w1::trace_context& ctx, const w1::exec_transfer_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state,
+    QBDI::GPRState* gpr, QBDI::FPRState* fpr
 ) {
   (void) vm;
   (void) state;
@@ -171,9 +171,9 @@ void transfer_tracer::on_exec_transfer_return(
     if (!source_module.empty() || !target_module.empty() || !source_symbol.empty() || !target_symbol.empty()) {
       log_.vrb(
           "return transfer detected", redlog::field("source", "0x%016llx", event.source_address),
-          redlog::field("target", "0x%016llx", event.target_address),
-          redlog::field("source_module", source_module), redlog::field("source_symbol", source_symbol),
-          redlog::field("target_module", target_module), redlog::field("target_symbol", target_symbol)
+          redlog::field("target", "0x%016llx", event.target_address), redlog::field("source_module", source_module),
+          redlog::field("source_symbol", source_symbol), redlog::field("target_module", target_module),
+          redlog::field("target_symbol", target_symbol)
       );
     } else {
       log_.vrb(

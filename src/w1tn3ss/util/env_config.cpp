@@ -24,8 +24,9 @@ std::string env_config::get_env_value(const std::string& name) const {
 
 std::string env_config::to_lower(const std::string& value) const {
   std::string result = value;
-  std::transform(result.begin(), result.end(), result.begin(),
-                 [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+  std::transform(result.begin(), result.end(), result.begin(), [](unsigned char ch) {
+    return static_cast<char>(std::tolower(ch));
+  });
   return result;
 }
 

@@ -11,13 +11,7 @@
 
 namespace w1::analysis {
 
-enum class abi_kind {
-  system_v_amd64,
-  windows_amd64,
-  aarch64,
-  x86,
-  unknown
-};
+enum class abi_kind { system_v_amd64, windows_amd64, aarch64, x86, unknown };
 
 struct call_argument {
   uint64_t raw_value = 0;

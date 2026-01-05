@@ -92,8 +92,8 @@ result<std::vector<plan_entry>> plan_builder::build(const recipe& recipe) {
     return parsed;
   };
 
-  auto scan_signature = [&](const std::string& pattern_str, const scan_options& options)
-      -> result<std::vector<scan_result>> {
+  auto scan_signature = [&](const std::string& pattern_str,
+                            const scan_options& options) -> result<std::vector<scan_result>> {
     std::string key = make_scan_key(pattern_str, options);
     auto it = scan_cache.find(key);
     if (it != scan_cache.end()) {
@@ -102,7 +102,8 @@ result<std::vector<plan_entry>> plan_builder::build(const recipe& recipe) {
 
     auto compiled = compile_signature(pattern_str);
     if (!compiled.ok()) {
-      result<std::vector<scan_result>> err = error_result<std::vector<scan_result>>(compiled.status.code, compiled.status.message);
+      result<std::vector<scan_result>> err =
+          error_result<std::vector<scan_result>>(compiled.status.code, compiled.status.message);
       scan_cache.emplace(key, err);
       return err;
     }
@@ -129,7 +130,9 @@ result<std::vector<plan_entry>> plan_builder::build(const recipe& recipe) {
             "validation scan failed", redlog::field("pattern", sig_spec.pattern),
             redlog::field("error", scan_results.status.message)
         );
-        return error_result<std::vector<plan_entry>>(scan_results.status.code, "validation failed: " + sig_spec.pattern);
+        return error_result<std::vector<plan_entry>>(
+            scan_results.status.code, "validation failed: " + sig_spec.pattern
+        );
       }
       log.wrn(
           "optional validation scan failed", redlog::field("pattern", sig_spec.pattern),
@@ -177,7 +180,9 @@ result<std::vector<plan_entry>> plan_builder::build(const recipe& recipe) {
             "patch signature scan failed", redlog::field("pattern", patch_spec.signature.pattern),
             redlog::field("error", scan_results.status.message)
         );
-        return error_result<std::vector<plan_entry>>(scan_results.status.code, "patch signature failed: " + patch_spec.signature.pattern);
+        return error_result<std::vector<plan_entry>>(
+            scan_results.status.code, "patch signature failed: " + patch_spec.signature.pattern
+        );
       }
       log.wrn(
           "optional patch signature scan failed", redlog::field("pattern", patch_spec.signature.pattern),
@@ -189,7 +194,9 @@ result<std::vector<plan_entry>> plan_builder::build(const recipe& recipe) {
     if (scan_results.value.empty()) {
       if (patch_spec.required) {
         log.err("patch signature not found", redlog::field("pattern", patch_spec.signature.pattern));
-        return error_result<std::vector<plan_entry>>(error_code::not_found, "patch signature not found: " + patch_spec.signature.pattern);
+        return error_result<std::vector<plan_entry>>(
+            error_code::not_found, "patch signature not found: " + patch_spec.signature.pattern
+        );
       }
       log.wrn("optional patch signature not found", redlog::field("pattern", patch_spec.signature.pattern));
       continue;
@@ -203,7 +210,9 @@ result<std::vector<plan_entry>> plan_builder::build(const recipe& recipe) {
     if (!parsed_patch.ok()) {
       if (patch_spec.required) {
         log.err("patch pattern invalid", redlog::field("pattern", patch_spec.patch));
-        return error_result<std::vector<plan_entry>>(parsed_patch.status.code, "patch pattern invalid: " + patch_spec.patch);
+        return error_result<std::vector<plan_entry>>(
+            parsed_patch.status.code, "patch pattern invalid: " + patch_spec.patch
+        );
       }
       log.wrn("optional patch pattern invalid", redlog::field("pattern", patch_spec.patch));
       continue;

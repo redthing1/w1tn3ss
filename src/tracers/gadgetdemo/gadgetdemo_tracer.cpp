@@ -182,8 +182,7 @@ void gadgetdemo_tracer::run_demo() {
   const char* needle = "brown";
   QBDI::rword contains_pattern_addr = main_base_ + offset_contains_pattern;
   int found = executor_->gadget_call<int>(
-      contains_pattern_addr,
-      {reinterpret_cast<QBDI::rword>(haystack), reinterpret_cast<QBDI::rword>(needle)}
+      contains_pattern_addr, {reinterpret_cast<QBDI::rword>(haystack), reinterpret_cast<QBDI::rword>(needle)}
   );
   log_.inf(
       "target gadget", redlog::field("contains_pattern", found ? "found" : "not found"),

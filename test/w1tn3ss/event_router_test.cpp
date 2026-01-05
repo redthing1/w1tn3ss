@@ -67,8 +67,9 @@ struct dual_tracer {
 
   const char* name() const { return "dual_tracer"; }
   static constexpr w1::event_mask requested_events() {
-    return w1::event_mask_or(w1::event_mask_of(w1::event_kind::instruction_pre),
-                             w1::event_mask_of(w1::event_kind::instruction_post));
+    return w1::event_mask_or(
+        w1::event_mask_of(w1::event_kind::instruction_pre), w1::event_mask_of(w1::event_kind::instruction_post)
+    );
   }
 
   void on_instruction_pre(
@@ -102,13 +103,14 @@ struct basic_block_tracer {
 
   const char* name() const { return "basic_block_tracer"; }
   static constexpr w1::event_mask requested_events() {
-    return w1::event_mask_or(w1::event_mask_of(w1::event_kind::basic_block_entry),
-                             w1::event_mask_of(w1::event_kind::basic_block_exit));
+    return w1::event_mask_or(
+        w1::event_mask_of(w1::event_kind::basic_block_entry), w1::event_mask_of(w1::event_kind::basic_block_exit)
+    );
   }
 
   void on_basic_block_entry(
-      w1::trace_context& ctx, const w1::basic_block_event& event, QBDI::VMInstanceRef vm,
-      const QBDI::VMState* state, QBDI::GPRState* gpr, QBDI::FPRState* fpr
+      w1::trace_context& ctx, const w1::basic_block_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state,
+      QBDI::GPRState* gpr, QBDI::FPRState* fpr
   ) {
     (void) ctx;
     (void) event;
@@ -120,8 +122,8 @@ struct basic_block_tracer {
   }
 
   void on_basic_block_exit(
-      w1::trace_context& ctx, const w1::basic_block_event& event, QBDI::VMInstanceRef vm,
-      const QBDI::VMState* state, QBDI::GPRState* gpr, QBDI::FPRState* fpr
+      w1::trace_context& ctx, const w1::basic_block_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state,
+      QBDI::GPRState* gpr, QBDI::FPRState* fpr
   ) {
     (void) ctx;
     (void) event;
@@ -139,8 +141,7 @@ struct sequence_tracer {
 
   const char* name() const { return "sequence_tracer"; }
   static constexpr w1::event_mask requested_events() {
-    return w1::event_mask_or(w1::event_mask_of(w1::event_kind::vm_start),
-                             w1::event_mask_of(w1::event_kind::vm_stop));
+    return w1::event_mask_or(w1::event_mask_of(w1::event_kind::vm_start), w1::event_mask_of(w1::event_kind::vm_stop));
   }
 
   void on_vm_start(
@@ -176,8 +177,9 @@ struct memory_tracer {
 
   const char* name() const { return "memory_tracer"; }
   static constexpr w1::event_mask requested_events() {
-    return w1::event_mask_or(w1::event_mask_of(w1::event_kind::memory_read),
-                             w1::event_mask_of(w1::event_kind::memory_write));
+    return w1::event_mask_or(
+        w1::event_mask_of(w1::event_kind::memory_read), w1::event_mask_of(w1::event_kind::memory_write)
+    );
   }
 
   void on_memory(
@@ -204,13 +206,14 @@ struct exec_transfer_tracer {
 
   const char* name() const { return "exec_transfer_tracer"; }
   static constexpr w1::event_mask requested_events() {
-    return w1::event_mask_or(w1::event_mask_of(w1::event_kind::exec_transfer_call),
-                             w1::event_mask_of(w1::event_kind::exec_transfer_return));
+    return w1::event_mask_or(
+        w1::event_mask_of(w1::event_kind::exec_transfer_call), w1::event_mask_of(w1::event_kind::exec_transfer_return)
+    );
   }
 
   void on_exec_transfer_call(
-      w1::trace_context& ctx, const w1::exec_transfer_event& event, QBDI::VMInstanceRef vm,
-      const QBDI::VMState* state, QBDI::GPRState* gpr, QBDI::FPRState* fpr
+      w1::trace_context& ctx, const w1::exec_transfer_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state,
+      QBDI::GPRState* gpr, QBDI::FPRState* fpr
   ) {
     (void) ctx;
     (void) event;
@@ -222,8 +225,8 @@ struct exec_transfer_tracer {
   }
 
   void on_exec_transfer_return(
-      w1::trace_context& ctx, const w1::exec_transfer_event& event, QBDI::VMInstanceRef vm,
-      const QBDI::VMState* state, QBDI::GPRState* gpr, QBDI::FPRState* fpr
+      w1::trace_context& ctx, const w1::exec_transfer_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state,
+      QBDI::GPRState* gpr, QBDI::FPRState* fpr
   ) {
     (void) ctx;
     (void) event;

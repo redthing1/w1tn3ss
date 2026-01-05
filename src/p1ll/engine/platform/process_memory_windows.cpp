@@ -80,8 +80,7 @@ result<std::vector<memory_region>> enumerate_regions() {
       region.is_executable = has_protection(region.protection, memory_protection::execute);
 
       char filename[MAX_PATH];
-      if (mbi.Type != MEM_PRIVATE &&
-          GetMappedFileNameA(process, mbi.BaseAddress, filename, sizeof(filename)) > 0) {
+      if (mbi.Type != MEM_PRIVATE && GetMappedFileNameA(process, mbi.BaseAddress, filename, sizeof(filename)) > 0) {
         region.name = filename;
       }
 
@@ -166,7 +165,9 @@ status set_protection(uint64_t address, size_t size, memory_protection protectio
   size_t aligned_size = static_cast<size_t>(aligned_end - aligned_start);
 
   DWORD old_protect;
-  if (!VirtualProtect(reinterpret_cast<LPVOID>(aligned_start), aligned_size, protection_to_platform(protection), &old_protect)) {
+  if (!VirtualProtect(
+          reinterpret_cast<LPVOID>(aligned_start), aligned_size, protection_to_platform(protection), &old_protect
+      )) {
     return make_status(error_code::protection_error, "VirtualProtect failed");
   }
   return ok_status();

@@ -15,8 +15,7 @@ size_t sanitize_buffer_size(size_t size) {
 
 } // namespace
 
-jsonl_writer::jsonl_writer()
-    : config_(), buffer_size_bytes_(sanitize_buffer_size(config_.buffer_size_bytes)) {
+jsonl_writer::jsonl_writer() : config_(), buffer_size_bytes_(sanitize_buffer_size(config_.buffer_size_bytes)) {
   buffer_.resize(buffer_size_bytes_);
   reset_state();
 }

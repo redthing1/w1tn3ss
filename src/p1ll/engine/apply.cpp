@@ -158,7 +158,9 @@ result<size_t> apply_entry(address_space& space, const plan_entry& entry, const 
     if (needs_protection_change) {
       auto restore = space.set_protection(entry.address, patch_size, original_protection);
       if (!restore.ok()) {
-        log.wrn("failed to restore original protection", redlog::field("address", utils::format_address(entry.address)));
+        log.wrn(
+            "failed to restore original protection", redlog::field("address", utils::format_address(entry.address))
+        );
       }
     }
     return error_result<size_t>(write_status.code, "failed to write patch bytes");
@@ -231,8 +233,7 @@ result<apply_report> apply_plan(
   log.inf("applying patch plan", redlog::field("entries", plan.size()));
   if (static_cast<int>(redlog::get_level()) >= static_cast<int>(redlog::level::trace)) {
     log.trc(
-        "apply options", redlog::field("verify", options.verify),
-        redlog::field("flush_icache", options.flush_icache),
+        "apply options", redlog::field("verify", options.verify), redlog::field("flush_icache", options.flush_icache),
         redlog::field("rollback_on_failure", options.rollback_on_failure), redlog::field("allow_wx", options.allow_wx)
     );
   }
@@ -245,8 +246,7 @@ result<apply_report> apply_plan(
       if (entry.spec.required) {
         log.err(
             "required patch failed", redlog::field("address", utils::format_address(entry.address)),
-            redlog::field("signature", entry.spec.signature.pattern),
-            redlog::field("error", applied.status.message)
+            redlog::field("signature", entry.spec.signature.pattern), redlog::field("error", applied.status.message)
         );
         report.success = false;
         return result<apply_report>{report, applied.status};

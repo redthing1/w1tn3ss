@@ -12,6 +12,8 @@ struct apply_options {
   bool allow_wx = false;
 };
 
-result<apply_report> apply_plan(address_space& space, const std::vector<plan_entry>& plan, const apply_options& options);
+result<apply_report> apply_plan(
+    address_space& space, const std::vector<plan_entry>& plan, const apply_options& options
+);
 
 } // namespace p1ll::engine

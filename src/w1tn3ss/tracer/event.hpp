@@ -22,13 +22,9 @@ enum class event_kind : uint32_t {
 
 using event_mask = uint64_t;
 
-constexpr event_mask event_mask_of(event_kind kind) {
-  return event_mask{1} << static_cast<event_mask>(kind);
-}
+constexpr event_mask event_mask_of(event_kind kind) { return event_mask{1} << static_cast<event_mask>(kind); }
 
-constexpr bool event_mask_has(event_mask mask, event_kind kind) {
-  return (mask & event_mask_of(kind)) != 0;
-}
+constexpr bool event_mask_has(event_mask mask, event_kind kind) { return (mask & event_mask_of(kind)) != 0; }
 
 constexpr event_mask event_mask_or(event_mask left, event_mask right) { return left | right; }
 

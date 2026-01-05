@@ -19,8 +19,7 @@ namespace util {
 
 class memory_reader {
 public:
-  explicit memory_reader(QBDI::VM* vm, const runtime::module_registry& modules)
-      : vm_(vm), modules_(&modules) {}
+  explicit memory_reader(QBDI::VM* vm, const runtime::module_registry& modules) : vm_(vm), modules_(&modules) {}
 
   std::optional<std::vector<uint8_t>> read_bytes(uint64_t address, size_t size) const;
   std::optional<std::string> read_string(uint64_t address, size_t max_len) const;

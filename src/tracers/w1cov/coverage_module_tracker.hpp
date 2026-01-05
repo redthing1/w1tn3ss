@@ -20,9 +20,7 @@ public:
   void initialize(const w1::runtime::module_registry& modules, coverage_collector& collector);
 
   template <typename Visitor>
-  bool visit_traced_module(
-      const w1::runtime::module_registry& modules, uint64_t address, Visitor&& visitor
-  ) const;
+  bool visit_traced_module(const w1::runtime::module_registry& modules, uint64_t address, Visitor&& visitor) const;
 
   size_t traced_module_count() const { return module_map_.size(); }
 

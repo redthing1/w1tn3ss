@@ -100,9 +100,7 @@ void p1ll_free_scan_results(p1ll_scan_result_t* results);
 int p1ll_plan(p1ll_session_t session, const p1ll_recipe_t* recipe, p1ll_plan_entry_t** out_entries, size_t* out_count);
 void p1ll_free_plan_entries(p1ll_plan_entry_t* entries, size_t count);
 
-int p1ll_apply(
-    p1ll_session_t session, const p1ll_plan_entry_t* entries, size_t count, p1ll_apply_report_t* out_report
-);
+int p1ll_apply(p1ll_session_t session, const p1ll_plan_entry_t* entries, size_t count, p1ll_apply_report_t* out_report);
 
 // utilities
 int p1ll_validate_pattern(const char* hex_pattern);

@@ -23,32 +23,32 @@ using namespace jnjs;
 
 inline const char* error_code_name(engine::error_code code) {
   switch (code) {
-    case engine::error_code::ok:
-      return "ok";
-    case engine::error_code::invalid_argument:
-      return "invalid_argument";
-    case engine::error_code::invalid_pattern:
-      return "invalid_pattern";
-    case engine::error_code::not_found:
-      return "not_found";
-    case engine::error_code::multiple_matches:
-      return "multiple_matches";
-    case engine::error_code::io_error:
-      return "io_error";
-    case engine::error_code::protection_error:
-      return "protection_error";
-    case engine::error_code::verification_failed:
-      return "verification_failed";
-    case engine::error_code::platform_mismatch:
-      return "platform_mismatch";
-    case engine::error_code::overlap:
-      return "overlap";
-    case engine::error_code::unsupported:
-      return "unsupported";
-    case engine::error_code::invalid_context:
-      return "invalid_context";
-    case engine::error_code::internal_error:
-      return "internal_error";
+  case engine::error_code::ok:
+    return "ok";
+  case engine::error_code::invalid_argument:
+    return "invalid_argument";
+  case engine::error_code::invalid_pattern:
+    return "invalid_pattern";
+  case engine::error_code::not_found:
+    return "not_found";
+  case engine::error_code::multiple_matches:
+    return "multiple_matches";
+  case engine::error_code::io_error:
+    return "io_error";
+  case engine::error_code::protection_error:
+    return "protection_error";
+  case engine::error_code::verification_failed:
+    return "verification_failed";
+  case engine::error_code::platform_mismatch:
+    return "platform_mismatch";
+  case engine::error_code::overlap:
+    return "overlap";
+  case engine::error_code::unsupported:
+    return "unsupported";
+  case engine::error_code::invalid_context:
+    return "invalid_context";
+  case engine::error_code::internal_error:
+    return "internal_error";
   }
   return "unknown";
 }
@@ -135,8 +135,7 @@ struct scan_result_wrapper {
   std::string region_name;
 
   scan_result_wrapper() = default;
-  scan_result_wrapper(const engine::scan_result& result)
-      : address(result.address), region_name(result.region_name) {}
+  scan_result_wrapper(const engine::scan_result& result) : address(result.address), region_name(result.region_name) {}
 
   uint64_t get_address() { return address; }
   std::string get_region_name() { return region_name; }
@@ -212,9 +211,7 @@ struct patch_wrapper {
   }
 };
 
-inline bool is_defined(const jnjs::value& value) {
-  return !(value.is<jnjs::undefined>() || value.is<jnjs::null>());
-}
+inline bool is_defined(const jnjs::value& value) { return !(value.is<jnjs::undefined>() || value.is<jnjs::null>()); }
 
 inline std::optional<uint64_t> parse_u64(const jnjs::value& value) {
   if (value.is<uint64_t>()) {
@@ -429,9 +426,10 @@ struct p1ll_api {
       mod->path = entry.path;
       mod->base_address = entry.base_address;
       mod->size = entry.end_address - entry.base_address;
-      mod->permissions = std::string(engine::has_protection(entry.protection, engine::memory_protection::read) ? "r" : "-") +
-                         (engine::has_protection(entry.protection, engine::memory_protection::write) ? "w" : "-") +
-                         (engine::has_protection(entry.protection, engine::memory_protection::execute) ? "x" : "-");
+      mod->permissions =
+          std::string(engine::has_protection(entry.protection, engine::memory_protection::read) ? "r" : "-") +
+          (engine::has_protection(entry.protection, engine::memory_protection::write) ? "w" : "-") +
+          (engine::has_protection(entry.protection, engine::memory_protection::execute) ? "x" : "-");
       mod->is_system_module = entry.is_system;
       result.push_back(mod);
     }
@@ -460,10 +458,7 @@ struct p1ll_api {
 
     auto results = session->scan(pattern, scan_opts);
     if (!results.ok()) {
-      log.err(
-          "search failed", redlog::field("pattern", pattern),
-          redlog::field("error", results.status.message)
-      );
+      log.err("search failed", redlog::field("pattern", pattern), redlog::field("error", results.status.message));
       return {};
     }
 
@@ -490,10 +485,7 @@ struct p1ll_api {
     auto results = session->scan(pattern, scan_opts);
     if (!results.ok() || results.value.empty()) {
       if (!results.ok()) {
-        log.err(
-            "search failed", redlog::field("pattern", pattern),
-            redlog::field("error", results.status.message)
-        );
+        log.err("search failed", redlog::field("pattern", pattern), redlog::field("error", results.status.message));
       } else {
         log.dbg("search returned no matches", redlog::field("pattern", pattern));
       }
@@ -502,8 +494,7 @@ struct p1ll_api {
 
     if (scan_opts.single && results.value.size() != 1) {
       log.dbg(
-          "single match required but search returned unexpected count",
-          redlog::field("count", results.value.size())
+          "single match required but search returned unexpected count", redlog::field("count", results.value.size())
       );
       return nullptr;
     }
@@ -558,8 +549,7 @@ inline void append_signatures_from_map(
 }
 
 inline void append_patches_from_map(
-    std::vector<engine::patch_spec>& out,
-    const std::unordered_map<std::string, std::vector<patch_wrapper*>>& patch_map
+    std::vector<engine::patch_spec>& out, const std::unordered_map<std::string, std::vector<patch_wrapper*>>& patch_map
 ) {
   for (const auto& [platform_key, patches] : patch_map) {
     for (auto* patch : patches) {
@@ -664,8 +654,8 @@ inline apply_report_wrapper* p1ll_api::auto_cure(jnjs::value meta_obj) {
     }
   }
   log.inf(
-      "auto_cure completed", redlog::field("success", report->success),
-      redlog::field("applied", report->applied), redlog::field("failed", report->failed)
+      "auto_cure completed", redlog::field("success", report->success), redlog::field("applied", report->applied),
+      redlog::field("failed", report->failed)
   );
   return report;
 }

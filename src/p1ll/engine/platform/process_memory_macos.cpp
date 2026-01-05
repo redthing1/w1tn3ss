@@ -58,8 +58,7 @@ result<std::vector<memory_region>> enumerate_regions() {
     mach_msg_type_number_t count = VM_REGION_SUBMAP_INFO_COUNT_64;
     uint32_t depth = 1;
 
-    kern_return_t kr =
-        mach_vm_region_recurse(task, &address, &size, &depth, (vm_region_recurse_info_t) &info, &count);
+    kern_return_t kr = mach_vm_region_recurse(task, &address, &size, &depth, (vm_region_recurse_info_t) &info, &count);
     if (kr != KERN_SUCCESS) {
       break;
     }

@@ -32,26 +32,19 @@ struct status {
 
 inline status ok_status() { return {}; }
 
-inline status make_status(error_code code, std::string message) {
-  return status{code, std::move(message)};
-}
+inline status make_status(error_code code, std::string message) { return status{code, std::move(message)}; }
 
 // result carries a value and a status; value is default-initialized on errors
-template <typename T>
-struct result {
+template <typename T> struct result {
   T value{};
   status status{};
 
   bool ok() const noexcept { return status.ok(); }
 };
 
-template <typename T>
-inline result<T> ok_result(T value) {
-  return result<T>{std::move(value), ok_status()};
-}
+template <typename T> inline result<T> ok_result(T value) { return result<T>{std::move(value), ok_status()}; }
 
-template <typename T>
-inline result<T> error_result(error_code code, std::string message) {
+template <typename T> inline result<T> error_result(error_code code, std::string message) {
   return result<T>{T{}, make_status(code, std::move(message))};
 }
 

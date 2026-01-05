@@ -199,68 +199,69 @@ void setup_util_bindings(sol::state& lua, sol::table& w1_module, uint64_t thread
     return oss.str();
   });
 
-  util.set_function("format_hex", [](sol::object value, sol::optional<sol::table> options)
-                                    -> sol::optional<std::string> {
-    size_t width = 0;
-    bool prefix = false;
+  util.set_function(
+      "format_hex", [](sol::object value, sol::optional<sol::table> options) -> sol::optional<std::string> {
+        size_t width = 0;
+        bool prefix = false;
 
-    if (options) {
-      if (sol::optional<int64_t> opt_width = (*options)["width"]; opt_width && *opt_width > 0) {
-        width = static_cast<size_t>(*opt_width);
-      }
-      if (sol::optional<bool> opt_prefix = (*options)["prefix"]; opt_prefix) {
-        prefix = *opt_prefix;
-      }
-    }
-
-    if (value.get_type() == sol::type::number) {
-      lua_Integer iv = value.as<lua_Integer>();
-      bool negative = iv < 0;
-      uint64_t magnitude = negative ? static_cast<uint64_t>(-iv) : static_cast<uint64_t>(iv);
-      std::string hex = format_integer_hex(magnitude, width);
-      if (prefix) {
-        hex.insert(0, "0x");
-      }
-      if (negative) {
-        hex.insert(hex.begin(), '-');
-      }
-      return sol::optional<std::string>(std::move(hex));
-    }
-
-    if (value.is<std::string>()) {
-      const auto& str = value.as<const std::string&>();
-      std::string hex;
-      hex.reserve(str.size() * 2);
-      for (unsigned char ch : str) {
-        hex.push_back(hex_digits[ch >> 4]);
-        hex.push_back(hex_digits[ch & 0x0F]);
-      }
-      if (prefix) {
-        hex.insert(0, "0x");
-      }
-      return sol::optional<std::string>(std::move(hex));
-    }
-
-    if (value.is<sol::table>()) {
-      sol::table table = value.as<sol::table>();
-      std::string hex;
-      for (size_t i = 1; i <= table.size(); ++i) {
-        sol::optional<uint32_t> byte = table[i];
-        if (!byte) {
-          return sol::nullopt;
+        if (options) {
+          if (sol::optional<int64_t> opt_width = (*options)["width"]; opt_width && *opt_width > 0) {
+            width = static_cast<size_t>(*opt_width);
+          }
+          if (sol::optional<bool> opt_prefix = (*options)["prefix"]; opt_prefix) {
+            prefix = *opt_prefix;
+          }
         }
-        uint8_t b = static_cast<uint8_t>(*byte & 0xFF);
-        hex.push_back(hex_digits[b >> 4]);
-        hex.push_back(hex_digits[b & 0x0F]);
-      }
-      if (prefix) {
-        hex.insert(0, "0x");
-      }
-      return sol::optional<std::string>(std::move(hex));
-    }
 
-    return sol::nullopt;
-  });
+        if (value.get_type() == sol::type::number) {
+          lua_Integer iv = value.as<lua_Integer>();
+          bool negative = iv < 0;
+          uint64_t magnitude = negative ? static_cast<uint64_t>(-iv) : static_cast<uint64_t>(iv);
+          std::string hex = format_integer_hex(magnitude, width);
+          if (prefix) {
+            hex.insert(0, "0x");
+          }
+          if (negative) {
+            hex.insert(hex.begin(), '-');
+          }
+          return sol::optional<std::string>(std::move(hex));
+        }
+
+        if (value.is<std::string>()) {
+          const auto& str = value.as<const std::string&>();
+          std::string hex;
+          hex.reserve(str.size() * 2);
+          for (unsigned char ch : str) {
+            hex.push_back(hex_digits[ch >> 4]);
+            hex.push_back(hex_digits[ch & 0x0F]);
+          }
+          if (prefix) {
+            hex.insert(0, "0x");
+          }
+          return sol::optional<std::string>(std::move(hex));
+        }
+
+        if (value.is<sol::table>()) {
+          sol::table table = value.as<sol::table>();
+          std::string hex;
+          for (size_t i = 1; i <= table.size(); ++i) {
+            sol::optional<uint32_t> byte = table[i];
+            if (!byte) {
+              return sol::nullopt;
+            }
+            uint8_t b = static_cast<uint8_t>(*byte & 0xFF);
+            hex.push_back(hex_digits[b >> 4]);
+            hex.push_back(hex_digits[b & 0x0F]);
+          }
+          if (prefix) {
+            hex.insert(0, "0x");
+          }
+          return sol::optional<std::string>(std::move(hex));
+        }
+
+        return sol::nullopt;
+      }
+  );
 
   util.set_function("thread_id", [thread_id]() { return thread_id; });
   util.set_function("platform", []() { return w1::common::platform_utils::get_platform_name(); });
@@ -306,8 +307,6 @@ void setup_util_bindings(sol::state& lua, sol::table& w1_module, uint64_t thread
   w1_module["util"] = util;
 }
 
-std::string lua_table_to_json(const sol::table& table) {
-  return lua_table_to_json_internal(table, 0);
-}
+std::string lua_table_to_json(const sol::table& table) { return lua_table_to_json_internal(table, 0); }
 
 } // namespace w1::tracers::script::bindings

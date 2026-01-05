@@ -20,32 +20,32 @@ namespace p1ll::scripting::lua {
 
 inline const char* error_code_name(engine::error_code code) {
   switch (code) {
-    case engine::error_code::ok:
-      return "ok";
-    case engine::error_code::invalid_argument:
-      return "invalid_argument";
-    case engine::error_code::invalid_pattern:
-      return "invalid_pattern";
-    case engine::error_code::not_found:
-      return "not_found";
-    case engine::error_code::multiple_matches:
-      return "multiple_matches";
-    case engine::error_code::io_error:
-      return "io_error";
-    case engine::error_code::protection_error:
-      return "protection_error";
-    case engine::error_code::verification_failed:
-      return "verification_failed";
-    case engine::error_code::platform_mismatch:
-      return "platform_mismatch";
-    case engine::error_code::overlap:
-      return "overlap";
-    case engine::error_code::unsupported:
-      return "unsupported";
-    case engine::error_code::invalid_context:
-      return "invalid_context";
-    case engine::error_code::internal_error:
-      return "internal_error";
+  case engine::error_code::ok:
+    return "ok";
+  case engine::error_code::invalid_argument:
+    return "invalid_argument";
+  case engine::error_code::invalid_pattern:
+    return "invalid_pattern";
+  case engine::error_code::not_found:
+    return "not_found";
+  case engine::error_code::multiple_matches:
+    return "multiple_matches";
+  case engine::error_code::io_error:
+    return "io_error";
+  case engine::error_code::protection_error:
+    return "protection_error";
+  case engine::error_code::verification_failed:
+    return "verification_failed";
+  case engine::error_code::platform_mismatch:
+    return "platform_mismatch";
+  case engine::error_code::overlap:
+    return "overlap";
+  case engine::error_code::unsupported:
+    return "unsupported";
+  case engine::error_code::invalid_context:
+    return "invalid_context";
+  case engine::error_code::internal_error:
+    return "internal_error";
   }
   return "unknown";
 }
@@ -256,16 +256,8 @@ inline void setup_p1ll_bindings(sol::state& lua, engine::session& session) {
   auto log = redlog::get_logger("p1ll.lua_bindings");
   log.inf("setting up lua bindings", redlog::field("mode", session.is_dynamic() ? "dynamic" : "static"));
   lua.new_usertype<apply_report_wrapper>(
-      "apply_report",
-      "success",
-      &apply_report_wrapper::success,
-      "applied",
-      &apply_report_wrapper::applied,
-      "failed",
-      &apply_report_wrapper::failed,
-      "error_messages",
-      &apply_report_wrapper::error_messages,
-      "diagnostics",
+      "apply_report", "success", &apply_report_wrapper::success, "applied", &apply_report_wrapper::applied, "failed",
+      &apply_report_wrapper::failed, "error_messages", &apply_report_wrapper::error_messages, "diagnostics",
       &apply_report_wrapper::diagnostics
   );
 
@@ -274,24 +266,14 @@ inline void setup_p1ll_bindings(sol::state& lua, engine::session& session) {
   );
 
   lua.new_usertype<module_info_wrapper>(
-      "module_info",
-      "name",
-      &module_info_wrapper::name,
-      "path",
-      &module_info_wrapper::path,
-      "base_address",
-      &module_info_wrapper::base_address,
-      "size",
-      &module_info_wrapper::size,
-      "permissions",
-      &module_info_wrapper::permissions,
-      "is_system_module",
-      &module_info_wrapper::is_system_module
+      "module_info", "name", &module_info_wrapper::name, "path", &module_info_wrapper::path, "base_address",
+      &module_info_wrapper::base_address, "size", &module_info_wrapper::size, "permissions",
+      &module_info_wrapper::permissions, "is_system_module", &module_info_wrapper::is_system_module
   );
 
   lua.new_usertype<signature_wrapper>("signature", "pattern", sol::property([](const signature_wrapper& sig) {
-    return sig.spec.pattern;
-  }));
+                                        return sig.spec.pattern;
+                                      }));
 
   lua.new_usertype<patch_wrapper>("patch");
 
@@ -321,8 +303,7 @@ inline void setup_p1ll_bindings(sol::state& lua, engine::session& session) {
   });
 
   p1_module.set_function(
-      "patch",
-      [](sol::object sig_param, int64_t offset, const std::string& pattern, sol::optional<sol::table> opts) {
+      "patch", [](sol::object sig_param, int64_t offset, const std::string& pattern, sol::optional<sol::table> opts) {
         engine::patch_spec spec;
         if (sig_param.is<signature_wrapper>()) {
           spec.signature = sig_param.as<signature_wrapper>().spec;
@@ -459,9 +440,10 @@ inline void setup_p1ll_bindings(sol::state& lua, engine::session& session) {
       mod.path = entry.path;
       mod.base_address = entry.base_address;
       mod.size = entry.end_address - entry.base_address;
-      mod.permissions = std::string(engine::has_protection(entry.protection, engine::memory_protection::read) ? "r" : "-") +
-                        (engine::has_protection(entry.protection, engine::memory_protection::write) ? "w" : "-") +
-                        (engine::has_protection(entry.protection, engine::memory_protection::execute) ? "x" : "-");
+      mod.permissions =
+          std::string(engine::has_protection(entry.protection, engine::memory_protection::read) ? "r" : "-") +
+          (engine::has_protection(entry.protection, engine::memory_protection::write) ? "w" : "-") +
+          (engine::has_protection(entry.protection, engine::memory_protection::execute) ? "x" : "-");
       mod.is_system_module = entry.is_system;
       result.push_back(mod);
     }
@@ -475,8 +457,7 @@ inline void setup_p1ll_bindings(sol::state& lua, engine::session& session) {
   });
 
   p1_module.set_function(
-      "search_sig",
-      [&session, &lua](const std::string& pattern, sol::optional<sol::table> opts) -> sol::object {
+      "search_sig", [&session, &lua](const std::string& pattern, sol::optional<sol::table> opts) -> sol::object {
         auto log = redlog::get_logger("p1ll.lua");
         engine::scan_options options;
         if (opts) {
@@ -485,10 +466,7 @@ inline void setup_p1ll_bindings(sol::state& lua, engine::session& session) {
         auto results = session.scan(pattern, options);
         if (!results.ok() || results.value.empty()) {
           if (!results.ok()) {
-            log.err(
-                "search failed", redlog::field("pattern", pattern),
-                redlog::field("error", results.status.message)
-            );
+            log.err("search failed", redlog::field("pattern", pattern), redlog::field("error", results.status.message));
           } else {
             log.dbg("search returned no matches", redlog::field("pattern", pattern));
           }
@@ -496,8 +474,7 @@ inline void setup_p1ll_bindings(sol::state& lua, engine::session& session) {
         }
         if (options.single && results.value.size() != 1) {
           log.dbg(
-              "single match required but search returned unexpected count",
-              redlog::field("count", results.value.size())
+              "single match required but search returned unexpected count", redlog::field("count", results.value.size())
           );
           return sol::make_object(lua, sol::lua_nil);
         }
@@ -522,10 +499,7 @@ inline void setup_p1ll_bindings(sol::state& lua, engine::session& session) {
         }
         auto results = session.scan(pattern, options);
         if (!results.ok()) {
-          log.err(
-              "search failed", redlog::field("pattern", pattern),
-              redlog::field("error", results.status.message)
-          );
+          log.err("search failed", redlog::field("pattern", pattern), redlog::field("error", results.status.message));
           return output;
         }
         for (const auto& result : results.value) {

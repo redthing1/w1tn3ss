@@ -103,8 +103,7 @@ concept has_on_thread_stop = requires(t& value, trace_context& ctx, const thread
   { value.on_thread_stop(ctx, event) } -> handler_result;
 };
 
-template <typename t>
-constexpr void validate_tracer() {
+template <typename t> constexpr void validate_tracer() {
   static_assert(tracer<t>, "tracer must define name() and static requested_events()");
   constexpr event_mask mask = t::requested_events();
 
@@ -124,7 +123,9 @@ constexpr void validate_tracer() {
     static_assert(has_on_exec_transfer_call<t>, "tracer requests exec_transfer_call but lacks on_exec_transfer_call");
   }
   if constexpr (event_mask_has(mask, event_kind::exec_transfer_return)) {
-    static_assert(has_on_exec_transfer_return<t>, "tracer requests exec_transfer_return but lacks on_exec_transfer_return");
+    static_assert(
+        has_on_exec_transfer_return<t>, "tracer requests exec_transfer_return but lacks on_exec_transfer_return"
+    );
   }
   if constexpr (event_mask_has(mask, event_kind::vm_start)) {
     static_assert(has_on_vm_start<t>, "tracer requests vm_start but lacks on_vm_start");

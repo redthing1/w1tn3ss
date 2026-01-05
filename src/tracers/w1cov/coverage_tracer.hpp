@@ -26,8 +26,9 @@ public:
 
   const char* name() const { return "w1cov"; }
   static constexpr w1::event_mask requested_events() {
-    constexpr w1::event_mask base = w1::event_mask_or(w1::event_mask_of(w1::event_kind::thread_start),
-                                                      w1::event_mask_of(w1::event_kind::thread_stop));
+    constexpr w1::event_mask base = w1::event_mask_or(
+        w1::event_mask_of(w1::event_kind::thread_start), w1::event_mask_of(w1::event_kind::thread_stop)
+    );
     if constexpr (mode == coverage_mode::instruction) {
       return w1::event_mask_or(base, w1::event_mask_of(w1::event_kind::instruction_pre));
     }

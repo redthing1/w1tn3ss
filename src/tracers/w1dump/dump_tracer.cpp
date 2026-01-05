@@ -75,9 +75,7 @@ void dump_tracer::perform_dump(
   options.max_region_size = config_.max_region_size;
 
   try {
-    auto dump = w1::dump::process_dumper::dump_current(
-        vm, ctx.memory(), ctx.thread_id(), *gpr_ptr, *fpr_ptr, options
-    );
+    auto dump = w1::dump::process_dumper::dump_current(vm, ctx.memory(), ctx.thread_id(), *gpr_ptr, *fpr_ptr, options);
     w1::dump::process_dumper::save_dump(dump, config_.output);
 
     log_.inf(

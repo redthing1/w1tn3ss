@@ -43,8 +43,7 @@ struct script_config {
             {"include_all", system_policy::include_all},
             {"include", system_policy::include_all},
         },
-        "SYSTEM_POLICY",
-        policy
+        "SYSTEM_POLICY", policy
     );
     config.instrumentation.system_policy = policy;
     config.instrumentation.include_unnamed_modules = loader.get<bool>("INCLUDE_UNNAMED", false);
@@ -57,14 +56,8 @@ struct script_config {
     config.verbose = loader.get<int>("VERBOSE", 0);
 
     const std::unordered_set<std::string> reserved = {
-        "SCRIPT",
-        "VERBOSE",
-        "SYSTEM_POLICY",
-        "INCLUDE_UNNAMED",
-        "USE_DEFAULT_EXCLUDES",
-        "INCLUDE",
-        "EXCLUDE",
-        "EXCLUDE_SELF",
+        "SCRIPT",  "VERBOSE", "SYSTEM_POLICY", "INCLUDE_UNNAMED", "USE_DEFAULT_EXCLUDES",
+        "INCLUDE", "EXCLUDE", "EXCLUDE_SELF",
     };
 
     auto env_vars = []() -> std::vector<std::string_view> {

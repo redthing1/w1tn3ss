@@ -20,8 +20,9 @@ public:
   const char* name() const { return "w1mem"; }
   static constexpr w1::event_mask requested_events() {
     w1::event_mask mask = w1::event_mask_or(
-        w1::event_mask_or(w1::event_mask_of(w1::event_kind::instruction_post),
-                          w1::event_mask_of(w1::event_kind::memory_read)),
+        w1::event_mask_or(
+            w1::event_mask_of(w1::event_kind::instruction_post), w1::event_mask_of(w1::event_kind::memory_read)
+        ),
         w1::event_mask_of(w1::event_kind::thread_stop)
     );
     mask = w1::event_mask_or(mask, w1::event_mask_of(w1::event_kind::thread_start));

@@ -53,8 +53,7 @@ void setup_abi_bindings(sol::state& lua, sol::table& w1_module, runtime::script_
   });
 
   abi.set_function(
-      "get_args",
-      [&lua, &context](QBDI::VM*, QBDI::GPRState* gpr, QBDI::FPRState*, size_t count) -> sol::table {
+      "get_args", [&lua, &context](QBDI::VM*, QBDI::GPRState* gpr, QBDI::FPRState*, size_t count) -> sol::table {
         auto args = context.abi().extract_arguments(context.memory(), gpr, count);
         sol::table result = lua.create_table(args.size(), 0);
         for (size_t i = 0; i < args.size(); ++i) {

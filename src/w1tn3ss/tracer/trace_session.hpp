@@ -38,8 +38,8 @@ public:
   }
 
   trace_session(trace_session_config config, tracer_t tracer_instance, QBDI::VM* borrowed_vm)
-      : config_(std::move(config)), tracer_(std::move(tracer_instance)), vm_controller_(borrowed_vm), module_registry_(),
-        memory_reader_(vm_controller_.vm(), module_registry_),
+      : config_(std::move(config)), tracer_(std::move(tracer_instance)), vm_controller_(borrowed_vm),
+        module_registry_(), memory_reader_(vm_controller_.vm(), module_registry_),
         context_(config_.thread_id, vm_controller_.vm(), &module_registry_, &memory_reader_),
         event_router_(vm_controller_.vm()) {
     apply_options();
@@ -47,10 +47,7 @@ public:
 
   template <typename... Args>
   explicit trace_session(trace_session_config config, std::in_place_t, Args&&... args)
-      : config_(std::move(config)),
-        tracer_(std::forward<Args>(args)...),
-        vm_controller_(),
-        module_registry_(),
+      : config_(std::move(config)), tracer_(std::forward<Args>(args)...), vm_controller_(), module_registry_(),
         memory_reader_(vm_controller_.vm(), module_registry_),
         context_(config_.thread_id, vm_controller_.vm(), &module_registry_, &memory_reader_),
         event_router_(vm_controller_.vm()) {
@@ -59,11 +56,8 @@ public:
 
   template <typename... Args>
   trace_session(trace_session_config config, QBDI::VM* borrowed_vm, std::in_place_t, Args&&... args)
-      : config_(std::move(config)),
-        tracer_(std::forward<Args>(args)...),
-        vm_controller_(borrowed_vm),
-        module_registry_(),
-        memory_reader_(vm_controller_.vm(), module_registry_),
+      : config_(std::move(config)), tracer_(std::forward<Args>(args)...), vm_controller_(borrowed_vm),
+        module_registry_(), memory_reader_(vm_controller_.vm(), module_registry_),
         context_(config_.thread_id, vm_controller_.vm(), &module_registry_, &memory_reader_),
         event_router_(vm_controller_.vm()) {
     apply_options();

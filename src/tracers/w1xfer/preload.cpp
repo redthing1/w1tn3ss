@@ -53,12 +53,11 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
   session_config.thread_id = 1;
   session_config.thread_name = "main";
 
-  g_session = std::make_unique<w1::trace_session<w1xfer::transfer_tracer>>(
-      session_config, vm, std::in_place, g_config
-  );
+  g_session = std::make_unique<w1::trace_session<w1xfer::transfer_tracer>>(session_config, vm, std::in_place, g_config);
 
-  log.inf("starting transfer session", redlog::field("start", "0x%016llx", start),
-          redlog::field("stop", "0x%016llx", stop));
+  log.inf(
+      "starting transfer session", redlog::field("start", "0x%016llx", start), redlog::field("stop", "0x%016llx", stop)
+  );
 
   if (!g_session->run(static_cast<uint64_t>(start), static_cast<uint64_t>(stop))) {
     log.err("transfer session run failed");

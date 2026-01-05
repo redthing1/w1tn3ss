@@ -183,9 +183,7 @@ void lua_runtime::configure_package_paths() {
   package["cpath"] = lua_cpath;
 }
 
-bool lua_runtime::register_bindings() {
-  return bindings::setup_w1_bindings(lua_, context_, callback_registry_);
-}
+bool lua_runtime::register_bindings() { return bindings::setup_w1_bindings(lua_, context_, callback_registry_); }
 
 bool lua_runtime::load_script() {
   if (context_.config().script_path.empty()) {

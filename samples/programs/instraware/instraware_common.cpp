@@ -20,28 +20,28 @@ std::string escape_json(const std::string& input) {
   out.reserve(input.size());
   for (char c : input) {
     switch (c) {
-      case '\\':
-        out += "\\\\";
-        break;
-      case '"':
-        out += "\\\"";
-        break;
-      case '\n':
-        out += "\\n";
-        break;
-      case '\r':
-        out += "\\r";
-        break;
-      case '\t':
-        out += "\\t";
-        break;
-      default:
-        if (static_cast<unsigned char>(c) < 0x20) {
-          out += "?";
-        } else {
-          out += c;
-        }
-        break;
+    case '\\':
+      out += "\\\\";
+      break;
+    case '"':
+      out += "\\\"";
+      break;
+    case '\n':
+      out += "\\n";
+      break;
+    case '\r':
+      out += "\\r";
+      break;
+    case '\t':
+      out += "\\t";
+      break;
+    default:
+      if (static_cast<unsigned char>(c) < 0x20) {
+        out += "?";
+      } else {
+        out += c;
+      }
+      break;
     }
   }
   return out;
@@ -142,14 +142,9 @@ void emit_json(const result& entry, FILE* out) {
       out,
       "{\"test_id\":\"%s\",\"platform\":\"%s\",\"arch\":\"%s\",\"iterations\":%llu,"
       "\"score\":%.6f,\"confidence\":%.6f,\"anomalies\":%llu,\"notes\":\"%s\"}\n",
-      entry.test_id.c_str(),
-      entry.platform.c_str(),
-      entry.arch.c_str(),
-      static_cast<unsigned long long>(entry.iterations),
-      entry.score,
-      entry.confidence,
-      static_cast<unsigned long long>(entry.anomalies),
-      notes.c_str()
+      entry.test_id.c_str(), entry.platform.c_str(), entry.arch.c_str(),
+      static_cast<unsigned long long>(entry.iterations), entry.score, entry.confidence,
+      static_cast<unsigned long long>(entry.anomalies), notes.c_str()
   );
   std::fflush(out);
 }

@@ -47,17 +47,14 @@ bool is_system_library(const std::string& path) {
   }
 
 #ifdef __APPLE__
-  if (path.rfind("/usr/lib/", 0) == 0 || path.rfind("/System/Library/", 0) == 0 ||
-      path.rfind("/Library/", 0) == 0) {
+  if (path.rfind("/usr/lib/", 0) == 0 || path.rfind("/System/Library/", 0) == 0 || path.rfind("/Library/", 0) == 0) {
     return true;
   }
   if (path.rfind("libsystem", 0) == 0 || path.rfind("libc++", 0) == 0 || path.rfind("libobjc", 0) == 0 ||
-      path.rfind("libdispatch", 0) == 0 || path.rfind("libxpc", 0) == 0 ||
-      path.rfind("libcorecrypto", 0) == 0 || path.rfind("libcompiler_rt", 0) == 0 ||
-      path.rfind("libdyld", 0) == 0 || path.rfind("dyld", 0) == 0 ||
-      path.rfind("libquarantine", 0) == 0 || path.rfind("libmacho", 0) == 0 ||
-      path.rfind("libcommonCrypto", 0) == 0 || path.rfind("libunwind", 0) == 0 ||
-      path.rfind("libcopyfile", 0) == 0 || path.rfind("libremovefile", 0) == 0 ||
+      path.rfind("libdispatch", 0) == 0 || path.rfind("libxpc", 0) == 0 || path.rfind("libcorecrypto", 0) == 0 ||
+      path.rfind("libcompiler_rt", 0) == 0 || path.rfind("libdyld", 0) == 0 || path.rfind("dyld", 0) == 0 ||
+      path.rfind("libquarantine", 0) == 0 || path.rfind("libmacho", 0) == 0 || path.rfind("libcommonCrypto", 0) == 0 ||
+      path.rfind("libunwind", 0) == 0 || path.rfind("libcopyfile", 0) == 0 || path.rfind("libremovefile", 0) == 0 ||
       path.rfind("libkeymgr", 0) == 0 || path.rfind("libcache", 0) == 0 || path.rfind("libSystem", 0) == 0 ||
       path.rfind("libRosetta", 0) == 0) {
     return true;
@@ -70,8 +67,9 @@ bool is_system_library(const std::string& path) {
   );
 #elif defined(_WIN32)
   std::string lower_path = path;
-  std::transform(lower_path.begin(), lower_path.end(), lower_path.begin(),
-                 [](unsigned char value) { return static_cast<char>(std::tolower(value)); });
+  std::transform(lower_path.begin(), lower_path.end(), lower_path.begin(), [](unsigned char value) {
+    return static_cast<char>(std::tolower(value));
+  });
   return (
       lower_path.rfind("c:\\windows\\", 0) == 0 || lower_path.rfind("c:\\program files\\", 0) == 0 ||
       lower_path.rfind("c:\\program files (x86)\\", 0) == 0
@@ -130,10 +128,14 @@ void module_registry::refresh() {
       continue;
     }
 
-    std::sort(span.mapped_ranges.begin(), span.mapped_ranges.end(),
-              [](const address_range& left, const address_range& right) { return left.start < right.start; });
-    std::sort(span.exec_ranges.begin(), span.exec_ranges.end(),
-              [](const address_range& left, const address_range& right) { return left.start < right.start; });
+    std::sort(
+        span.mapped_ranges.begin(), span.mapped_ranges.end(),
+        [](const address_range& left, const address_range& right) { return left.start < right.start; }
+    );
+    std::sort(
+        span.exec_ranges.begin(), span.exec_ranges.end(),
+        [](const address_range& left, const address_range& right) { return left.start < right.start; }
+    );
 
     module_info info{};
     info.name = span.name.empty() ? key : span.name;

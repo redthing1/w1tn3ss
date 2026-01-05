@@ -24,8 +24,8 @@ std::filesystem::path make_temp_path() {
 #endif
 
   auto now = std::chrono::steady_clock::now().time_since_epoch().count();
-  std::string name = "w1tn3ss_jsonl_writer_" + std::to_string(pid) + "_" +
-                     std::to_string(static_cast<long long>(now)) + ".jsonl";
+  std::string name =
+      "w1tn3ss_jsonl_writer_" + std::to_string(pid) + "_" + std::to_string(static_cast<long long>(now)) + ".jsonl";
   return std::filesystem::temp_directory_path() / name;
 }
 

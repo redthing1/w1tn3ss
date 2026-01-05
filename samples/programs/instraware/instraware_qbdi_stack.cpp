@@ -69,8 +69,7 @@ bool sp_alignment_ok(uintptr_t sp) {
   return mod == 0 || mod == 8;
 }
 
-INSTRAWARE_NOINLINE bool check_frame_chain_inner(size_t depth, size_t max_depth, void* expected_prev,
-                                                 bool* checked) {
+INSTRAWARE_NOINLINE bool check_frame_chain_inner(size_t depth, size_t max_depth, void* expected_prev, bool* checked) {
 #if defined(__GNUC__) || defined(__clang__)
   uintptr_t fp_value = read_fp();
   if (fp_value == 0) {
@@ -109,9 +108,9 @@ INSTRAWARE_NOINLINE bool check_frame_chain_inner(size_t depth, size_t max_depth,
   }
   return true;
 #else
-  (void)depth;
-  (void)max_depth;
-  (void)expected_prev;
+  (void) depth;
+  (void) max_depth;
+  (void) expected_prev;
   if (checked) {
     *checked = false;
   }
@@ -172,8 +171,9 @@ INSTRAWARE_NOINLINE bool verify_sentinel(volatile uint64_t* data, size_t count, 
   return true;
 }
 
-INSTRAWARE_NOINLINE void probe_frame(int depth, int max_depth, uint64_t* sentinel_failures,
-                                     uint64_t* alignment_failures) {
+INSTRAWARE_NOINLINE void probe_frame(
+    int depth, int max_depth, uint64_t* sentinel_failures, uint64_t* alignment_failures
+) {
   volatile uint64_t sentinel[8];
   uint64_t seed = 0x13579bdf2468ace0ULL ^ static_cast<uint64_t>(depth);
   fill_sentinel(sentinel, 8, seed);

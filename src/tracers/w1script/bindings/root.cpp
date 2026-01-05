@@ -121,7 +121,9 @@ void setup_root_bindings(
       }
   );
 
-  w1_module.set_function("off", [&callback_registry](uint64_t handle) { return callback_registry.remove_callback(handle); });
+  w1_module.set_function("off", [&callback_registry](uint64_t handle) {
+    return callback_registry.remove_callback(handle);
+  });
 
   sol::table event_table = lua.create_table();
   event_table["THREAD_START"] = static_cast<int>(event_type::thread_start);

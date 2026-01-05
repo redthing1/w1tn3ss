@@ -62,21 +62,21 @@ public:
   );
 
   QBDI::VMAction on_basic_block_entry(
-      w1::trace_context& ctx, const w1::basic_block_event& event, QBDI::VMInstanceRef vm,
-      const QBDI::VMState* state, QBDI::GPRState* gpr, QBDI::FPRState* fpr
+      w1::trace_context& ctx, const w1::basic_block_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state,
+      QBDI::GPRState* gpr, QBDI::FPRState* fpr
   );
   QBDI::VMAction on_basic_block_exit(
-      w1::trace_context& ctx, const w1::basic_block_event& event, QBDI::VMInstanceRef vm,
-      const QBDI::VMState* state, QBDI::GPRState* gpr, QBDI::FPRState* fpr
+      w1::trace_context& ctx, const w1::basic_block_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state,
+      QBDI::GPRState* gpr, QBDI::FPRState* fpr
   );
 
   QBDI::VMAction on_exec_transfer_call(
-      w1::trace_context& ctx, const w1::exec_transfer_event& event, QBDI::VMInstanceRef vm,
-      const QBDI::VMState* state, QBDI::GPRState* gpr, QBDI::FPRState* fpr
+      w1::trace_context& ctx, const w1::exec_transfer_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state,
+      QBDI::GPRState* gpr, QBDI::FPRState* fpr
   );
   QBDI::VMAction on_exec_transfer_return(
-      w1::trace_context& ctx, const w1::exec_transfer_event& event, QBDI::VMInstanceRef vm,
-      const QBDI::VMState* state, QBDI::GPRState* gpr, QBDI::FPRState* fpr
+      w1::trace_context& ctx, const w1::exec_transfer_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state,
+      QBDI::GPRState* gpr, QBDI::FPRState* fpr
   );
 
   QBDI::VMAction on_memory(

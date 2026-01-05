@@ -13,12 +13,10 @@ pattern_matcher::pattern_matcher(pattern signature) : signature_(std::move(signa
 
   build_shift_table();
 
-  size_t wildcards = static_cast<size_t>(
-      std::count(signature_.mask.begin(), signature_.mask.end(), static_cast<uint8_t>(0))
-  );
+  size_t wildcards =
+      static_cast<size_t>(std::count(signature_.mask.begin(), signature_.mask.end(), static_cast<uint8_t>(0)));
   log.dbg(
-      "created pattern matcher", redlog::field("pattern_size", signature_.size()),
-      redlog::field("wildcards", wildcards)
+      "created pattern matcher", redlog::field("pattern_size", signature_.size()), redlog::field("wildcards", wildcards)
   );
 }
 
@@ -46,9 +44,8 @@ void pattern_matcher::build_shift_table() {
     }
   }
 
-  size_t exact_bytes = static_cast<size_t>(
-      std::count(signature_.mask.begin(), signature_.mask.end(), static_cast<uint8_t>(1))
-  );
+  size_t exact_bytes =
+      static_cast<size_t>(std::count(signature_.mask.begin(), signature_.mask.end(), static_cast<uint8_t>(1)));
   if (pattern_len > 0 && exact_bytes < pattern_len / 2) {
     auto log = redlog::get_logger("p1ll.pattern_matcher");
     log.wrn(
@@ -95,8 +92,8 @@ std::vector<uint64_t> pattern_matcher::search(const uint8_t* data, size_t size) 
 
   auto log = redlog::get_logger("p1ll.pattern_matcher");
   log.dbg(
-      "pattern search completed", redlog::field("search_size", size),
-      redlog::field("pattern_size", pattern_len), redlog::field("results", results.size())
+      "pattern search completed", redlog::field("search_size", size), redlog::field("pattern_size", pattern_len),
+      redlog::field("results", results.size())
   );
   return results;
 }

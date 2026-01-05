@@ -204,8 +204,8 @@ public:
               event.thread_id = callback->ctx->thread_id();
 
               if constexpr (std::same_as<
-                                decltype(callback->tracer->on_basic_block_entry(*callback->ctx, event, vm, state, gpr,
-                                                                              fpr)),
+                                decltype(callback->tracer
+                                             ->on_basic_block_entry(*callback->ctx, event, vm, state, gpr, fpr)),
                                 QBDI::VMAction>) {
                 return callback->tracer->on_basic_block_entry(*callback->ctx, event, vm, state, gpr, fpr);
               }
@@ -241,8 +241,8 @@ public:
               event.thread_id = callback->ctx->thread_id();
 
               if constexpr (std::same_as<
-                                decltype(callback->tracer->on_basic_block_exit(*callback->ctx, event, vm, state, gpr,
-                                                                             fpr)),
+                                decltype(callback->tracer
+                                             ->on_basic_block_exit(*callback->ctx, event, vm, state, gpr, fpr)),
                                 QBDI::VMAction>) {
                 return callback->tracer->on_basic_block_exit(*callback->ctx, event, vm, state, gpr, fpr);
               }
@@ -278,8 +278,8 @@ public:
               event.thread_id = callback->ctx->thread_id();
 
               if constexpr (std::same_as<
-                                decltype(callback->tracer->on_exec_transfer_call(*callback->ctx, event, vm, state, gpr,
-                                                                               fpr)),
+                                decltype(callback->tracer
+                                             ->on_exec_transfer_call(*callback->ctx, event, vm, state, gpr, fpr)),
                                 QBDI::VMAction>) {
                 return callback->tracer->on_exec_transfer_call(*callback->ctx, event, vm, state, gpr, fpr);
               }
@@ -315,8 +315,8 @@ public:
               event.thread_id = callback->ctx->thread_id();
 
               if constexpr (std::same_as<
-                                decltype(callback->tracer->on_exec_transfer_return(*callback->ctx, event, vm, state,
-                                                                                 gpr, fpr)),
+                                decltype(callback->tracer
+                                             ->on_exec_transfer_return(*callback->ctx, event, vm, state, gpr, fpr)),
                                 QBDI::VMAction>) {
                 return callback->tracer->on_exec_transfer_return(*callback->ctx, event, vm, state, gpr, fpr);
               }
@@ -441,10 +441,12 @@ public:
     }
 
     QBDI::MemoryAccessType type = static_cast<QBDI::MemoryAccessType>(0);
-    if (event_mask_has(state_.mask, event_kind::memory_read) || event_mask_has(state_.mask, event_kind::memory_read_write)) {
+    if (event_mask_has(state_.mask, event_kind::memory_read) ||
+        event_mask_has(state_.mask, event_kind::memory_read_write)) {
       type = static_cast<QBDI::MemoryAccessType>(type | QBDI::MEMORY_READ);
     }
-    if (event_mask_has(state_.mask, event_kind::memory_write) || event_mask_has(state_.mask, event_kind::memory_read_write)) {
+    if (event_mask_has(state_.mask, event_kind::memory_write) ||
+        event_mask_has(state_.mask, event_kind::memory_read_write)) {
       type = static_cast<QBDI::MemoryAccessType>(type | QBDI::MEMORY_WRITE);
     }
     if (type == static_cast<QBDI::MemoryAccessType>(0)) {

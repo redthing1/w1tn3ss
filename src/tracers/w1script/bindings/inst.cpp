@@ -14,8 +14,7 @@ void setup_inst_bindings(sol::state& lua, sol::table& w1_module) {
   sol::table inst = lua.create_table();
 
   inst.set_function(
-      "current",
-      [](QBDI::VM* vm, sol::optional<QBDI::AnalysisType> analysis_type) -> const QBDI::InstAnalysis* {
+      "current", [](QBDI::VM* vm, sol::optional<QBDI::AnalysisType> analysis_type) -> const QBDI::InstAnalysis* {
         if (!vm) {
           return nullptr;
         }
@@ -27,8 +26,8 @@ void setup_inst_bindings(sol::state& lua, sol::table& w1_module) {
     if (!vm) {
       return sol::nullopt;
     }
-    auto analysis = vm->getInstAnalysis(QBDI::AnalysisType::ANALYSIS_INSTRUCTION |
-                                        QBDI::AnalysisType::ANALYSIS_DISASSEMBLY);
+    auto analysis =
+        vm->getInstAnalysis(QBDI::AnalysisType::ANALYSIS_INSTRUCTION | QBDI::AnalysisType::ANALYSIS_DISASSEMBLY);
     if (!analysis || !analysis->disassembly) {
       return sol::nullopt;
     }

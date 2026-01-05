@@ -49,8 +49,7 @@ private:
 
   std::optional<transfer_endpoint> build_endpoint(uint64_t address) const;
   std::optional<transfer_api_info> analyze_api_event(
-      transfer_type type, const w1::trace_context& ctx, uint64_t source_addr, uint64_t target_addr,
-      QBDI::GPRState* gpr
+      transfer_type type, const w1::trace_context& ctx, uint64_t source_addr, uint64_t target_addr, QBDI::GPRState* gpr
   );
 
   size_t default_argument_count() const;

@@ -53,9 +53,8 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
   session_config.thread_id = 1;
   session_config.thread_name = "main";
 
-  g_session = std::make_unique<w1::trace_session<gadgetdemo::gadgetdemo_tracer>>(
-      session_config, vm, std::in_place, g_config
-  );
+  g_session =
+      std::make_unique<w1::trace_session<gadgetdemo::gadgetdemo_tracer>>(session_config, vm, std::in_place, g_config);
 
   log.inf(
       "starting gadgetdemo session", redlog::field("start", "0x%llx", static_cast<unsigned long long>(start)),

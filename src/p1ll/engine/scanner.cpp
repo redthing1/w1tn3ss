@@ -46,12 +46,10 @@ result<std::vector<scan_result>> scanner::scan(const pattern& signature, const s
         redlog::field("filter_exclude_system", options.filter.exclude_system),
         redlog::field("filter_min_size", options.filter.min_size),
         redlog::field(
-            "filter_min_address",
-            options.filter.min_address ? utils::format_address(*options.filter.min_address) : "-"
+            "filter_min_address", options.filter.min_address ? utils::format_address(*options.filter.min_address) : "-"
         ),
         redlog::field(
-            "filter_max_address",
-            options.filter.max_address ? utils::format_address(*options.filter.max_address) : "-"
+            "filter_max_address", options.filter.max_address ? utils::format_address(*options.filter.max_address) : "-"
         )
     );
   }
@@ -77,7 +75,8 @@ result<std::vector<scan_result>> scanner::scan(const pattern& signature, const s
       if (pedantic_enabled) {
         log.ped(
             "skipping region", redlog::field("base", utils::format_address(region.base_address)),
-            redlog::field("size", region.size), redlog::field("readable", has_protection(region.protection, memory_protection::read))
+            redlog::field("size", region.size),
+            redlog::field("readable", has_protection(region.protection, memory_protection::read))
         );
       }
       continue;
@@ -86,8 +85,7 @@ result<std::vector<scan_result>> scanner::scan(const pattern& signature, const s
     if (pedantic_enabled) {
       log.ped(
           "scanning region", redlog::field("base", utils::format_address(region.base_address)),
-          redlog::field("size", region.size),
-          redlog::field("name", region.name.empty() ? "[anonymous]" : region.name)
+          redlog::field("size", region.size), redlog::field("name", region.name.empty() ? "[anonymous]" : region.name)
       );
     }
 

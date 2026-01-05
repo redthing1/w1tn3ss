@@ -75,8 +75,8 @@ bool set_pc(void* ctx_ptr, uintptr_t pc) {
   ctx->uc_mcontext->__ss.__pc = static_cast<uint64_t>(pc);
   return true;
 #else
-  (void)ctx;
-  (void)pc;
+  (void) ctx;
+  (void) pc;
   return false;
 #endif
 #elif defined(__linux__)
@@ -87,28 +87,24 @@ bool set_pc(void* ctx_ptr, uintptr_t pc) {
   ctx->uc_mcontext.pc = static_cast<unsigned long long>(pc);
   return true;
 #else
-  (void)ctx;
-  (void)pc;
+  (void) ctx;
+  (void) pc;
   return false;
 #endif
 #else
-  (void)ctx;
-  (void)pc;
+  (void) ctx;
+  (void) pc;
   return false;
 #endif
 }
 #else
-uintptr_t extract_pc(void*) {
-  return 0;
-}
+uintptr_t extract_pc(void*) { return 0; }
 
-bool set_pc(void*, uintptr_t) {
-  return false;
-}
+bool set_pc(void*, uintptr_t) { return false; }
 #endif
 
 void fault_handler(int sig, siginfo_t*, void* ctx) {
-  (void)sig;
+  (void) sig;
   g_observed_pc = extract_pc(ctx);
   g_faulted = true;
   uintptr_t resume = static_cast<uintptr_t>(g_expected_next_pc);

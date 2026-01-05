@@ -49,9 +49,7 @@ std::vector<memory_region> memory_dumper::dump_memory_regions(
     regions.push_back(std::move(region));
   }
 
-  log_.inf(
-      "dumped memory regions", redlog::field("included", regions.size()), redlog::field("total", maps.size())
-  );
+  log_.inf("dumped memory regions", redlog::field("included", regions.size()), redlog::field("total", maps.size()));
 
   return regions;
 }

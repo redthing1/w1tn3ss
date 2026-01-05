@@ -210,8 +210,7 @@ drcov::coverage_data coverage_collector::build_drcov_data() const {
       if (bb.address < module.base_address || bb.address >= module.base_address + module.size) {
         log.wrn(
             "coverage unit address outside module bounds", redlog::field("module_id", bb.module_id),
-            redlog::field("address", format_hex(bb.address)),
-            redlog::field("base", format_hex(module.base_address)),
+            redlog::field("address", format_hex(bb.address)), redlog::field("base", format_hex(module.base_address)),
             redlog::field("end", format_hex(module.base_address + module.size))
         );
         invalid_units++;

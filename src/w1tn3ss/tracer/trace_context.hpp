@@ -14,9 +14,7 @@ class memory_reader;
 
 class trace_context {
 public:
-  trace_context(
-      uint64_t thread_id, QBDI::VM* vm, runtime::module_registry* modules, const util::memory_reader* memory
-  )
+  trace_context(uint64_t thread_id, QBDI::VM* vm, runtime::module_registry* modules, const util::memory_reader* memory)
       : thread_id_(thread_id), vm_(vm), modules_(modules), memory_(memory) {}
 
   uint64_t thread_id() const { return thread_id_; }

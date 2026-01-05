@@ -20,10 +20,13 @@ public:
   const char* name() const { return "w1xfer"; }
   static constexpr w1::event_mask requested_events() {
     return w1::event_mask_or(
-        w1::event_mask_or(w1::event_mask_of(w1::event_kind::exec_transfer_call),
-                          w1::event_mask_of(w1::event_kind::exec_transfer_return)),
-        w1::event_mask_or(w1::event_mask_of(w1::event_kind::thread_start),
-                          w1::event_mask_of(w1::event_kind::thread_stop))
+        w1::event_mask_or(
+            w1::event_mask_of(w1::event_kind::exec_transfer_call),
+            w1::event_mask_of(w1::event_kind::exec_transfer_return)
+        ),
+        w1::event_mask_or(
+            w1::event_mask_of(w1::event_kind::thread_start), w1::event_mask_of(w1::event_kind::thread_stop)
+        )
     );
   }
 
@@ -31,12 +34,12 @@ public:
   void on_thread_stop(w1::trace_context& ctx, const w1::thread_event& event);
 
   void on_exec_transfer_call(
-      w1::trace_context& ctx, const w1::exec_transfer_event& event, QBDI::VMInstanceRef vm,
-      const QBDI::VMState* state, QBDI::GPRState* gpr, QBDI::FPRState* fpr
+      w1::trace_context& ctx, const w1::exec_transfer_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state,
+      QBDI::GPRState* gpr, QBDI::FPRState* fpr
   );
   void on_exec_transfer_return(
-      w1::trace_context& ctx, const w1::exec_transfer_event& event, QBDI::VMInstanceRef vm,
-      const QBDI::VMState* state, QBDI::GPRState* gpr, QBDI::FPRState* fpr
+      w1::trace_context& ctx, const w1::exec_transfer_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state,
+      QBDI::GPRState* gpr, QBDI::FPRState* fpr
   );
 
   const transfer_stats& get_stats() const { return pipeline_.stats(); }

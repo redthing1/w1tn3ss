@@ -48,8 +48,7 @@ enum_type env_config::get_enum(
     }
   }
 
-  std::cerr << "warning: unknown value '" << value << "' for " << build_env_name(name)
-            << ", using default\n";
+  std::cerr << "warning: unknown value '" << value << "' for " << build_env_name(name) << ", using default\n";
   return default_value;
 }
 

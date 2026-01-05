@@ -27,8 +27,7 @@ void setup_output_bindings(sol::state& lua, sol::table& w1_module, runtime::scri
   sol::table output = lua.create_table();
 
   output.set_function(
-      "open",
-      [&lua, &context](const std::string& filename, sol::optional<sol::table> metadata) -> bool {
+      "open", [&lua, &context](const std::string& filename, sol::optional<sol::table> metadata) -> bool {
         sol::table meta_table = metadata ? metadata.value() : lua.create_table();
         meta_table["type"] = "metadata";
         if (!meta_table["version"].valid()) {
@@ -46,19 +45,16 @@ void setup_output_bindings(sol::state& lua, sol::table& w1_module, runtime::scri
       }
   );
 
-  output.set_function(
-      "write",
-      [&context](sol::object event_obj) -> bool {
-        if (event_obj.is<sol::table>()) {
-          std::string json = lua_table_to_json(event_obj.as<sol::table>());
-          return context.output().write_event(json);
-        }
-        if (event_obj.is<std::string>()) {
-          return context.output().write_event(event_obj.as<std::string>());
-        }
-        return false;
-      }
-  );
+  output.set_function("write", [&context](sol::object event_obj) -> bool {
+    if (event_obj.is<sol::table>()) {
+      std::string json = lua_table_to_json(event_obj.as<sol::table>());
+      return context.output().write_event(json);
+    }
+    if (event_obj.is<std::string>()) {
+      return context.output().write_event(event_obj.as<std::string>());
+    }
+    return false;
+  });
 
   output.set_function("close", [&context]() { context.output().close(); });
   output.set_function("is_open", [&context]() { return context.output().is_open(); });

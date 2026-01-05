@@ -32,8 +32,8 @@ public:
   void on_thread_stop(w1::trace_context& ctx, const w1::thread_event& event);
 
   QBDI::VMAction on_basic_block_entry(
-      w1::trace_context& ctx, const w1::basic_block_event& event, QBDI::VMInstanceRef vm,
-      const QBDI::VMState* state, QBDI::GPRState* gpr, QBDI::FPRState* fpr
+      w1::trace_context& ctx, const w1::basic_block_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state,
+      QBDI::GPRState* gpr, QBDI::FPRState* fpr
   );
 
 private:

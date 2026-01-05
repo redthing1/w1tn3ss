@@ -12,9 +12,7 @@ void threadtest_tracer::on_thread_start(w1::trace_context& ctx, const w1::thread
   (void) ctx;
   thread_name_ = event.name ? event.name : "";
   if (config_.verbose >= 1) {
-    log_.inf(
-        "thread started", redlog::field("thread_id", event.thread_id), redlog::field("name", thread_name_)
-    );
+    log_.inf("thread started", redlog::field("thread_id", event.thread_id), redlog::field("name", thread_name_));
   }
 }
 

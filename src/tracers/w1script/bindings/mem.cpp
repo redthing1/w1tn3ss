@@ -53,8 +53,7 @@ void setup_mem_bindings(sol::state& lua, sol::table& w1_module, runtime::script_
   });
 
   mem.set_function(
-      "read_bytes",
-      [&lua, &context](QBDI::VM*, uint64_t address, size_t size) -> sol::optional<sol::table> {
+      "read_bytes", [&lua, &context](QBDI::VM*, uint64_t address, size_t size) -> sol::optional<sol::table> {
         auto bytes = context.memory().read_bytes(address, size);
         if (!bytes) {
           return sol::nullopt;
@@ -70,24 +69,21 @@ void setup_mem_bindings(sol::state& lua, sol::table& w1_module, runtime::script_
       }
   );
 
-  mem.set_function(
-      "read_hex",
-      [&context](QBDI::VM*, uint64_t address, size_t size) -> sol::optional<std::string> {
-        auto bytes = context.memory().read_bytes(address, size);
-        if (!bytes) {
-          return sol::nullopt;
-        }
+  mem.set_function("read_hex", [&context](QBDI::VM*, uint64_t address, size_t size) -> sol::optional<std::string> {
+    auto bytes = context.memory().read_bytes(address, size);
+    if (!bytes) {
+      return sol::nullopt;
+    }
 
-        std::string hex;
-        hex.reserve(bytes->size() * 2);
-        const char* hex_chars = "0123456789abcdef";
-        for (uint8_t byte : *bytes) {
-          hex += hex_chars[byte >> 4];
-          hex += hex_chars[byte & 0xF];
-        }
-        return hex;
-      }
-  );
+    std::string hex;
+    hex.reserve(bytes->size() * 2);
+    const char* hex_chars = "0123456789abcdef";
+    for (uint8_t byte : *bytes) {
+      hex += hex_chars[byte >> 4];
+      hex += hex_chars[byte & 0xF];
+    }
+    return hex;
+  });
 
   mem.set_function(
       "read_string",

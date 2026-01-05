@@ -19,39 +19,39 @@ std::string escape(std::string_view value) {
   out.reserve(value.size());
   for (char ch : value) {
     switch (ch) {
-      case '"':
-        out += "\\\"";
-        break;
-      case '\\':
-        out += "\\\\";
-        break;
-      case '\b':
-        out += "\\b";
-        break;
-      case '\f':
-        out += "\\f";
-        break;
-      case '\n':
-        out += "\\n";
-        break;
-      case '\r':
-        out += "\\r";
-        break;
-      case '\t':
-        out += "\\t";
-        break;
-      default: {
-        unsigned char uch = static_cast<unsigned char>(ch);
-        if (uch < 0x20) {
-          constexpr char hex[] = "0123456789abcdef";
-          out += "\\u00";
-          out += hex[(uch >> 4) & 0xF];
-          out += hex[uch & 0xF];
-        } else {
-          out += ch;
-        }
-        break;
+    case '"':
+      out += "\\\"";
+      break;
+    case '\\':
+      out += "\\\\";
+      break;
+    case '\b':
+      out += "\\b";
+      break;
+    case '\f':
+      out += "\\f";
+      break;
+    case '\n':
+      out += "\\n";
+      break;
+    case '\r':
+      out += "\\r";
+      break;
+    case '\t':
+      out += "\\t";
+      break;
+    default: {
+      unsigned char uch = static_cast<unsigned char>(ch);
+      if (uch < 0x20) {
+        constexpr char hex[] = "0123456789abcdef";
+        out += "\\u00";
+        out += hex[(uch >> 4) & 0xF];
+        out += hex[uch & 0xF];
+      } else {
+        out += ch;
       }
+      break;
+    }
     }
   }
   return out;
@@ -142,15 +142,16 @@ void transfer_writer_jsonl::write_event(const transfer_record& record) {
       bool sym_first = true;
       append_field(sym_json, sym_first, "\"name\":\"" + escape(record.source->symbol->symbol_name) + "\"");
       if (!record.source->symbol->demangled_name.empty()) {
-        append_field(
-            sym_json, sym_first,
-            "\"demangled\":\"" + escape(record.source->symbol->demangled_name) + "\""
-        );
+        append_field(sym_json, sym_first, "\"demangled\":\"" + escape(record.source->symbol->demangled_name) + "\"");
       }
       append_field(sym_json, sym_first, "\"symbol_offset\":" + std::to_string(record.source->symbol->symbol_offset));
       append_field(sym_json, sym_first, "\"module_offset\":" + std::to_string(record.source->symbol->module_offset));
-      append_field(sym_json, sym_first, "\"is_exported\":" + std::string(record.source->symbol->is_exported ? "true" : "false"));
-      append_field(sym_json, sym_first, "\"is_imported\":" + std::string(record.source->symbol->is_imported ? "true" : "false"));
+      append_field(
+          sym_json, sym_first, "\"is_exported\":" + std::string(record.source->symbol->is_exported ? "true" : "false")
+      );
+      append_field(
+          sym_json, sym_first, "\"is_imported\":" + std::string(record.source->symbol->is_imported ? "true" : "false")
+      );
       sym_json << "}";
       append_field(src_json, src_first, "\"symbol\":" + sym_json.str());
     }
@@ -172,15 +173,16 @@ void transfer_writer_jsonl::write_event(const transfer_record& record) {
       bool sym_first = true;
       append_field(sym_json, sym_first, "\"name\":\"" + escape(record.target->symbol->symbol_name) + "\"");
       if (!record.target->symbol->demangled_name.empty()) {
-        append_field(
-            sym_json, sym_first,
-            "\"demangled\":\"" + escape(record.target->symbol->demangled_name) + "\""
-        );
+        append_field(sym_json, sym_first, "\"demangled\":\"" + escape(record.target->symbol->demangled_name) + "\"");
       }
       append_field(sym_json, sym_first, "\"symbol_offset\":" + std::to_string(record.target->symbol->symbol_offset));
       append_field(sym_json, sym_first, "\"module_offset\":" + std::to_string(record.target->symbol->module_offset));
-      append_field(sym_json, sym_first, "\"is_exported\":" + std::string(record.target->symbol->is_exported ? "true" : "false"));
-      append_field(sym_json, sym_first, "\"is_imported\":" + std::string(record.target->symbol->is_imported ? "true" : "false"));
+      append_field(
+          sym_json, sym_first, "\"is_exported\":" + std::string(record.target->symbol->is_exported ? "true" : "false")
+      );
+      append_field(
+          sym_json, sym_first, "\"is_imported\":" + std::string(record.target->symbol->is_imported ? "true" : "false")
+      );
       sym_json << "}";
       append_field(tgt_json, tgt_first, "\"symbol\":" + sym_json.str());
     }
@@ -258,8 +260,8 @@ void transfer_writer_jsonl::write_event(const transfer_record& record) {
         const auto& arg = record.api->arguments[i];
         args_json << "{\"name\":\"" << escape(arg.name) << "\""
                   << ",\"type\":\"" << escape(arg.type) << "\""
-                  << ",\"raw_value\":" << arg.raw_value
-                  << ",\"interpreted_value\":\"" << escape(arg.interpreted_value) << "\""
+                  << ",\"raw_value\":" << arg.raw_value << ",\"interpreted_value\":\"" << escape(arg.interpreted_value)
+                  << "\""
                   << ",\"is_pointer\":" << (arg.is_pointer ? "true" : "false") << "}";
       }
       args_json << "]";
@@ -270,8 +272,8 @@ void transfer_writer_jsonl::write_event(const transfer_record& record) {
       const auto& ret = record.api->return_value.value();
       std::stringstream ret_json;
       ret_json << "{\"type\":\"" << escape(ret.type) << "\""
-               << ",\"raw_value\":" << ret.raw_value
-               << ",\"interpreted_value\":\"" << escape(ret.interpreted_value) << "\""
+               << ",\"raw_value\":" << ret.raw_value << ",\"interpreted_value\":\"" << escape(ret.interpreted_value)
+               << "\""
                << ",\"is_pointer\":" << (ret.is_pointer ? "true" : "false")
                << ",\"is_null\":" << (ret.is_null ? "true" : "false") << "}";
       append_field(api_json, api_first, "\"return_value\":" + ret_json.str());

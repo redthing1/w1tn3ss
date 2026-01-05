@@ -33,13 +33,7 @@ static void test_capabilities(void) {
 static void test_pattern_validation(void) {
   printf("=== pattern validation tests ===\n");
 
-  const char* valid_patterns[] = {
-      "48 89 e5",
-      "ff d0 ?? 74",
-      "90 90 90 90",
-      "48 ?? ?? ?? 74 ??",
-      "c3"
-  };
+  const char* valid_patterns[] = {"48 89 e5", "ff d0 ?? 74", "90 90 90 90", "48 ?? ?? ?? 74 ??", "c3"};
 
   for (size_t i = 0; i < sizeof(valid_patterns) / sizeof(valid_patterns[0]); ++i) {
     int valid = p1ll_validate_pattern(valid_patterns[i]);
@@ -47,12 +41,7 @@ static void test_pattern_validation(void) {
     printf("[ok] validated pattern: '%s'\n", valid_patterns[i]);
   }
 
-  const char* invalid_patterns[] = {
-      "zz 90",
-      "4",
-      "",
-      "90 gg 74"
-  };
+  const char* invalid_patterns[] = {"zz 90", "4", "", "90 gg 74"};
 
   for (size_t i = 0; i < sizeof(invalid_patterns) / sizeof(invalid_patterns[0]); ++i) {
     int valid = p1ll_validate_pattern(invalid_patterns[i]);

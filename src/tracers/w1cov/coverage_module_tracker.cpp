@@ -23,8 +23,7 @@ void coverage_module_tracker::initialize(const w1::runtime::module_registry& mod
   }
 
   log_.inf(
-      "coverage module tracker initialized", redlog::field("modules", list.size()),
-      redlog::field("traced", traced)
+      "coverage module tracker initialized", redlog::field("modules", list.size()), redlog::field("traced", traced)
   );
 }
 

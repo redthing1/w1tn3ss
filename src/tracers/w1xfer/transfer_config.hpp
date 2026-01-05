@@ -50,8 +50,7 @@ struct transfer_config {
             {"include_all", system_policy::include_all},
             {"include", system_policy::include_all},
         },
-        "SYSTEM_POLICY",
-        policy
+        "SYSTEM_POLICY", policy
     );
     config.instrumentation.system_policy = policy;
     config.instrumentation.include_unnamed_modules = loader.get<bool>("INCLUDE_UNNAMED", false);

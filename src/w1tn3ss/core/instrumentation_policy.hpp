@@ -7,11 +7,7 @@
 
 namespace w1::core {
 
-enum class system_module_policy {
-  exclude_all,
-  include_critical,
-  include_all
-};
+enum class system_module_policy { exclude_all, include_critical, include_all };
 
 struct instrumentation_policy {
   system_module_policy system_policy = system_module_policy::exclude_all;

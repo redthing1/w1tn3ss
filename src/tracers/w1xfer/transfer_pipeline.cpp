@@ -8,10 +8,9 @@ namespace w1xfer {
 namespace {
 
 uint64_t current_timestamp() {
-  return static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(
-                                   std::chrono::steady_clock::now().time_since_epoch()
-                               )
-                                   .count());
+  return static_cast<uint64_t>(
+      std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count()
+  );
 }
 
 uint64_t read_link_register(const QBDI::GPRState* gpr) {
@@ -301,16 +300,16 @@ size_t transfer_pipeline::default_argument_count() const {
   }
 
   switch (abi_dispatcher_->kind()) {
-    case w1::analysis::abi_kind::system_v_amd64:
-      return 6;
-    case w1::analysis::abi_kind::windows_amd64:
-      return 4;
-    case w1::analysis::abi_kind::aarch64:
-      return 8;
-    case w1::analysis::abi_kind::x86:
-      return 4;
-    default:
-      return 0;
+  case w1::analysis::abi_kind::system_v_amd64:
+    return 6;
+  case w1::analysis::abi_kind::windows_amd64:
+    return 4;
+  case w1::analysis::abi_kind::aarch64:
+    return 8;
+  case w1::analysis::abi_kind::x86:
+    return 4;
+  default:
+    return 0;
   }
 }
 

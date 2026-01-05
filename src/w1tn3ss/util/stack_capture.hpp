@@ -35,17 +35,11 @@ public:
     bool capture_args;
 
     constexpr capture_options(
-        size_t num_values_value = 8,
-        int64_t start_offset_value = -8,
-        size_t value_spacing_value = 8,
-        bool analyze_frame_value = true,
-        bool capture_args_value = true
+        size_t num_values_value = 8, int64_t start_offset_value = -8, size_t value_spacing_value = 8,
+        bool analyze_frame_value = true, bool capture_args_value = true
     )
-        : num_values(num_values_value),
-          start_offset(start_offset_value),
-          value_spacing(value_spacing_value),
-          analyze_frame(analyze_frame_value),
-          capture_args(capture_args_value) {}
+        : num_values(num_values_value), start_offset(start_offset_value), value_spacing(value_spacing_value),
+          analyze_frame(analyze_frame_value), capture_args(capture_args_value) {}
   };
 
   using memory_reader_fn = std::function<bool(uint64_t addr, void* buffer, size_t size)>;

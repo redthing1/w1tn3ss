@@ -9,11 +9,11 @@
 
 namespace {
 
-using p1ll::engine::apply_plan;
 using p1ll::engine::apply_options;
+using p1ll::engine::apply_plan;
+using p1ll::engine::buffer_address_space;
 using p1ll::engine::error_code;
 using p1ll::engine::plan_entry;
-using p1ll::engine::buffer_address_space;
 using p1ll::test_helpers::make_buffer;
 using p1ll::test_helpers::write_bytes;
 

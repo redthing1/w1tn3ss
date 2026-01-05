@@ -19,9 +19,7 @@ session session::for_buffer(std::span<uint8_t> buffer, platform::platform_key pl
   return session(std::make_unique<buffer_address_space>(buffer), std::move(platform_override), false);
 }
 
-result<std::vector<memory_region>> session::regions(const scan_filter& filter) const {
-  return space_->regions(filter);
-}
+result<std::vector<memory_region>> session::regions(const scan_filter& filter) const { return space_->regions(filter); }
 
 result<std::vector<scan_result>> session::scan(std::string_view pattern, const scan_options& options) const {
   auto parsed = parse_signature(pattern);

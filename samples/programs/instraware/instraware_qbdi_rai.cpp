@@ -200,7 +200,7 @@ int main(int argc, char** argv) {
     have_label = false;
 #endif
     fn(&observed);
-after_call:
+  after_call:
     observed = strip_pac(observed);
     expected = strip_pac(expected);
     if (have_label && observed != expected) {

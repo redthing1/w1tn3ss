@@ -99,7 +99,9 @@ status process_address_space::write(uint64_t address, std::span<const uint8_t> d
   return platform::write(address, data);
 }
 
-result<memory_region> process_address_space::region_info(uint64_t address) const { return platform::region_info(address); }
+result<memory_region> process_address_space::region_info(uint64_t address) const {
+  return platform::region_info(address);
+}
 
 status process_address_space::set_protection(uint64_t address, size_t size, memory_protection protection) const {
   return platform::set_protection(address, size, protection);

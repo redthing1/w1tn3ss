@@ -61,9 +61,7 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
     memory_region, start, end, permissions, module_name, is_stack, is_code, is_data, is_anonymous, data
 )
 
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
-    module_info, path, name, base_address, size, type, is_system, permissions
-)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(module_info, path, name, base_address, size, type, is_system, permissions)
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(process_dump, metadata, thread, regions, modules)
 

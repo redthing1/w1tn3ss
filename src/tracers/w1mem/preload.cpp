@@ -56,9 +56,7 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
     session_config.vm_options = QBDI::Options::OPT_DISABLE_MEMORYACCESS_VALUE;
   }
 
-  g_session = std::make_unique<w1::trace_session<w1mem::memory_tracer>>(
-      session_config, vm, std::in_place, g_config
-  );
+  g_session = std::make_unique<w1::trace_session<w1mem::memory_tracer>>(session_config, vm, std::in_place, g_config);
 
   log.inf(
       "starting memory session", redlog::field("start", "0x%llx", static_cast<unsigned long long>(start)),

@@ -13,12 +13,7 @@
 
 namespace w1::gadget {
 
-enum class instrumentation_scope {
-  inherit,
-  range,
-  module,
-  all_executable
-};
+enum class instrumentation_scope { inherit, range, module, all_executable };
 
 struct gadget_result {
   bool success = false;
@@ -58,12 +53,8 @@ public:
     instrumentation_scope run_scope;
 
     constexpr config()
-        : debug(false),
-          stack_size(default_stack_size),
-          call_range_size(default_range_size),
-          run_range_size(default_range_size),
-          max_instructions(0),
-          call_scope(instrumentation_scope::module),
+        : debug(false), stack_size(default_stack_size), call_range_size(default_range_size),
+          run_range_size(default_range_size), max_instructions(0), call_scope(instrumentation_scope::module),
           run_scope(instrumentation_scope::range) {}
   };
 

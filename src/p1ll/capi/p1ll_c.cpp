@@ -100,9 +100,8 @@ p1ll_session_t p1ll_session_create_buffer(uint8_t* buffer, size_t size) {
   }
   try {
     clear_error();
-    auto session = std::make_unique<p1ll::engine::session>(
-        p1ll::engine::session::for_buffer(std::span<uint8_t>(buffer, size))
-    );
+    auto session =
+        std::make_unique<p1ll::engine::session>(p1ll::engine::session::for_buffer(std::span<uint8_t>(buffer, size)));
     return new p1ll_session{std::move(session)};
   } catch (const std::exception& e) {
     set_error("failed to create buffer session: " + std::string(e.what()));
@@ -174,7 +173,9 @@ int p1ll_scan(
 
     for (size_t i = 0; i < *out_count; ++i) {
       (*out_results)[i].address = result.value[i].address;
-      strncpy((*out_results)[i].region_name, result.value[i].region_name.c_str(), sizeof((*out_results)[i].region_name) - 1);
+      strncpy(
+          (*out_results)[i].region_name, result.value[i].region_name.c_str(), sizeof((*out_results)[i].region_name) - 1
+      );
       (*out_results)[i].region_name[sizeof((*out_results)[i].region_name) - 1] = '\0';
     }
 
@@ -265,7 +266,9 @@ void p1ll_free_plan_entries(p1ll_plan_entry_t* entries, size_t count) {
   free(entries);
 }
 
-int p1ll_apply(p1ll_session_t session, const p1ll_plan_entry_t* entries, size_t count, p1ll_apply_report_t* out_report) {
+int p1ll_apply(
+    p1ll_session_t session, const p1ll_plan_entry_t* entries, size_t count, p1ll_apply_report_t* out_report
+) {
   if (!session || !entries || !out_report) {
     set_error("invalid parameters");
     return P1LL_ERROR;

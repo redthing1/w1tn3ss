@@ -292,8 +292,7 @@ gadget_result gadget_executor::gadget_run(QBDI::rword start_addr, QBDI::rword st
 
   auto log = redlog::get_logger("w1.gadget.executor");
   log.dbg(
-      "executing raw gadget", redlog::field("start", "0x%llx", start_addr),
-      redlog::field("stop", "0x%llx", stop_addr)
+      "executing raw gadget", redlog::field("start", "0x%llx", start_addr), redlog::field("stop", "0x%llx", stop_addr)
   );
 
   bool run_success = sub_vm->run(start_addr, stop_addr);

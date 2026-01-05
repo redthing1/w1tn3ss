@@ -10,11 +10,11 @@
 
 namespace {
 
+using p1ll::engine::buffer_address_space;
 using p1ll::engine::error_code;
 using p1ll::engine::parse_signature;
-using p1ll::engine::scanner;
 using p1ll::engine::scan_options;
-using p1ll::engine::buffer_address_space;
+using p1ll::engine::scanner;
 using p1ll::test_helpers::make_buffer;
 using p1ll::test_helpers::write_bytes;
 

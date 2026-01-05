@@ -15,9 +15,7 @@ constexpr size_t word_size_bytes = sizeof(uint64_t);
 
 } // namespace
 
-abi_dispatcher::abi_dispatcher() {
-  config_.kind = detect_native_kind();
-}
+abi_dispatcher::abi_dispatcher() { config_.kind = detect_native_kind(); }
 
 abi_dispatcher::abi_dispatcher(abi_dispatcher_config config) : config_(config) {
   if (config_.kind == abi_kind::unknown) {
@@ -40,72 +38,71 @@ std::vector<call_argument> abi_dispatcher::extract_arguments(
 
     switch (config_.kind) {
 #if defined(QBDI_ARCH_X86_64)
-      case abi_kind::system_v_amd64: {
-        constexpr size_t reg_count = 6;
-        if (index < reg_count) {
-          const uint64_t values[] = {gpr->rdi, gpr->rsi, gpr->rdx, gpr->rcx, gpr->r8, gpr->r9};
-          arg.raw_value = values[index];
-          arg.from_register = true;
+    case abi_kind::system_v_amd64: {
+      constexpr size_t reg_count = 6;
+      if (index < reg_count) {
+        const uint64_t values[] = {gpr->rdi, gpr->rsi, gpr->rdx, gpr->rcx, gpr->r8, gpr->r9};
+        arg.raw_value = values[index];
+        arg.from_register = true;
+        arg.is_valid = true;
+      } else if (config_.enable_stack_reads) {
+        uint64_t stack_address = gpr->rsp + word_size_bytes + (index - reg_count) * word_size_bytes;
+        if (auto value = read_stack_value(memory, stack_address, word_size_bytes)) {
+          arg.raw_value = *value;
           arg.is_valid = true;
-        } else if (config_.enable_stack_reads) {
-          uint64_t stack_address = gpr->rsp + word_size_bytes +
-                                   (index - reg_count) * word_size_bytes;
-          if (auto value = read_stack_value(memory, stack_address, word_size_bytes)) {
-            arg.raw_value = *value;
-            arg.is_valid = true;
-          }
         }
-        break;
       }
-      case abi_kind::windows_amd64: {
-        constexpr size_t reg_count = 4;
-        if (index < reg_count) {
-          const uint64_t values[] = {gpr->rcx, gpr->rdx, gpr->r8, gpr->r9};
-          arg.raw_value = values[index];
-          arg.from_register = true;
+      break;
+    }
+    case abi_kind::windows_amd64: {
+      constexpr size_t reg_count = 4;
+      if (index < reg_count) {
+        const uint64_t values[] = {gpr->rcx, gpr->rdx, gpr->r8, gpr->r9};
+        arg.raw_value = values[index];
+        arg.from_register = true;
+        arg.is_valid = true;
+      } else if (config_.enable_stack_reads) {
+        uint64_t stack_address = gpr->rsp + 0x28 + (index - reg_count) * word_size_bytes;
+        if (auto value = read_stack_value(memory, stack_address, word_size_bytes)) {
+          arg.raw_value = *value;
           arg.is_valid = true;
-        } else if (config_.enable_stack_reads) {
-          uint64_t stack_address = gpr->rsp + 0x28 + (index - reg_count) * word_size_bytes;
-          if (auto value = read_stack_value(memory, stack_address, word_size_bytes)) {
-            arg.raw_value = *value;
-            arg.is_valid = true;
-          }
         }
-        break;
       }
+      break;
+    }
 #endif
 #if defined(QBDI_ARCH_AARCH64)
-      case abi_kind::aarch64: {
-        constexpr size_t reg_count = 8;
-        if (index < reg_count) {
-          const uint64_t values[] = {gpr->x0, gpr->x1, gpr->x2, gpr->x3, gpr->x4, gpr->x5, gpr->x6, gpr->x7};
-          arg.raw_value = values[index];
-          arg.from_register = true;
+    case abi_kind::aarch64: {
+      constexpr size_t reg_count = 8;
+      if (index < reg_count) {
+        const uint64_t values[] = {gpr->x0, gpr->x1, gpr->x2, gpr->x3, gpr->x4, gpr->x5, gpr->x6, gpr->x7};
+        arg.raw_value = values[index];
+        arg.from_register = true;
+        arg.is_valid = true;
+      } else if (config_.enable_stack_reads) {
+        uint64_t stack_address = gpr->sp + (index - reg_count) * word_size_bytes;
+        if (auto value = read_stack_value(memory, stack_address, word_size_bytes)) {
+          arg.raw_value = *value;
           arg.is_valid = true;
-        } else if (config_.enable_stack_reads) {
-          uint64_t stack_address = gpr->sp + (index - reg_count) * word_size_bytes;
-          if (auto value = read_stack_value(memory, stack_address, word_size_bytes)) {
-            arg.raw_value = *value;
-            arg.is_valid = true;
-          }
         }
-        break;
       }
+      break;
+    }
 #endif
 #if defined(QBDI_ARCH_X86)
-      case abi_kind::x86: {
-        if (config_.enable_stack_reads) {
-          uint64_t stack_address = gpr->esp + word_size_bytes + index * word_size_bytes;
-          if (auto value = read_stack_value(memory, stack_address, word_size_bytes)) {
-            arg.raw_value = *value;
-            arg.is_valid = true;
-          }
+    case abi_kind::x86: {
+      if (config_.enable_stack_reads) {
+        uint64_t stack_address = gpr->esp + word_size_bytes + index * word_size_bytes;
+        if (auto value = read_stack_value(memory, stack_address, word_size_bytes)) {
+          arg.raw_value = *value;
+          arg.is_valid = true;
         }
-        break;
       }
+      break;
+    }
 #endif
-      default:
-        break;
+    default:
+      break;
     }
 
     args.push_back(arg);
@@ -121,20 +118,20 @@ uint64_t abi_dispatcher::extract_return_value(const QBDI::GPRState* gpr) const {
 
   switch (config_.kind) {
 #if defined(QBDI_ARCH_X86_64)
-    case abi_kind::system_v_amd64:
-    case abi_kind::windows_amd64:
-      return gpr->rax;
+  case abi_kind::system_v_amd64:
+  case abi_kind::windows_amd64:
+    return gpr->rax;
 #endif
 #if defined(QBDI_ARCH_AARCH64)
-    case abi_kind::aarch64:
-      return gpr->x0;
+  case abi_kind::aarch64:
+    return gpr->x0;
 #endif
 #if defined(QBDI_ARCH_X86)
-    case abi_kind::x86:
-      return gpr->eax;
+  case abi_kind::x86:
+    return gpr->eax;
 #endif
-    default:
-      return 0;
+  default:
+    return 0;
   }
 }
 

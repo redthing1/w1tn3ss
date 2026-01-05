@@ -24,8 +24,9 @@ public:
   static constexpr w1::event_mask requested_events() {
     return w1::event_mask_or(
         w1::event_mask_of(w1::event_kind::instruction_pre),
-        w1::event_mask_or(w1::event_mask_of(w1::event_kind::thread_start),
-                          w1::event_mask_of(w1::event_kind::thread_stop))
+        w1::event_mask_or(
+            w1::event_mask_of(w1::event_kind::thread_start), w1::event_mask_of(w1::event_kind::thread_stop)
+        )
     );
   }
 
