@@ -1,6 +1,8 @@
 #include "plan_builder.hpp"
 #include "engine/pattern.hpp"
 #include "engine/scanner.hpp"
+#include "utils/hex_utils.hpp"
+#include <redlog.hpp>
 #include <algorithm>
 #include <sstream>
 #include <unordered_map>
@@ -29,27 +31,47 @@ plan_builder::plan_builder(const address_space& space, platform::platform_key pl
     : space_(space), platform_(std::move(platform_key)) {}
 
 result<bool> plan_builder::platform_allowed(const std::vector<std::string>& selectors) const {
+  auto log = redlog::get_logger("p1ll.plan_builder");
   if (selectors.empty()) {
+    if (static_cast<int>(redlog::get_level()) >= static_cast<int>(redlog::level::trace)) {
+      log.trc("no platform selectors provided", redlog::field("platform", platform_.to_string()));
+    }
     return ok_result(true);
   }
   for (const auto& selector : selectors) {
     auto parsed = platform::parse_platform(selector);
     if (!parsed.ok()) {
+      log.err("invalid platform selector", redlog::field("selector", selector));
       return error_result<bool>(parsed.status.code, parsed.status.message);
     }
     if (platform::platform_matches(parsed.value, platform_)) {
+      if (static_cast<int>(redlog::get_level()) >= static_cast<int>(redlog::level::trace)) {
+        log.trc(
+            "platform selector matched", redlog::field("selector", selector),
+            redlog::field("platform", platform_.to_string())
+        );
+      }
       return ok_result(true);
     }
+  }
+  if (static_cast<int>(redlog::get_level()) >= static_cast<int>(redlog::level::trace)) {
+    log.trc("no platform selectors matched", redlog::field("platform", platform_.to_string()));
   }
   return ok_result(false);
 }
 
 result<std::vector<plan_entry>> plan_builder::build(const recipe& recipe) {
+  auto log = redlog::get_logger("p1ll.plan_builder");
+  log.trc(
+      "building patch plan", redlog::field("recipe", recipe.name),
+      redlog::field("validations", recipe.validations.size()), redlog::field("patches", recipe.patches.size())
+  );
   auto recipe_ok = platform_allowed(recipe.platforms);
   if (!recipe_ok.ok()) {
     return error_result<std::vector<plan_entry>>(recipe_ok.status.code, recipe_ok.status.message);
   }
   if (!recipe_ok.value) {
+    log.inf("recipe not allowed on this platform", redlog::field("platform", platform_.to_string()));
     return error_result<std::vector<plan_entry>>(error_code::platform_mismatch, "recipe not allowed on this platform");
   }
 
@@ -96,19 +118,35 @@ result<std::vector<plan_entry>> plan_builder::build(const recipe& recipe) {
       return error_result<std::vector<plan_entry>>(platform_ok.status.code, platform_ok.status.message);
     }
     if (!platform_ok.value) {
+      log.trc("skipping validation for platform mismatch", redlog::field("pattern", sig_spec.pattern));
       continue;
     }
 
     auto scan_results = scan_signature(sig_spec.pattern, sig_spec.options);
     if (!scan_results.ok()) {
       if (sig_spec.required) {
+        log.err(
+            "validation scan failed", redlog::field("pattern", sig_spec.pattern),
+            redlog::field("error", scan_results.status.message)
+        );
         return error_result<std::vector<plan_entry>>(scan_results.status.code, "validation failed: " + sig_spec.pattern);
       }
+      log.wrn(
+          "optional validation scan failed", redlog::field("pattern", sig_spec.pattern),
+          redlog::field("error", scan_results.status.message)
+      );
       continue;
     }
 
     if (scan_results.value.empty() && sig_spec.required) {
+      log.err("validation signature not found", redlog::field("pattern", sig_spec.pattern));
       return error_result<std::vector<plan_entry>>(error_code::not_found, "validation not found: " + sig_spec.pattern);
+    }
+    if (!scan_results.value.empty()) {
+      log.dbg(
+          "validated signature", redlog::field("pattern", sig_spec.pattern),
+          redlog::field("matches", scan_results.value.size())
+      );
     }
   }
 
@@ -119,6 +157,7 @@ result<std::vector<plan_entry>> plan_builder::build(const recipe& recipe) {
       return error_result<std::vector<plan_entry>>(patch_platform_ok.status.code, patch_platform_ok.status.message);
     }
     if (!patch_platform_ok.value) {
+      log.trc("skipping patch for platform mismatch", redlog::field("pattern", patch_spec.signature.pattern));
       continue;
     }
 
@@ -127,29 +166,46 @@ result<std::vector<plan_entry>> plan_builder::build(const recipe& recipe) {
       return error_result<std::vector<plan_entry>>(sig_platform_ok.status.code, sig_platform_ok.status.message);
     }
     if (!sig_platform_ok.value) {
+      log.trc("skipping signature for platform mismatch", redlog::field("pattern", patch_spec.signature.pattern));
       continue;
     }
 
     auto scan_results = scan_signature(patch_spec.signature.pattern, patch_spec.signature.options);
     if (!scan_results.ok()) {
       if (patch_spec.required) {
+        log.err(
+            "patch signature scan failed", redlog::field("pattern", patch_spec.signature.pattern),
+            redlog::field("error", scan_results.status.message)
+        );
         return error_result<std::vector<plan_entry>>(scan_results.status.code, "patch signature failed: " + patch_spec.signature.pattern);
       }
+      log.wrn(
+          "optional patch signature scan failed", redlog::field("pattern", patch_spec.signature.pattern),
+          redlog::field("error", scan_results.status.message)
+      );
       continue;
     }
 
     if (scan_results.value.empty()) {
       if (patch_spec.required) {
+        log.err("patch signature not found", redlog::field("pattern", patch_spec.signature.pattern));
         return error_result<std::vector<plan_entry>>(error_code::not_found, "patch signature not found: " + patch_spec.signature.pattern);
       }
+      log.wrn("optional patch signature not found", redlog::field("pattern", patch_spec.signature.pattern));
       continue;
     }
+    log.dbg(
+        "patch signature matched", redlog::field("pattern", patch_spec.signature.pattern),
+        redlog::field("matches", scan_results.value.size())
+    );
 
     auto parsed_patch = parse_patch(patch_spec.patch);
     if (!parsed_patch.ok()) {
       if (patch_spec.required) {
+        log.err("patch pattern invalid", redlog::field("pattern", patch_spec.patch));
         return error_result<std::vector<plan_entry>>(parsed_patch.status.code, "patch pattern invalid: " + patch_spec.patch);
       }
+      log.wrn("optional patch pattern invalid", redlog::field("pattern", patch_spec.patch));
       continue;
     }
 
@@ -162,8 +218,10 @@ result<std::vector<plan_entry>> plan_builder::build(const recipe& recipe) {
         uint64_t neg = static_cast<uint64_t>(-patch_spec.offset);
         if (address < neg) {
           if (patch_spec.required) {
+            log.err("patch offset underflow", redlog::field("pattern", patch_spec.signature.pattern));
             return error_result<std::vector<plan_entry>>(error_code::invalid_argument, "patch offset underflow");
           }
+          log.wrn("optional patch offset underflow", redlog::field("pattern", patch_spec.signature.pattern));
           continue;
         }
         address -= neg;
@@ -171,8 +229,10 @@ result<std::vector<plan_entry>> plan_builder::build(const recipe& recipe) {
         uint64_t add = static_cast<uint64_t>(patch_spec.offset);
         if (address > UINT64_MAX - add) {
           if (patch_spec.required) {
+            log.err("patch offset overflow", redlog::field("pattern", patch_spec.signature.pattern));
             return error_result<std::vector<plan_entry>>(error_code::invalid_argument, "patch offset overflow");
           }
+          log.wrn("optional patch offset overflow", redlog::field("pattern", patch_spec.signature.pattern));
           continue;
         }
         address += add;
@@ -188,6 +248,7 @@ result<std::vector<plan_entry>> plan_builder::build(const recipe& recipe) {
   }
 
   if (entries.empty()) {
+    log.err("no patch entries produced");
     return error_result<std::vector<plan_entry>>(error_code::not_found, "no patch entries produced");
   }
 
@@ -203,13 +264,19 @@ result<std::vector<plan_entry>> plan_builder::build(const recipe& recipe) {
     const auto& current = entries[i];
     uint64_t prev_end = prev.address + prev.patch_bytes.size();
     if (prev_end < prev.address) {
+      log.err("patch range overflow");
       return error_result<std::vector<plan_entry>>(error_code::invalid_argument, "patch range overflow");
     }
     if (current.address < prev_end) {
+      log.err(
+          "patches overlap in plan", redlog::field("first", utils::format_address(prev.address)),
+          redlog::field("second", utils::format_address(current.address))
+      );
       return error_result<std::vector<plan_entry>>(error_code::overlap, "patches overlap in plan");
     }
   }
 
+  log.dbg("built patch plan", redlog::field("entries", entries.size()));
   return ok_result(entries);
 }
 

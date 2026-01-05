@@ -1,5 +1,6 @@
 #include "apply.hpp"
 #include "pretty_logging.hpp"
+#include "utils/hex_utils.hpp"
 #include <algorithm>
 #include <redlog.hpp>
 #include <span>
@@ -85,9 +86,22 @@ result<std::vector<uint8_t>> merge_patch_bytes(
 
 result<size_t> apply_entry(address_space& space, const plan_entry& entry, const apply_options& options) {
   auto log = redlog::get_logger("p1ll.apply");
+  int log_level = static_cast<int>(redlog::get_level());
+  bool verbose_enabled = log_level >= static_cast<int>(redlog::level::verbose);
+  bool trace_enabled = log_level >= static_cast<int>(redlog::level::trace);
   size_t patch_size = entry.patch_bytes.size();
   if (patch_size == 0) {
+    if (trace_enabled) {
+      log.trc("skipping empty patch", redlog::field("address", utils::format_address(entry.address)));
+    }
     return ok_result(static_cast<size_t>(0));
+  }
+
+  if (trace_enabled) {
+    log.trc(
+        "applying patch entry", redlog::field("address", utils::format_address(entry.address)),
+        redlog::field("patch_size", patch_size), redlog::field("required", entry.spec.required)
+    );
   }
 
   auto region = space.region_info(entry.address);
@@ -116,9 +130,12 @@ result<size_t> apply_entry(address_space& space, const plan_entry& entry, const 
   std::vector<uint8_t> context_before;
   std::vector<uint8_t> context_after;
   uint64_t context_base = entry.address;
-  bool has_context = build_patch_context(
-      space, entry.address, original_bytes.value, merged.value, context_before, context_after, context_base
-  );
+  bool has_context = false;
+  if (verbose_enabled) {
+    has_context = build_patch_context(
+        space, entry.address, original_bytes.value, merged.value, context_before, context_after, context_base
+    );
+  }
 
   memory_protection original_protection = region.value.protection;
   bool writable = has_protection(original_protection, memory_protection::write);
@@ -139,7 +156,10 @@ result<size_t> apply_entry(address_space& space, const plan_entry& entry, const 
   auto write_status = space.write(entry.address, std::span<const uint8_t>(merged.value));
   if (!write_status.ok()) {
     if (needs_protection_change) {
-      space.set_protection(entry.address, patch_size, original_protection);
+      auto restore = space.set_protection(entry.address, patch_size, original_protection);
+      if (!restore.ok()) {
+        log.wrn("failed to restore original protection", redlog::field("address", utils::format_address(entry.address)));
+      }
     }
     return error_result<size_t>(write_status.code, "failed to write patch bytes");
   }
@@ -151,32 +171,50 @@ result<size_t> apply_entry(address_space& space, const plan_entry& entry, const 
         space.write(entry.address, std::span<const uint8_t>(original_bytes.value));
       }
       if (needs_protection_change) {
-        space.set_protection(entry.address, patch_size, original_protection);
+        auto restore = space.set_protection(entry.address, patch_size, original_protection);
+        if (!restore.ok()) {
+          log.wrn(
+              "failed to restore original protection", redlog::field("address", utils::format_address(entry.address))
+          );
+        }
       }
       return error_result<size_t>(error_code::verification_failed, "patch verification failed");
     }
   }
 
   if (options.flush_icache && executable) {
-    space.flush_instruction_cache(entry.address, patch_size);
+    auto flush = space.flush_instruction_cache(entry.address, patch_size);
+    if (!flush.ok()) {
+      log.wrn("failed to flush instruction cache", redlog::field("address", utils::format_address(entry.address)));
+    }
   }
 
   if (needs_protection_change) {
-    space.set_protection(entry.address, patch_size, original_protection);
+    auto restore = space.set_protection(entry.address, patch_size, original_protection);
+    if (!restore.ok()) {
+      log.wrn("failed to restore original protection", redlog::field("address", utils::format_address(entry.address)));
+    }
   }
 
   size_t bytes_written = count_written_bytes(entry.patch_mask);
-  const std::vector<uint8_t>* hexdump_before = &original_bytes.value;
-  const std::vector<uint8_t>* hexdump_after = &merged.value;
-  uint64_t hexdump_base = entry.address;
-  if (has_context) {
-    hexdump_before = &context_before;
-    hexdump_after = &context_after;
-    hexdump_base = context_base;
+  if (verbose_enabled) {
+    const std::vector<uint8_t>* hexdump_before = &original_bytes.value;
+    const std::vector<uint8_t>* hexdump_after = &merged.value;
+    uint64_t hexdump_base = entry.address;
+    if (has_context) {
+      hexdump_before = &context_before;
+      hexdump_after = &context_after;
+      hexdump_base = context_base;
+    }
+
+    pretty_logging::log_patch_apply(
+        log, entry, bytes_written, region.value, *hexdump_before, *hexdump_after, hexdump_base
+    );
   }
 
-  pretty_logging::log_patch_apply(
-      log, entry, bytes_written, region.value, *hexdump_before, *hexdump_after, hexdump_base
+  log.inf(
+      "patch applied", redlog::field("address", utils::format_address(entry.address)),
+      redlog::field("bytes_written", bytes_written)
   );
 
   return ok_result(bytes_written);
@@ -187,7 +225,17 @@ result<size_t> apply_entry(address_space& space, const plan_entry& entry, const 
 result<apply_report> apply_plan(
     address_space& space, const std::vector<plan_entry>& plan, const apply_options& options
 ) {
+  auto log = redlog::get_logger("p1ll.apply");
   apply_report report;
+
+  log.inf("applying patch plan", redlog::field("entries", plan.size()));
+  if (static_cast<int>(redlog::get_level()) >= static_cast<int>(redlog::level::trace)) {
+    log.trc(
+        "apply options", redlog::field("verify", options.verify),
+        redlog::field("flush_icache", options.flush_icache),
+        redlog::field("rollback_on_failure", options.rollback_on_failure), redlog::field("allow_wx", options.allow_wx)
+    );
+  }
 
   for (const auto& entry : plan) {
     auto applied = apply_entry(space, entry, options);
@@ -195,9 +243,18 @@ result<apply_report> apply_plan(
       report.failed++;
       report.diagnostics.push_back(applied.status);
       if (entry.spec.required) {
+        log.err(
+            "required patch failed", redlog::field("address", utils::format_address(entry.address)),
+            redlog::field("signature", entry.spec.signature.pattern),
+            redlog::field("error", applied.status.message)
+        );
         report.success = false;
         return result<apply_report>{report, applied.status};
       }
+      log.wrn(
+          "optional patch failed", redlog::field("address", utils::format_address(entry.address)),
+          redlog::field("signature", entry.spec.signature.pattern), redlog::field("error", applied.status.message)
+      );
       continue;
     }
 
@@ -205,6 +262,10 @@ result<apply_report> apply_plan(
   }
 
   report.success = (report.failed == 0 && report.applied > 0);
+  log.inf(
+      "patch plan complete", redlog::field("success", report.success), redlog::field("applied", report.applied),
+      redlog::field("failed", report.failed)
+  );
   return ok_result(report);
 }
 

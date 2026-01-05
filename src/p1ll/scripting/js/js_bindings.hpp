@@ -362,6 +362,7 @@ struct p1ll_api {
 
     auto regions = session->regions(engine::scan_filter{});
     if (!regions.ok()) {
+      log.err("get_modules failed", redlog::field("error", regions.status.message));
       return {};
     }
 
@@ -439,13 +440,16 @@ struct p1ll_api {
       return a->base_address < b->base_address;
     });
 
+    log.dbg("found modules", redlog::field("count", result.size()));
     return result;
   }
 
   std::vector<scan_result_wrapper*> search_sig_multiple(
       const std::string& pattern, std::optional<jnjs::value> options = std::nullopt
   ) {
+    auto log = redlog::get_logger("p1ll.js");
     if (!session) {
+      log.err("search_sig_multiple called with no session");
       return {};
     }
 
@@ -456,6 +460,10 @@ struct p1ll_api {
 
     auto results = session->scan(pattern, scan_opts);
     if (!results.ok()) {
+      log.err(
+          "search failed", redlog::field("pattern", pattern),
+          redlog::field("error", results.status.message)
+      );
       return {};
     }
 
@@ -463,11 +471,14 @@ struct p1ll_api {
     for (const auto& result : results.value) {
       output.push_back(new scan_result_wrapper(result));
     }
+    log.dbg("search completed", redlog::field("results", output.size()));
     return output;
   }
 
   scan_result_wrapper* search_sig(const std::string& pattern, std::optional<jnjs::value> options = std::nullopt) {
+    auto log = redlog::get_logger("p1ll.js");
     if (!session) {
+      log.err("search_sig called with no session");
       return nullptr;
     }
 
@@ -478,13 +489,28 @@ struct p1ll_api {
 
     auto results = session->scan(pattern, scan_opts);
     if (!results.ok() || results.value.empty()) {
+      if (!results.ok()) {
+        log.err(
+            "search failed", redlog::field("pattern", pattern),
+            redlog::field("error", results.status.message)
+        );
+      } else {
+        log.dbg("search returned no matches", redlog::field("pattern", pattern));
+      }
       return nullptr;
     }
 
     if (scan_opts.single && results.value.size() != 1) {
+      log.dbg(
+          "single match required but search returned unexpected count",
+          redlog::field("count", results.value.size())
+      );
       return nullptr;
     }
 
+    if (results.value.size() > 1) {
+      log.wrn("multiple matches, returning first", redlog::field("count", results.value.size()));
+    }
     return new scan_result_wrapper(results.value.front());
   }
 
@@ -599,12 +625,14 @@ inline apply_report_wrapper* p1ll_api::auto_cure(jnjs::value meta_obj) {
   auto log = redlog::get_logger("p1ll.js.auto_cure");
 
   if (!session) {
+    log.err("auto_cure called with no session");
     auto* report = new apply_report_wrapper();
     report->add_error("no session available");
     return report;
   }
 
   if (!is_defined(meta_obj)) {
+    log.err("auto_cure called with invalid metadata object");
     auto* report = new apply_report_wrapper();
     report->add_error("invalid metadata object");
     return report;
@@ -612,13 +640,16 @@ inline apply_report_wrapper* p1ll_api::auto_cure(jnjs::value meta_obj) {
 
   auto recipe = parse_recipe(meta_obj);
   if (recipe.patches.empty()) {
+    log.err("auto_cure called with empty patch list");
     auto* report = new apply_report_wrapper();
     report->add_error("recipe.patches is required");
     return report;
   }
 
+  log.inf("executing auto_cure", redlog::field("name", recipe.name));
   auto plan = session->plan(recipe);
   if (!plan.ok()) {
+    log.err("auto_cure planning failed", redlog::field("error", plan.status.message));
     auto* report = new apply_report_wrapper();
     report->add_error(plan.status.message.empty() ? "plan failed" : plan.status.message);
     return report;
@@ -627,14 +658,21 @@ inline apply_report_wrapper* p1ll_api::auto_cure(jnjs::value meta_obj) {
   auto applied = session->apply(plan.value);
   auto* report = new apply_report_wrapper(applied.value);
   if (!applied.ok()) {
+    log.err("auto_cure apply failed", redlog::field("error", applied.status.message));
     if (!applied.status.message.empty()) {
       report->add_error(applied.status.message);
     }
   }
+  log.inf(
+      "auto_cure completed", redlog::field("success", report->success),
+      redlog::field("applied", report->applied), redlog::field("failed", report->failed)
+  );
   return report;
 }
 
 inline void setup_p1ll_js_bindings(jnjs::context& js_ctx, engine::session& session) {
+  auto log = redlog::get_logger("p1ll.js_bindings");
+  log.inf("setting up js bindings", redlog::field("mode", session.is_dynamic() ? "dynamic" : "static"));
   js_ctx.install_class<apply_report_wrapper>();
   js_ctx.install_class<scan_result_wrapper>();
   js_ctx.install_class<module_info_wrapper>();
@@ -644,6 +682,7 @@ inline void setup_p1ll_js_bindings(jnjs::context& js_ctx, engine::session& sessi
 
   auto api = new p1ll_api(&session);
   js_ctx.set_global("p1", api);
+  log.inf("js bindings registered");
 }
 
 } // namespace p1ll::scripting::js

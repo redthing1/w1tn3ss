@@ -50,8 +50,13 @@ engine::result<engine::apply_report> execute_cure_script_impl(
       );
     }
 
+    log.dbg("executing cure() function", redlog::field("context", log_context));
     auto js_result = cure_fn.as<jnjs::function>()();
     auto report = extract_apply_report(js_result);
+    log.inf(
+        "cure completed", redlog::field("success", report.success), redlog::field("applied", report.applied),
+        redlog::field("failed", report.failed)
+    );
     return engine::ok_result(report);
   } catch (const std::runtime_error& e) {
     log.err("js runtime error", redlog::field("error", e.what()), redlog::field("context", log_context));
@@ -82,7 +87,7 @@ engine::result<engine::apply_report> js_engine::execute_script(
     engine::session& session, const std::string& script_content
 ) {
   auto log = redlog::get_logger("p1ll.js_engine");
-  log.inf("executing js script");
+  log.inf("executing js script", redlog::field("mode", session.is_dynamic() ? "dynamic" : "static"));
 
   auto js_ctx = jnjs::runtime::new_context();
   setup_p1ll_js_bindings(js_ctx, session);

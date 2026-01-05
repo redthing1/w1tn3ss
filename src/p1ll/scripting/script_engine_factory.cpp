@@ -18,7 +18,7 @@ std::unique_ptr<IScriptEngine> ScriptEngineFactory::create(ScriptEngineType engi
   switch (engine_type) {
 #ifndef PILL_SCRIPT_ENGINE_JS
   case ScriptEngineType::LUA:
-    log.dbg("creating lua script engine");
+    log.inf("creating lua script engine");
     return std::make_unique<lua::lua_engine>();
 #endif
 

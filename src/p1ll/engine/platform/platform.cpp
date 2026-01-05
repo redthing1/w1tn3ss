@@ -1,4 +1,5 @@
 #include "platform.hpp"
+#include <redlog.hpp>
 #include <algorithm>
 
 namespace p1ll::engine::platform {
@@ -77,12 +78,25 @@ platform_key detect_platform() {
   platform_key key;
   key.os = detect_operating_system();
   key.arch = detect_architecture();
+  auto log = redlog::get_logger("p1ll.platform");
+  if (key.os == "unknown") {
+    log.wrn("unknown operating system detected - consider adding support");
+  }
+  if (key.arch == "unknown") {
+    log.wrn("unknown architecture detected - consider adding support");
+  }
+  log.dbg("detected platform", redlog::field("os", key.os), redlog::field("arch", key.arch));
   return key;
 }
 
 result<platform_key> parse_platform(std::string_view key) {
+  auto log = redlog::get_logger("p1ll.platform");
   std::string text = trim(key);
-  if (text.empty() || text == "*") {
+  if (text.empty()) {
+    log.wrn("empty platform selector, using wildcard");
+    return ok_result(platform_key{"*", "*"});
+  }
+  if (text == "*") {
     return ok_result(platform_key{"*", "*"});
   }
 
@@ -99,9 +113,14 @@ result<platform_key> parse_platform(std::string_view key) {
   }
 
   if (parsed.os.empty() || parsed.arch.empty()) {
+    log.err("invalid platform selector", redlog::field("input", std::string(key)));
     return error_result<platform_key>(error_code::invalid_argument, "invalid platform selector");
   }
 
+  log.dbg(
+      "parsed platform selector", redlog::field("input", text), redlog::field("os", parsed.os),
+      redlog::field("arch", parsed.arch)
+  );
   return ok_result(parsed);
 }
 

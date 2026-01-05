@@ -48,7 +48,7 @@ engine::result<engine::apply_report> lua_engine::execute_script(
 ) {
   auto log = redlog::get_logger("p1ll.lua_engine");
 
-  log.inf("executing lua script");
+  log.inf("executing lua script", redlog::field("mode", session.is_dynamic() ? "dynamic" : "static"));
 
   try {
     setup_p1ll_bindings(lua_, session);
@@ -123,9 +123,14 @@ engine::result<engine::apply_report> lua_engine::call_cure_function() {
       report.success = table["success"].get_or(false);
       report.applied = table["applied"].get_or(0);
       report.failed = table["failed"].get_or(0);
+      log.inf(
+          "cure completed", redlog::field("success", report.success), redlog::field("applied", report.applied),
+          redlog::field("failed", report.failed)
+      );
       return engine::ok_result(report);
     }
 
+    log.err("cure function returned unexpected type");
     return engine::error_result<engine::apply_report>(
         engine::error_code::invalid_argument, "cure function returned unexpected type"
     );

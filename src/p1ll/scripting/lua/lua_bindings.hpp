@@ -253,6 +253,8 @@ inline engine::recipe parse_recipe(const sol::table& meta) {
 }
 
 inline void setup_p1ll_bindings(sol::state& lua, engine::session& session) {
+  auto log = redlog::get_logger("p1ll.lua_bindings");
+  log.inf("setting up lua bindings", redlog::field("mode", session.is_dynamic() ? "dynamic" : "static"));
   lua.new_usertype<apply_report_wrapper>(
       "apply_report",
       "success",
@@ -349,24 +351,35 @@ inline void setup_p1ll_bindings(sol::state& lua, engine::session& session) {
   );
 
   p1_module.set_function("auto_cure", [&session](sol::table meta) {
+    auto log = redlog::get_logger("p1ll.lua.auto_cure");
     auto recipe = parse_recipe(meta);
     apply_report_wrapper report;
     if (recipe.patches.empty()) {
+      log.err("auto_cure called with empty patch list");
       report.add_error("recipe.patches is required");
       return report;
     }
 
+    log.inf("executing auto_cure", redlog::field("name", recipe.name));
     auto plan = session.plan(recipe);
     if (!plan.ok()) {
+      log.err("auto_cure planning failed", redlog::field("error", plan.status.message));
       report.add_error(plan.status.message.empty() ? "plan failed" : plan.status.message);
       return report;
     }
 
     auto applied = session.apply(plan.value);
     report = apply_report_wrapper(applied.value);
-    if (!applied.ok() && !applied.status.message.empty()) {
-      report.add_error(applied.status.message);
+    if (!applied.ok()) {
+      if (!applied.status.message.empty()) {
+        report.add_error(applied.status.message);
+      }
+      log.err("auto_cure apply failed", redlog::field("error", applied.status.message));
     }
+    log.inf(
+        "auto_cure completed", redlog::field("success", report.success), redlog::field("applied", report.applied),
+        redlog::field("failed", report.failed)
+    );
     return report;
   });
 
@@ -374,11 +387,13 @@ inline void setup_p1ll_bindings(sol::state& lua, engine::session& session) {
     std::vector<module_info_wrapper> result;
     auto log = redlog::get_logger("p1ll.lua");
     if (!session.is_dynamic()) {
+      log.dbg("get_modules unavailable in static mode");
       return result;
     }
 
     auto regions = session.regions(engine::scan_filter{});
     if (!regions.ok()) {
+      log.err("get_modules failed", redlog::field("error", regions.status.message));
       return result;
     }
 
@@ -455,22 +470,39 @@ inline void setup_p1ll_bindings(sol::state& lua, engine::session& session) {
       return a.base_address < b.base_address;
     });
 
+    log.dbg("found modules", redlog::field("count", result.size()));
     return result;
   });
 
   p1_module.set_function(
       "search_sig",
       [&session, &lua](const std::string& pattern, sol::optional<sol::table> opts) -> sol::object {
+        auto log = redlog::get_logger("p1ll.lua");
         engine::scan_options options;
         if (opts) {
           apply_scan_options(options, *opts);
         }
         auto results = session.scan(pattern, options);
         if (!results.ok() || results.value.empty()) {
+          if (!results.ok()) {
+            log.err(
+                "search failed", redlog::field("pattern", pattern),
+                redlog::field("error", results.status.message)
+            );
+          } else {
+            log.dbg("search returned no matches", redlog::field("pattern", pattern));
+          }
           return sol::make_object(lua, sol::lua_nil);
         }
         if (options.single && results.value.size() != 1) {
+          log.dbg(
+              "single match required but search returned unexpected count",
+              redlog::field("count", results.value.size())
+          );
           return sol::make_object(lua, sol::lua_nil);
+        }
+        if (results.value.size() > 1) {
+          log.wrn("multiple matches, returning first", redlog::field("count", results.value.size()));
         }
         scan_result_wrapper wrapper;
         wrapper.address = results.value.front().address;
@@ -483,12 +515,17 @@ inline void setup_p1ll_bindings(sol::state& lua, engine::session& session) {
       "search_sig_multiple",
       [&session](const std::string& pattern, sol::optional<sol::table> opts) -> std::vector<scan_result_wrapper> {
         std::vector<scan_result_wrapper> output;
+        auto log = redlog::get_logger("p1ll.lua");
         engine::scan_options options;
         if (opts) {
           apply_scan_options(options, *opts);
         }
         auto results = session.scan(pattern, options);
         if (!results.ok()) {
+          log.err(
+              "search failed", redlog::field("pattern", pattern),
+              redlog::field("error", results.status.message)
+          );
           return output;
         }
         for (const auto& result : results.value) {
@@ -497,9 +534,11 @@ inline void setup_p1ll_bindings(sol::state& lua, engine::session& session) {
           wrapper.region_name = result.region_name;
           output.push_back(wrapper);
         }
+        log.dbg("search completed", redlog::field("results", output.size()));
         return output;
       }
   );
+  log.inf("lua bindings registered");
 }
 
 } // namespace p1ll::scripting::lua
