@@ -37,5 +37,5 @@ CheckOptions:
   - key: performance-unnecessary-copy-initialization.WarnOnAllAutoCopies
     value: true
 
-HeaderFilterRegex: '^/Users/salt/Dev/Hek/w1tn3ss/src/.*'
+HeaderFilterRegex: '^./src/.*'
 FormatStyle: file

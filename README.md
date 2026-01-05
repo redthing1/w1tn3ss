@@ -9,7 +9,7 @@ fully supports **linux**, **macos**, **windows** for `x86`, `x64`, and `arm64`.
 + built-in tracers: coverage (`w1cov`), call tracing (`w1xfer`), memory (`w1mem`), instructions (`w1inst`), instruction flow (`w1trace`), scripting (`w1script`), dumps (`w1dump`)
 + real-time library call interception with argument extraction (`w1xfer`)
 + signature scanning and binary patching (`p1ll`/`p1llx`)
-+ scriptable tracing and patching with with [luajit](https://luajit.org/)
++ scriptable tracing and patching with [luajit](https://luajit.org/)
 + cross-platform injection library with multiple techniques (`w1nj3ct`)
 + symbol resolution and calling convention modeling for intercepting arguments and return values
 + **scanning**, **patching**, **gadgeting**, control execution, and more
@@ -26,11 +26,11 @@ to use a specific arch, configure `WITNESS_ARCH` (`x64`, `x86`, `arm64`)
 
 ## `w1tool` guide
 
-this is a brief guide to using `w1tool`, a ready-to-use command line for running tracers
+this is a brief guide to using `w1tool`, a ready-to-use command-line for running tracers
 
 ### coverage & tracing
 
-code coverage helps us learn what code in a program gets run and how often. the `w1cov` tracer is purpose built to collect detailed code coverage information, with only modest performance overhead.
+code coverage helps us learn what code in a program gets run and how often. the `w1cov` tracer is purpose-built to collect detailed code coverage information, with only modest performance overhead.
 
 the drcov format is ideal for coverage tracing, as it includes metadata about loaded modules. `w1cov` also supports collecting data in a superset of the drcov format, which also records hit counts of coverage units. this can be useful to record the execution frequency of a block.
 my other project [covtool](https://github.com/redthing1/covtool) provides a powerful tool for viewing, editing, and browsing coverage traces.
@@ -49,7 +49,7 @@ output will resemble:
 [w1cov.tracer] [inf] coverage collection completed       coverage_units=59 modules=50 total_hits=71
 ```
 
-the default block tracing mode is significantly more efficient than per-instruction tracing as it requires less frequent callback interuptions. however, qbdi detects basic blocks dynamically, so recorded block boundaries may differ from those detected by static analysis tools. this usually isn't an issue, as you can script your disassembler to fix any discrepancies when marking basic block coverage.
+the default block tracing mode is significantly more efficient than per-instruction tracing as it requires less frequent callback interruptions. however, qbdi detects basic blocks dynamically, so recorded block boundaries may differ from those detected by static analysis tools. this usually isn't an issue, as you can script your disassembler to fix any discrepancies when marking basic block coverage.
 
 you can also trace coverage in the same drcov format by passing `--inst` to `cover`, which will use instruction callbacks.
 
@@ -63,7 +63,7 @@ for a more primitive form of tracing which simply records the instruction pointe
 
 ### real-time api call analysis
 
-often it is valuable to learn what system library apis a program is called. for example, we can learn a lot about the behavior of a program by observing its calls to `libc`. the `w1xfer` tracer, powered by qbdi's [`ExecBroker`](https://qbdi.readthedocs.io/en/stable/tutorial_ExecBrokerEvent.html) mechanism, can intercept and observe calls from and returns back to instrumented code.
+often it is valuable to learn what system library apis a program calls. for example, we can learn a lot about the behavior of a program by observing its calls to `libc`. the `w1xfer` tracer, powered by qbdi's [`ExecBroker`](https://qbdi.readthedocs.io/en/stable/tutorial_ExecBrokerEvent.html) mechanism, can intercept and observe calls from and returns back to instrumented code.
 
 in addition to detecting calls crossing the instrumentation boundary, `w1xfer` resolves the symbols of these calls, and extracts function arguments based on platform-specific calling convention models. this allows for very rich interception and tracing of the arguments and return values of common library apis.
 
@@ -218,6 +218,7 @@ key concepts:
 - `meta` table: organize sigs and patches by platform
 
 `p1ll` is an excellent and powerful tool for binary modification!
+see the [guide](./doc/p1lljs.md)
 
 ## acknowledgements
 
