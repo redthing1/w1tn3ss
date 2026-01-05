@@ -1,7 +1,5 @@
 #include "apply.hpp"
-#include "utils/hex_pattern.hpp"
-#include "utils/hex_utils.hpp"
-#include "utils/pretty_hexdump.hpp"
+#include "pretty_logging.hpp"
 #include <algorithm>
 #include <redlog.hpp>
 #include <span>
@@ -13,6 +11,10 @@ namespace {
 
 constexpr uint64_t k_context_alignment_mask = 0xF;
 constexpr uint64_t k_context_alignment_size = 16;
+
+size_t count_written_bytes(const std::vector<uint8_t>& mask) {
+  return static_cast<size_t>(std::count_if(mask.begin(), mask.end(), [](uint8_t value) { return value != 0; }));
+}
 
 memory_protection remove_execute(memory_protection prot) {
   return static_cast<memory_protection>(static_cast<int>(prot) & ~static_cast<int>(memory_protection::execute));
@@ -163,32 +165,19 @@ result<size_t> apply_entry(address_space& space, const plan_entry& entry, const 
     space.set_protection(entry.address, patch_size, original_protection);
   }
 
-  size_t bytes_written = 0;
-  for (size_t i = 0; i < entry.patch_mask.size(); ++i) {
-    if (entry.patch_mask[i]) {
-      bytes_written++;
-    }
-  }
-
-  std::string patch_pattern = utils::format_patch_pattern(entry.patch_bytes, entry.patch_mask);
-  std::string region_desc =
-      utils::format_memory_region(region.value.base_address, region.value.size, region.value.name);
-  log.inf(
-      "patch applied", redlog::field("address", utils::format_address(entry.address)),
-      redlog::field("bytes_written", bytes_written), redlog::field("signature", entry.spec.signature.pattern),
-      redlog::field("patch", patch_pattern), redlog::field("region", region_desc)
-  );
-
-  std::string patch_hexdump;
+  size_t bytes_written = count_written_bytes(entry.patch_mask);
+  const std::vector<uint8_t>* hexdump_before = &original_bytes.value;
+  const std::vector<uint8_t>* hexdump_after = &merged.value;
+  uint64_t hexdump_base = entry.address;
   if (has_context) {
-    patch_hexdump = utils::format_patch_hexdump(context_before, context_after, context_base);
-  } else {
-    patch_hexdump = utils::format_patch_hexdump(original_bytes.value, merged.value, entry.address);
+    hexdump_before = &context_before;
+    hexdump_after = &context_after;
+    hexdump_base = context_base;
   }
 
-  if (!patch_hexdump.empty()) {
-    log.inf(redlog::fmt("patch\n%s", patch_hexdump));
-  }
+  pretty_logging::log_patch_apply(
+      log, entry, bytes_written, region.value, *hexdump_before, *hexdump_after, hexdump_base
+  );
 
   return ok_result(bytes_written);
 }

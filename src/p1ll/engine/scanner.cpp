@@ -1,7 +1,6 @@
 #include "scanner.hpp"
 #include "pattern_matcher.hpp"
-#include "utils/hex_utils.hpp"
-#include "utils/pretty_hexdump.hpp"
+#include "pretty_logging.hpp"
 #include <redlog.hpp>
 #include <algorithm>
 #include <filesystem>
@@ -32,7 +31,7 @@ result<std::vector<scan_result>> scanner::scan(const pattern& signature, const s
   }
 
   auto log = redlog::get_logger("p1ll.scanner");
-  std::string signature_pattern = utils::format_signature_pattern(signature.bytes, signature.mask);
+  std::string signature_pattern = pretty_logging::render_signature_pattern(signature);
 
   auto regions = space_.regions(options.filter);
   if (!regions.ok()) {
@@ -72,17 +71,10 @@ result<std::vector<scan_result>> scanner::scan(const pattern& signature, const s
         uint64_t match_address = region.base_address + offset + match_offset;
         results.push_back(scan_result{match_address, region_name});
 
-        std::string match_hexdump = utils::format_signature_match_hexdump(
-            data_result.value.data(), data_result.value.size(), static_cast<size_t>(match_offset), signature.size(),
-            region.base_address + offset
+        pretty_logging::log_signature_match(
+            log, signature_pattern, match_address, region_name, data_result.value.data(), data_result.value.size(),
+            static_cast<size_t>(match_offset), signature.size(), region.base_address + offset
         );
-        log.inf(
-            "signature match", redlog::field("pattern", signature_pattern),
-            redlog::field("address", utils::format_address(match_address)), redlog::field("region", region_name)
-        );
-        if (!match_hexdump.empty()) {
-          log.inf(redlog::fmt("signature\n%s", match_hexdump));
-        }
 
         if (max_matches > 0 && results.size() >= max_matches) {
           break;
