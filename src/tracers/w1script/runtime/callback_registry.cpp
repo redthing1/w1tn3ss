@@ -32,6 +32,8 @@ std::string to_lower(std::string_view value) {
   return out;
 }
 
+bool has_wildcards(std::string_view pattern) { return pattern.find_first_of("*?") != std::string_view::npos; }
+
 } // namespace
 
 callback_registry::callback_registry() : logger_(redlog::get_logger("w1script.callbacks")) {}
@@ -47,10 +49,19 @@ uint64_t callback_registry::register_callback(
   entry.id = next_id_++;
   entry.event = event;
   entry.options = options;
+  if (!entry.options.mnemonic.empty()) {
+    entry.options.mnemonic = to_lower(entry.options.mnemonic);
+    entry.options.mnemonic_has_wildcards = has_wildcards(entry.options.mnemonic);
+    mnemonic_filter_counts_[event_index(event)] += 1;
+  }
   entry.callback = std::move(callback);
 
   callbacks_.emplace(entry.id, entry);
-  event_handlers_[event].push_back(entry.id);
+  if (dispatch_depth_ > 0) {
+    pending_additions_.emplace_back(event, entry.id);
+  } else {
+    event_handlers_[event].push_back(entry.id);
+  }
 
   return entry.id;
 }
@@ -62,19 +73,33 @@ bool callback_registry::remove_callback(uint64_t handle) {
   }
 
   auto event = it->second.event;
-  auto handler_it = event_handlers_.find(event);
-  if (handler_it != event_handlers_.end()) {
-    auto& list = handler_it->second;
-    list.erase(std::remove(list.begin(), list.end(), handle), list.end());
+  if (!it->second.options.mnemonic.empty()) {
+    size_t index = event_index(event);
+    if (mnemonic_filter_counts_[index] > 0) {
+      mnemonic_filter_counts_[index] -= 1;
+    }
   }
 
   callbacks_.erase(it);
+  if (dispatch_depth_ > 0) {
+    pending_prune_[event_index(event)] = true;
+  } else {
+    auto handler_it = event_handlers_.find(event);
+    if (handler_it != event_handlers_.end()) {
+      auto& list = handler_it->second;
+      list.erase(std::remove(list.begin(), list.end(), handle), list.end());
+    }
+  }
   return true;
 }
 
 void callback_registry::shutdown() {
   callbacks_.clear();
   event_handlers_.clear();
+  pending_additions_.clear();
+  pending_prune_.fill(false);
+  mnemonic_filter_counts_.fill(0);
+  dispatch_depth_ = 0;
   next_id_ = 1;
 }
 
@@ -168,32 +193,18 @@ QBDI::VMAction callback_registry::dispatch_instruction(
     event_type event_type, const w1::instruction_event& event, QBDI::VMInstanceRef vm, QBDI::GPRState* gpr,
     QBDI::FPRState* fpr
 ) {
+  dispatch_scope guard(*this);
   auto handler_it = event_handlers_.find(event_type);
   if (handler_it == event_handlers_.end()) {
     return QBDI::VMAction::CONTINUE;
   }
 
-  const QBDI::InstAnalysis* analysis = nullptr;
-  std::string_view mnemonic;
-  bool has_mnemonic_filter = false;
-
-  auto handlers = handler_it->second;
-  for (uint64_t id : handlers) {
-    auto entry_it = callbacks_.find(id);
-    if (entry_it == callbacks_.end()) {
-      continue;
-    }
-    const auto& entry = entry_it->second;
-    if (!entry.options.mnemonic.empty()) {
-      has_mnemonic_filter = true;
-      break;
-    }
-  }
-
-  if (has_mnemonic_filter && vm) {
-    analysis = vm->getInstAnalysis(QBDI::ANALYSIS_INSTRUCTION);
+  const auto& handlers = handler_it->second;
+  std::string mnemonic_lower;
+  if (mnemonic_filter_counts_[event_index(event_type)] > 0 && vm) {
+    const QBDI::InstAnalysis* analysis = vm->getInstAnalysis(QBDI::ANALYSIS_INSTRUCTION);
     if (analysis && analysis->mnemonic) {
-      mnemonic = analysis->mnemonic;
+      mnemonic_lower = to_lower(analysis->mnemonic);
     }
   }
 
@@ -208,7 +219,14 @@ QBDI::VMAction callback_registry::dispatch_instruction(
     }
 
     if (!entry.options.mnemonic.empty()) {
-      if (mnemonic.empty() || !is_mnemonic_match(entry.options.mnemonic, mnemonic)) {
+      if (mnemonic_lower.empty()) {
+        continue;
+      }
+      if (entry.options.mnemonic_has_wildcards) {
+        if (!is_mnemonic_match(entry.options.mnemonic, mnemonic_lower)) {
+          continue;
+        }
+      } else if (entry.options.mnemonic != mnemonic_lower) {
         continue;
       }
     }
@@ -227,12 +245,13 @@ QBDI::VMAction callback_registry::dispatch_basic_block(
     event_type event_type, const w1::basic_block_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state,
     QBDI::GPRState* gpr, QBDI::FPRState* fpr
 ) {
+  dispatch_scope guard(*this);
   auto handler_it = event_handlers_.find(event_type);
   if (handler_it == event_handlers_.end()) {
     return QBDI::VMAction::CONTINUE;
   }
 
-  auto handlers = handler_it->second;
+  const auto& handlers = handler_it->second;
   for (uint64_t id : handlers) {
     auto entry_it = callbacks_.find(id);
     if (entry_it == callbacks_.end()) {
@@ -259,12 +278,13 @@ QBDI::VMAction callback_registry::dispatch_exec_transfer(
     event_type event_type, const w1::exec_transfer_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state,
     QBDI::GPRState* gpr, QBDI::FPRState* fpr
 ) {
+  dispatch_scope guard(*this);
   auto handler_it = event_handlers_.find(event_type);
   if (handler_it == event_handlers_.end()) {
     return QBDI::VMAction::CONTINUE;
   }
 
-  auto handlers = handler_it->second;
+  const auto& handlers = handler_it->second;
   for (uint64_t id : handlers) {
     auto entry_it = callbacks_.find(id);
     if (entry_it == callbacks_.end()) {
@@ -287,12 +307,13 @@ QBDI::VMAction callback_registry::dispatch_sequence(
     event_type event_type, const w1::sequence_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state,
     QBDI::GPRState* gpr, QBDI::FPRState* fpr
 ) {
+  dispatch_scope guard(*this);
   auto handler_it = event_handlers_.find(event_type);
   if (handler_it == event_handlers_.end()) {
     return QBDI::VMAction::CONTINUE;
   }
 
-  auto handlers = handler_it->second;
+  const auto& handlers = handler_it->second;
   for (uint64_t id : handlers) {
     auto entry_it = callbacks_.find(id);
     if (entry_it == callbacks_.end()) {
@@ -312,12 +333,13 @@ QBDI::VMAction callback_registry::dispatch_sequence(
 }
 
 QBDI::VMAction callback_registry::dispatch_thread(event_type event_type, const w1::thread_event& event) {
+  dispatch_scope guard(*this);
   auto handler_it = event_handlers_.find(event_type);
   if (handler_it == event_handlers_.end()) {
     return QBDI::VMAction::CONTINUE;
   }
 
-  auto handlers = handler_it->second;
+  const auto& handlers = handler_it->second;
   for (uint64_t id : handlers) {
     auto entry_it = callbacks_.find(id);
     if (entry_it == callbacks_.end()) {
@@ -343,12 +365,13 @@ QBDI::VMAction callback_registry::dispatch_memory_event(
     event_type event_type, const w1::memory_event& event, QBDI::VMInstanceRef vm, QBDI::GPRState* gpr,
     QBDI::FPRState* fpr
 ) {
+  dispatch_scope guard(*this);
   auto handler_it = event_handlers_.find(event_type);
   if (handler_it == event_handlers_.end()) {
     return QBDI::VMAction::CONTINUE;
   }
 
-  auto handlers = handler_it->second;
+  const auto& handlers = handler_it->second;
   for (uint64_t id : handlers) {
     auto entry_it = callbacks_.find(id);
     if (entry_it == callbacks_.end()) {
@@ -416,22 +439,19 @@ QBDI::VMAction callback_registry::resolve_action(const sol::protected_function_r
 }
 
 bool callback_registry::is_mnemonic_match(std::string_view pattern, std::string_view mnemonic) const {
-  std::string p = to_lower(pattern);
-  std::string m = to_lower(mnemonic);
-
   size_t p_index = 0;
   size_t m_index = 0;
   size_t star_index = std::string::npos;
   size_t match_index = 0;
 
-  while (m_index < m.size()) {
-    if (p_index < p.size() && (p[p_index] == m[m_index] || p[p_index] == '?')) {
+  while (m_index < mnemonic.size()) {
+    if (p_index < pattern.size() && (pattern[p_index] == mnemonic[m_index] || pattern[p_index] == '?')) {
       ++p_index;
       ++m_index;
       continue;
     }
 
-    if (p_index < p.size() && p[p_index] == '*') {
+    if (p_index < pattern.size() && pattern[p_index] == '*') {
       star_index = p_index++;
       match_index = m_index;
       continue;
@@ -446,11 +466,11 @@ bool callback_registry::is_mnemonic_match(std::string_view pattern, std::string_
     return false;
   }
 
-  while (p_index < p.size() && p[p_index] == '*') {
+  while (p_index < pattern.size() && pattern[p_index] == '*') {
     ++p_index;
   }
 
-  return p_index == p.size();
+  return p_index == pattern.size();
 }
 
 bool callback_registry::matches_address(const registration_options& options, uint64_t address) const {
@@ -463,6 +483,44 @@ bool callback_registry::matches_address(const registration_options& options, uin
   }
 
   return true;
+}
+
+void callback_registry::finish_dispatch() {
+  if (dispatch_depth_ == 0) {
+    return;
+  }
+  dispatch_depth_ -= 1;
+  if (dispatch_depth_ == 0) {
+    flush_pending();
+  }
+}
+
+void callback_registry::flush_pending() {
+  if (!pending_additions_.empty()) {
+    for (const auto& entry : pending_additions_) {
+      event_handlers_[entry.first].push_back(entry.second);
+    }
+    pending_additions_.clear();
+  }
+
+  for (size_t index = 0; index < pending_prune_.size(); ++index) {
+    if (!pending_prune_[index]) {
+      continue;
+    }
+    pending_prune_[index] = false;
+    auto type = static_cast<event_type>(index);
+    auto handler_it = event_handlers_.find(type);
+    if (handler_it == event_handlers_.end()) {
+      continue;
+    }
+    auto& handlers = handler_it->second;
+    handlers.erase(
+        std::remove_if(
+            handlers.begin(), handlers.end(), [this](uint64_t id) { return callbacks_.find(id) == callbacks_.end(); }
+        ),
+        handlers.end()
+    );
+  }
 }
 
 } // namespace w1::tracers::script::runtime

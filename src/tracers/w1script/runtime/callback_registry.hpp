@@ -6,11 +6,13 @@
 #include <redlog.hpp>
 #include <sol/sol.hpp>
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace w1::tracers::script::runtime {
@@ -39,6 +41,7 @@ public:
     std::optional<uint64_t> end;
     std::optional<QBDI::MemoryAccessType> access_type;
     std::string mnemonic;
+    bool mnemonic_has_wildcards = false;
   };
 
   callback_registry();
@@ -89,6 +92,18 @@ public:
   );
 
 private:
+  static constexpr size_t event_type_count = static_cast<size_t>(event_type::memory_read_write) + 1;
+
+  static constexpr size_t event_index(event_type value) { return static_cast<size_t>(value); }
+
+  struct dispatch_scope {
+    explicit dispatch_scope(callback_registry& registry) : registry_(registry) { registry_.dispatch_depth_ += 1; }
+    ~dispatch_scope() { registry_.finish_dispatch(); }
+
+  private:
+    callback_registry& registry_;
+  };
+
   struct event_hash {
     size_t operator()(event_type value) const { return static_cast<size_t>(value); }
   };
@@ -126,10 +141,16 @@ private:
   QBDI::VMAction resolve_action(const sol::protected_function_result& result);
   bool is_mnemonic_match(std::string_view pattern, std::string_view mnemonic) const;
   bool matches_address(const registration_options& options, uint64_t address) const;
+  void finish_dispatch();
+  void flush_pending();
 
   uint64_t next_id_ = 1;
   std::unordered_map<uint64_t, callback_entry> callbacks_;
   std::unordered_map<event_type, std::vector<uint64_t>, event_hash> event_handlers_;
+  std::vector<std::pair<event_type, uint64_t>> pending_additions_{};
+  std::array<bool, event_type_count> pending_prune_{};
+  std::array<size_t, event_type_count> mnemonic_filter_counts_{};
+  size_t dispatch_depth_ = 0;
   redlog::logger logger_;
 };
 
