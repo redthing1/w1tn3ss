@@ -80,17 +80,59 @@ void cmd_insert_library(args::Subparser& parser) {
 void cmd_inspect(args::Subparser& parser) {
   cli::apply_verbosity();
 
-  args::ValueFlag<std::string> binary(parser, "path", "path to binary file", {'b', "binary"});
-  args::Flag detailed(parser, "detailed", "show detailed analysis", {'d', "detailed"});
-  args::Flag sections(parser, "sections", "show section/segment information", {"sections"});
-  args::Flag symbols(parser, "symbols", "show symbol table information", {"symbols"});
-  args::Flag imports(parser, "imports", "show import/export information", {"imports"});
-  args::Flag security(parser, "security", "show security features analysis", {"security"});
+  args::Positional<std::string> binary_positional(parser, "binary", "path to binary file");
+  args::ValueFlag<std::string> binary_flag(parser, "path", "path to binary file", {'b', "binary"});
+  args::Flag headers(parser, "headers", "show header details", {'d', "detailed", "headers"});
+  args::Flag sections(parser, "sections", "show section listing", {"sections"});
+  args::Flag segments(parser, "segments", "show segment listing", {"segments"});
+  args::Flag symbols(parser, "symbols", "show symbol table listing", {"symbols"});
+  args::Flag imports(parser, "imports", "show import listings", {"imports"});
+  args::Flag exports(parser, "exports", "show export listings", {"exports"});
+  args::Flag relocations(parser, "relocs", "show relocation entries", {"relocs", "relocations"});
+  args::Flag libraries(parser, "libraries", "show imported libraries", {"libraries", "libs"});
+  args::Flag all(parser, "all", "show all details", {"all"});
+  args::Flag security(parser, "security", "deprecated: use --headers", {"security"});
   args::Flag json(parser, "json", "output results in JSON format", {'j', "json"});
+  args::Flag json_pretty(parser, "json-pretty", "pretty-print JSON output", {"json-pretty"});
   args::ValueFlag<std::string> format(parser, "format", "force format (elf/pe/macho)", {"format"});
   parser.Parse();
 
-  w1tool::commands::inspect(binary, detailed, sections, symbols, imports, security, json, format);
+  w1tool::commands::inspect_request request;
+  if (binary_positional) {
+    request.binary_path = args::get(binary_positional);
+  } else if (binary_flag) {
+    request.binary_path = args::get(binary_flag);
+  }
+
+  request.show_headers = headers || security;
+  request.show_sections = sections;
+  request.show_segments = segments;
+  request.show_symbols = symbols;
+  request.show_imports = imports;
+  request.show_exports = exports;
+  request.show_relocations = relocations;
+  request.show_libraries = libraries;
+  request.json_output = json;
+  request.json_pretty = json_pretty;
+  request.show_all = all;
+  if (format) {
+    request.forced_format = args::get(format);
+  }
+
+  if (request.show_all) {
+    request.show_headers = true;
+    request.show_sections = true;
+    request.show_segments = true;
+    request.show_symbols = true;
+    request.show_imports = true;
+    request.show_exports = true;
+    request.show_relocations = true;
+    request.show_libraries = true;
+  } else if (request.show_imports) {
+    request.show_libraries = true;
+  }
+
+  w1tool::commands::inspect(request);
 }
 
 void cmd_cover(args::Subparser& parser) {
