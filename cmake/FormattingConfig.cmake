@@ -13,7 +13,9 @@ if(CLANG_FORMAT_EXECUTABLE)
         "${WITNESS_SOURCE_DIR}/src/p1ll/*.cpp" "${WITNESS_SOURCE_DIR}/src/p1ll/*.h" "${WITNESS_SOURCE_DIR}/src/p1ll/*.hpp" "${WITNESS_SOURCE_DIR}/src/p1ll/*.c"
         "${WITNESS_SOURCE_DIR}/src/p1llx/*.cpp" "${WITNESS_SOURCE_DIR}/src/p1llx/*.h" "${WITNESS_SOURCE_DIR}/src/p1llx/*.hpp" "${WITNESS_SOURCE_DIR}/src/p1llx/*.c"
         "${WITNESS_SOURCE_DIR}/src/p01s0n/*.cpp" "${WITNESS_SOURCE_DIR}/src/p01s0n/*.h" "${WITNESS_SOURCE_DIR}/src/p01s0n/*.hpp" "${WITNESS_SOURCE_DIR}/src/p01s0n/*.c"
+        "${WITNESS_SOURCE_DIR}/samples/*.cpp" "${WITNESS_SOURCE_DIR}/samples/*.h" "${WITNESS_SOURCE_DIR}/samples/*.hpp" "${WITNESS_SOURCE_DIR}/samples/*.c"
         "${WITNESS_SOURCE_DIR}/tests/*.cpp" "${WITNESS_SOURCE_DIR}/tests/*.h" "${WITNESS_SOURCE_DIR}/tests/*.hpp" "${WITNESS_SOURCE_DIR}/tests/*.c"
+        "${WITNESS_SOURCE_DIR}/test/*.cpp" "${WITNESS_SOURCE_DIR}/test/*.h" "${WITNESS_SOURCE_DIR}/test/*.hpp" "${WITNESS_SOURCE_DIR}/test/*.c"
     )
     
     list(FILTER ALL_FORMAT_FILES EXCLUDE REGEX ".*/build-.*/.*")

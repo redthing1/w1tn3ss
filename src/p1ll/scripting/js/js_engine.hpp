@@ -12,12 +12,9 @@ public:
   js_engine();
   ~js_engine() = default;
 
-  // execute cure script from string content (throws not implemented error)
-  cure_result execute_script(const context& context, const std::string& script_content) override;
-
-  // execute cure script with explicit buffer (throws not implemented error)
-  cure_result execute_script_content_with_buffer(
-      const context& context, const std::string& script_content, std::vector<uint8_t>& buffer_data
+  // execute script with an active session
+  engine::result<engine::apply_report> execute_script(
+      engine::session& session, const std::string& script_content
   ) override;
 };
 

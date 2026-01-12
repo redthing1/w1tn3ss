@@ -1,94 +1,50 @@
 #include "coverage_module_tracker.hpp"
-#include <algorithm>
 
 namespace w1cov {
 
-coverage_module_tracker::coverage_module_tracker(const coverage_config& config)
-    : config_(config), collector_(nullptr) {}
+coverage_module_tracker::coverage_module_tracker(const coverage_config& config) : config_(config) {}
 
-void coverage_module_tracker::initialize(coverage_collector& collector) {
-  log_.vrb("initializing coverage module tracker");
-
+void coverage_module_tracker::initialize(const w1::runtime::module_registry& modules, coverage_collector& collector) {
   collector_ = &collector;
+  module_map_.clear();
 
-  // scan all executable modules
-  auto all_modules = scanner_.scan_executable_modules();
+  auto list = modules.list_modules();
+  module_map_.reserve(list.size());
 
-  // filter modules that should be traced
-  std::vector<w1::util::module_info> traced_modules;
-  traced_modules.reserve(all_modules.size() / 2); // estimate
-
-  for (const auto& mod : all_modules) {
-    if (should_trace_module(mod)) {
-      traced_modules.push_back(mod);
+  size_t traced = 0;
+  for (const auto& module : list) {
+    if (!should_trace_module(module)) {
+      continue;
     }
+
+    uint16_t module_id = collector_->add_module(module);
+    module_map_[module.base_address] = module_id;
+    traced += 1;
   }
-
-  // register modules with collector and build mapping
-  base_to_module_id_.clear();
-  base_to_module_id_.reserve(traced_modules.size());
-
-  for (const auto& mod : traced_modules) {
-    uint16_t module_id = collector_->add_module(mod);
-    base_to_module_id_[mod.base_address] = module_id;
-
-    log_.dbg(
-        "registered traced module", redlog::field("module_name", mod.name), redlog::field("module_id", module_id),
-        redlog::field("base_address", "0x%08x", mod.base_address)
-    );
-  }
-
-  // build fast lookup index with traced modules
-  index_.rebuild_from_modules(std::move(traced_modules));
 
   log_.inf(
-      "module tracker initialization complete", redlog::field("total_modules", all_modules.size()),
-      redlog::field("traced_modules", traced_module_count())
+      "coverage module tracker initialized", redlog::field("modules", list.size()), redlog::field("traced", traced)
   );
 }
 
-size_t coverage_module_tracker::traced_module_count() const { return index_.size(); }
-
-bool coverage_module_tracker::should_trace_module(const w1::util::module_info& mod) const {
-  // unknown modules are never traced
-  if (mod.type == w1::util::module_type::UNKNOWN) {
-    return false;
-  }
-
-  // apply module name filter if specified
-  if (!config_.module_filter.empty()) {
-    for (const auto& filter_name : config_.module_filter) {
-      if (mod.name.find(filter_name) != std::string::npos) {
-        return true;
-      }
-    }
-    return false; // not in filter list
-  }
-
-  // include system modules only if configured
-  if (mod.is_system_library && !config_.include_system_modules) {
-    return false;
-  }
-
-  // default: trace all modules except system modules (unless include_system_modules is true)
-  return true;
+bool coverage_module_tracker::should_trace_module(const w1::runtime::module_info& module) const {
+  return config_.instrumentation.should_instrument(module);
 }
 
-void coverage_module_tracker::rebuild_traced_modules() {
-  // scan all current modules
-  auto all_modules = scanner_.scan_executable_modules();
+uint16_t coverage_module_tracker::ensure_module_registered(const w1::runtime::module_info& module) const {
+  auto it = module_map_.find(module.base_address);
+  if (it != module_map_.end()) {
+    return it->second;
+  }
 
-  // filter modules for tracing
-  std::vector<w1::util::module_info> traced_modules;
-  traced_modules.reserve(all_modules.size() / 2);
+  if (!collector_) {
+    log_.err("collector unavailable while registering module");
+    return 0;
+  }
 
-  std::copy_if(
-      all_modules.begin(), all_modules.end(), std::back_inserter(traced_modules),
-      [this](const w1::util::module_info& mod) { return should_trace_module(mod); }
-  );
-
-  // rebuild index with filtered modules
-  index_.rebuild_from_modules(std::move(traced_modules));
+  uint16_t module_id = collector_->add_module(module);
+  module_map_[module.base_address] = module_id;
+  return module_id;
 }
 
 } // namespace w1cov

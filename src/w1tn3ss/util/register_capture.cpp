@@ -1,5 +1,5 @@
-#include "register_capture.hpp"
-#include "register_access.hpp"
+#include "w1tn3ss/util/register_capture.hpp"
+
 #include <algorithm>
 
 namespace w1::util {
@@ -14,7 +14,6 @@ bool register_state::get_register(const std::string& name, uint64_t& value) cons
 }
 
 uint64_t register_state::get_stack_pointer() const {
-  // use architectural names based on platform
 #if defined(QBDI_ARCH_X86_64)
   return registers_.at("rsp");
 #elif defined(QBDI_ARCH_AARCH64) || defined(QBDI_ARCH_ARM)
@@ -27,7 +26,6 @@ uint64_t register_state::get_stack_pointer() const {
 }
 
 uint64_t register_state::get_instruction_pointer() const {
-  // use architectural names based on platform
 #if defined(QBDI_ARCH_X86_64)
   return registers_.at("rip");
 #elif defined(QBDI_ARCH_AARCH64) || defined(QBDI_ARCH_ARM)
@@ -39,15 +37,13 @@ uint64_t register_state::get_instruction_pointer() const {
 #endif
 }
 
-// returns the architectural register commonly used as frame pointer
-// note: actual frame pointer usage and semantics are abi-specific
 uint64_t register_state::get_frame_pointer() const {
 #if defined(QBDI_ARCH_X86_64)
   return registers_.at("rbp");
 #elif defined(QBDI_ARCH_AARCH64)
   return registers_.at("x29");
 #elif defined(QBDI_ARCH_ARM)
-  return registers_.at("r11"); // could also be r7 on some abis
+  return registers_.at("r11");
 #elif defined(QBDI_ARCH_X86)
   return registers_.at("ebp");
 #else
@@ -69,7 +65,6 @@ std::vector<std::string> register_state::get_register_names() const {
 
 std::unordered_map<std::string, uint64_t> register_state::get_all_registers() const { return registers_; }
 
-// implementation of register_capturer
 register_state register_capturer::capture(const QBDI::GPRState* gpr) {
   register_state state;
 
@@ -92,9 +87,8 @@ register_state register_capturer::capture(const QBDI::GPRState* gpr) {
 
 void register_capturer::capture_x86_64(register_state& state, const QBDI::GPRState* gpr) {
 #if defined(QBDI_ARCH_X86_64)
-  state.arch_ = register_state::architecture::X86_64;
+  state.arch_ = register_state::architecture::x86_64;
 
-  // general purpose registers
   state.registers_["rax"] = gpr->rax;
   state.registers_["rbx"] = gpr->rbx;
   state.registers_["rcx"] = gpr->rcx;
@@ -110,7 +104,6 @@ void register_capturer::capture_x86_64(register_state& state, const QBDI::GPRSta
   state.registers_["r14"] = gpr->r14;
   state.registers_["r15"] = gpr->r15;
 
-  // special purpose registers
   state.registers_["rbp"] = gpr->rbp;
   state.registers_["rsp"] = gpr->rsp;
   state.registers_["rip"] = gpr->rip;
@@ -118,37 +111,32 @@ void register_capturer::capture_x86_64(register_state& state, const QBDI::GPRSta
   state.registers_["fs"] = gpr->fs;
   state.registers_["gs"] = gpr->gs;
 #else
-  // not x86_64 - this should not be called
-  state.arch_ = register_state::architecture::UNKNOWN;
+  state.arch_ = register_state::architecture::unknown;
 #endif
 }
 
 void register_capturer::capture_aarch64(register_state& state, const QBDI::GPRState* gpr) {
 #if defined(QBDI_ARCH_AARCH64)
-  state.arch_ = register_state::architecture::AARCH64;
+  state.arch_ = register_state::architecture::aarch64;
 
-  // general purpose registers x0-x28
   for (int i = 0; i < 29; ++i) {
     state.registers_["x" + std::to_string(i)] = (&gpr->x0)[i];
   }
 
-  // special registers
-  state.registers_["x29"] = gpr->x29; // frame pointer
-  state.registers_["lr"] = gpr->lr;   // x30 - link register
+  state.registers_["x29"] = gpr->x29;
+  state.registers_["lr"] = gpr->lr;
   state.registers_["sp"] = gpr->sp;
   state.registers_["pc"] = gpr->pc;
   state.registers_["nzcv"] = gpr->nzcv;
 #else
-  // not aarch64 - this should not be called
-  state.arch_ = register_state::architecture::UNKNOWN;
+  state.arch_ = register_state::architecture::unknown;
 #endif
 }
 
 void register_capturer::capture_arm32(register_state& state, const QBDI::GPRState* gpr) {
 #if defined(QBDI_ARCH_ARM)
-  state.arch_ = register_state::architecture::ARM32;
+  state.arch_ = register_state::architecture::arm32;
 
-  // general purpose registers r0-r12
   state.registers_["r0"] = gpr->r0;
   state.registers_["r1"] = gpr->r1;
   state.registers_["r2"] = gpr->r2;
@@ -160,25 +148,22 @@ void register_capturer::capture_arm32(register_state& state, const QBDI::GPRStat
   state.registers_["r8"] = gpr->r8;
   state.registers_["r9"] = gpr->r9;
   state.registers_["r10"] = gpr->r10;
-  state.registers_["r11"] = gpr->r11; // frame pointer
+  state.registers_["r11"] = gpr->r11;
   state.registers_["r12"] = gpr->r12;
 
-  // special registers
-  state.registers_["sp"] = gpr->sp; // r13
-  state.registers_["lr"] = gpr->lr; // r14
-  state.registers_["pc"] = gpr->pc; // r15
+  state.registers_["sp"] = gpr->sp;
+  state.registers_["lr"] = gpr->lr;
+  state.registers_["pc"] = gpr->pc;
   state.registers_["cpsr"] = gpr->cpsr;
 #else
-  // not arm32 - this should not be called
-  state.arch_ = register_state::architecture::UNKNOWN;
+  state.arch_ = register_state::architecture::unknown;
 #endif
 }
 
 void register_capturer::capture_x86(register_state& state, const QBDI::GPRState* gpr) {
 #if defined(QBDI_ARCH_X86)
-  state.arch_ = register_state::architecture::X86;
+  state.arch_ = register_state::architecture::x86;
 
-  // general purpose registers
   state.registers_["eax"] = gpr->eax;
   state.registers_["ebx"] = gpr->ebx;
   state.registers_["ecx"] = gpr->ecx;
@@ -186,14 +171,12 @@ void register_capturer::capture_x86(register_state& state, const QBDI::GPRState*
   state.registers_["esi"] = gpr->esi;
   state.registers_["edi"] = gpr->edi;
 
-  // special purpose registers
   state.registers_["ebp"] = gpr->ebp;
   state.registers_["esp"] = gpr->esp;
   state.registers_["eip"] = gpr->eip;
   state.registers_["eflags"] = gpr->eflags;
 #else
-  // not x86 - this should not be called
-  state.arch_ = register_state::architecture::UNKNOWN;
+  state.arch_ = register_state::architecture::unknown;
 #endif
 }
 

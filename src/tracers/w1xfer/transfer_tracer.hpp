@@ -2,36 +2,53 @@
 
 #include <QBDI.h>
 #include <redlog.hpp>
-#include <w1tn3ss/engine/tracer_engine.hpp>
 
-#include "transfer_collector.hpp"
+#include "w1tn3ss/tracer/event.hpp"
+#include "w1tn3ss/tracer/trace_context.hpp"
+#include "w1tn3ss/tracer/tracer.hpp"
+#include "w1tn3ss/tracer/types.hpp"
+
 #include "transfer_config.hpp"
+#include "transfer_pipeline.hpp"
 
 namespace w1xfer {
 
 class transfer_tracer {
 public:
-  explicit transfer_tracer(const transfer_config& config);
+  explicit transfer_tracer(transfer_config config);
 
-  bool initialize(w1::tracer_engine<transfer_tracer>& engine);
-  void shutdown();
-  const char* get_name() const { return "w1xfer"; }
+  const char* name() const { return "w1xfer"; }
+  static constexpr w1::event_mask requested_events() {
+    return w1::event_mask_or(
+        w1::event_mask_or(
+            w1::event_mask_of(w1::event_kind::exec_transfer_call),
+            w1::event_mask_of(w1::event_kind::exec_transfer_return)
+        ),
+        w1::event_mask_or(
+            w1::event_mask_of(w1::event_kind::thread_start), w1::event_mask_of(w1::event_kind::thread_stop)
+        )
+    );
+  }
 
-  // exec transfer callbacks - these match the signatures expected by tracer_engine
-  QBDI::VMAction on_exec_transfer_call(
-      QBDI::VMInstanceRef vm, const QBDI::VMState* state, QBDI::GPRState* gpr, QBDI::FPRState* fpr
+  void on_thread_start(w1::trace_context& ctx, const w1::thread_event& event);
+  void on_thread_stop(w1::trace_context& ctx, const w1::thread_event& event);
+
+  void on_exec_transfer_call(
+      w1::trace_context& ctx, const w1::exec_transfer_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state,
+      QBDI::GPRState* gpr, QBDI::FPRState* fpr
   );
-  QBDI::VMAction on_exec_transfer_return(
-      QBDI::VMInstanceRef vm, const QBDI::VMState* state, QBDI::GPRState* gpr, QBDI::FPRState* fpr
+  void on_exec_transfer_return(
+      w1::trace_context& ctx, const w1::exec_transfer_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state,
+      QBDI::GPRState* gpr, QBDI::FPRState* fpr
   );
 
-  // statistics access
-  const transfer_stats& get_stats() const;
+  const transfer_stats& get_stats() const { return pipeline_.stats(); }
 
 private:
-  transfer_config config_;
-  transfer_collector collector_;
-  redlog::logger log_ = redlog::get_logger("w1.transfer_tracer");
+  transfer_config config_{};
+  transfer_pipeline pipeline_;
+  redlog::logger log_ = redlog::get_logger("w1xfer.tracer");
+  bool initialized_ = false;
 };
 
 } // namespace w1xfer

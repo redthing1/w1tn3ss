@@ -1,10 +1,15 @@
 #pragma once
 
-#include <QBDI.h>
-#include <w1tn3ss/engine/tracer_engine.hpp>
-#include <redlog.hpp>
-#include <vector>
+#include <optional>
 #include <string>
+
+#include <QBDI.h>
+#include <redlog.hpp>
+
+#include "w1tn3ss/tracer/event.hpp"
+#include "w1tn3ss/tracer/trace_context.hpp"
+#include "w1tn3ss/tracer/tracer.hpp"
+#include "w1tn3ss/tracer/types.hpp"
 
 #include "trace_collector.hpp"
 #include "trace_config.hpp"
@@ -13,37 +18,42 @@ namespace w1trace {
 
 class trace_tracer {
 public:
-  explicit trace_tracer(const trace_config& config);
+  explicit trace_tracer(trace_config config);
 
-  bool initialize(w1::tracer_engine<trace_tracer>& engine);
-  void shutdown();
-  const char* get_name() const { return "w1trace"; }
+  const char* name() const { return "w1trace"; }
+  static constexpr w1::event_mask requested_events() {
+    return w1::event_mask_or(
+        w1::event_mask_of(w1::event_kind::instruction_pre),
+        w1::event_mask_or(
+            w1::event_mask_of(w1::event_kind::thread_start), w1::event_mask_of(w1::event_kind::thread_stop)
+        )
+    );
+  }
 
-  QBDI::VMAction on_instruction_preinst(QBDI::VMInstanceRef vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr);
+  void on_thread_start(w1::trace_context& ctx, const w1::thread_event& event);
 
-  // static callback for mnemonic events
-  static QBDI::VMAction on_branch_mnemonic(
-      QBDI::VMInstanceRef vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr, void* data
+  void on_instruction_pre(
+      w1::trace_context& ctx, const w1::instruction_event& event, QBDI::VMInstanceRef vm, QBDI::GPRState* gpr,
+      QBDI::FPRState* fpr
   );
+  void on_thread_stop(w1::trace_context& ctx, const w1::thread_event& event);
 
-  // statistics access
-  size_t get_instruction_count() const;
-  const trace_stats& get_stats() const;
-  void print_statistics() const;
-
-  // collector access
-  const trace_collector& get_collector() const;
-  trace_collector& get_collector();
+  size_t get_instruction_count() const { return collector_.get_instruction_count(); }
+  const trace_stats& get_stats() const { return collector_.get_stats(); }
 
 private:
-  // register control flow callbacks
-  bool register_control_flow_callbacks(QBDI::VM* vm);
-  std::vector<std::string> get_architecture_mnemonics() const;
+  struct pending_branch {
+    uint64_t source_address = 0;
+    std::string type;
+  };
 
-  trace_config config_;
+  std::optional<std::string> classify_branch_type(const QBDI::InstAnalysis& analysis) const;
+
+  trace_config config_{};
   trace_collector collector_;
   redlog::logger log_;
-  std::vector<uint32_t> callback_ids_;
+  std::optional<pending_branch> pending_branch_{};
+  bool initialized_ = false;
 };
 
 } // namespace w1trace

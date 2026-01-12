@@ -60,7 +60,9 @@ set(QBDI_BENCHMARK OFF CACHE BOOL "compile qbdi benchmark" FORCE)
 message(STATUS "forcing qbdi static-only build")
 
 # add third-party libraries
+set(CMAKE_WARN_DEPRECATED OFF)
 add_subdirectory(src/third_party/qbdi)
+set(CMAKE_WARN_DEPRECATED ON)
 
 # force qbdi targets to use c++17 to avoid c++20 compatibility issues
 get_directory_property(QBDI_TARGETS DIRECTORY src/third_party/qbdi BUILDSYSTEM_TARGETS)
@@ -92,6 +94,25 @@ endif()
 if(NOT TARGET nlohmann_json::nlohmann_json)
     set(JSON_BuildTests OFF)
     add_subdirectory(src/third_party/nlohmann_json)
+endif()
+
+# configure plthook
+if(NOT TARGET plthook::plthook)
+    option(PLTHOOK_BUILD_TESTS "Build plthook tests" OFF)
+    add_subdirectory(src/third_party/plthook)
+endif()
+
+# configure funchook
+if(WIN32 AND NOT TARGET funchook::funchook)
+    set(FUNCHOOK_BUILD_TESTS OFF CACHE BOOL "Build funchook tests" FORCE)
+    set(FUNCHOOK_BUILD_SHARED OFF CACHE BOOL "Build funchook shared library" FORCE)
+    set(FUNCHOOK_BUILD_STATIC ON CACHE BOOL "Build funchook static library" FORCE)
+    add_subdirectory(src/third_party/funchook)
+    if(TARGET funchook-static)
+        add_library(funchook::funchook ALIAS funchook-static)
+    elseif(TARGET funchook-shared)
+        add_library(funchook::funchook ALIAS funchook-shared)
+    endif()
 endif()
 
 # add lief if enabled
@@ -128,6 +149,10 @@ include_directories(${WITNESS_SOURCE_DIR}/src)
 # add tests (optional)
 option(BUILD_TESTS "Build test programs and libraries" ON)
 if(BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(test/w1tn3ss)
+    add_subdirectory(test/p1ll)
+    add_subdirectory(samples)
     add_subdirectory(tests)
 endif()
 

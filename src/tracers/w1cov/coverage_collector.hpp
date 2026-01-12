@@ -1,10 +1,12 @@
 #pragma once
 
-#include <w1tn3ss/util/module_info.hpp>
-#include <w1tn3ss/formats/drcov.hpp>
-#include <vector>
-#include <unordered_map>
 #include <QBDI.h>
+
+#include <unordered_map>
+#include <vector>
+
+#include "w1tn3ss/formats/drcov.hpp"
+#include "w1tn3ss/runtime/module_registry.hpp"
 
 namespace w1cov {
 
@@ -19,9 +21,9 @@ class coverage_collector {
 public:
   coverage_collector();
 
-  uint16_t add_module(const w1::util::module_info& mod);
+  uint16_t add_module(const w1::runtime::module_info& mod);
 
-  void record_coverage_unit(QBDI::rword address, uint16_t size, uint16_t module_id);
+  void record_coverage_unit(QBDI::rword address, uint16_t size, uint16_t module_id, uint32_t hits = 1);
 
   drcov::coverage_data build_drcov_data() const;
 
@@ -29,10 +31,10 @@ public:
   size_t get_module_count() const;
   uint64_t get_total_hits() const;
   uint32_t get_hitcount(QBDI::rword address) const;
-  const w1::util::module_info* find_module_by_id(uint16_t id) const;
+  const w1::runtime::module_info* find_module_by_id(uint16_t id) const;
 
 private:
-  std::vector<w1::util::module_info> modules_;
+  std::vector<w1::runtime::module_info> modules_;
   std::unordered_map<QBDI::rword, size_t> address_to_bb_index_;
   std::vector<basic_block_info> basic_blocks_;
   std::unordered_map<QBDI::rword, uint32_t> hitcounts_;

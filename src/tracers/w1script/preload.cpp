@@ -1,177 +1,106 @@
-#include <cstring>
 #include <memory>
+#include <utility>
 
 #include "QBDIPreload.h"
 #include <redlog.hpp>
-
-#include <w1tn3ss/engine/tracer_engine.hpp>
-#include <w1tn3ss/util/env_config.hpp>
-#include <w1tn3ss/util/signal_handler.hpp>
-#include <w1tn3ss/util/stderr_write.hpp>
 
 #if defined(_WIN32) || defined(WIN32)
 #include <w1common/windows_console.hpp>
 #endif
 
+#include "w1tn3ss/tracer/trace_session.hpp"
+#include "w1tn3ss/util/self_exclude.hpp"
+
 #include "script_config.hpp"
 #include "script_tracer.hpp"
 
-// globals
-static std::unique_ptr<w1::tracers::script::script_tracer> g_tracer;
-static std::unique_ptr<w1::tracer_engine<w1::tracers::script::script_tracer>> g_engine;
-static w1::tracers::script::config g_config;
+static std::unique_ptr<w1::trace_session<w1::tracers::script::script_tracer>> g_session;
+static w1::tracers::script::script_config g_config;
 
 namespace {
 
-/**
- * @brief shutdown script tracer with signal-safe error handling
- */
-void shutdown_script() {
-  if (!g_tracer) {
-    return;
-  }
-
-  try {
-    g_tracer->shutdown();
-  } catch (...) {
-    // signal-safe error reporting
-    const char* error_msg = "w1script: shutdown failed\n";
-    w1::util::stderr_write(error_msg);
+void configure_logging(int verbose) {
+  if (verbose >= 4) {
+    redlog::set_level(redlog::level::pedantic);
+  } else if (verbose >= 3) {
+    redlog::set_level(redlog::level::debug);
+  } else if (verbose >= 2) {
+    redlog::set_level(redlog::level::trace);
+  } else if (verbose >= 1) {
+    redlog::set_level(redlog::level::verbose);
+  } else {
+    redlog::set_level(redlog::level::info);
   }
 }
 
-} // anonymous namespace
+} // namespace
 
 extern "C" {
 
 QBDIPRELOAD_INIT;
 
 QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QBDI::rword stop) {
-  auto logger = redlog::get_logger("w1.script_preload");
+  auto log = redlog::get_logger("w1script.preload");
 
-  logger.inf("qbdipreload_on_run called");
+  g_config = w1::tracers::script::script_config::from_environment();
+  configure_logging(g_config.verbose);
+  if (g_config.exclude_self) {
+    w1::util::append_self_excludes(g_config.instrumentation, reinterpret_cast<const void*>(&qbdipreload_on_run));
+  }
 
-  // get config
-  g_config = w1::tracers::script::config::from_environment();
+  w1::trace_session_config session_config;
+  session_config.instrumentation = g_config.instrumentation;
+  session_config.thread_id = 1;
+  session_config.thread_name = "main";
 
-  if (!g_config.is_valid()) {
-    logger.err("invalid configuration - W1SCRIPT_SCRIPT must be specified");
+  g_session = std::make_unique<w1::trace_session<w1::tracers::script::script_tracer>>(
+      session_config, vm, std::in_place, g_config
+  );
+
+  log.inf(
+      "starting script session", redlog::field("start", "0x%llx", static_cast<unsigned long long>(start)),
+      redlog::field("stop", "0x%llx", static_cast<unsigned long long>(stop))
+  );
+
+  if (!g_session->run(static_cast<uint64_t>(start), static_cast<uint64_t>(stop))) {
+    log.err("script session run failed");
     return QBDIPRELOAD_ERR_STARTUP_FAILED;
   }
-
-  w1::util::env_config config_loader("W1SCRIPT_");
-  int debug_level = config_loader.get<int>("VERBOSE", 0);
-
-  // set log level based on debug level
-  if (debug_level >= 4) {
-    redlog::set_level(redlog::level::pedantic);
-  } else if (debug_level >= 3) {
-    redlog::set_level(redlog::level::debug);
-  } else if (debug_level >= 2) {
-    redlog::set_level(redlog::level::trace);
-  } else if (debug_level >= 1) {
-    redlog::set_level(redlog::level::verbose);
-  } else {
-    redlog::set_level(redlog::level::info);
-  }
-
-  // initialize signal handling for emergency shutdown
-  w1::tn3ss::signal_handler::config sig_config;
-  sig_config.context_name = "w1script";
-  sig_config.log_signals = (debug_level >= 1);
-
-  if (w1::tn3ss::signal_handler::initialize(sig_config)) {
-    w1::tn3ss::signal_handler::register_cleanup(
-        shutdown_script,
-        200, // high priority
-        "w1script_shutdown"
-    );
-    logger.inf("signal handling initialized for script shutdown");
-  } else {
-    logger.wrn("failed to initialize signal handling - script shutdown on signal unavailable");
-  }
-
-  // create tracer
-  logger.inf("creating script tracer");
-  g_tracer = std::make_unique<w1::tracers::script::script_tracer>();
-
-  // create engine
-  logger.inf("creating tracer engine");
-  g_engine = std::make_unique<w1::tracer_engine<w1::tracers::script::script_tracer>>(vm, *g_tracer, g_config);
-
-  // initialize tracer
-  if (!g_tracer->initialize(*g_engine)) {
-    logger.err("script tracer initialization failed");
-    return QBDIPRELOAD_ERR_STARTUP_FAILED;
-  }
-
-  // instrument
-  logger.inf("instrumenting engine");
-  if (!g_engine->instrument()) {
-    logger.err("engine instrumentation failed");
-    return QBDIPRELOAD_ERR_STARTUP_FAILED;
-  }
-
-  logger.inf("engine instrumentation successful");
-
-  // call on_vm_start callback if defined
-  QBDI::VMAction vm_action = g_tracer->on_vm_start(vm);
-  if (vm_action == QBDI::VMAction::STOP) {
-    logger.inf("on_vm_start requested stop, terminating execution");
-    // clean shutdown - not an error
-    return QBDIPRELOAD_NO_ERROR;
-  }
-
-  // run engine
-  logger.inf("running engine", redlog::field("start", "0x%08x", start), redlog::field("stop", "0x%08x", stop));
-  if (!g_engine->run(start, stop)) {
-    logger.err("engine run failed");
-    return QBDIPRELOAD_ERR_STARTUP_FAILED;
-  }
-
-  // execution doesn't reach here if it works (vm run jumps)
-  logger.inf("qbdipreload_on_run completed");
 
   return QBDIPRELOAD_NO_ERROR;
 }
 
 QBDI_EXPORT int qbdipreload_on_exit(int status) {
-  auto logger = redlog::get_logger("w1.script_preload");
+  auto log = redlog::get_logger("w1script.preload");
+  log.inf("qbdipreload_on_exit called", redlog::field("status", status));
 
-  logger.inf("qbdipreload_on_exit called", redlog::field("status", status));
-
-  // IMPORTANT: destroy engine before tracer
-  // The engine holds references to the tracer and QBDI callbacks
-  if (g_engine) {
-    logger.inf("shutting down engine");
-    g_engine.reset();
-    logger.inf("engine shutdown completed");
+  if (g_session) {
+    g_session->shutdown(false);
+    g_session.reset();
   }
 
-  if (g_tracer) {
-    logger.inf("shutting down script tracer");
-
-    shutdown_script();
-
-    logger.inf("script tracer shutdown completed");
-
-    g_tracer.reset();
-  }
-
-  logger.inf("qbdipreload_on_exit completed");
+  log.inf("qbdipreload_on_exit completed");
   return QBDIPRELOAD_NO_ERROR;
 }
 
 QBDI_EXPORT int qbdipreload_on_start(void* main) {
+  (void) main;
 #if defined(_WIN32) || defined(WIN32)
-  // on windows, allow logging to show for gui targets
   w1::common::allocate_windows_console();
 #endif
   return QBDIPRELOAD_NOT_HANDLED;
 }
 
-QBDI_EXPORT int qbdipreload_on_premain(void* gprCtx, void* fpuCtx) { return QBDIPRELOAD_NOT_HANDLED; }
+QBDI_EXPORT int qbdipreload_on_premain(void* gpr_ctx, void* fpu_ctx) {
+  (void) gpr_ctx;
+  (void) fpu_ctx;
+  return QBDIPRELOAD_NOT_HANDLED;
+}
 
-QBDI_EXPORT int qbdipreload_on_main(int argc, char** argv) { return QBDIPRELOAD_NOT_HANDLED; }
+QBDI_EXPORT int qbdipreload_on_main(int argc, char** argv) {
+  (void) argc;
+  (void) argv;
+  return QBDIPRELOAD_NOT_HANDLED;
+}
 
 } // extern "C"

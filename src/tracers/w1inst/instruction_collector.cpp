@@ -1,103 +1,97 @@
 #include "instruction_collector.hpp"
-#include <chrono>
+
 #include <sstream>
 
 namespace w1inst {
 
-mnemonic_collector::mnemonic_collector(const std::string& output_file, const std::vector<std::string>& target_mnemonics)
-    : matched_count_(0), metadata_written_(false), modules_initialized_(false) {
+mnemonic_collector::mnemonic_collector(const instruction_config& config)
+    : config_(config), log_(redlog::get_logger("w1inst.collector")) {
+  if (!config_.output_file.empty()) {
+    w1::io::jsonl_writer_config writer_config;
+    writer_config.buffer_size_bytes = config_.buffer_size_bytes;
+    writer_config.flush_event_count = config_.flush_event_count;
+    writer_config.flush_byte_count = config_.flush_byte_count;
 
-  // initialize output if file specified
-  if (!output_file.empty()) {
-    jsonl_writer_ = std::make_unique<w1::util::jsonl_writer>(output_file);
+    jsonl_writer_ = std::make_unique<w1::io::jsonl_writer>(config_.output_file, writer_config);
     if (!jsonl_writer_->is_open()) {
-      log_.err("failed to open output file", redlog::field("path", output_file));
+      log_.err("failed to open output file", redlog::field("path", config_.output_file));
       jsonl_writer_.reset();
     }
   }
 
-  // initialize stats
-  stats_ = {};
-  stats_.target_mnemonics = target_mnemonics;
+  stats_.target_mnemonics = config_.mnemonic_list;
+  log_.inf(
+      "instruction collector initialized", redlog::field("output_file", config_.output_file),
+      redlog::field("target_count", stats_.target_mnemonics.size())
+  );
+}
 
-  // convert vector to set for faster lookup
-  for (const auto& mnemonic : target_mnemonics) {
-    target_mnemonic_set_.insert(mnemonic);
+mnemonic_collector::~mnemonic_collector() {
+  if (!shutdown_called_) {
+    shutdown();
   }
 }
 
 void mnemonic_collector::record_mnemonic(
-    uint64_t address, const std::string& mnemonic, const std::string& disassembly
+    const w1::runtime::module_registry& modules, uint64_t address, std::string_view mnemonic,
+    std::string_view disassembly
 ) {
-  // when using QBDI's addMnemonicCB, we only get called for matching mnemonics
-  // so we can skip the filtering logic and always record
-  matched_count_++;
   stats_.matched_instructions++;
-
-  // track unique addresses
   unique_addresses_.insert(address);
   stats_.unique_sites = unique_addresses_.size();
 
-  // create event
-  mnemonic_entry entry;
+  mnemonic_entry entry{};
   entry.address = address;
-  entry.mnemonic = mnemonic;
-  entry.disassembly = disassembly;
-  entry.module_name = get_module_name(address);
+  entry.mnemonic = std::string(mnemonic);
+  entry.disassembly = std::string(disassembly);
+  entry.module_name = get_module_name(modules, address);
 
-  // write event if output configured
   if (jsonl_writer_) {
-    ensure_metadata_written();
+    ensure_metadata_written(modules);
     write_event(entry);
   }
 }
 
-void mnemonic_collector::ensure_metadata_written() {
-  if (!jsonl_writer_ || metadata_written_) {
+void mnemonic_collector::shutdown() {
+  if (shutdown_called_) {
     return;
   }
 
-  // ensure modules are initialized
-  if (!modules_initialized_) {
-    initialize_module_tracking();
+  log_.inf(
+      "instruction collector shutdown", redlog::field("matched", stats_.matched_instructions),
+      redlog::field("unique_sites", stats_.unique_sites)
+  );
+
+  if (jsonl_writer_) {
+    jsonl_writer_.reset();
+  }
+
+  shutdown_called_ = true;
+}
+
+void mnemonic_collector::ensure_metadata_written(const w1::runtime::module_registry& modules) {
+  if (metadata_written_) {
+    return;
+  }
+
+  if (!modules_cached_) {
+    modules_ = modules.list_modules();
+    modules_cached_ = true;
   }
 
   write_metadata();
   metadata_written_ = true;
 }
 
-void mnemonic_collector::initialize_module_tracking() {
-  if (modules_initialized_) {
-    return;
-  }
-
-  // scan all executable modules
-  auto modules = scanner_.scan_executable_modules();
-
-  // rebuild index with all modules for fast lookup
-  index_.rebuild_from_modules(std::move(modules));
-
-  modules_initialized_ = true;
-}
-
-std::string mnemonic_collector::get_module_name(uint64_t address) const {
+std::string mnemonic_collector::get_module_name(const w1::runtime::module_registry& modules, uint64_t address) const {
   if (address == 0) {
     return "unknown";
   }
 
-  // ensure modules are initialized before lookup
-  if (!modules_initialized_) {
-    // lazy initialization - cast away const for initialization
-    const_cast<mnemonic_collector*>(this)->initialize_module_tracking();
+  if (auto module = modules.find_containing(address)) {
+    return module->name;
   }
 
-  // fast lookup using module range index
-  auto module_info = index_.find_containing(address);
-  if (module_info) {
-    return module_info->name;
-  }
-
-  // fallback for addresses not in any known module
   return "unknown";
 }
 
@@ -106,12 +100,10 @@ void mnemonic_collector::write_metadata() {
     return;
   }
 
-  // create metadata object
   std::stringstream json;
   json << "{\"type\":\"metadata\",\"version\":1,\"tracer\":\"w1inst\"";
+  json << ",\"config\":{\"target_mnemonics\":[";
 
-  // add target mnemonics
-  json << ",\"target_mnemonics\":[";
   bool first = true;
   for (const auto& mnemonic : stats_.target_mnemonics) {
     if (!first) {
@@ -120,28 +112,25 @@ void mnemonic_collector::write_metadata() {
     first = false;
     json << "\"" << mnemonic << "\"";
   }
-  json << "]";
 
-  // add module information
+  json << "]}";
   json << ",\"modules\":[";
 
   first = true;
   size_t module_id = 0;
-  index_.visit_all([&](const w1::util::module_info& mod) {
+  for (const auto& module : modules_) {
     if (!first) {
       json << ",";
     }
     first = false;
 
-    json << "{\"id\":" << module_id++ << ",\"name\":\"" << mod.name << "\""
-         << ",\"path\":\"" << mod.path << "\""
-         << ",\"base\":" << mod.base_address << ",\"size\":" << mod.size << ",\"type\":\""
-         << (mod.type == w1::util::module_type::MAIN_EXECUTABLE ? "main" : "library") << "\""
-         << ",\"is_system\":" << (mod.is_system_library ? "true" : "false") << "}";
-  });
+    json << "{\"id\":" << module_id++ << ",\"name\":\"" << module.name << "\""
+         << ",\"path\":\"" << module.path << "\""
+         << ",\"base\":" << module.base_address << ",\"size\":" << module.size
+         << ",\"is_system\":" << (module.is_system ? "true" : "false") << "}";
+  }
 
   json << "]}";
-
   jsonl_writer_->write_line(json.str());
 }
 
@@ -150,14 +139,15 @@ void mnemonic_collector::write_event(const mnemonic_entry& entry) {
     return;
   }
 
-  // serialize the entry to json with compact formatting
-  std::string json = JS::serializeStruct(entry, JS::SerializerOptions(JS::SerializerOptions::Compact));
+  std::stringstream json;
+  json << "{\"type\":\"event\",\"data\":{";
+  json << "\"address\":" << entry.address;
+  json << ",\"mnemonic\":\"" << entry.mnemonic << "\"";
+  json << ",\"disassembly\":\"" << entry.disassembly << "\"";
+  json << ",\"module\":\"" << entry.module_name << "\"";
+  json << "}}";
 
-  // wrap in event envelope
-  std::stringstream wrapped;
-  wrapped << "{\"type\":\"event\",\"data\":" << json << "}";
-
-  jsonl_writer_->write_line(wrapped.str());
+  jsonl_writer_->write_line(json.str());
 }
 
 } // namespace w1inst

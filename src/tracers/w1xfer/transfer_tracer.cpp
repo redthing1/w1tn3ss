@@ -1,55 +1,68 @@
 #include "transfer_tracer.hpp"
 
-#include <w1tn3ss/util/register_access.hpp>
-#include <fstream>
+#include <sstream>
+#include <utility>
 
 namespace w1xfer {
+namespace {
 
-transfer_tracer::transfer_tracer(const transfer_config& config)
-    : config_(config),
-      collector_(
-          config.output_file, config.log_registers, config.log_stack_info, config.log_call_targets, config.analyze_apis
-      ) {
+std::string format_hex(uint64_t value) {
+  std::ostringstream oss;
+  oss << "0x" << std::hex << value;
+  return oss.str();
+}
 
-  if (config_.verbose) {
+std::string format_symbol_name(const transfer_symbol& symbol) {
+  std::string name = symbol.demangled_name.empty() ? symbol.symbol_name : symbol.demangled_name;
+  if (symbol.symbol_offset != 0) {
+    name += "+";
+    name += format_hex(symbol.symbol_offset);
+  }
+  return name;
+}
+
+} // namespace
+
+transfer_tracer::transfer_tracer(transfer_config config)
+    : config_(std::move(config)), pipeline_(config_), log_(redlog::get_logger("w1xfer.tracer")) {
+  if (config_.verbose > 0) {
     log_.inf(
-        "transfer tracer created", redlog::field("output", config_.output_file),
-        redlog::field("log_registers", config_.log_registers), redlog::field("log_stack_info", config_.log_stack_info),
-        redlog::field("log_call_targets", config_.log_call_targets), redlog::field("analyze_apis", config_.analyze_apis)
+        "transfer tracer created", redlog::field("output", config_.output.path),
+        redlog::field("capture_registers", config_.capture.registers),
+        redlog::field("capture_stack", config_.capture.stack), redlog::field("enrich_modules", config_.enrich.modules),
+        redlog::field("enrich_symbols", config_.enrich.symbols),
+        redlog::field("analyze_apis", config_.enrich.analyze_apis)
     );
   }
 }
 
-bool transfer_tracer::initialize(w1::tracer_engine<transfer_tracer>& engine) {
-  log_.inf("initializing transfer tracer");
-
-  QBDI::VM* vm = engine.get_vm();
-  if (!vm) {
-    log_.err("vm instance is null");
-    return false;
+void transfer_tracer::on_thread_start(w1::trace_context& ctx, const w1::thread_event& event) {
+  (void) event;
+  if (initialized_) {
+    return;
   }
 
-  // initialize module tracking for features that depend on module metadata
-  if (config_.log_call_targets || config_.analyze_apis) {
+  log_.inf("initializing transfer tracer");
+  const bool needs_modules = config_.enrich.modules || config_.enrich.symbols || config_.enrich.analyze_apis ||
+                             (config_.output.emit_metadata && !config_.output.path.empty());
+  if (needs_modules) {
     log_.inf("initializing module tracking");
-    collector_.initialize_module_tracking();
+  }
+  pipeline_.initialize(ctx);
+  if (needs_modules) {
     log_.inf("module tracking initialized");
   }
-
-  // output will stream automatically if output_file was provided
-
-  if (config_.verbose) {
+  if (config_.verbose > 0) {
     log_.inf("transfer tracer initialized successfully");
   }
-
-  return true;
+  initialized_ = true;
 }
 
-void transfer_tracer::shutdown() {
+void transfer_tracer::on_thread_stop(w1::trace_context& ctx, const w1::thread_event& event) {
+  (void) ctx;
+  (void) event;
   log_.inf("shutting down transfer tracer");
-
-  // log summary stats
-  const auto& stats = collector_.get_stats();
+  const auto& stats = pipeline_.stats();
   log_.inf(
       "transfer collection completed", redlog::field("total_calls", stats.total_calls),
       redlog::field("total_returns", stats.total_returns), redlog::field("unique_targets", stats.unique_call_targets),
@@ -57,70 +70,118 @@ void transfer_tracer::shutdown() {
   );
 }
 
-QBDI::VMAction transfer_tracer::on_exec_transfer_call(
-    QBDI::VMInstanceRef vm, const QBDI::VMState* state, QBDI::GPRState* gpr, QBDI::FPRState* fpr
+void transfer_tracer::on_exec_transfer_call(
+    w1::trace_context& ctx, const w1::exec_transfer_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state,
+    QBDI::GPRState* gpr, QBDI::FPRState* fpr
 ) {
-  // extract call information from vm state
-  uint64_t source_addr = state->sequenceStart;
+  (void) vm;
+  (void) state;
+  pipeline_.record_call(ctx, event, gpr, fpr);
+  if (config_.verbose > 0) {
+    std::string source_module;
+    std::string target_module;
+    std::string source_symbol;
+    std::string target_symbol;
 
-  // get target address from instruction pointer
-  uint64_t target_addr = w1::registers::get_pc(gpr);
+    if (config_.enrich.modules || config_.enrich.symbols) {
+      if (auto endpoint = pipeline_.resolve_endpoint(event.source_address)) {
+        if (!endpoint->module_name.empty()) {
+          source_module = endpoint->module_name;
+          if (!endpoint->symbol && endpoint->module_offset != 0) {
+            source_module += "+";
+            source_module += format_hex(endpoint->module_offset);
+          }
+        }
+        if (endpoint->symbol) {
+          source_symbol = format_symbol_name(*endpoint->symbol);
+        }
+      }
 
-  if (config_.verbose) {
-    std::string source_module = "unknown";
-    std::string target_module = "unknown";
-
-    if (config_.log_call_targets) {
-      source_module = collector_.get_module_name(source_addr);
-      target_module = collector_.get_module_name(target_addr);
+      if (auto endpoint = pipeline_.resolve_endpoint(event.target_address)) {
+        if (!endpoint->module_name.empty()) {
+          target_module = endpoint->module_name;
+          if (!endpoint->symbol && endpoint->module_offset != 0) {
+            target_module += "+";
+            target_module += format_hex(endpoint->module_offset);
+          }
+        }
+        if (endpoint->symbol) {
+          target_symbol = format_symbol_name(*endpoint->symbol);
+        }
+      }
     }
 
-    log_.vrb(
-        "call transfer detected", redlog::field("source", "0x%016llx", source_addr),
-        redlog::field("target", "0x%016llx", target_addr), redlog::field("source_module", source_module),
-        redlog::field("target_module", target_module)
-    );
+    if (!source_module.empty() || !target_module.empty() || !source_symbol.empty() || !target_symbol.empty()) {
+      log_.vrb(
+          "call transfer detected", redlog::field("source", "0x%016llx", event.source_address),
+          redlog::field("target", "0x%016llx", event.target_address), redlog::field("source_module", source_module),
+          redlog::field("source_symbol", source_symbol), redlog::field("target_module", target_module),
+          redlog::field("target_symbol", target_symbol)
+      );
+    } else {
+      log_.vrb(
+          "call transfer detected", redlog::field("source", "0x%016llx", event.source_address),
+          redlog::field("target", "0x%016llx", event.target_address)
+      );
+    }
   }
-
-  // record the call transfer
-  collector_.record_call(source_addr, target_addr, vm, state, gpr, fpr);
-
-  return QBDI::VMAction::CONTINUE;
 }
 
-QBDI::VMAction transfer_tracer::on_exec_transfer_return(
-    QBDI::VMInstanceRef vm, const QBDI::VMState* state, QBDI::GPRState* gpr, QBDI::FPRState* fpr
+void transfer_tracer::on_exec_transfer_return(
+    w1::trace_context& ctx, const w1::exec_transfer_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state,
+    QBDI::GPRState* gpr, QBDI::FPRState* fpr
 ) {
-  // extract return information from vm state
-  uint64_t source_addr = state->sequenceStart;
+  (void) vm;
+  (void) state;
+  pipeline_.record_return(ctx, event, gpr, fpr);
+  if (config_.verbose > 0) {
+    std::string source_module;
+    std::string target_module;
+    std::string source_symbol;
+    std::string target_symbol;
 
-  // get target address from instruction pointer
-  uint64_t target_addr = w1::registers::get_pc(gpr);
+    if (config_.enrich.modules || config_.enrich.symbols) {
+      if (auto endpoint = pipeline_.resolve_endpoint(event.source_address)) {
+        if (!endpoint->module_name.empty()) {
+          source_module = endpoint->module_name;
+          if (!endpoint->symbol && endpoint->module_offset != 0) {
+            source_module += "+";
+            source_module += format_hex(endpoint->module_offset);
+          }
+        }
+        if (endpoint->symbol) {
+          source_symbol = format_symbol_name(*endpoint->symbol);
+        }
+      }
 
-  if (config_.verbose) {
-    std::string source_module = "unknown";
-    std::string target_module = "unknown";
-
-    if (config_.log_call_targets) {
-      source_module = collector_.get_module_name(source_addr);
-      target_module = collector_.get_module_name(target_addr);
+      if (auto endpoint = pipeline_.resolve_endpoint(event.target_address)) {
+        if (!endpoint->module_name.empty()) {
+          target_module = endpoint->module_name;
+          if (!endpoint->symbol && endpoint->module_offset != 0) {
+            target_module += "+";
+            target_module += format_hex(endpoint->module_offset);
+          }
+        }
+        if (endpoint->symbol) {
+          target_symbol = format_symbol_name(*endpoint->symbol);
+        }
+      }
     }
 
-    log_.vrb(
-        "return transfer detected", redlog::field("source", "0x%016llx", source_addr),
-        redlog::field("target", "0x%016llx", target_addr), redlog::field("source_module", source_module),
-        redlog::field("target_module", target_module)
-    );
+    if (!source_module.empty() || !target_module.empty() || !source_symbol.empty() || !target_symbol.empty()) {
+      log_.vrb(
+          "return transfer detected", redlog::field("source", "0x%016llx", event.source_address),
+          redlog::field("target", "0x%016llx", event.target_address), redlog::field("source_module", source_module),
+          redlog::field("source_symbol", source_symbol), redlog::field("target_module", target_module),
+          redlog::field("target_symbol", target_symbol)
+      );
+    } else {
+      log_.vrb(
+          "return transfer detected", redlog::field("source", "0x%016llx", event.source_address),
+          redlog::field("target", "0x%016llx", event.target_address)
+      );
+    }
   }
-
-  // record the return transfer
-  collector_.record_return(source_addr, target_addr, vm, state, gpr, fpr);
-
-  return QBDI::VMAction::CONTINUE;
 }
-
-const transfer_stats& transfer_tracer::get_stats() const { return collector_.get_stats(); }
-
-// removed get_trace_size and export_report - data now streams directly
 
 } // namespace w1xfer

@@ -6,13 +6,13 @@ fully supports **linux**, **macos**, **windows** for `x86`, `x64`, and `arm64`.
 ## features
 
 + framework for writing dynamic tracers (`w1tn3ss`)
-+ built-in tracers: coverage (`w1cov`), call tracing (`w1xfer`), memory (`w1mem`), instructions (`w1inst`)
-+ real-time library call interception with argument extraction (`api_analyzer`)
++ built-in tracers: coverage (`w1cov`), call tracing (`w1xfer`), memory (`w1mem`), instructions (`w1inst`), instruction flow (`w1trace`), scripting (`w1script`), dumps (`w1dump`)
++ real-time library call interception with argument extraction (`w1xfer`)
 + signature scanning and binary patching (`p1ll`/`p1llx`)
-+ scriptable tracing and patching with with [luajit](https://luajit.org/)
++ scriptable tracing and patching with [luajit](https://luajit.org/)
 + cross-platform injection library with multiple techniques (`w1nj3ct`)
 + symbol resolution and calling convention modeling for intercepting arguments and return values
-+ **hooking**, **scanning**, **patching**, **gadgeting**, control execution, and more
++ **scanning**, **patching**, **gadgeting**, control execution, and more
 
 ## build
 
@@ -26,11 +26,11 @@ to use a specific arch, configure `WITNESS_ARCH` (`x64`, `x86`, `arm64`)
 
 ## `w1tool` guide
 
-this is a brief guide to using `w1tool`, a ready-to-use command line for running tracers
+this is a brief guide to using `w1tool`, a ready-to-use command-line for running tracers
 
 ### coverage & tracing
 
-code coverage helps us learn what code in a program gets run and how often. the `w1cov` tracer is purpose built to collect detailed code coverage information, with only modest performance overhead.
+code coverage helps us learn what code in a program gets run and how often. the `w1cov` tracer is purpose-built to collect detailed code coverage information, with only modest performance overhead.
 
 the drcov format is ideal for coverage tracing, as it includes metadata about loaded modules. `w1cov` also supports collecting data in a superset of the drcov format, which also records hit counts of coverage units. this can be useful to record the execution frequency of a block.
 my other project [covtool](https://github.com/redthing1/covtool) provides a powerful tool for viewing, editing, and browsing coverage traces.
@@ -38,9 +38,9 @@ my other project [covtool](https://github.com/redthing1/covtool) provides a powe
 collect coverage in drcov format using `w1cov`:
 ```sh
 # macos/linux
-./build-release/w1tool cover -s ./build-release/tests/programs/simple_demo
+./build-release/w1tool cover -s ./build-release/samples/programs/simple_demo
 # windows
-.\build-release\w1tool.exe cover -s .\build-release\tests\programs\simple_demo.exe
+.\build-release\w1tool.exe cover -s .\build-release\samples\programs\simple_demo.exe
 ```
 
 output will resemble:
@@ -49,30 +49,30 @@ output will resemble:
 [w1cov.tracer] [inf] coverage collection completed       coverage_units=59 modules=50 total_hits=71
 ```
 
-the default block tracing mode is significantly more efficient than per-instruction tracing as it requires less frequent callback interuptions. however, qbdi detects basic blocks dynamically, so recorded block boundaries may differ from those detected by static analysis tools. this usually isn't an issue, as you can script your disassembler to fix any discrepancies when marking basic block coverage.
+the default block tracing mode is significantly more efficient than per-instruction tracing as it requires less frequent callback interruptions. however, qbdi detects basic blocks dynamically, so recorded block boundaries may differ from those detected by static analysis tools. this usually isn't an issue, as you can script your disassembler to fix any discrepancies when marking basic block coverage.
 
 you can also trace coverage in the same drcov format by passing `--inst` to `cover`, which will use instruction callbacks.
 
 for a more primitive form of tracing which simply records the instruction pointer, use `w1trace`:
 ```sh
 # macos/linux
-./build-release/w1tool tracer -n w1trace -c output=simple_demo_trace.txt -s ./build-release/tests/programs/simple_dem
+./build-release/w1tool tracer -n w1trace -c output=simple_demo_trace.txt -s ./build-release/samples/programs/simple_demo
 # windows
-.\build-release\w1tool.exe tracer -n w1trace -c output=simple_demo_trace.txt -s .\build-release\tests\programs\simple_demo.exe
+.\build-release\w1tool.exe tracer -n w1trace -c output=simple_demo_trace.txt -s .\build-release\samples\programs\simple_demo.exe
 ```
 
 ### real-time api call analysis
 
-often it is valuable to learn what system library apis a program is called. for example, we can learn a lot about the behavior of a program by observing its calls to `libc`. the `w1xfer` tracer, powered by qbdi's [`ExecBroker`](https://qbdi.readthedocs.io/en/stable/tutorial_ExecBrokerEvent.html) mechanism, can intercept and observe calls from and returns back to instrumented code.
+often it is valuable to learn what system library apis a program calls. for example, we can learn a lot about the behavior of a program by observing its calls to `libc`. the `w1xfer` tracer, powered by qbdi's [`ExecBroker`](https://qbdi.readthedocs.io/en/stable/tutorial_ExecBrokerEvent.html) mechanism, can intercept and observe calls from and returns back to instrumented code.
 
-in addition to detecting calls crossing the instrumentation boundary, `w1xfer` also contains an `api_analyzer` system, which resolves the symbols of these calls, and extracts function arguments based on platform-specific calling convention models. this allows for very rich interception and tracing of the arguments and return values of common library apis. this can be extended by adding to the `api_knowledge_db` component.
+in addition to detecting calls crossing the instrumentation boundary, `w1xfer` resolves the symbols of these calls, and extracts function arguments based on platform-specific calling convention models. this allows for very rich interception and tracing of the arguments and return values of common library apis.
 
 trace api calls in real time with `w1xfer`:
 ```sh
 # macos/linux
-./build-release/w1tool -v tracer -n w1xfer -c analyze_apis=true -c output=test_transfers.jsonl -s ./build-release/tests/programs/simple_demo
+./build-release/w1tool -v tracer -n w1xfer -c analyze_apis=true -c output=test_transfers.jsonl -s ./build-release/samples/programs/simple_demo
 # windows
-.\build-release\w1tool.exe -v tracer -n w1xfer -c analyze_apis=true -c output=test_transfers.jsonl -s .\build-release\tests\programs\simple_demo.exe
+.\build-release\w1tool.exe -v tracer -n w1xfer -c analyze_apis=true -c output=test_transfers.jsonl -s .\build-release\samples\programs\simple_demo.exe
 ```
 
 output will resemble:
@@ -101,17 +101,22 @@ local instruction_count = 0
 
 local tracer = {}
 
-function tracer.on_instruction_preinst(vm, gpr, fpr)
+local function on_instruction(vm, gpr, fpr)
     instruction_count = instruction_count + 1
-    
-    -- get program counter and disassembly
-    local pc = w1.get_reg_pc and w1.get_reg_pc(gpr) or 0
-    local disasm = w1.get_disassembly(vm)
-    
-    -- log instruction with address and disassembly
-    w1.log_info(w1.format_address(pc) .. ": " .. disasm)
-    
-    return w1.VMAction.CONTINUE
+
+    local pc = w1.reg.pc(gpr) or 0
+    local disasm = w1.inst.disasm(vm) or "<unknown>"
+
+    w1.log.info(w1.util.format_address(pc) .. ": " .. disasm)
+    return w1.enum.vm_action.CONTINUE
+end
+
+function tracer.init()
+    w1.on(w1.event.INSTRUCTION_PRE, on_instruction)
+end
+
+function tracer.shutdown()
+    w1.log.info("traced " .. instruction_count .. " instructions")
 end
 
 return tracer
@@ -120,14 +125,14 @@ return tracer
 run it:
 ```sh
 # macos/linux
-./build-release/w1tool tracer -n w1script -c script=./scripts/w1script/instruction_tracer.lua -s ./build-release/tests/programs/simple_demo
+./build-release/w1tool tracer -n w1script -c script=./scripts/w1script/instruction_tracer.lua -s ./build-release/samples/programs/simple_demo
 # windows
-.\build-release\w1tool.exe tracer -n w1script -c script=./scripts/w1script/instruction_tracer.lua -s .\build-release\tests\programs\simple_demo.exe
+.\build-release\w1tool.exe tracer -n w1script -c script=./scripts/w1script/instruction_tracer.lua -s .\build-release\samples\programs\simple_demo.exe
 ```
 
 this will produce a trace of disassembled instructions as they are executed.
 
-see the [example scripts](./scripts/w1script/), which demonstrate memory tracing, function hooking, coverage collection, and api interception.
+see the [example scripts](./scripts/w1script/), which demonstrate memory tracing, coverage collection, and api interception.
 
 ## `p1ll` guide
 
@@ -213,6 +218,7 @@ key concepts:
 - `meta` table: organize sigs and patches by platform
 
 `p1ll` is an excellent and powerful tool for binary modification!
+see the [guide](./doc/p1lljs.md)
 
 ## acknowledgements
 

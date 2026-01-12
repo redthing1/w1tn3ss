@@ -22,7 +22,7 @@ function(configure_windows_symbol_resolution target)
             endforeach()
         endif()
         
-        # also check transitive dependencies from w1tn3ss which has both
+        # also check transitive dependencies from w1tn3ss which may have both
         if(target_libs AND target_libs MATCHES "w1tn3ss")
             set(has_qbdi TRUE)
             set(has_lief TRUE)

@@ -374,6 +374,46 @@ std::string format_signature_match_hexdump(
   return result.str();
 }
 
+std::string format_signature_pattern(const std::vector<uint8_t>& bytes, const std::vector<uint8_t>& mask) {
+  if (bytes.size() != mask.size()) {
+    return "invalid signature pattern";
+  }
+
+  std::ostringstream oss;
+  for (size_t i = 0; i < bytes.size(); ++i) {
+    if (i > 0) {
+      oss << " ";
+    }
+    if (mask[i]) {
+      oss << format_hex_byte(bytes[i], signature_match_color);
+    } else {
+      oss << redlog::detail::colorize("??", context_color);
+    }
+  }
+
+  return oss.str();
+}
+
+std::string format_patch_pattern(const std::vector<uint8_t>& bytes, const std::vector<uint8_t>& mask) {
+  if (bytes.size() != mask.size()) {
+    return "invalid patch pattern";
+  }
+
+  std::ostringstream oss;
+  for (size_t i = 0; i < bytes.size(); ++i) {
+    if (i > 0) {
+      oss << " ";
+    }
+    if (mask[i]) {
+      oss << format_hex_byte(bytes[i], after_change_color);
+    } else {
+      oss << redlog::detail::colorize("??", context_color);
+    }
+  }
+
+  return oss.str();
+}
+
 std::string format_patch_hexdump(
     const std::vector<uint8_t>& before, const std::vector<uint8_t>& after, uint64_t base_offset,
     const hexdump_options& opts

@@ -18,8 +18,7 @@ struct hexdump_options {
 };
 
 /**
- * create a beautiful hexdump of memory data.
- * respects redlog color settings and produces clean, aligned output.
+ * create a pretty hexdump of memory data.
  *
  * @param data pointer to data to dump
  * @param size number of bytes to dump
@@ -33,8 +32,6 @@ std::string format_hexdump(
 
 /**
  * create a side-by-side patch comparison hexdump showing before/after changes.
- * changed bytes are color-coded: before in cyan, after in red.
- * unchanged bytes remain in default color.
  *
  * @param before_data original data
  * @param after_data patched data
@@ -64,6 +61,16 @@ std::string format_signature_match_hexdump(
     const uint8_t* data, size_t data_size, size_t match_offset, size_t pattern_size, uint64_t base_offset = 0,
     const hexdump_options& opts = {}
 );
+
+/**
+ * create a colorized signature pattern string with wildcards.
+ */
+std::string format_signature_pattern(const std::vector<uint8_t>& bytes, const std::vector<uint8_t>& mask);
+
+/**
+ * create a colorized patch pattern string with wildcards.
+ */
+std::string format_patch_pattern(const std::vector<uint8_t>& bytes, const std::vector<uint8_t>& mask);
 
 /**
  * convenience function to create a patch comparison for vectors.

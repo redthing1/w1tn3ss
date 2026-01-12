@@ -1,53 +1,46 @@
 #pragma once
 
+#include "w1tn3ss/dump/dump_format.hpp"
+#include "w1tn3ss/util/memory_reader.hpp"
+
 #include <QBDI.h>
 #include <redlog.hpp>
-#include <w1tn3ss/util/module_scanner.hpp>
-#include <w1tn3ss/util/register_access.hpp>
-#include <set>
-#include "dump_format.hpp"
 
-namespace w1 {
-namespace dump {
+#include <string>
+#include <unordered_set>
+#include <vector>
+
+namespace w1::dump {
 
 struct dump_options {
-  bool dump_memory_content = false; // include actual memory data
+  bool dump_memory_content = false;
 
   struct filter {
-    enum type { ALL, CODE, DATA, STACK };
-    type region_type;
-    std::set<std::string> modules; // empty = all modules
+    enum class region_type { all, code, data, stack };
+    region_type type = region_type::all;
+    std::unordered_set<std::string> modules;
   };
-  std::vector<filter> filters; // if empty when dump_memory_content=true, dump all
 
-  uint64_t max_region_size = 100 * 1024 * 1024; // 100mb default limit
+  std::vector<filter> filters;
+  uint64_t max_region_size = 100 * 1024 * 1024;
 };
 
 class memory_dumper {
 public:
-  // dump memory regions with classification
   static std::vector<memory_region> dump_memory_regions(
-      QBDI::VMInstanceRef vm, const QBDI::GPRState& gpr, const dump_options& options = {}
+      QBDI::VMInstanceRef vm, const util::memory_reader& memory, const QBDI::GPRState& gpr,
+      const dump_options& options = {}
   );
 
-  // dump module information
-  static std::vector<module_info_serializable> dump_modules(const dump_options& options = {});
+  static std::vector<module_info> dump_modules();
 
 private:
   static redlog::logger log_;
 
-  // classify region based on observable characteristics
-  static void classify_region(
-      memory_region& region, const QBDI::MemoryMap& map, const std::vector<util::module_info>& modules,
-      uint64_t stack_pointer
-  );
-
-  // check if region should be included based on filters
+  static void classify_region(memory_region& region, const QBDI::MemoryMap& map, uint64_t stack_pointer);
   static bool should_include_region(const memory_region& region, const dump_options& options);
-
-  // safely read memory contents
-  static std::vector<uint8_t> read_memory_region(QBDI::VMInstanceRef vm, uint64_t start, uint64_t size);
+  static std::vector<uint8_t> read_memory_region(const util::memory_reader& memory, uint64_t start, uint64_t size);
+  static std::string extract_basename(const std::string& path);
 };
 
-} // namespace dump
-} // namespace w1
+} // namespace w1::dump

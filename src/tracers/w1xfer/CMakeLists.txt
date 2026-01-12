@@ -4,7 +4,7 @@ include(${WITNESS_SOURCE_DIR}/cmake/TracerConfig.cmake)
 include(${WITNESS_SOURCE_DIR}/cmake/LIEFConfig.cmake)
 
 create_tracer_targets(w1xfer
-    "preload.cpp;transfer_tracer.cpp;transfer_collector.cpp;symbol_enricher.cpp"
+    "preload.cpp;transfer_tracer.cpp;transfer_pipeline.cpp;transfer_writer_jsonl.cpp"
 )
 
 # Apply LIEF configuration to w1xfer targets

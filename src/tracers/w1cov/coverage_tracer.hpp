@@ -1,7 +1,16 @@
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
+#include <limits>
+
 #include <QBDI.h>
-#include <w1tn3ss/engine/tracer_engine.hpp>
+#include <redlog.hpp>
+
+#include "w1tn3ss/tracer/event.hpp"
+#include "w1tn3ss/tracer/trace_context.hpp"
+#include "w1tn3ss/tracer/tracer.hpp"
+#include "w1tn3ss/tracer/types.hpp"
 
 #include "coverage_collector.hpp"
 #include "coverage_config.hpp"
@@ -9,41 +18,51 @@
 
 namespace w1cov {
 
-/**
- * @brief coverage tracer using optimized module tracking
- * @details simplified design using coverage_module_tracker for fast lookups
- * and integrated filtering. eliminates multiple data structures.
- */
-class coverage_tracer {
+enum class coverage_mode : uint8_t { basic_block, instruction };
+
+template <coverage_mode mode> class coverage_tracer {
 public:
-  explicit coverage_tracer(const coverage_config& config);
+  explicit coverage_tracer(coverage_config config);
 
-  bool initialize(w1::tracer_engine<coverage_tracer>& engine);
-  void shutdown();
-  const char* get_name() const { return "w1cov"; }
+  const char* name() const { return "w1cov"; }
+  static constexpr w1::event_mask requested_events() {
+    constexpr w1::event_mask base = w1::event_mask_or(
+        w1::event_mask_of(w1::event_kind::thread_start), w1::event_mask_of(w1::event_kind::thread_stop)
+    );
+    if constexpr (mode == coverage_mode::instruction) {
+      return w1::event_mask_or(base, w1::event_mask_of(w1::event_kind::instruction_pre));
+    }
+    return w1::event_mask_or(base, w1::event_mask_of(w1::event_kind::basic_block_entry));
+  }
 
-  QBDI::VMAction on_basic_block_entry_manual(
-      QBDI::VMInstanceRef vm, const QBDI::VMState* state, QBDI::GPRState* gpr, QBDI::FPRState* fpr
+  void on_thread_start(w1::trace_context& ctx, const w1::thread_event& event);
+  void on_thread_stop(w1::trace_context& ctx, const w1::thread_event& event);
+
+  void on_basic_block_entry(
+      w1::trace_context& ctx, const w1::basic_block_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state,
+      QBDI::GPRState* gpr, QBDI::FPRState* fpr
+  );
+  void on_instruction_pre(
+      w1::trace_context& ctx, const w1::instruction_event& event, QBDI::VMInstanceRef vm, QBDI::GPRState* gpr,
+      QBDI::FPRState* fpr
   );
 
-  QBDI::VMAction on_instruction_preinst_manual(QBDI::VMInstanceRef vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr);
+  size_t get_coverage_unit_count() const { return collector_.get_coverage_unit_count(); }
+  size_t get_module_count() const { return collector_.get_module_count(); }
+  uint64_t get_total_hits() const { return collector_.get_total_hits(); }
 
-  // statistics access for standalone API
-  size_t get_coverage_unit_count() const;
-  size_t get_module_count() const;
-  uint64_t get_total_hits() const;
-  void print_statistics() const;
-
-  // collector access for standalone export
-  const coverage_collector& get_collector() const;
+  const coverage_collector& get_collector() const { return collector_; }
 
 private:
-  void record_coverage_at_address(QBDI::rword address, uint16_t size);
+  void record_coverage(w1::trace_context& ctx, uint64_t address, uint32_t size);
+  void export_coverage();
 
-private:
-  coverage_config config_;
+  coverage_config config_{};
   coverage_collector collector_;
   coverage_module_tracker module_tracker_;
+  redlog::logger log_ = redlog::get_logger("w1cov.tracer");
+  bool initialized_ = false;
+  bool exported_ = false;
 };
 
 } // namespace w1cov

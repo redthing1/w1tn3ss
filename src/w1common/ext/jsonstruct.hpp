@@ -4351,7 +4351,7 @@ template <typename T, T SUM> struct Pow10<T, 0, SUM> {
 
 template <typename T, T VALUE, int SUM, T ABORT_VALUE, bool CONTINUE> struct StaticLog10 {
   constexpr static int get() noexcept {
-    return StaticLog10 < T, VALUE / 10, SUM + 1, ABORT_VALUE, VALUE / 10 != ABORT_VALUE > ::get();
+    return StaticLog10<T, VALUE / 10, SUM + 1, ABORT_VALUE, VALUE / 10 != ABORT_VALUE>::get();
   }
 };
 

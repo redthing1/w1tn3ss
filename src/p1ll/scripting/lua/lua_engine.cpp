@@ -1,6 +1,5 @@
 #include "lua_engine.hpp"
 #include "lua_bindings.hpp"
-#include "p1ll.hpp"
 #include <redlog.hpp>
 #include <fstream>
 #include <sstream>
@@ -44,132 +43,107 @@ void lua_engine::setup_logging_integration() {
   log.dbg("logging integration complete");
 }
 
-cure_result lua_engine::execute_script_content_with_buffer(
-    const context& ctx, const std::string& script_content, std::vector<uint8_t>& buffer_data
+engine::result<engine::apply_report> lua_engine::execute_script(
+    engine::session& session, const std::string& script_content
 ) {
   auto log = redlog::get_logger("p1ll.lua_engine");
 
-  cure_result result;
-
-  log.inf("executing cure script with buffer", redlog::field("buffer_size", buffer_data.size()));
+  log.inf("executing lua script", redlog::field("mode", session.is_dynamic() ? "dynamic" : "static"));
 
   try {
-    // setup p1ll bindings with context and buffer
-    setup_p1ll_bindings_with_buffer(lua_, ctx, buffer_data);
+    setup_p1ll_bindings(lua_, session);
 
-    // load and execute script content
     auto script_result = lua_.script(script_content);
-
     if (!script_result.valid()) {
       sol::error error = script_result;
-      result.add_error("lua script error: " + std::string(error.what()));
       log.err("lua script failed", redlog::field("error", error.what()));
-      return result;
+      return engine::error_result<engine::apply_report>(
+          engine::error_code::invalid_argument, "lua script error: " + std::string(error.what())
+      );
     }
 
-    // call cure function
     return call_cure_function();
-
   } catch (const sol::error& e) {
-    // sol2-specific lua errors
-    result.add_error("lua execution error: " + std::string(e.what()));
     log.err("lua execution error", redlog::field("error", e.what()));
-    return result;
+    return engine::error_result<engine::apply_report>(
+        engine::error_code::internal_error, "lua execution error: " + std::string(e.what())
+    );
   } catch (const std::exception& e) {
-    // other c++ exceptions
-    result.add_error("script execution failed (c++ exception): " + std::string(e.what()));
-    log.err("script execution c++ exception", redlog::field("error", e.what()));
-    return result;
+    log.err("lua execution c++ exception", redlog::field("error", e.what()));
+    return engine::error_result<engine::apply_report>(
+        engine::error_code::internal_error, "lua execution failed: " + std::string(e.what())
+    );
   }
 }
 
-cure_result lua_engine::execute_script(const context& ctx, const std::string& script_content) {
+engine::result<engine::apply_report> lua_engine::call_cure_function() {
   auto log = redlog::get_logger("p1ll.lua_engine");
 
-  cure_result result;
-
-  log.inf("executing cure script from string");
-
   try {
-    // setup p1ll bindings with context
-    setup_p1ll_bindings(lua_, ctx);
-
-    // load and execute script content
-    auto script_result = lua_.script(script_content);
-
-    if (!script_result.valid()) {
-      sol::error error = script_result;
-      result.add_error("lua script error: " + std::string(error.what()));
-      log.err("lua script failed", redlog::field("error", error.what()));
-      return result;
-    }
-
-    // call cure function
-    return call_cure_function();
-
-  } catch (const sol::error& e) {
-    // sol2-specific lua errors
-    result.add_error("lua execution error: " + std::string(e.what()));
-    log.err("lua execution error", redlog::field("error", e.what()));
-    return result;
-  } catch (const std::exception& e) {
-    // other c++ exceptions
-    result.add_error("script execution failed (c++ exception): " + std::string(e.what()));
-    log.err("script execution c++ exception", redlog::field("error", e.what()));
-    return result;
-  }
-}
-
-cure_result lua_engine::call_cure_function() {
-  auto log = redlog::get_logger("p1ll.lua_engine");
-
-  cure_result result;
-
-  try {
-    // check if cure function exists
     sol::function cure_func = lua_["cure"];
     if (!cure_func.valid()) {
-      result.add_error("cure function not found in script");
       log.err("cure function not found");
-      return result;
+      return engine::error_result<engine::apply_report>(
+          engine::error_code::invalid_argument, "cure function not found in script"
+      );
     }
 
     log.dbg("calling cure function");
-
-    // call cure function
     auto cure_result = cure_func();
 
     if (!cure_result.valid()) {
       sol::error error = cure_result;
-      result.add_error("cure function failed: " + std::string(error.what()));
       log.err("cure function failed", redlog::field("error", error.what()));
-      return result;
-    }
-
-    // extract result
-    if (cure_result.get_type() == sol::type::userdata) {
-      auto extracted_result = cure_result.get<p1ll::cure_result>();
-      log.inf(
-          "cure function completed", redlog::field("success", extracted_result.success),
-          redlog::field("applied", extracted_result.patches_applied),
-          redlog::field("failed", extracted_result.patches_failed)
+      return engine::error_result<engine::apply_report>(
+          engine::error_code::internal_error, "cure function failed: " + std::string(error.what())
       );
-      return extracted_result;
-    } else {
-      result.add_error("cure function returned unexpected type");
-      return result;
     }
 
+    sol::object result_obj = cure_result;
+    if (result_obj.is<apply_report_wrapper>()) {
+      auto wrapper = result_obj.as<apply_report_wrapper>();
+      engine::apply_report report;
+      report.success = wrapper.success;
+      report.applied = static_cast<size_t>(wrapper.applied);
+      report.failed = static_cast<size_t>(wrapper.failed);
+      for (const auto& message : wrapper.error_messages) {
+        report.diagnostics.push_back(engine::make_status(engine::error_code::internal_error, message));
+      }
+
+      log.inf(
+          "cure completed", redlog::field("success", report.success), redlog::field("applied", report.applied),
+          redlog::field("failed", report.failed)
+      );
+      return engine::ok_result(report);
+    }
+
+    if (result_obj.is<sol::table>()) {
+      sol::table table = result_obj;
+      engine::apply_report report;
+      report.success = table["success"].get_or(false);
+      report.applied = table["applied"].get_or(0);
+      report.failed = table["failed"].get_or(0);
+      log.inf(
+          "cure completed", redlog::field("success", report.success), redlog::field("applied", report.applied),
+          redlog::field("failed", report.failed)
+      );
+      return engine::ok_result(report);
+    }
+
+    log.err("cure function returned unexpected type");
+    return engine::error_result<engine::apply_report>(
+        engine::error_code::invalid_argument, "cure function returned unexpected type"
+    );
   } catch (const sol::error& e) {
-    // sol2-specific lua errors
-    result.add_error("cure function lua error: " + std::string(e.what()));
     log.err("cure function lua error", redlog::field("error", e.what()));
-    return result;
+    return engine::error_result<engine::apply_report>(
+        engine::error_code::internal_error, "cure function lua error: " + std::string(e.what())
+    );
   } catch (const std::exception& e) {
-    // other c++ exceptions
-    result.add_error("cure function call failed (c++ exception): " + std::string(e.what()));
     log.err("cure function c++ exception", redlog::field("error", e.what()));
-    return result;
+    return engine::error_result<engine::apply_report>(
+        engine::error_code::internal_error, "cure function failed: " + std::string(e.what())
+    );
   }
 }
 
