@@ -24,9 +24,8 @@ inline std::string render_region_desc(const memory_region& region) {
 }
 
 inline void log_signature_match(
-    redlog::logger& log, const std::string& signature_pattern, uint64_t match_address,
-    const std::string& region_name, const uint8_t* data, size_t data_size, size_t match_offset, size_t pattern_size,
-    uint64_t base_offset
+    redlog::logger& log, const std::string& signature_pattern, uint64_t match_address, const std::string& region_name,
+    const uint8_t* data, size_t data_size, size_t match_offset, size_t pattern_size, uint64_t base_offset
 ) {
   log.vrb(
       "signature match", redlog::field("pattern", signature_pattern),
