@@ -14,15 +14,15 @@ local default_mnemonics = {
 
 local tracer = {}
 
+local function parse_mnemonic(vm)
+    local disasm = w1.inst.disasm(vm) or ""
+    return disasm:match("^%s*(%S+)") or ""
+end
+
 local function register_mnemonic(pattern)
     w1.on(w1.event.INSTRUCTION_PRE, function(vm, gpr, fpr)
-        local analysis = w1.inst.current(vm)
-        if not analysis then
-            return w1.enum.vm_action.CONTINUE
-        end
-
-        local address = analysis.address
-        local actual_mnemonic = analysis.mnemonic or ""
+        local address = w1.reg.pc(gpr) or 0
+        local actual_mnemonic = parse_mnemonic(vm)
 
         matched_instructions = matched_instructions + 1
         if not unique_sites[address] then
