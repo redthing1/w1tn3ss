@@ -13,12 +13,9 @@ public:
   lua_engine();
   ~lua_engine() = default;
 
-  // execute cure script from string content
-  cure_result execute_script(const context& context, const std::string& script_content) override;
-
-  // execute cure script with explicit buffer (for static mode)
-  cure_result execute_script_content_with_buffer(
-      const context& context, const std::string& script_content, std::vector<uint8_t>& buffer_data
+  // execute script with an active session
+  engine::result<engine::apply_report> execute_script(
+      engine::session& session, const std::string& script_content
   ) override;
 
   // get lua state for advanced usage
@@ -31,7 +28,7 @@ private:
   void setup_logging_integration();
 
   // execute cure function from loaded script
-  cure_result call_cure_function();
+  engine::result<engine::apply_report> call_cure_function();
 };
 
 } // namespace p1ll::scripting::lua

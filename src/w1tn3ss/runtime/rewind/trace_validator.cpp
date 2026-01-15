@@ -70,7 +70,6 @@ trace_validator::trace_validator(trace_validator_config config) : config_(std::m
 }
 
 bool trace_validator::initialize() {
-  std::lock_guard<std::mutex> guard(mutex_);
   if (!config_.source) {
     config_.log.err("trace validator missing source");
     return false;
@@ -81,16 +80,10 @@ bool trace_validator::initialize() {
     return false;
   }
 
-  cursors_.clear();
-  pending_events_.clear();
   stats_ = {};
   mismatches_.clear();
-  stack_windows_.clear();
-  last_actual_registers_.clear();
-  last_expected_registers_.clear();
-  offset_profiles_.clear();
+  threads_.clear();
   module_cache_initialized_ = false;
-  module_index_.rebuild_from_modules({});
   initialized_ = true;
   finalized_ = false;
   config_.log.inf("trace validator ready");
@@ -98,7 +91,6 @@ bool trace_validator::initialize() {
 }
 
 void trace_validator::close() {
-  std::lock_guard<std::mutex> guard(mutex_);
   if (config_.source) {
     config_.source->close();
   }
@@ -107,7 +99,6 @@ void trace_validator::close() {
 }
 
 trace_validator::result trace_validator::verify(const trace_event& live_event) {
-  std::lock_guard<std::mutex> guard(mutex_);
   if (!initialized_) {
     return result::ok;
   }
@@ -143,7 +134,6 @@ trace_validator::result trace_validator::verify(const trace_event& live_event) {
 }
 
 void trace_validator::finalize() {
-  std::lock_guard<std::mutex> guard(mutex_);
   if (!initialized_ || finalized_) {
     return;
   }
@@ -153,11 +143,11 @@ void trace_validator::finalize() {
     if (!config_.source->read_event(leftover)) {
       break;
     }
-    pending_events_[leftover.thread_id].push_back(leftover);
+    threads_[leftover.thread_id].pending_events.push_back(leftover);
   }
 
-  for (auto& entry : pending_events_) {
-    auto& queue = entry.second;
+  for (auto& entry : threads_) {
+    auto& queue = entry.second.pending_events;
     while (!queue.empty()) {
       auto expected = queue.front();
       queue.pop_front();
@@ -175,12 +165,15 @@ void trace_validator::finalize() {
   finalized_ = true;
 }
 
+trace_validator::thread_state& trace_validator::state_for_thread(uint64_t thread_id) {
+  return threads_[thread_id];
+}
+
 bool trace_validator::fetch_expected(uint64_t thread_id, trace_event& expected) {
-  auto& pending = pending_events_[thread_id];
+  auto& pending = state_for_thread(thread_id).pending_events;
   if (!pending.empty()) {
     expected = pending.front();
     pending.pop_front();
-    cursors_[thread_id].next_sequence = expected.sequence + 1;
     return true;
   }
 
@@ -190,13 +183,12 @@ bool trace_validator::fetch_expected(uint64_t thread_id, trace_event& expected) 
       break;
     }
 
-    auto& queue = pending_events_[candidate.thread_id];
+    auto& queue = state_for_thread(candidate.thread_id).pending_events;
     queue.push_back(candidate);
 
     if (candidate.thread_id == thread_id) {
       expected = queue.front();
       queue.pop_front();
-      cursors_[thread_id].next_sequence = expected.sequence + 1;
       return true;
     }
   }
@@ -204,7 +196,6 @@ bool trace_validator::fetch_expected(uint64_t thread_id, trace_event& expected) 
   if (!pending.empty()) {
     expected = pending.front();
     pending.pop_front();
-    cursors_[thread_id].next_sequence = expected.sequence + 1;
     return true;
   }
 
@@ -237,8 +228,9 @@ bool trace_validator::compare_instruction_events(const trace_event& live_event, 
     ok = false;
   }
 
-  auto& actual_regs_cache = last_actual_registers_[live_event.thread_id];
-  auto& expected_regs_cache = last_expected_registers_[live_event.thread_id];
+  auto& state = state_for_thread(live_event.thread_id);
+  auto& actual_regs_cache = state.last_actual_registers;
+  auto& expected_regs_cache = state.last_expected_registers;
 
   auto get_cached_value = [](const trace_event& event, const std::unordered_map<std::string, uint64_t>& cache,
                              std::initializer_list<const char*> names) -> std::optional<uint64_t> {
@@ -279,15 +271,14 @@ bool trace_validator::compare_instruction_events(const trace_event& live_event, 
     ok = false;
   }
 
-  update_register_cache(live_event.thread_id, live_event, last_actual_registers_);
-  update_register_cache(live_event.thread_id, expected, last_expected_registers_);
+  update_register_cache(live_event, actual_regs_cache);
+  update_register_cache(expected, expected_regs_cache);
 
   return ok;
 }
 
 bool trace_validator::compare_boundary_events(const trace_event& live_event, const trace_event& expected) {
   reset_thread_caches(live_event.thread_id);
-  reset_profiles(live_event.thread_id);
 
   bool ok = compare_instruction_events(live_event, expected);
 
@@ -345,8 +336,9 @@ bool trace_validator::compare_registers(
     const trace_event& live_event, const trace_event& expected, std::optional<uint64_t> actual_sp,
     std::optional<uint64_t> expected_sp, std::optional<uint64_t> actual_fp, std::optional<uint64_t> expected_fp
 ) {
-  auto& window = stack_windows_[live_event.thread_id];
-  auto& profiles = profiles_for_thread(live_event.thread_id);
+  auto& state = state_for_thread(live_event.thread_id);
+  auto& window = state.window;
+  auto& profiles = state.offset_profiles;
   if (live_event.registers.size() != expected.registers.size()) {
     record_mismatch(
         trace_mismatch::kind::register_mismatch, live_event.thread_id, live_event.sequence,
@@ -468,7 +460,8 @@ bool trace_validator::compare_memory(
     uint64_t thread_id, uint64_t sequence, const char* kind, std::optional<uint64_t> actual_sp,
     std::optional<uint64_t> expected_sp, std::optional<uint64_t> actual_fp, std::optional<uint64_t> expected_fp
 ) {
-  auto& window = stack_windows_[thread_id];
+  auto& state = state_for_thread(thread_id);
+  auto& window = state.window;
   const int64_t window_bytes = static_cast<int64_t>(config_.stack_window_bytes);
 
   if (live_accesses.size() != expected_accesses.size()) {
@@ -583,15 +576,6 @@ bool trace_validator::compare_memory(
   }
 
   return true;
-}
-
-std::vector<trace_validator::offset_profile>& trace_validator::profiles_for_thread(uint64_t thread_id) {
-  return offset_profiles_[thread_id];
-}
-
-void trace_validator::reset_profiles(uint64_t thread_id) {
-  auto& profiles = offset_profiles_[thread_id];
-  profiles.clear();
 }
 
 bool trace_validator::check_offset_profiles(
@@ -731,22 +715,18 @@ bool trace_validator::should_ignore_value(uint64_t value) {
 }
 
 void trace_validator::reset_thread_caches(uint64_t thread_id) {
-  auto& window = stack_windows_[thread_id];
-  window.sp_diff.reset();
-  window.fp_diff.reset();
-  window.register_diffs.clear();
-  last_actual_registers_[thread_id].clear();
-  last_expected_registers_[thread_id].clear();
-  reset_profiles(thread_id);
+  auto& state = state_for_thread(thread_id);
+  state.window = {};
+  state.last_actual_registers.clear();
+  state.last_expected_registers.clear();
+  state.offset_profiles.clear();
 }
 
 void trace_validator::update_register_cache(
-    uint64_t thread_id, const trace_event& event,
-    std::unordered_map<uint64_t, std::unordered_map<std::string, uint64_t>>& cache
+    const trace_event& event, std::unordered_map<std::string, uint64_t>& cache
 ) {
-  auto& reg_cache = cache[thread_id];
   for (const auto& reg : event.registers) {
-    reg_cache[reg.name] = reg.value;
+    cache[reg.name] = reg.value;
   }
 }
 
@@ -757,18 +737,20 @@ std::optional<std::string> trace_validator::module_name_for_address(uint64_t add
 
   if (!module_cache_initialized_) {
     try {
-      // include non-executable mappings so globals (e.g., stack guards) resolve to their owning modules,
-      // but skip anonymous ranges (stacks/heaps) to avoid accidental matches on random data.
-      auto modules = module_scanner_.scan_modules(/*executable_only=*/false, /*include_anonymous=*/false);
-      module_index_.rebuild_from_modules(std::move(modules));
+      // include non-executable mappings so globals (e.g., stack guards) resolve to their owning modules.
+      module_registry_.refresh();
     } catch (const std::exception& e) {
       config_.log.wrn("module scan failed", redlog::field("error", e.what()));
     }
     module_cache_initialized_ = true;
   }
 
-  const auto* mod = module_index_.find_containing(static_cast<QBDI::rword>(address));
+  const auto* mod = module_registry_.find_containing(address);
   if (!mod) {
+    return std::nullopt;
+  }
+
+  if (!mod->name.empty() && mod->name.rfind("_unnamed_", 0) == 0) {
     return std::nullopt;
   }
 

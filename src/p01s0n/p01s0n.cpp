@@ -7,8 +7,7 @@
 #include <fstream>
 
 #include <redlog.hpp>
-#include "p1ll/core/context.hpp"
-
+#include "p1ll/p1ll.hpp"
 #include "p1ll/scripting/script_engine_factory.hpp"
 
 namespace p01s0n {
@@ -45,7 +44,7 @@ int p01s0n_run() {
   }
 
   try {
-    auto context = p1ll::context::create_dynamic();
+    auto session = p1ll::engine::session::for_process();
 
     log.inf("executing dynamic cure script", redlog::field("script", config.script_path));
 
@@ -64,23 +63,26 @@ int p01s0n_run() {
       return 1;
     }
 
-    auto result = script_engine->execute_script(*context, script_content);
+    auto result = script_engine->execute_script(session, script_content);
 
-    if (result.success) {
+    if (result.ok() && result.value.success) {
       log.inf(
-          "dynamic cure completed successfully", redlog::field("patches_applied", result.patches_applied),
-          redlog::field("patches_failed", result.patches_failed)
+          "dynamic cure completed successfully", redlog::field("patches_applied", result.value.applied),
+          redlog::field("patches_failed", result.value.failed)
       );
       return 0;
     } else {
       log.err(
-          "dynamic cure failed", redlog::field("patches_applied", result.patches_applied),
-          redlog::field("patches_failed", result.patches_failed),
-          redlog::field("error_count", result.error_messages.size())
+          "dynamic cure failed", redlog::field("patches_applied", result.value.applied),
+          redlog::field("patches_failed", result.value.failed),
+          redlog::field("error_count", result.value.diagnostics.size())
       );
 
-      for (const auto& error : result.error_messages) {
-        log.err("cure error", redlog::field("message", error));
+      for (const auto& error : result.value.diagnostics) {
+        log.err("cure error", redlog::field("message", error.message));
+      }
+      if (!result.ok() && !result.status.message.empty()) {
+        log.err("cure error", redlog::field("message", result.status.message));
       }
       return 1;
     }

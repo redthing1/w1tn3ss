@@ -4,14 +4,14 @@
 #include <string>
 #include <vector>
 
-#include <w1tn3ss/engine/instrumentation_config.hpp>
-#include <w1tn3ss/util/env_config.hpp>
+#include "w1tn3ss/core/instrumentation_policy.hpp"
 
 namespace w1rewind {
 
-struct rewind_config : public w1::instrumentation_config {
+struct rewind_config {
+  w1::core::instrumentation_policy instrumentation{};
+  bool exclude_self = true;
   int verbose = 0;
-  bool enable_thread_hooks = false;
   bool record_instructions = true;
   bool record_registers = true;
   bool record_memory = true;

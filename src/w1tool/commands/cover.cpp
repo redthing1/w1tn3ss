@@ -15,10 +15,11 @@ namespace w1tool::commands {
 
 int cover(
     args::ValueFlag<std::string>& library_flag, args::Flag& spawn_flag, args::ValueFlag<int>& pid_flag,
-    args::ValueFlag<std::string>& name_flag, args::ValueFlag<std::string>& output_flag, args::Flag& include_system_flag,
-    args::Flag& inst_trace_flag, args::ValueFlag<std::string>& module_filter_flag,
-    args::ValueFlag<int>& debug_level_flag, args::ValueFlag<std::string>& format_flag, args::Flag& suspended_flag,
-    args::Flag& no_aslr_flag, args::PositionalList<std::string>& args_list, const std::string& executable_path
+    args::ValueFlag<std::string>& name_flag, args::ValueFlag<std::string>& output_flag,
+    args::ValueFlag<std::string>& system_policy_flag, args::Flag& inst_trace_flag,
+    args::ValueFlag<std::string>& module_filter_flag, args::ValueFlag<int>& debug_level_flag,
+    args::ValueFlag<std::string>& format_flag, args::Flag& suspended_flag, args::Flag& no_aslr_flag,
+    args::PositionalList<std::string>& args_list, const std::string& executable_path
 ) {
   auto log = redlog::get_logger("w1tool.cover");
 
@@ -99,7 +100,9 @@ int cover(
   }
 
   // translate cover flags to w1cov config
-  params.config_map["include_system"] = include_system_flag ? "true" : "false";
+  if (system_policy_flag) {
+    params.config_map["system_policy"] = args::get(system_policy_flag);
+  }
   params.config_map["inst_trace"] = inst_trace_flag ? "true" : "false";
   params.config_map["output"] = output_file;
 
@@ -132,10 +135,11 @@ int cover(
     params.process_name = args::get(name_flag);
   }
 
+  std::string system_policy = system_policy_flag ? args::get(system_policy_flag) : "default";
   log.info(
       "coverage tracing configuration", redlog::field("output_file", output_file), redlog::field("format", format),
-      redlog::field("include_system", include_system_flag ? "true" : "false"),
-      redlog::field("inst_trace", inst_trace_flag ? "true" : "false"), redlog::field("debug_level", params.debug_level)
+      redlog::field("system_policy", system_policy), redlog::field("inst_trace", inst_trace_flag ? "true" : "false"),
+      redlog::field("debug_level", params.debug_level)
   );
 
   // execute w1cov tracing

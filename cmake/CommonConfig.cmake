@@ -18,6 +18,12 @@ if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 4 AND MSVC)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SAFESEH:NO")
 endif()
 
+# silence duplicate standard library warnings from ld on Apple toolchains
+if(APPLE)
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-no_warn_duplicate_libraries")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-no_warn_duplicate_libraries")
+endif()
+
 # common compiler flags
 function(apply_common_compile_options target)
     target_compile_features(${target} PRIVATE cxx_std_20)

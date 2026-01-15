@@ -21,6 +21,7 @@ include(${WITNESS_SOURCE_DIR}/cmake/CommonConfig.cmake)
 include(${WITNESS_SOURCE_DIR}/cmake/PlatformConfig.cmake)
 include(${WITNESS_SOURCE_DIR}/cmake/LuaConfig.cmake)
 include(${WITNESS_SOURCE_DIR}/cmake/JavaScriptConfig.cmake)
+include(${WITNESS_SOURCE_DIR}/cmake/AsmrConfig.cmake)
 include(${WITNESS_SOURCE_DIR}/cmake/LIEFConfig.cmake)
 include(${WITNESS_SOURCE_DIR}/cmake/WindowsSymbolConfig.cmake)
 
@@ -34,6 +35,9 @@ setup_lua_environment()
 
 # setup lief environment once globally
 setup_lief_environment()
+
+# setup asmr environment once globally
+setup_asmr_environment()
 
 # print witness configuration block
 message(STATUS "")
@@ -60,7 +64,9 @@ set(QBDI_BENCHMARK OFF CACHE BOOL "compile qbdi benchmark" FORCE)
 message(STATUS "forcing qbdi static-only build")
 
 # add third-party libraries
+set(CMAKE_WARN_DEPRECATED OFF)
 add_subdirectory(src/third_party/qbdi)
+set(CMAKE_WARN_DEPRECATED ON)
 
 # force qbdi targets to use c++17 to avoid c++20 compatibility issues
 get_directory_property(QBDI_TARGETS DIRECTORY src/third_party/qbdi BUILDSYSTEM_TARGETS)
@@ -129,15 +135,51 @@ if(WITNESS_LIEF)
     endforeach()
 endif()
 
+# add capstone/keystone if enabled
+if(P1LL_BUILD_ASMR)
+    set(_witness_build_shared_libs_was_set FALSE)
+    if(DEFINED BUILD_SHARED_LIBS)
+        set(_witness_build_shared_libs_prev "${BUILD_SHARED_LIBS}")
+        set(_witness_build_shared_libs_was_set TRUE)
+    endif()
+
+    set(_witness_llvm_targets_was_set FALSE)
+    if(DEFINED LLVM_TARGETS_TO_BUILD)
+        set(_witness_llvm_targets_prev "${LLVM_TARGETS_TO_BUILD}")
+        set(_witness_llvm_targets_was_set TRUE)
+    endif()
+    set(LLVM_TARGETS_TO_BUILD "AArch64;X86" CACHE STRING "keystone llvm targets" FORCE)
+
+    if(NOT DEFINED CMAKE_POLICY_VERSION_MINIMUM)
+        set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+    endif()
+
+    set(BUILD_SHARED_LIBS OFF CACHE BOOL "force static libs for keystone" FORCE)
+    fetch_asmr_dependencies()
+    configure_asmr_targets()
+
+    if(_witness_llvm_targets_was_set)
+        set(LLVM_TARGETS_TO_BUILD "${_witness_llvm_targets_prev}" CACHE STRING "restore LLVM_TARGETS_TO_BUILD" FORCE)
+    else()
+        unset(LLVM_TARGETS_TO_BUILD CACHE)
+    endif()
+
+    if(_witness_build_shared_libs_was_set)
+        set(BUILD_SHARED_LIBS "${_witness_build_shared_libs_prev}" CACHE BOOL "restore BUILD_SHARED_LIBS" FORCE)
+    else()
+        unset(BUILD_SHARED_LIBS CACHE)
+    endif()
+endif()
+
 # add project subdirectories
 add_subdirectory(src/w1common)
 add_subdirectory(src/w1tn3ss)
 add_subdirectory(src/tracers)
+add_subdirectory(src/p1ll)
+add_subdirectory(src/p1llx)
 add_subdirectory(src/w1nj3ct)
 add_subdirectory(src/w1debugger)
 add_subdirectory(src/w1tool)
-add_subdirectory(src/p1ll)
-add_subdirectory(src/p1llx)
 add_subdirectory(src/p01s0n)
 
 # setup global include directories for clean project-based includes
@@ -147,6 +189,10 @@ include_directories(${WITNESS_SOURCE_DIR}/src)
 # add tests (optional)
 option(BUILD_TESTS "Build test programs and libraries" ON)
 if(BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(test/w1tn3ss)
+    add_subdirectory(test/p1ll)
+    add_subdirectory(samples)
     add_subdirectory(tests)
 endif()
 

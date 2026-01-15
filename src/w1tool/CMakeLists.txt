@@ -16,6 +16,7 @@ add_executable(w1tool
     tracer_discovery.cpp
 )
 
+
 set_target_properties(w1tool PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 target_include_directories(w1tool PRIVATE
@@ -25,12 +26,12 @@ target_include_directories(w1tool PRIVATE
 
 target_link_libraries(w1tool PRIVATE
     w1tn3ss
-    w1tn3ss_dump
     w1nj3ct
     w1debugger
     common
     redlog::redlog
 )
+
 
 apply_common_compile_options(w1tool)
 apply_windows_definitions(w1tool)

@@ -6,45 +6,37 @@ local unique_symbols = {}
 
 local tracer = {}
 
-function tracer.on_instruction_preinst(vm, gpr, fpr)
+local function on_instruction(vm, gpr, fpr)
     instruction_count = instruction_count + 1
 
-    -- get program counter
-    local pc = w1.get_reg_pc and w1.get_reg_pc(gpr) or 0
-
-    -- resolve current instruction location
-    local sym = w1.symbol_resolve_address(pc)
+    local pc = w1.reg.pc(gpr) or 0
+    local sym = w1.symbol.resolve_address(pc)
     if sym then
         unique_symbols[sym.name] = true
-        local disasm = w1.get_disassembly(vm)
-        w1.log_info(string.format("%s: %s+0x%x: %s", w1.format_address(pc), sym.name, sym.offset, disasm))
+        local disasm = w1.inst.disasm(vm) or "<unknown>"
+        w1.log.info(string.format("%s: %s+0x%x: %s", w1.util.format_address(pc), sym.name, sym.offset, disasm))
     end
 
-    -- on first run, demonstrate other capabilities
     if first_run then
         first_run = false
 
-        -- show backend
-        w1.log_info("symbol backend: " .. w1.symbol_get_backend())
-
-        -- resolve common function
-        local malloc_addr = w1.symbol_resolve_name("malloc")
-        if malloc_addr then
-            w1.log_info(string.format("malloc @ %s", w1.format_address(malloc_addr)))
-        end
+        w1.log.info("symbol backend: " .. w1.symbol.backend())
     end
 
-    return w1.VMAction.CONTINUE
+    return w1.enum.vm_action.CONTINUE
+end
+
+function tracer.init()
+    w1.on(w1.event.INSTRUCTION_PRE, on_instruction)
 end
 
 function tracer.shutdown()
-    -- count unique symbols
     local symbol_count = 0
     for _ in pairs(unique_symbols) do
         symbol_count = symbol_count + 1
     end
 
-    w1.log_info(string.format("traced %d instructions in %d unique functions", instruction_count, symbol_count))
+    w1.log.info(string.format("traced %d instructions in %d unique functions", instruction_count, symbol_count))
 end
 
 return tracer

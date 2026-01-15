@@ -361,8 +361,7 @@ mig_external
 #else
 extern
 #endif /* mig_external */
-    MIG_SERVER_ROUTINE kern_return_t
-    catch_mach_exception_raise(
+    MIG_SERVER_ROUTINE kern_return_t catch_mach_exception_raise(
         mach_port_t exception_port, mach_port_t thread, mach_port_t task, exception_type_t exception,
         mach_exception_data_t code, mach_msg_type_number_t codeCnt, injector_t* injector
     );
@@ -495,8 +494,7 @@ mig_external
 #else
 extern
 #endif /* mig_external */
-    MIG_SERVER_ROUTINE kern_return_t
-    catch_mach_exception_raise_state(
+    MIG_SERVER_ROUTINE kern_return_t catch_mach_exception_raise_state(
         mach_port_t exception_port, exception_type_t exception, const mach_exception_data_t code,
         mach_msg_type_number_t codeCnt, int* flavor, const thread_state_t old_state,
         mach_msg_type_number_t old_stateCnt, thread_state_t new_state, mach_msg_type_number_t* new_stateCnt
@@ -652,8 +650,7 @@ mig_external
 #else
 extern
 #endif /* mig_external */
-    MIG_SERVER_ROUTINE kern_return_t
-    catch_mach_exception_raise_state_identity(
+    MIG_SERVER_ROUTINE kern_return_t catch_mach_exception_raise_state_identity(
         mach_port_t exception_port, mach_port_t thread, mach_port_t task, exception_type_t exception,
         mach_exception_data_t code, mach_msg_type_number_t codeCnt, int* flavor, thread_state_t old_state,
         mach_msg_type_number_t old_stateCnt, thread_state_t new_state, mach_msg_type_number_t* new_stateCnt
@@ -736,16 +733,14 @@ mig_external
 #else
 extern
 #endif /* mig_external */
-    boolean_t
-    mach_exc_server(mach_msg_header_t* InHeadP, mach_msg_header_t* OutHeadP);
+    boolean_t mach_exc_server(mach_msg_header_t* InHeadP, mach_msg_header_t* OutHeadP);
 
 #ifdef mig_external
 mig_external
 #else
 extern
 #endif /* mig_external */
-    mig_routine_t
-    mach_exc_server_routine(mach_msg_header_t* InHeadP);
+    mig_routine_t mach_exc_server_routine(mach_msg_header_t* InHeadP);
 
 /* Description of this subsystem, for use in direct RPC */
 const struct catch_mach_exc_subsystem {

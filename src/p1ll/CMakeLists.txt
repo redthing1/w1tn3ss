@@ -2,12 +2,17 @@
 
 # core library sources
 set(P1LL_CORE_SOURCES
-    core/platform.cpp
-    core/signature.cpp
-    core/context.cpp
+    engine/address_space.cpp
+    engine/apply.cpp
+    engine/pattern.cpp
     engine/pattern_matcher.cpp
-    engine/memory_scanner.cpp
-    engine/auto_cure.cpp
+    engine/plan_builder.cpp
+    engine/scanner.cpp
+    engine/session.cpp
+    engine/platform/platform.cpp
+    engine/platform/process_memory_macos.cpp
+    engine/platform/process_memory_linux.cpp
+    engine/platform/process_memory_windows.cpp
     utils/hex_utils.cpp
     utils/hex_pattern.cpp
     utils/file_utils.cpp
@@ -75,4 +80,33 @@ option(P1LL_BUILD_CAPI "Build C API wrapper for p1ll" OFF)
 if(P1LL_BUILD_CAPI)
     add_subdirectory(capi)
     message(STATUS "p1ll c api enabled")
+endif()
+
+# p1ll_asmr static library (optional)
+option(P1LL_BUILD_ASMR "Build p1ll asmr disassembler/assembler" OFF)
+
+if(P1LL_BUILD_ASMR)
+    set(P1LL_ASMR_SOURCES
+        asmr/asmr.cpp
+        asmr/heur/code_signature.cpp
+    )
+
+    add_library(p1ll_asmr STATIC ${P1LL_ASMR_SOURCES})
+    target_link_libraries(p1ll_asmr PUBLIC p1ll_core PRIVATE capstone::capstone keystone::keystone)
+    target_include_directories(p1ll_asmr
+        PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..
+    )
+    if(DEFINED P1LL_ASMR_CAPSTONE_INCLUDE_DIR)
+        target_include_directories(p1ll_asmr PRIVATE ${P1LL_ASMR_CAPSTONE_INCLUDE_DIR})
+    endif()
+    if(DEFINED P1LL_ASMR_KEYSTONE_INCLUDE_DIR)
+        target_include_directories(p1ll_asmr PRIVATE ${P1LL_ASMR_KEYSTONE_INCLUDE_DIR})
+    endif()
+    target_compile_definitions(p1ll_asmr PUBLIC P1LL_HAS_ASMR=1)
+
+    set_target_properties(p1ll_asmr PROPERTIES
+        ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
+        POSITION_INDEPENDENT_CODE ON
+    )
 endif()

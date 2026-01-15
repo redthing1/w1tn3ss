@@ -7,12 +7,10 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
-#include <mutex>
 
 #include <redlog.hpp>
 
-#include <w1tn3ss/util/module_range_index.hpp>
-#include <w1tn3ss/util/module_scanner.hpp>
+#include <w1tn3ss/runtime/module_registry.hpp>
 
 #include "trace_source.hpp"
 #include "trace_types.hpp"
@@ -62,10 +60,6 @@ public:
   const std::vector<trace_mismatch>& mismatches() const { return mismatches_; }
 
 private:
-  struct thread_cursor {
-    uint64_t next_sequence = 0;
-  };
-
   struct stack_window {
     std::optional<int64_t> sp_diff;
     std::optional<int64_t> fp_diff;
@@ -82,11 +76,6 @@ private:
     bool contains(const std::string& reg) const { return names.find(reg) != names.end(); }
   };
 
-  bool fetch_expected(uint64_t thread_id, trace_event& expected);
-  bool compare_events(const trace_event& live_event, const trace_event& expected);
-  bool compare_instruction_events(const trace_event& live_event, const trace_event& expected);
-  bool compare_boundary_events(const trace_event& live_event, const trace_event& expected);
-
   struct offset_profile {
     std::string reg_name;
     int64_t delta = 0;
@@ -94,8 +83,20 @@ private:
     uint64_t boundary_id = 0;
   };
 
-  std::vector<offset_profile>& profiles_for_thread(uint64_t thread_id);
-  void reset_profiles(uint64_t thread_id);
+  struct thread_state {
+    std::deque<trace_event> pending_events;
+    stack_window window;
+    std::unordered_map<std::string, uint64_t> last_actual_registers;
+    std::unordered_map<std::string, uint64_t> last_expected_registers;
+    std::vector<offset_profile> offset_profiles;
+  };
+
+  thread_state& state_for_thread(uint64_t thread_id);
+
+  bool fetch_expected(uint64_t thread_id, trace_event& expected);
+  bool compare_events(const trace_event& live_event, const trace_event& expected);
+  bool compare_instruction_events(const trace_event& live_event, const trace_event& expected);
+  bool compare_boundary_events(const trace_event& live_event, const trace_event& expected);
   bool check_offset_profiles(
       std::vector<offset_profile>& profiles, const trace_event& live_event, const trace_event& expected,
       const trace_register_delta& actual, const trace_register_delta& target, int64_t diff
@@ -113,10 +114,7 @@ private:
   bool should_ignore_register(const std::string& name, uint64_t value);
   bool should_ignore_value(uint64_t value);
   void reset_thread_caches(uint64_t thread_id);
-  void update_register_cache(
-      uint64_t thread_id, const trace_event& event,
-      std::unordered_map<uint64_t, std::unordered_map<std::string, uint64_t>>& cache
-  );
+  void update_register_cache(const trace_event& event, std::unordered_map<std::string, uint64_t>& cache);
   std::optional<std::string> module_name_for_address(uint64_t address);
   bool module_matches_ignore(const std::string& module_name) const;
   void record_mismatch(trace_mismatch::kind type, uint64_t thread_id, uint64_t sequence, std::string message);
@@ -125,21 +123,14 @@ private:
   trace_validator_config config_;
   trace_validation_stats stats_;
   std::vector<trace_mismatch> mismatches_;
-  std::unordered_map<uint64_t, thread_cursor> cursors_;
-  std::unordered_map<uint64_t, std::deque<trace_event>> pending_events_;
-  std::unordered_map<uint64_t, stack_window> stack_windows_;
-  std::unordered_map<uint64_t, std::unordered_map<std::string, uint64_t>> last_actual_registers_;
-  std::unordered_map<uint64_t, std::unordered_map<std::string, uint64_t>> last_expected_registers_;
-  std::unordered_map<uint64_t, std::vector<offset_profile>> offset_profiles_;
+  std::unordered_map<uint64_t, thread_state> threads_;
   std::unordered_set<std::string> ignore_registers_;
   std::vector<std::string> ignore_modules_;
   bool module_cache_initialized_ = false;
-  w1::util::module_scanner module_scanner_;
-  w1::util::module_range_index module_index_;
+  w1::runtime::module_registry module_registry_;
   scratch_register_policy scratch_policy_;
   bool initialized_ = false;
   bool finalized_ = false;
-  std::mutex mutex_;
 };
 
 using trace_validator_ptr = std::shared_ptr<trace_validator>;

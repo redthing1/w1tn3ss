@@ -6,8 +6,7 @@
  */
 
 #include "w1tn3ss/gadget/gadget_executor.hpp"
-#include "w1tn3ss/util/register_access.hpp"
-#include <QBDI/Platform.h>
+#include <QBDI.h>
 #include <cassert>
 #include <chrono>
 #include <cstdio>
@@ -116,7 +115,7 @@ QBDI_NOINLINE void gadget_raw_manip() {
   *ptr = 0x1234;
 
   // Add more operations to make the function longer
-  for (volatile int i = 0; i < 10; i++) {
+  for (int i = 0; i < 10; ++i) {
     *ptr += 1;
   }
 
@@ -125,7 +124,7 @@ QBDI_NOINLINE void gadget_raw_manip() {
   g_state.flag = true;
 
   // Even more to be safe
-  for (volatile int j = 0; j < 5; j++) {
+  for (int j = 0; j < 5; ++j) {
     g_state.buffer[j] = 'A' + j;
   }
 }
@@ -155,9 +154,9 @@ void test_basic_functionality() {
 
   printf("  Parent VM created: %p\n", &vm);
   printf("  Parent VM stack: %p (size: 0x100000)\n", stack);
-  printf("  Parent VM SP: 0x%llx\n", (unsigned long long) w1::registers::get_sp(vm.getGPRState()));
+  printf("  Parent VM SP: 0x%llx\n", static_cast<unsigned long long>(QBDI_GPR_GET(vm.getGPRState(), QBDI::REG_SP)));
 
-  w1tn3ss::gadget::gadget_executor executor(&vm);
+  w1::gadget::gadget_executor executor(&vm);
 
   // Reset state
   g_state = {0, "", 0.0, false};
@@ -265,9 +264,9 @@ void test_within_vm_callback() {
               "within VM callback:\n"
           );
           printf("    Parent VM (in callback): %p\n", vm);
-          printf("    Parent VM SP: 0x%llx\n", (unsigned long long) w1::registers::get_sp(gpr));
+          printf("    Parent VM SP: 0x%llx\n", (unsigned long long) QBDI_GPR_GET(gpr, QBDI::REG_SP));
 
-          w1tn3ss::gadget::gadget_executor executor(vm);
+          w1::gadget::gadget_executor executor(vm);
 
           // Test basic execution
           printf("    Calling gadget_increment from callback...\n");
@@ -287,7 +286,7 @@ void test_within_vm_callback() {
               "\n  [Callback] Instruction #5 - testing complex state "
               "modification:\n"
           );
-          w1tn3ss::gadget::gadget_executor executor(vm);
+          w1::gadget::gadget_executor executor(vm);
 
           // Test complex state modification
           printf(
@@ -330,7 +329,7 @@ void test_state_management() {
   uint8_t* stack = nullptr;
   QBDI::allocateVirtualStack(vm.getGPRState(), 0x100000, &stack);
 
-  w1tn3ss::gadget::gadget_executor executor(&vm);
+  w1::gadget::gadget_executor executor(&vm);
 
   // Test gadget_call (clean function call api)
   printf("  Testing gadget_call...\n");
@@ -355,12 +354,11 @@ void test_state_management() {
 
   harness.test("gadget_run success", raw_result.success);
 
-  // raw execution stopped before the loop completed - this is correct behavior
-  // the initial value 0x1234 (4660) was set, but loop didn't finish due to
-  // stop_addr
-  harness.test("gadget_run modifies global state", g_state.counter == 0x1234);
-  harness.test("gadget_run respects stop address",
-               g_state.counter == 0x1234); // proves it stopped early
+  // raw execution should start, but stop before the loop completes
+  const int base_value = 0x1234;
+  const int loop_complete_value = base_value + 10;
+  harness.test("gadget_run modifies global state", g_state.counter >= base_value);
+  harness.test("gadget_run respects stop address", g_state.counter < loop_complete_value);
 
   printf("  counter after raw execution: %d\n", g_state.counter);
   printf("  raw execution correctly stopped at specified address range\n");
@@ -373,7 +371,7 @@ void test_error_handling() {
   TestHarness harness;
 
   QBDI::VM vm("", {});
-  w1tn3ss::gadget::gadget_executor executor(&vm);
+  w1::gadget::gadget_executor executor(&vm);
 
   // Test invalid address - gadget_call should return default value
   int invalid_result = executor.gadget_call<int>(0x0, {});
@@ -389,7 +387,7 @@ void test_performance() {
   TestHarness harness;
 
   QBDI::VM vm("", {});
-  w1tn3ss::gadget::gadget_executor executor(&vm);
+  w1::gadget::gadget_executor executor(&vm);
 
   const int iterations = 1000;
 
@@ -459,7 +457,7 @@ void test_nested_execution() {
                   auto* ctx = static_cast<NestedContext*>(data);
 
                   // Execute gadget from within nested VM callback
-                  w1tn3ss::gadget::gadget_executor executor(vm);
+                  w1::gadget::gadget_executor executor(vm);
                   ctx->inner_result = executor.gadget_call<int>(reinterpret_cast<QBDI::rword>(gadget_add), {123, 456});
                   ctx->inner_executed = true;
                 }

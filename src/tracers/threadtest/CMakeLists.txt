@@ -5,7 +5,6 @@ include(${WITNESS_SOURCE_DIR}/cmake/TracerConfig.cmake)
 set(THREADTEST_SOURCES
     preload.cpp
     threadtest_tracer.cpp
-    threadtest_session.cpp
 )
 
 create_tracer_targets(threadtest "${THREADTEST_SOURCES}")

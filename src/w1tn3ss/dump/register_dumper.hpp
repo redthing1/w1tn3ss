@@ -1,20 +1,20 @@
 #pragma once
 
+#include "w1tn3ss/dump/dump_format.hpp"
+
 #include <QBDI.h>
 #include <redlog.hpp>
-#include "dump_format.hpp"
 
-namespace w1 {
-namespace dump {
+#include <cstdint>
+
+namespace w1::dump {
 
 class register_dumper {
 public:
-  // capture current thread state from qbdi
-  static thread_state capture_thread_state(const QBDI::GPRState& gpr, const QBDI::FPRState& fpr);
+  static thread_state capture_thread_state(const QBDI::GPRState& gpr, const QBDI::FPRState& fpr, uint64_t thread_id);
 
 private:
   static redlog::logger log_;
 };
 
-} // namespace dump
-} // namespace w1
+} // namespace w1::dump

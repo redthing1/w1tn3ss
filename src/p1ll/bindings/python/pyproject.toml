@@ -1,0 +1,13 @@
+[build-system]
+requires = ["scikit-build-core>=0.10"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "p1ll"
+version = "0.1.0"
+description = "python bindings for p1ll"
+requires-python = ">=3.8"
+
+[tool.scikit-build]
+minimum-version = "build-system.requires"
+cmake.source-dir = "."

@@ -4,21 +4,22 @@ local instruction_count = 0
 
 local tracer = {}
 
-function tracer.on_instruction_preinst(vm, gpr, fpr)
+local function on_instruction(vm, gpr, fpr)
     instruction_count = instruction_count + 1
 
-    -- get program counter and disassembly
-    local pc = w1.get_reg_pc and w1.get_reg_pc(gpr) or 0
-    local disasm = w1.get_disassembly(vm)
+    local pc = w1.reg.pc(gpr) or 0
+    local disasm = w1.inst.disasm(vm) or "<unknown>"
 
-    -- log instruction with address and disassembly
-    w1.log_info(w1.format_address(pc) .. ": " .. disasm)
+    w1.log.info(w1.util.format_address(pc) .. ": " .. disasm)
+    return w1.enum.vm_action.CONTINUE
+end
 
-    return w1.VMAction.CONTINUE
+function tracer.init()
+    w1.on(w1.event.INSTRUCTION_PRE, on_instruction)
 end
 
 function tracer.shutdown()
-    w1.log_info("traced " .. instruction_count .. " instructions")
+    w1.log.info("traced " .. instruction_count .. " instructions")
 end
 
 return tracer

@@ -1,26 +1,31 @@
 #pragma once
 
-#include "ext/args.hpp"
+#include <string>
 
 namespace w1tool::commands {
+
+struct inspect_request {
+  std::string binary_path;
+  bool show_headers = false;
+  bool show_sections = false;
+  bool show_segments = false;
+  bool show_symbols = false;
+  bool show_imports = false;
+  bool show_exports = false;
+  bool show_relocations = false;
+  bool show_libraries = false;
+  bool json_output = false;
+  bool json_pretty = false;
+  bool show_all = false;
+  std::string forced_format;
+};
 
 /**
  * inspect command - comprehensive binary analysis using LIEF
  *
- * @param binary_flag path to binary file to inspect
- * @param detailed_flag show detailed analysis (optional)
- * @param sections_flag show section/segment information (optional)
- * @param symbols_flag show symbol table information (optional)
- * @param imports_flag show import/export information (optional)
- * @param security_flag show security features analysis (optional)
- * @param json_flag output results in JSON format (optional)
- * @param format_flag force specific format interpretation (optional)
+ * @param request resolved inspect configuration
  * @return exit code (0 for success, 1 for failure)
  */
-int inspect(
-    args::ValueFlag<std::string>& binary_flag, args::Flag& detailed_flag, args::Flag& sections_flag,
-    args::Flag& symbols_flag, args::Flag& imports_flag, args::Flag& security_flag, args::Flag& json_flag,
-    args::ValueFlag<std::string>& format_flag
-);
+int inspect(const inspect_request& request);
 
 } // namespace w1tool::commands

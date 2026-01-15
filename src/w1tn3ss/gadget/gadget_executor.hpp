@@ -1,153 +1,149 @@
-#ifndef W1TN3SS_GADGET_EXECUTOR_HPP
-#define W1TN3SS_GADGET_EXECUTOR_HPP
+#pragma once
 
-#include <QBDI.h>
+#include <cstddef>
+#include <initializer_list>
 #include <memory>
-#include <vector>
+#include <span>
 #include <string>
 #include <type_traits>
+#include <vector>
+
+#include <QBDI.h>
 #include <redlog.hpp>
-#include "w1tn3ss/abi/calling_convention_base.hpp"
 
-namespace w1tn3ss {
-namespace gadget {
+namespace w1::gadget {
 
-// result from raw gadget execution (no calling convention interpretation)
+enum class instrumentation_scope { inherit, range, module, all_executable };
+
 struct gadget_result {
-  bool success;
+  bool success = false;
   std::string error;
-  QBDI::GPRState gpr;
-  QBDI::FPRState fpr;
+  QBDI::GPRState gpr{};
+  QBDI::FPRState fpr{};
+  size_t instruction_count = 0;
+  QBDI::rword stop_address = 0;
 };
 
-// execute gadgets from within qbdi callbacks without reentrancy issues
-// two modes: gadget_call (function semantics) and gadget_run (raw execution)
+struct call_options {
+  instrumentation_scope scope = instrumentation_scope::inherit;
+  size_t stack_size = 0;
+  size_t range_size = 0;
+  size_t max_instructions = 0;
+};
+
+struct run_options {
+  instrumentation_scope scope = instrumentation_scope::inherit;
+  size_t stack_size = 0;
+  size_t range_size = 0;
+  size_t max_instructions = 0;
+};
+
 class gadget_executor {
 public:
-  static constexpr size_t DEFAULT_STACK_SIZE = 0x10000; // 64KB default stack size
+  static constexpr size_t default_stack_size = 0x10000;
+  static constexpr size_t default_range_size = 0x10000;
 
   struct config {
     bool debug;
+    size_t stack_size;
+    size_t call_range_size;
+    size_t run_range_size;
+    size_t max_instructions;
+    instrumentation_scope call_scope;
+    instrumentation_scope run_scope;
 
-    config() : debug(false) {}
+    constexpr config()
+        : debug(false), stack_size(default_stack_size), call_range_size(default_range_size),
+          run_range_size(default_range_size), max_instructions(0), call_scope(instrumentation_scope::module),
+          run_scope(instrumentation_scope::range) {}
   };
 
-  explicit gadget_executor(QBDI::VM* parent_vm, const config& cfg = config{});
-  ~gadget_executor() = default;
+  explicit gadget_executor(QBDI::VM* parent_vm, config cfg = config{});
 
-  // call function with arguments and return value
+  gadget_executor(const gadget_executor&) = delete;
+  gadget_executor& operator=(const gadget_executor&) = delete;
+  gadget_executor(gadget_executor&&) = delete;
+  gadget_executor& operator=(gadget_executor&&) = delete;
+
   template <typename RetType = QBDI::rword>
-  RetType gadget_call(
-      QBDI::rword addr, const std::vector<QBDI::rword>& args = {}, size_t stack_size = DEFAULT_STACK_SIZE
-  );
+  RetType gadget_call(QBDI::rword addr, std::span<const QBDI::rword> args = {}, call_options options = {});
 
-  // raw execution between two addresses
-  gadget_result gadget_run(
-      QBDI::rword start_addr, QBDI::rword stop_addr, QBDI::GPRState* initial_gpr = nullptr,
-      QBDI::FPRState* initial_fpr = nullptr, size_t stack_size = DEFAULT_STACK_SIZE
-  );
+  template <typename RetType = QBDI::rword>
+  RetType gadget_call(QBDI::rword addr, std::initializer_list<QBDI::rword> args, call_options options = {});
 
-  // create sub-vm for custom configuration
+  gadget_result gadget_run(QBDI::rword start_addr, QBDI::rword stop_addr, run_options options = {});
+
   std::unique_ptr<QBDI::VM> create_sub_vm();
 
-  // run with custom-configured sub-vm
   gadget_result run_with_vm(QBDI::VM* vm, QBDI::rword start_addr, QBDI::rword stop_addr);
 
 private:
-  QBDI::VM* parent_vm_;
-  config config_;
-  w1::abi::calling_convention_ptr calling_convention_;
+  struct stack_guard {
+    uint8_t* stack = nullptr;
+
+    stack_guard() = default;
+    stack_guard(const stack_guard&) = delete;
+    stack_guard& operator=(const stack_guard&) = delete;
+    ~stack_guard();
+
+    bool allocate(QBDI::GPRState* gpr, size_t stack_size);
+  };
+
+  struct stop_state {
+    QBDI::rword stop_addr = 0;
+    size_t max_instructions = 0;
+    size_t instruction_count = 0;
+    QBDI::rword stop_pc = 0;
+  };
 
   void setup_debug_callback(QBDI::VM* vm);
+  bool configure_instrumentation(
+      QBDI::VM* vm, instrumentation_scope scope, QBDI::rword start_addr, QBDI::rword stop_addr, size_t range_size,
+      std::string* error
+  );
+  bool prepare_vm_state(QBDI::VM* vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr, size_t stack_size, stack_guard& stack);
+  bool install_stop_callback(QBDI::VM* vm, stop_state& state);
+  bool execute_call(
+      QBDI::rword addr, std::span<const QBDI::rword> args, const call_options& options, QBDI::rword* result,
+      std::string* error
+  );
+
+  instrumentation_scope resolve_scope(instrumentation_scope requested, instrumentation_scope fallback) const;
+  size_t resolve_stack_size(size_t requested) const;
+  size_t resolve_range_size(size_t requested, size_t fallback) const;
+  size_t resolve_max_instructions(size_t requested) const;
+
+  QBDI::VM* parent_vm_ = nullptr;
+  config config_{};
 };
 
 template <typename RetType>
-RetType gadget_executor::gadget_call(QBDI::rword addr, const std::vector<QBDI::rword>& args, size_t stack_size) {
-  auto log = redlog::get_logger("gadget_executor");
+RetType gadget_executor::gadget_call(QBDI::rword addr, std::span<const QBDI::rword> args, call_options options) {
+  auto log = redlog::get_logger("w1.gadget.executor");
+  QBDI::rword result = 0;
+  std::string error;
+  bool success = execute_call(addr, args, options, &result, &error);
 
-  try {
-
-    auto sub_vm = create_sub_vm();
-
-    // copy parent state but not stack-related registers
-    QBDI::GPRState gpr = *parent_vm_->getGPRState();
-    QBDI::FPRState fpr = *parent_vm_->getFPRState();
-
-    // allocate fresh stack for sub-vm first
-    uint8_t* stack = nullptr;
-    bool stack_ok = QBDI::allocateVirtualStack(&gpr, stack_size, &stack);
-
-    log.dbg(
-        "stack allocation", redlog::field("success", stack_ok), redlog::field("stack", "%p", stack),
-        redlog::field("stack_size", "0x%x", stack_size)
-    );
-
-    if (!stack_ok || !stack) {
-      log.error("failed to allocate virtual stack for sub-vm");
-      if constexpr (std::is_same_v<RetType, void>) {
-        return;
-      } else {
-        return RetType{};
-      }
-    }
-
-    // now set the state with the properly configured stack
-    sub_vm->setGPRState(&gpr);
-    sub_vm->setFPRState(&fpr);
-
-    log.dbg("calling gadget", redlog::field("addr", "0x%llx", addr));
-    log.dbg(
-        "parent vm info", redlog::field("parent_vm", "%p", parent_vm_), redlog::field("sub_vm", "%p", sub_vm.get()),
-        redlog::field("stack", "%p", stack)
-    );
-
-    // add instrumentation for the gadget range
-    static constexpr QBDI::rword PAGE_MASK = 0xFFF;
-    static constexpr QBDI::rword DEFAULT_RANGE_SIZE = 0x10000; // 64kb
-    QBDI::rword range_start = addr & ~PAGE_MASK;
-
-    log.dbg(
-        "adding instrumentation range", redlog::field("range_start", "0x%llx", range_start),
-        redlog::field("range_end", "0x%llx", range_start + DEFAULT_RANGE_SIZE)
-    );
-
-    sub_vm->addInstrumentedRange(range_start, range_start + DEFAULT_RANGE_SIZE);
-
-    bool success = sub_vm->call(nullptr, addr, args);
-
-    if (!success) {
-      QBDI::alignedFree(stack);
-      log.error("gadget call failed");
-      if constexpr (std::is_same_v<RetType, void>) {
-        return;
-      } else {
-        return RetType{};
-      }
-    }
-
-    QBDI::rword result = calling_convention_->get_integer_return(sub_vm->getGPRState());
-    QBDI::alignedFree(stack);
-
-    log.dbg("gadget call succeeded");
-
-    if constexpr (std::is_same_v<RetType, void>) {
-      return;
-    } else {
-      return static_cast<RetType>(result);
-    }
-
-  } catch (const std::exception& e) {
-    auto log = redlog::get_logger("gadget_executor");
-    log.error("gadget call exception", redlog::field("error", e.what()));
+  if (!success) {
+    log.err("gadget call failed", redlog::field("addr", "0x%llx", addr), redlog::field("error", error));
     if constexpr (std::is_same_v<RetType, void>) {
       return;
     } else {
       return RetType{};
     }
   }
+
+  log.dbg("gadget call succeeded", redlog::field("addr", "0x%llx", addr));
+  if constexpr (std::is_same_v<RetType, void>) {
+    return;
+  } else {
+    return static_cast<RetType>(result);
+  }
 }
 
-} // namespace gadget
-} // namespace w1tn3ss
+template <typename RetType>
+RetType gadget_executor::gadget_call(QBDI::rword addr, std::initializer_list<QBDI::rword> args, call_options options) {
+  return gadget_call<RetType>(addr, std::span<const QBDI::rword>(args.begin(), args.size()), options);
+}
 
-#endif // W1TN3SS_GADGET_EXECUTOR_HPP
+} // namespace w1::gadget

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.12)
 project(test_p1ll_standalone)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # external projects would use find_package instead
@@ -22,6 +22,7 @@ add_subdirectory(${W1TNSS_ROOT}/src/p1ll p1ll_standalone_build)
 # create c++ test executable
 add_executable(test_p1ll_standalone test_p1ll_standalone.cpp)
 target_link_libraries(test_p1ll_standalone PRIVATE p1ll_core)
+target_include_directories(test_p1ll_standalone PRIVATE ${W1TNSS_ROOT}/src)
 
 # create c api test executable if enabled
 if(BUILD_C_API_TEST)

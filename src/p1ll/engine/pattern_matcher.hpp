@@ -1,39 +1,27 @@
 #pragma once
 
-#include "core/types.hpp"
-#include <vector>
+#include "engine/pattern.hpp"
 #include <array>
 #include <cstdint>
 #include <optional>
+#include <vector>
 
 namespace p1ll::engine {
 
-// high-performance pattern matching with Boyer-Moore-Horspool algorithm
+// boyer-moore-horspool matcher with wildcard support
 class pattern_matcher {
 public:
-  explicit pattern_matcher(const compiled_signature& signature);
+  explicit pattern_matcher(pattern signature);
 
-  // search in memory region
   std::vector<uint64_t> search(const uint8_t* data, size_t size) const;
-
-  // search expecting exactly one result, returns uint64_t(-1) if not found
-  uint64_t search_one(const uint8_t* data, size_t size) const;
-
-  // search with single match enforcement, returns nullopt if zero or multiple matches
   std::optional<uint64_t> search_single(const uint8_t* data, size_t size) const;
 
-  // search in file data
-  std::vector<size_t> search_file(const std::vector<uint8_t>& file_data) const;
-
-  // get pattern size
   size_t pattern_size() const { return signature_.size(); }
-
-  // check if pattern is valid
   bool is_valid() const { return !signature_.empty(); }
 
 private:
-  compiled_signature signature_;
-  std::array<size_t, 256> shift_table_; // Boyer-Moore-Horspool shift table
+  pattern signature_;
+  std::array<size_t, 256> shift_table_{};
 
   void build_shift_table();
   bool match_at_position(const uint8_t* data, size_t pos) const;

@@ -1,6 +1,12 @@
+#ifdef P1LL_HAS_ASMR
+#include "commands/asm.hpp"
+#include "commands/disasm.hpp"
+#endif
 #include "commands/cure.hpp"
 #include "commands/patch.hpp"
 #include "commands/poison.hpp"
+#include "commands/sig.hpp"
+#include <cstdint>
 #include <w1common/ext/args.hpp>
 #include <redlog.hpp>
 #include <string>
@@ -8,7 +14,23 @@
 // global executable path for library discovery (like w1tool)
 namespace {
 std::string g_executable_path;
+
+#ifdef P1LL_HAS_ASMR
+bool parse_address_value(const std::string& value, uint64_t& out) {
+  try {
+    size_t idx = 0;
+    unsigned long long parsed = std::stoull(value, &idx, 0);
+    if (idx != value.size()) {
+      return false;
+    }
+    out = static_cast<uint64_t>(parsed);
+    return true;
+  } catch (const std::exception&) {
+    return false;
+  }
 }
+#endif
+} // namespace
 
 // following w1tool patterns exactly
 namespace cli {
@@ -75,25 +97,132 @@ int cmd_cure(
 }
 
 int cmd_patch(
-    args::ValueFlag<std::string>& address_flag, args::ValueFlag<std::string>& replace_flag,
-    args::ValueFlag<std::string>& input_flag, args::ValueFlag<std::string>& output_flag
+    args::ValueFlag<std::string>& sig_flag, args::ValueFlag<std::string>& address_flag,
+    args::ValueFlag<std::string>& offset_flag, args::ValueFlag<std::string>& replace_flag,
+    args::ValueFlag<std::string>& input_flag, args::ValueFlag<std::string>& output_flag,
+    args::ValueFlag<std::string>& platform_flag
 ) {
   auto log = redlog::get_logger("p1llx.patch");
   cli::apply_verbosity();
 
   // validate required arguments
-  if (!address_flag || !replace_flag || !input_flag) {
-    log.err("address, replace data, and input file required");
-    std::cerr << "error: address (--address), replace data (--replace), and input file (-i/--input) are required"
-              << std::endl;
+  if (!replace_flag || !input_flag) {
+    log.err("replace data and input file required");
+    std::cerr << "error: replace data (--replace) and input file (-i/--input) are required" << std::endl;
+    return 1;
+  }
+
+  bool has_sig = sig_flag;
+  bool has_address = address_flag;
+  if (has_sig == has_address) {
+    log.err("either signature or address required");
+    std::cerr << "error: specify exactly one of --sig or --address" << std::endl;
     return 1;
   }
 
   // default output to input if not specified
   std::string output_file = output_flag ? *output_flag : *input_flag;
 
+  if (has_sig) {
+    std::string offset_value = offset_flag ? *offset_flag : "";
+    std::string platform_override = platform_flag ? *platform_flag : "";
+    return p1llx::commands::patch_signature(
+        *sig_flag, offset_value, *replace_flag, *input_flag, output_file, platform_override
+    );
+  }
+
   return p1llx::commands::patch(*address_flag, *replace_flag, *input_flag, output_file);
 }
+
+int cmd_sig(
+    args::Positional<std::string>& pattern_flag, args::ValueFlag<std::string>& input_flag, args::Flag& single_flag
+) {
+  auto log = redlog::get_logger("p1llx.sig");
+  cli::apply_verbosity();
+
+  if (!pattern_flag) {
+    log.err("signature pattern required");
+    std::cerr << "error: signature pattern is required" << std::endl;
+    return 1;
+  }
+
+  if (!input_flag) {
+    log.err("input file required");
+    std::cerr << "error: input file (-i/--input) is required" << std::endl;
+    return 1;
+  }
+
+  p1llx::commands::sig_request request;
+  request.pattern = args::get(pattern_flag);
+  request.input_file = args::get(input_flag);
+  request.single = single_flag;
+
+  return p1llx::commands::sig_command(request);
+}
+
+#ifdef P1LL_HAS_ASMR
+int cmd_asm(
+    args::Positional<std::string>& assembly_flag, args::ValueFlag<std::string>& platform_flag,
+    args::ValueFlag<std::string>& address_flag
+) {
+  auto log = redlog::get_logger("p1llx.asm");
+  cli::apply_verbosity();
+
+  if (!assembly_flag) {
+    log.err("assembly text required");
+    std::cerr << "error: assembly text is required" << std::endl;
+    return 1;
+  }
+
+  p1llx::commands::asm_request request;
+  request.text = args::get(assembly_flag);
+  if (platform_flag) {
+    request.platform = args::get(platform_flag);
+  }
+  if (address_flag) {
+    uint64_t parsed = 0;
+    if (!parse_address_value(args::get(address_flag), parsed)) {
+      std::cerr << "error: invalid address value" << std::endl;
+      return 1;
+    }
+    request.address = parsed;
+    request.has_address = true;
+  }
+
+  return p1llx::commands::asm_command(request);
+}
+
+int cmd_disasm(
+    args::Positional<std::string>& bytes_flag, args::ValueFlag<std::string>& platform_flag,
+    args::ValueFlag<std::string>& address_flag
+) {
+  auto log = redlog::get_logger("p1llx.disasm");
+  cli::apply_verbosity();
+
+  if (!bytes_flag) {
+    log.err("hex bytes required");
+    std::cerr << "error: hex bytes are required" << std::endl;
+    return 1;
+  }
+
+  p1llx::commands::disasm_request request;
+  request.bytes = args::get(bytes_flag);
+  if (platform_flag) {
+    request.platform = args::get(platform_flag);
+  }
+  if (address_flag) {
+    uint64_t parsed = 0;
+    if (!parse_address_value(args::get(address_flag), parsed)) {
+      std::cerr << "error: invalid address value" << std::endl;
+      return 1;
+    }
+    request.address = parsed;
+    request.has_address = true;
+  }
+
+  return p1llx::commands::disasm_command(request);
+}
+#endif
 
 int cmd_poison(
     args::ValueFlag<std::string>& script_flag, args::Flag& spawn_flag, args::ValueFlag<int>& pid_flag,
@@ -199,13 +328,43 @@ int main(int argc, char* argv[]) {
   );
 
   // patch command
-  args::Command patch_cmd(parser, "patch", "manual hex patching");
+  args::Command patch_cmd(parser, "patch", "signature or address patching");
+  args::ValueFlag<std::string> patch_sig_flag(patch_cmd, "signature", "signature hex pattern", {"sig"});
   args::ValueFlag<std::string> patch_address_flag(patch_cmd, "address", "address to patch (hex)", {"address"});
+  args::ValueFlag<std::string> patch_offset_flag(
+      patch_cmd, "offset", "offset from signature match (hex or decimal)", {"offset"}
+  );
   args::ValueFlag<std::string> patch_replace_flag(patch_cmd, "replace", "replacement hex bytes", {"replace"});
   args::ValueFlag<std::string> patch_input_flag(patch_cmd, "input", "input file path", {'i', "input"});
   args::ValueFlag<std::string> patch_output_flag(
       patch_cmd, "output", "output file path (default: overwrite input)", {'o', "output"}
   );
+  args::ValueFlag<std::string> patch_platform_flag(
+      patch_cmd, "platform", "platform override (e.g., linux:x64, darwin:arm64)", {'p', "platform"}
+  );
+
+  // sig command
+  args::Command sig_cmd(parser, "sig", "search for a signature in a file");
+  args::Positional<std::string> sig_pattern_flag(sig_cmd, "pattern", "signature hex pattern");
+  args::ValueFlag<std::string> sig_input_flag(sig_cmd, "input", "input file path", {'i', "input"});
+  args::Flag sig_single_flag(sig_cmd, "single", "require exactly one match", {"single"});
+
+#ifdef P1LL_HAS_ASMR
+  // asm/disasm commands
+  args::Command asm_cmd(parser, "asm", "assemble instruction text");
+  args::Positional<std::string> asm_text_flag(asm_cmd, "assembly", "assembly string");
+  args::ValueFlag<std::string> asm_platform_flag(
+      asm_cmd, "platform", "platform override (e.g., linux:x64)", {"platform"}
+  );
+  args::ValueFlag<std::string> asm_address_flag(asm_cmd, "address", "base address (hex or decimal)", {"address"});
+
+  args::Command disasm_cmd(parser, "disasm", "disassemble hex bytes");
+  args::Positional<std::string> disasm_bytes_flag(disasm_cmd, "bytes", "hex bytes");
+  args::ValueFlag<std::string> disasm_platform_flag(
+      disasm_cmd, "platform", "platform override (e.g., linux:x64)", {"platform"}
+  );
+  args::ValueFlag<std::string> disasm_address_flag(disasm_cmd, "address", "base address (hex or decimal)", {"address"});
+#endif
 
   // poison command
   args::Command poison_cmd(parser, "poison", "inject p01s0n for dynamic patching");
@@ -226,7 +385,18 @@ int main(int argc, char* argv[]) {
     if (cure_cmd) {
       return cmd_cure(cure_script_flag, cure_input_flag, cure_output_flag, cure_platform_flag);
     } else if (patch_cmd) {
-      return cmd_patch(patch_address_flag, patch_replace_flag, patch_input_flag, patch_output_flag);
+      return cmd_patch(
+          patch_sig_flag, patch_address_flag, patch_offset_flag, patch_replace_flag, patch_input_flag,
+          patch_output_flag, patch_platform_flag
+      );
+    } else if (sig_cmd) {
+      return cmd_sig(sig_pattern_flag, sig_input_flag, sig_single_flag);
+#ifdef P1LL_HAS_ASMR
+    } else if (asm_cmd) {
+      return cmd_asm(asm_text_flag, asm_platform_flag, asm_address_flag);
+    } else if (disasm_cmd) {
+      return cmd_disasm(disasm_bytes_flag, disasm_platform_flag, disasm_address_flag);
+#endif
     } else if (poison_cmd) {
       return cmd_poison(
           poison_script_flag, poison_spawn_flag, poison_pid_flag, poison_process_name_flag, poison_suspended_flag,

@@ -6,8 +6,6 @@ set(W1REWIND_SOURCES
     preload.cpp
     rewind_config.cpp
     rewind_config.hpp
-    rewind_session.cpp
-    rewind_session.hpp
     rewind_tracer.cpp
     rewind_tracer.hpp
 )

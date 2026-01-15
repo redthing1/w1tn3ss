@@ -117,8 +117,7 @@ __BeforeMigUserHeader
 #else
 extern
 #endif /* mig_external */
-            kern_return_t
-            mach_exception_raise(
+            kern_return_t mach_exception_raise(
                 mach_port_t exception_port, mach_port_t thread, mach_port_t task, exception_type_t exception,
                 mach_exception_data_t code, mach_msg_type_number_t codeCnt
             );
@@ -129,8 +128,7 @@ mig_external
 #else
 extern
 #endif /* mig_external */
-    kern_return_t
-    mach_exception_raise_state(
+    kern_return_t mach_exception_raise_state(
         mach_port_t exception_port, exception_type_t exception, const mach_exception_data_t code,
         mach_msg_type_number_t codeCnt, int* flavor, const thread_state_t old_state,
         mach_msg_type_number_t old_stateCnt, thread_state_t new_state, mach_msg_type_number_t* new_stateCnt
@@ -142,8 +140,7 @@ mig_external
 #else
 extern
 #endif /* mig_external */
-    kern_return_t
-    mach_exception_raise_state_identity(
+    kern_return_t mach_exception_raise_state_identity(
         mach_port_t exception_port, mach_port_t thread, mach_port_t task, exception_type_t exception,
         mach_exception_data_t code, mach_msg_type_number_t codeCnt, int* flavor, thread_state_t old_state,
         mach_msg_type_number_t old_stateCnt, thread_state_t new_state, mach_msg_type_number_t* new_stateCnt
