@@ -217,6 +217,8 @@ key concepts:
 - `p1.patch()`: specify signature, offset, and replacement
 - `meta` table: organize sigs and patches by platform
 
+optional python bindings are available when building with `-DWITNESS_PYTHON=ON`. see the [python bindings guide](./doc/p1ll_python.md) and the sample scripts under `scripts/python`.
+
 `p1ll` is an excellent and powerful tool for binary modification!
 see the [guide](./doc/p1lljs.md)
 

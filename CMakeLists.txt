@@ -15,6 +15,7 @@ endif()
 option(WITNESS_BUILD_STATIC "Build static libraries" ON)
 option(WITNESS_BUILD_SHARED "Build shared libraries" ON)
 option(WITNESS_QBDI_EXTRAS "Build QBDI with examples, tests and additional tools" OFF)
+option(WITNESS_PYTHON "Build p1ll Python bindings" OFF)
 
 # load configuration modules
 include(${WITNESS_SOURCE_DIR}/cmake/CommonConfig.cmake)
@@ -48,6 +49,7 @@ if(WITNESS_SCRIPT)
     message(STATUS "Script Engine:         ${WITNESS_SCRIPT_ENGINE}")
 endif()
 message(STATUS "LIEF Support:          ${WITNESS_LIEF}")
+message(STATUS "Python Bindings:       ${WITNESS_PYTHON}")
 message(STATUS "Tests:                 ${BUILD_TESTS}")
 message(STATUS "")
 

@@ -28,3 +28,6 @@
 [submodule "src/third_party/plthook"]
 	path = src/third_party/plthook
 	url = https://github.com/redthing1/plthook
+[submodule "src/third_party/nanobind"]
+	path = src/third_party/nanobind
+	url = https://github.com/wjakob/nanobind
