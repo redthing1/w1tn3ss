@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <w1common/ext/args.hpp>
 #include <redlog.hpp>
+#include <w1common/cli/verbosity.hpp>
 #include <string>
 
 // global executable path for library discovery (like w1tool)
@@ -39,30 +40,7 @@ args::HelpFlag help_flag(arguments, "help", "help", {'h', "help"});
 args::CounterFlag verbosity_flag(arguments, "verbosity", "verbosity level", {'v'});
 
 void apply_verbosity() {
-  auto verbosity_count = args::get(verbosity_flag);
-
-  // map verbosity levels like w1tool: info → verbose → trace → debug → pedantic
-  redlog::level log_level = redlog::level::info; // default
-
-  switch (verbosity_count) {
-  case 0:
-    log_level = redlog::level::info;
-    break; // default
-  case 1:
-    log_level = redlog::level::verbose;
-    break; // -v: verbose
-  case 2:
-    log_level = redlog::level::trace;
-    break; // -vv: trace
-  case 3:
-    log_level = redlog::level::debug;
-    break; // -vvv: debug
-  default:
-    log_level = redlog::level::pedantic;
-    break; // -vvvv+: pedantic
-  }
-
-  redlog::set_level(log_level);
+  w1::cli::apply_verbosity(args::get(verbosity_flag));
 }
 } // namespace cli
 

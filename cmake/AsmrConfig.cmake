@@ -1,6 +1,8 @@
 # asmrconfig.cmake - capstone/keystone configuration module
 # provides functions for setting up p1ll asmr dependencies
 
+include_guard()
+
 option(P1LL_BUILD_ASMR "Build p1ll asmr disassembler/assembler" OFF)
 
 set(P1LL_ASMR_CAPSTONE_REPO "https://github.com/capstone-engine/capstone.git" CACHE STRING "capstone repository")
@@ -115,5 +117,52 @@ function(configure_asmr_targets)
             LLVMInitializeX86TargetMC=LLVMInitializeX86TargetMC_ks
             LLVMInitializeX86AsmParser=LLVMInitializeX86AsmParser_ks
         )
+    endif()
+endfunction()
+
+function(configure_asmr_dependencies)
+    if(NOT P1LL_BUILD_ASMR)
+        return()
+    endif()
+
+    set(_witness_build_shared_libs_was_set FALSE)
+    if(DEFINED BUILD_SHARED_LIBS)
+        set(_witness_build_shared_libs_prev "${BUILD_SHARED_LIBS}")
+        set(_witness_build_shared_libs_was_set TRUE)
+    endif()
+
+    set(_witness_llvm_targets_was_set FALSE)
+    if(DEFINED LLVM_TARGETS_TO_BUILD)
+        set(_witness_llvm_targets_prev "${LLVM_TARGETS_TO_BUILD}")
+        set(_witness_llvm_targets_was_set TRUE)
+    endif()
+    set(LLVM_TARGETS_TO_BUILD "AArch64;X86" CACHE STRING "keystone llvm targets" FORCE)
+
+    if(NOT DEFINED CMAKE_POLICY_VERSION_MINIMUM)
+        set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+    endif()
+
+    set(BUILD_SHARED_LIBS OFF CACHE BOOL "force static libs for keystone" FORCE)
+    setup_asmr_environment()
+    fetch_asmr_dependencies()
+    configure_asmr_targets()
+
+    if(DEFINED P1LL_ASMR_CAPSTONE_INCLUDE_DIR)
+        set(P1LL_ASMR_CAPSTONE_INCLUDE_DIR "${P1LL_ASMR_CAPSTONE_INCLUDE_DIR}" PARENT_SCOPE)
+    endif()
+    if(DEFINED P1LL_ASMR_KEYSTONE_INCLUDE_DIR)
+        set(P1LL_ASMR_KEYSTONE_INCLUDE_DIR "${P1LL_ASMR_KEYSTONE_INCLUDE_DIR}" PARENT_SCOPE)
+    endif()
+
+    if(_witness_llvm_targets_was_set)
+        set(LLVM_TARGETS_TO_BUILD "${_witness_llvm_targets_prev}" CACHE STRING "restore LLVM_TARGETS_TO_BUILD" FORCE)
+    else()
+        unset(LLVM_TARGETS_TO_BUILD CACHE)
+    endif()
+
+    if(_witness_build_shared_libs_was_set)
+        set(BUILD_SHARED_LIBS "${_witness_build_shared_libs_prev}" CACHE BOOL "restore BUILD_SHARED_LIBS" FORCE)
+    else()
+        unset(BUILD_SHARED_LIBS CACHE)
     endif()
 endfunction()

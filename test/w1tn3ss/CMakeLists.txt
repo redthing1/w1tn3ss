@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 
-include(${WITNESS_SOURCE_DIR}/cmake/CommonConfig.cmake)
+include(${WITNESS_SOURCE_DIR}/cmake/TestConfig.cmake)
 
-add_executable(w1tn3ss_unit_tests
+set(W1TN3SS_TEST_SOURCES
     test_main.cpp
     memory_reader_test.cpp
     module_registry_test.cpp
@@ -15,24 +15,11 @@ add_executable(w1tn3ss_unit_tests
     abi_dispatcher_test.cpp
 )
 
-target_include_directories(w1tn3ss_unit_tests PRIVATE
-    ${WITNESS_SOURCE_DIR}/src
-    ${WITNESS_SOURCE_DIR}/src/third_party
-)
-
-target_link_libraries(w1tn3ss_unit_tests PRIVATE
-    w1tn3ss
-)
-
-set_target_properties(w1tn3ss_unit_tests PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/test/w1tn3ss
-)
-
-apply_common_compile_options(w1tn3ss_unit_tests)
-apply_windows_definitions(w1tn3ss_unit_tests)
-
-add_test(
-    NAME w1tn3ss_unit_tests
-    COMMAND w1tn3ss_unit_tests
-    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/test/w1tn3ss
+w1_add_doctest_suite(w1tn3ss_unit_tests
+    SOURCES ${W1TN3SS_TEST_SOURCES}
+    INCLUDE_DIRS
+        ${WITNESS_SOURCE_DIR}/src
+        ${WITNESS_SOURCE_DIR}/src/third_party
+    LIBS w1tn3ss
+    OUTPUT_SUBDIR test/w1tn3ss
 )
