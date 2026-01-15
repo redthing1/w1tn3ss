@@ -1,52 +1,61 @@
-# p1ll Python bindings (nanobind)
+cmake_minimum_required(VERSION 3.15)
 
-set(NB_TEST OFF CACHE BOOL "nanobind tests" FORCE)
-set(NB_CREATE_INSTALL_RULES OFF CACHE BOOL "nanobind install rules" FORCE)
-set(NB_USE_SUBMODULE_DEPS ON CACHE BOOL "nanobind submodule deps" FORCE)
+project(p1ll_python LANGUAGES C CXX)
 
-if(NOT TARGET nanobind-static)
-    add_subdirectory(${WITNESS_SOURCE_DIR}/src/third_party/nanobind
-        ${CMAKE_CURRENT_BINARY_DIR}/nanobind
-        EXCLUDE_FROM_ALL
-    )
-endif()
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+include(FetchContent)
+
+set(REDLOG_BUILD_TESTS OFF CACHE BOOL "disable redlog tests" FORCE)
+FetchContent_Declare(
+    redlog_cpp
+    GIT_REPOSITORY https://github.com/redthing1/redlog_cpp.git
+    GIT_TAG main
+)
+FetchContent_MakeAvailable(redlog_cpp)
 
 find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
 
-set(P1LL_PYTHON_SOURCES
-    p1ll_python.cpp
+set(NB_TEST OFF CACHE BOOL "disable nanobind tests" FORCE)
+set(NB_CREATE_INSTALL_RULES OFF CACHE BOOL "disable nanobind install rules" FORCE)
+FetchContent_Declare(
+    nanobind
+    GIT_REPOSITORY https://github.com/wjakob/nanobind.git
+    GIT_TAG v2.10.2
+    GIT_SUBMODULES_RECURSE ON
+)
+FetchContent_MakeAvailable(nanobind)
+
+set(WITNESS_SCRIPT OFF CACHE BOOL "disable scripting for standalone p1ll python build" FORCE)
+set(P1LL_BUILD_CAPI OFF CACHE BOOL "disable p1ll c api for python build" FORCE)
+
+get_filename_component(P1LL_SOURCE_DIR "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLUTE)
+add_subdirectory("${P1LL_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/p1ll_core")
+
+nanobind_add_module(_p1ll
+    "${CMAKE_CURRENT_LIST_DIR}/p1ll_python.cpp"
+)
+target_link_libraries(_p1ll PRIVATE p1ll_core)
+
+set(P1LL_PYTHON_OUTPUT_DIR "${CMAKE_BINARY_DIR}/p1ll")
+file(MAKE_DIRECTORY "${P1LL_PYTHON_OUTPUT_DIR}")
+set_target_properties(_p1ll PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY "${P1LL_PYTHON_OUTPUT_DIR}"
+    RUNTIME_OUTPUT_DIRECTORY "${P1LL_PYTHON_OUTPUT_DIR}"
+    ARCHIVE_OUTPUT_DIRECTORY "${P1LL_PYTHON_OUTPUT_DIR}"
 )
 
-nanobind_add_module(p1ll_python
-    NB_STATIC
-    NOMINSIZE
-    ${P1LL_PYTHON_SOURCES}
+add_custom_command(TARGET _p1ll POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            "${CMAKE_CURRENT_LIST_DIR}/p1ll/__init__.py"
+            "${P1LL_PYTHON_OUTPUT_DIR}/__init__.py"
 )
 
-target_link_libraries(p1ll_python PRIVATE p1ll_core)
-
-target_compile_features(p1ll_python PRIVATE cxx_std_20)
-
-set(P1LL_PYTHON_OUTPUT_DIR ${CMAKE_BINARY_DIR}/python/p1ll)
-file(MAKE_DIRECTORY ${P1LL_PYTHON_OUTPUT_DIR})
-
-set_target_properties(p1ll_python PROPERTIES
-    OUTPUT_NAME "_p1ll"
-    LIBRARY_OUTPUT_DIRECTORY ${P1LL_PYTHON_OUTPUT_DIR}
-    RUNTIME_OUTPUT_DIRECTORY ${P1LL_PYTHON_OUTPUT_DIR}
-    ARCHIVE_OUTPUT_DIRECTORY ${P1LL_PYTHON_OUTPUT_DIR}
+install(TARGETS _p1ll
+    LIBRARY DESTINATION p1ll
+    RUNTIME DESTINATION p1ll
+    ARCHIVE DESTINATION p1ll
 )
-
-add_custom_command(TARGET p1ll_python POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ${CMAKE_CURRENT_SOURCE_DIR}/p1ll/__init__.py
-        ${P1LL_PYTHON_OUTPUT_DIR}/__init__.py
-)
-
-if(SKBUILD)
-    install(TARGETS p1ll_python LIBRARY DESTINATION ${SKBUILD_PLATLIB_DIR}/p1ll)
-    install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/p1ll
-        DESTINATION ${SKBUILD_PLATLIB_DIR}
-        FILES_MATCHING PATTERN "*.py"
-    )
-endif()
+install(FILES "${CMAKE_CURRENT_LIST_DIR}/p1ll/__init__.py" DESTINATION p1ll)
