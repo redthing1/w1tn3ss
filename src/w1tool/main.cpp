@@ -1,4 +1,5 @@
 #include <cstdlib>
+#include <exception>
 #include <iostream>
 #include <string>
 
@@ -248,6 +249,7 @@ void cmd_debug(args::Subparser& parser) {
 
   w1tool::commands::debug(pid, spawn, interactive, suspended, args);
 }
+
 
 int main(int argc, char* argv[]) {
   // store executable path for library auto-discovery

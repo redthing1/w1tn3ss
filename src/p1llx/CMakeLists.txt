@@ -10,7 +10,15 @@ if(WITNESS_SCRIPT)
         commands/cure.cpp
         commands/patch.cpp
         commands/poison.cpp
+        commands/sig.cpp
     )
+
+    if(P1LL_BUILD_ASMR)
+        list(APPEND P1LLX_SOURCES
+            commands/asm.cpp
+            commands/disasm.cpp
+        )
+    endif()
     
     # create executable
     add_executable(p1llx ${P1LLX_SOURCES})
@@ -26,6 +34,10 @@ if(WITNESS_SCRIPT)
         w1nj3ct
         redlog::redlog
     )
+
+    if(P1LL_BUILD_ASMR)
+        target_link_libraries(p1llx PRIVATE p1ll_asmr)
+    endif()
     
     # include directories
     target_include_directories(p1llx 

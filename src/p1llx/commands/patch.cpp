@@ -1,10 +1,39 @@
 #include "patch.hpp"
-#include <p1ll/p1ll.hpp>
-#include <redlog.hpp>
+
 #include <fstream>
 #include <iostream>
+#include <span>
+
+#include <redlog.hpp>
+
+#include <p1ll/p1ll.hpp>
+#include "p1ll/engine/session.hpp"
+#include "platform_utils.hpp"
 
 namespace p1llx::commands {
+
+namespace {
+
+bool parse_offset_value(const std::string& value, int64_t& out) {
+  if (value.empty()) {
+    out = 0;
+    return true;
+  }
+
+  try {
+    size_t idx = 0;
+    long long parsed = std::stoll(value, &idx, 0);
+    if (idx != value.size()) {
+      return false;
+    }
+    out = static_cast<int64_t>(parsed);
+    return true;
+  } catch (const std::exception&) {
+    return false;
+  }
+}
+
+} // namespace
 
 int patch(
     const std::string& address_str, const std::string& replace_data, const std::string& input_file,
@@ -113,6 +142,104 @@ int patch(
     std::cerr << "error: " << e.what() << std::endl;
     return 1;
   }
+}
+
+int patch_signature(
+    const std::string& signature_pattern, const std::string& offset_str, const std::string& replace_data,
+    const std::string& input_file, const std::string& output_file, const std::string& platform_override
+) {
+  auto log = redlog::get_logger("p1llx.commands.patch_sig");
+
+  if (signature_pattern.empty()) {
+    log.err("signature pattern required");
+    std::cerr << "error: signature pattern is required" << std::endl;
+    return 1;
+  }
+
+  int64_t offset = 0;
+  if (!parse_offset_value(offset_str, offset)) {
+    log.err("invalid patch offset", redlog::field("offset", offset_str));
+    std::cerr << "error: invalid patch offset" << std::endl;
+    return 1;
+  }
+
+  if (!p1ll::utils::is_valid_hex_pattern(signature_pattern)) {
+    log.err("invalid signature pattern", redlog::field("pattern", signature_pattern));
+    std::cerr << "error: invalid signature pattern" << std::endl;
+    return 1;
+  }
+
+  if (!p1ll::utils::is_valid_hex_pattern(replace_data)) {
+    log.err("invalid replacement hex pattern", redlog::field("pattern", replace_data));
+    std::cerr << "error: invalid hex pattern: " << replace_data << std::endl;
+    return 1;
+  }
+
+  auto file_data = p1ll::utils::read_file(input_file);
+  if (!file_data.has_value()) {
+    log.err("failed to read input file", redlog::field("path", input_file));
+    std::cerr << "error: could not read input file: " << input_file << std::endl;
+    return 1;
+  }
+
+  auto platform = resolve_platform(platform_override);
+  if (!platform.ok()) {
+    log.err("invalid platform override", redlog::field("error", platform.status.message));
+    std::cerr << "error: invalid platform override" << std::endl;
+    return 1;
+  }
+
+  auto buffer = std::span<uint8_t>(*file_data);
+  auto session = platform_override.empty() ? p1ll::engine::session::for_buffer(buffer)
+                                           : p1ll::engine::session::for_buffer(buffer, platform.value);
+
+  p1ll::engine::signature_spec signature;
+  signature.pattern = signature_pattern;
+  signature.options.single = true;
+
+  p1ll::engine::patch_spec patch_spec;
+  patch_spec.signature = signature;
+  patch_spec.offset = offset;
+  patch_spec.patch = replace_data;
+  patch_spec.required = true;
+
+  p1ll::engine::recipe recipe;
+  recipe.name = "p1llx.patch";
+  recipe.patches.push_back(patch_spec);
+
+  auto plan = session.plan(recipe);
+  if (!plan.ok()) {
+    log.err("failed to build patch plan", redlog::field("error", plan.status.message));
+    std::cerr << "error: " << plan.status.message << std::endl;
+    return 1;
+  }
+
+  auto report = session.apply(plan.value);
+  if (!report.ok()) {
+    log.err("failed to apply patch plan", redlog::field("error", report.status.message));
+    std::cerr << "error: " << report.status.message << std::endl;
+    return 1;
+  }
+  if (!report.value.success) {
+    log.err("patch plan failed", redlog::field("applied", report.value.applied));
+    std::cerr << "error: patch plan failed" << std::endl;
+    return 1;
+  }
+
+  if (!p1ll::utils::write_file(output_file, *file_data)) {
+    log.err("failed to write output file", redlog::field("path", output_file));
+    std::cerr << "error: failed to write output file: " << output_file << std::endl;
+    return 1;
+  }
+
+  std::cout << "patch applied successfully" << std::endl;
+  if (plan.value.size() == 1) {
+    std::cout << "patched " << p1ll::utils::format_address(plan.value.front().address) << std::endl;
+  } else {
+    std::cout << "patched " << plan.value.size() << " locations" << std::endl;
+  }
+
+  return 0;
 }
 
 } // namespace p1llx::commands
