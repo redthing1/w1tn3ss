@@ -14,6 +14,7 @@
 #endif
 
 #include <redlog.hpp>
+#include "w1common/cli/verbosity.hpp"
 
 #include "tracers/w1cov/session.hpp"
 #include "tracers/w1xfer/session.hpp"
@@ -360,18 +361,7 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  // set log level based on verbose count
-  if (verbose >= 4) {
-    redlog::set_level(redlog::level::pedantic);
-  } else if (verbose >= 3) {
-    redlog::set_level(redlog::level::debug);
-  } else if (verbose >= 2) {
-    redlog::set_level(redlog::level::trace);
-  } else if (verbose >= 1) {
-    redlog::set_level(redlog::level::verbose);
-  } else {
-    redlog::set_level(redlog::level::info);
-  }
+  w1::cli::apply_verbosity(verbose);
 
   if (tracer_name == "w1cov") {
     return test_w1cov(verbose);
