@@ -22,6 +22,7 @@ public:
   const trace_header& header() const { return header_; }
   const std::vector<std::string>& register_table() const { return register_table_; }
   const std::vector<module_record>& module_table() const { return module_table_; }
+  const std::vector<block_definition_record>& block_table() const { return block_table_; }
   const std::string& error() const { return error_; }
 
 private:
@@ -41,6 +42,7 @@ private:
   bool header_read_ = false;
   std::vector<std::string> register_table_{};
   std::vector<module_record> module_table_{};
+  std::vector<block_definition_record> block_table_{};
   std::string error_;
 };
 

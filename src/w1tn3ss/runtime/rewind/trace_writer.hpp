@@ -34,6 +34,8 @@ public:
   bool write_module_table(const module_table_record& record);
   bool write_thread_start(const thread_start_record& record);
   bool write_instruction(const instruction_record& record);
+  bool write_block_definition(const block_definition_record& record);
+  bool write_block_exec(const block_exec_record& record);
   bool write_register_deltas(const register_delta_record& record);
   bool write_memory_access(const memory_access_record& record);
   bool write_boundary(const boundary_record& record);

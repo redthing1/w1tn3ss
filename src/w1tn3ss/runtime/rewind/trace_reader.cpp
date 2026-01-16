@@ -82,6 +82,7 @@ void trace_reader::close() {
   header_read_ = false;
   register_table_.clear();
   module_table_.clear();
+  block_table_.clear();
   error_.clear();
 }
 
@@ -94,6 +95,7 @@ void trace_reader::reset() {
   header_read_ = false;
   register_table_.clear();
   module_table_.clear();
+  block_table_.clear();
   error_.clear();
   read_header();
 }
@@ -291,6 +293,24 @@ bool trace_reader::parse_record(const record_header& header, const std::vector<u
     instruction_record out{};
     if (!reader.read_u64(out.sequence) || !reader.read_u64(out.thread_id) || !reader.read_u64(out.module_id) ||
         !reader.read_u64(out.module_offset) || !reader.read_u32(out.size) || !reader.read_u32(out.flags)) {
+      return false;
+    }
+    record = std::move(out);
+    return true;
+  }
+  case record_kind::block_definition: {
+    block_definition_record out{};
+    if (!reader.read_u64(out.block_id) || !reader.read_u64(out.module_id) || !reader.read_u64(out.module_offset) ||
+        !reader.read_u32(out.size)) {
+      return false;
+    }
+    block_table_.push_back(out);
+    record = std::move(out);
+    return true;
+  }
+  case record_kind::block_exec: {
+    block_exec_record out{};
+    if (!reader.read_u64(out.sequence) || !reader.read_u64(out.thread_id) || !reader.read_u64(out.block_id)) {
       return false;
     }
     record = std::move(out);

@@ -152,6 +152,23 @@ bool trace_writer::write_instruction(const instruction_record& record) {
   return write_record(record_kind::instruction, 0, payload);
 }
 
+bool trace_writer::write_block_definition(const block_definition_record& record) {
+  std::vector<uint8_t> payload;
+  append_u64(payload, record.block_id);
+  append_u64(payload, record.module_id);
+  append_u64(payload, record.module_offset);
+  append_u32(payload, record.size);
+  return write_record(record_kind::block_definition, 0, payload);
+}
+
+bool trace_writer::write_block_exec(const block_exec_record& record) {
+  std::vector<uint8_t> payload;
+  append_u64(payload, record.sequence);
+  append_u64(payload, record.thread_id);
+  append_u64(payload, record.block_id);
+  return write_record(record_kind::block_exec, 0, payload);
+}
+
 bool trace_writer::write_register_deltas(const register_delta_record& record) {
   std::vector<uint8_t> payload;
   if (record.deltas.size() > std::numeric_limits<uint16_t>::max()) {

@@ -26,7 +26,7 @@ int rewind_test_worker(int count) {
 
 } // namespace
 
-TEST_CASE("w1rewind records instructions, memory, and boundaries") {
+TEST_CASE("w1rewind records instruction flow, memory, and boundaries") {
   namespace fs = std::filesystem;
 
   fs::path path = fs::temp_directory_path() / "w1rewind_recorder_recording.trace";
@@ -55,7 +55,7 @@ TEST_CASE("w1rewind records instructions, memory, and boundaries") {
   session_config.thread_id = 1;
   session_config.thread_name = "unit_main";
 
-  w1::trace_session<w1rewind::rewind_tracer> session(session_config, std::in_place, config, writer);
+  w1::trace_session<w1rewind::rewind_instruction_tracer> session(session_config, std::in_place, config, writer);
 
   if (!session.instrument()) {
     WARN("trace_session could not instrument modules; module scanning may be blocked");
@@ -128,6 +128,7 @@ TEST_CASE("w1rewind records instructions, memory, and boundaries") {
   CHECK(reader.error().empty());
   CHECK(reader.header().version == w1::rewind::k_trace_version);
   CHECK((reader.header().flags & w1::rewind::trace_flag_instructions) != 0);
+  CHECK((reader.header().flags & w1::rewind::trace_flag_blocks) == 0);
   CHECK((reader.header().flags & w1::rewind::trace_flag_register_deltas) != 0);
   CHECK((reader.header().flags & w1::rewind::trace_flag_memory_access) != 0);
   CHECK((reader.header().flags & w1::rewind::trace_flag_memory_values) != 0);

@@ -7,7 +7,7 @@
 # ]
 # ///
 
-"""w1rewind trace viewer (v4)"""
+"""w1rewind trace viewer (v5)"""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ from rich.table import Table
 console = Console()
 app = typer.Typer(add_completion=False, no_args_is_help=True)
 
-MAGIC = b"W1RWND4\x00"
+MAGIC = b"W1RWND5\x00"
 HEADER_STRUCT = struct.Struct("<8sHHIQ")
 RECORD_HEADER_STRUCT = struct.Struct("<HHI")
 U8 = struct.Struct("<B")
@@ -37,6 +37,7 @@ TRACE_FLAG_MEMORY_ACCESS = 1 << 2
 TRACE_FLAG_MEMORY_VALUES = 1 << 3
 TRACE_FLAG_BOUNDARIES = 1 << 4
 TRACE_FLAG_STACK_WINDOW = 1 << 5
+TRACE_FLAG_BLOCKS = 1 << 6
 
 RECORD_REGISTER_TABLE = 1
 RECORD_MODULE_TABLE = 2
@@ -46,6 +47,8 @@ RECORD_REGISTER_DELTAS = 5
 RECORD_MEMORY_ACCESS = 6
 RECORD_BOUNDARY = 7
 RECORD_THREAD_END = 8
+RECORD_BLOCK_DEFINITION = 9
+RECORD_BLOCK_EXEC = 10
 
 
 @dataclass
@@ -89,6 +92,21 @@ class InstructionRecord:
     module_offset: int
     size: int
     flags: int
+
+
+@dataclass
+class BlockDefinitionRecord:
+    block_id: int
+    module_id: int
+    module_offset: int
+    size: int
+
+
+@dataclass
+class BlockExecRecord:
+    sequence: int
+    thread_id: int
+    block_id: int
 
 
 @dataclass
@@ -136,6 +154,8 @@ Record = Union[
     ModuleTableRecord,
     ThreadStartRecord,
     InstructionRecord,
+    BlockDefinitionRecord,
+    BlockExecRecord,
     RegisterDeltaRecord,
     MemoryAccessRecord,
     BoundaryRecord,
@@ -148,6 +168,7 @@ class TraceFile:
     header: TraceHeader
     register_table: List[str]
     module_table: List[ModuleRecord]
+    block_table: List[BlockDefinitionRecord]
     records: List[Record]
 
     def per_thread_counts(self) -> dict[int, int]:
@@ -217,9 +238,9 @@ class TraceParser:
         self._cursor += HEADER_STRUCT.size
 
         if magic != MAGIC:
-            raise TraceParserError(f"unexpected magic {magic!r}; not a v4 w1rewind trace")
-        if version != 4:
-            raise TraceParserError(f"unsupported trace version {version} (expected v4)")
+            raise TraceParserError(f"unexpected magic {magic!r}; not a v5 w1rewind trace")
+        if version != 5:
+            raise TraceParserError(f"unsupported trace version {version} (expected v5)")
 
         header = TraceHeader(
             version=version,
@@ -229,21 +250,26 @@ class TraceParser:
         )
         register_table: List[str] = []
         module_table: List[ModuleRecord] = []
+        block_table: List[BlockDefinitionRecord] = []
         records: List[Record] = []
 
         while self._cursor < len(self._data):
-            record = self._parse_record(register_table, module_table)
+            record = self._parse_record(register_table, module_table, block_table)
             records.append(record)
 
         return TraceFile(
             header=header,
             register_table=register_table,
             module_table=module_table,
+            block_table=block_table,
             records=records,
         )
 
     def _parse_record(
-        self, register_table: List[str], module_table: List[ModuleRecord]
+        self,
+        register_table: List[str],
+        module_table: List[ModuleRecord],
+        block_table: List[BlockDefinitionRecord],
     ) -> Record:
         start = self._cursor
         try:
@@ -310,6 +336,26 @@ class TraceParser:
                 size=size_value,
                 flags=flags_value,
             )
+
+        if kind == RECORD_BLOCK_DEFINITION:
+            block_id = reader.read_u64()
+            module_id = reader.read_u64()
+            module_offset = reader.read_u64()
+            size_value = reader.read_u32()
+            record = BlockDefinitionRecord(
+                block_id=block_id,
+                module_id=module_id,
+                module_offset=module_offset,
+                size=size_value,
+            )
+            block_table.append(record)
+            return record
+
+        if kind == RECORD_BLOCK_EXEC:
+            sequence = reader.read_u64()
+            thread_id = reader.read_u64()
+            block_id = reader.read_u64()
+            return BlockExecRecord(sequence=sequence, thread_id=thread_id, block_id=block_id)
 
         if kind == RECORD_REGISTER_DELTAS:
             sequence = reader.read_u64()
@@ -396,6 +442,8 @@ def format_flags(flags: int) -> str:
     parts = []
     if flags & TRACE_FLAG_INSTRUCTIONS:
         parts.append("instructions")
+    if flags & TRACE_FLAG_BLOCKS:
+        parts.append("blocks")
     if flags & TRACE_FLAG_REGISTER_DELTAS:
         parts.append("register_deltas")
     if flags & TRACE_FLAG_MEMORY_ACCESS:
@@ -410,7 +458,16 @@ def format_flags(flags: int) -> str:
 
 
 def _record_thread_id(record: Record) -> Optional[int]:
-    if isinstance(record, (InstructionRecord, RegisterDeltaRecord, MemoryAccessRecord, BoundaryRecord)):
+    if isinstance(
+        record,
+        (
+            InstructionRecord,
+            BlockExecRecord,
+            RegisterDeltaRecord,
+            MemoryAccessRecord,
+            BoundaryRecord,
+        ),
+    ):
         return record.thread_id
     if isinstance(record, (ThreadStartRecord, ThreadEndRecord)):
         return record.thread_id
@@ -419,6 +476,10 @@ def _record_thread_id(record: Record) -> Optional[int]:
 
 def _module_by_id(modules: List[ModuleRecord]) -> dict[int, ModuleRecord]:
     return {module.module_id: module for module in modules}
+
+
+def _block_by_id(blocks: List[BlockDefinitionRecord]) -> dict[int, BlockDefinitionRecord]:
+    return {block.block_id: block for block in blocks}
 
 
 @app.command()
@@ -437,7 +498,15 @@ def summary(
     console.print(f"  flags       : {format_flags(trace.header.flags)}")
     console.print(f"  records     : {len(trace.records)}")
 
+    flow = "unknown"
+    if trace.header.flags & TRACE_FLAG_BLOCKS:
+        flow = "blocks"
+    elif trace.header.flags & TRACE_FLAG_INSTRUCTIONS:
+        flow = "instructions"
+    console.print(f"  flow        : {flow}")
+
     instruction_count = sum(isinstance(r, InstructionRecord) for r in trace.records)
+    block_exec_count = sum(isinstance(r, BlockExecRecord) for r in trace.records)
     boundary_count = sum(isinstance(r, BoundaryRecord) for r in trace.records)
     memory_reads = sum(
         isinstance(r, MemoryAccessRecord) and r.kind == 1 for r in trace.records
@@ -445,7 +514,13 @@ def summary(
     memory_writes = sum(
         isinstance(r, MemoryAccessRecord) and r.kind == 2 for r in trace.records
     )
-    console.print(f"  instructions: {instruction_count}")
+
+    if flow == "blocks":
+        console.print(f"  blocks      : {block_exec_count}")
+        console.print(f"  block defs  : {len(trace.block_table)}")
+    else:
+        console.print(f"  instructions: {instruction_count}")
+
     console.print(f"  boundaries  : {boundary_count}")
     if memory_reads or memory_writes:
         console.print(f"  memory reads : {memory_reads}")
@@ -476,6 +551,7 @@ def events(
     """Pretty-print trace records."""
     trace = load_trace(trace_path)
     module_lookup = _module_by_id(trace.module_table)
+    block_lookup = _block_by_id(trace.block_table)
 
     records = list(
         _iter_records(
@@ -499,7 +575,7 @@ def events(
     table.add_column("info", justify="left")
 
     for record in records:
-        row = _record_row(record, module_lookup)
+        row = _record_row(record, module_lookup, block_lookup)
         table.add_row(*row)
 
     console.print(table)
@@ -515,7 +591,7 @@ def _iter_records(
 ) -> Iterable[Record]:
     count = 0
     for record in records:
-        if isinstance(record, (RegisterTableRecord, ModuleTableRecord)):
+        if isinstance(record, (RegisterTableRecord, ModuleTableRecord, BlockDefinitionRecord)):
             continue
         if isinstance(record, MemoryAccessRecord):
             if record.kind == 1 and not show_reads:
@@ -532,7 +608,11 @@ def _iter_records(
             break
 
 
-def _record_row(record: Record, module_lookup: dict[int, ModuleRecord]) -> List[str]:
+def _record_row(
+    record: Record,
+    module_lookup: dict[int, ModuleRecord],
+    block_lookup: dict[int, BlockDefinitionRecord],
+) -> List[str]:
     if isinstance(record, ThreadStartRecord):
         return ["thread_start", "", str(record.thread_id), "", "", record.name]
     if isinstance(record, ThreadEndRecord):
@@ -544,6 +624,10 @@ def _record_row(record: Record, module_lookup: dict[int, ModuleRecord]) -> List[
         if module:
             info = Path(module.path).name
         return ["inst", str(record.sequence), str(record.thread_id), addr, str(record.size), info]
+    if isinstance(record, BlockExecRecord):
+        block = block_lookup.get(record.block_id)
+        addr, size, info = _format_block_info(block, module_lookup)
+        return ["block", str(record.sequence), str(record.thread_id), addr, size, info]
     if isinstance(record, RegisterDeltaRecord):
         return [
             "regs",
@@ -591,6 +675,23 @@ def _format_instruction_addr(record: InstructionRecord, module: Optional[ModuleR
         return f"m{record.module_id}+0x{record.module_offset:x}"
     absolute = module.base + record.module_offset
     return f"0x{absolute:x}"
+
+
+def _format_block_info(
+    block: Optional[BlockDefinitionRecord],
+    module_lookup: dict[int, ModuleRecord],
+) -> tuple[str, str, str]:
+    if block is None:
+        return "", "", ""
+    module = module_lookup.get(block.module_id)
+    if block.module_id == 0:
+        addr = f"0x{block.module_offset:x}"
+    elif module is None:
+        addr = f"m{block.module_id}+0x{block.module_offset:x}"
+    else:
+        addr = f"0x{module.base + block.module_offset:x}"
+    info = Path(module.path).name if module else ""
+    return addr, str(block.size), info
 
 
 if __name__ == "__main__":

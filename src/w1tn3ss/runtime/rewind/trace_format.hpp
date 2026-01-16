@@ -10,8 +10,8 @@
 
 namespace w1::rewind {
 
-constexpr uint16_t k_trace_version = 4;
-constexpr std::array<uint8_t, 8> k_trace_magic = {'W', '1', 'R', 'W', 'N', 'D', '4', '\0'};
+constexpr uint16_t k_trace_version = 5;
+constexpr std::array<uint8_t, 8> k_trace_magic = {'W', '1', 'R', 'W', 'N', 'D', '5', '\0'};
 
 enum class trace_arch : uint16_t {
   unknown = 0,
@@ -28,6 +28,7 @@ enum trace_flags : uint64_t {
   trace_flag_memory_values = 1ull << 3,
   trace_flag_boundaries = 1ull << 4,
   trace_flag_stack_window = 1ull << 5,
+  trace_flag_blocks = 1ull << 6,
 };
 
 enum class record_kind : uint16_t {
@@ -39,6 +40,8 @@ enum class record_kind : uint16_t {
   memory_access = 6,
   boundary = 7,
   thread_end = 8,
+  block_definition = 9,
+  block_exec = 10,
 };
 
 struct trace_header {
@@ -84,6 +87,19 @@ struct instruction_record {
   uint32_t flags = 0;
 };
 
+struct block_definition_record {
+  uint64_t block_id = 0;
+  uint64_t module_id = 0;
+  uint64_t module_offset = 0;
+  uint32_t size = 0;
+};
+
+struct block_exec_record {
+  uint64_t sequence = 0;
+  uint64_t thread_id = 0;
+  uint64_t block_id = 0;
+};
+
 struct register_delta {
   uint16_t reg_id = 0;
   uint64_t value = 0;
@@ -122,8 +138,8 @@ struct thread_end_record {
 };
 
 using trace_record = std::variant<
-    register_table_record, module_table_record, thread_start_record, instruction_record, register_delta_record,
-    memory_access_record, boundary_record, thread_end_record>;
+    register_table_record, module_table_record, thread_start_record, instruction_record, block_definition_record,
+    block_exec_record, register_delta_record, memory_access_record, boundary_record, thread_end_record>;
 
 inline trace_arch detect_trace_arch() {
 #if defined(QBDI_ARCH_X86_64)

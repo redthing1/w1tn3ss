@@ -37,8 +37,8 @@ rewind_config rewind_config::from_environment() {
 
   config.exclude_self = loader.get<bool>("EXCLUDE_SELF", true);
   config.verbose = loader.get<int>("VERBOSE", 0);
-  config.record_instructions = loader.get<bool>("RECORD_INSTRUCTIONS", true);
-  config.record_register_deltas = loader.get<bool>("RECORD_REGISTER_DELTAS", true);
+  config.record_instructions = loader.get<bool>("RECORD_INSTRUCTIONS", config.record_instructions);
+  config.record_register_deltas = loader.get<bool>("RECORD_REGISTER_DELTAS", config.record_register_deltas);
   config.boundary_interval = loader.get<uint64_t>("BOUNDARY_INTERVAL", config.boundary_interval);
   config.stack_window_bytes = loader.get<uint64_t>("STACK_WINDOW", config.stack_window_bytes);
   config.memory.enabled = loader.get<bool>("MEMORY", false);
@@ -48,6 +48,10 @@ rewind_config rewind_config::from_environment() {
   config.output_path = loader.get<std::string>("OUTPUT", "");
 
   return config;
+}
+
+bool rewind_config::requires_instruction_flow() const {
+  return record_instructions || record_register_deltas || memory.enabled;
 }
 
 } // namespace w1rewind

@@ -13,8 +13,8 @@ struct rewind_config {
   bool exclude_self = true;
   int verbose = 0;
 
-  bool record_instructions = true;
-  bool record_register_deltas = true;
+  bool record_instructions = false;
+  bool record_register_deltas = false;
   uint64_t boundary_interval = 4096;
   uint64_t stack_window_bytes = 0;
 
@@ -29,6 +29,7 @@ struct rewind_config {
   std::string output_path;
 
   static rewind_config from_environment();
+  bool requires_instruction_flow() const;
 };
 
 } // namespace w1rewind

@@ -7,7 +7,7 @@
 namespace w1rewind {
 
 rewind_recorder::rewind_recorder(rewind_config config, std::shared_ptr<w1::rewind::trace_writer> writer)
-    : config_(std::move(config)), writer_(std::move(writer)) {}
+    : config_(std::move(config)), writer_(std::move(writer)), instruction_flow_(config_.requires_instruction_flow()) {}
 
 void rewind_recorder::on_thread_start(w1::trace_context& ctx, const w1::thread_event& event) {
   (void) ctx;
@@ -18,14 +18,86 @@ void rewind_recorder::on_thread_start(w1::trace_context& ctx, const w1::thread_e
   }
 }
 
+void rewind_recorder::on_basic_block_entry(
+    w1::trace_context& ctx, const w1::basic_block_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state,
+    QBDI::GPRState* gpr, QBDI::FPRState* fpr
+) {
+  (void) vm;
+  (void) state;
+  (void) fpr;
+
+  if (instruction_flow_) {
+    return;
+  }
+
+  auto& thread = threads_[event.thread_id];
+  if (thread.thread_id == 0) {
+    thread.thread_id = event.thread_id;
+  }
+
+  if (!ensure_writer_ready(ctx)) {
+    return;
+  }
+
+  if (!ensure_tables(ctx, gpr)) {
+    return;
+  }
+
+  if (!thread.thread_start_written) {
+    w1::rewind::thread_start_record start{};
+    start.thread_id = thread.thread_id;
+    start.name = thread.thread_name;
+    if (!writer_->write_thread_start(start)) {
+      return;
+    }
+    thread.thread_start_written = true;
+  }
+
+  uint64_t address = event.address;
+  uint32_t size = event.size;
+  if (address == 0 || size == 0) {
+    return;
+  }
+
+  auto [module_id, module_offset] = map_instruction_address(ctx.modules(), address);
+  uint64_t block_id = ensure_block_id(module_id, module_offset, size);
+  if (block_id == 0) {
+    return;
+  }
+
+  w1::rewind::block_exec_record exec{};
+  exec.sequence = thread.sequence++;
+  exec.thread_id = thread.thread_id;
+  exec.block_id = block_id;
+  if (!writer_->write_block_exec(exec)) {
+    return;
+  }
+
+  thread.flow_count += 1;
+
+  if (config_.boundary_interval > 0) {
+    w1::util::register_state regs = w1::util::register_capturer::capture(gpr);
+    auto boundary = maybe_capture_boundary(ctx, thread, regs);
+    if (boundary.has_value()) {
+      w1::rewind::boundary_record record{};
+      record.boundary_id = boundary->boundary_id;
+      record.sequence = exec.sequence;
+      record.thread_id = exec.thread_id;
+      record.registers = std::move(boundary->registers);
+      record.stack_window = std::move(boundary->stack_window);
+      record.reason = std::move(boundary->reason);
+      writer_->write_boundary(record);
+    }
+  }
+}
+
 void rewind_recorder::on_instruction_post(
     w1::trace_context& ctx, const w1::instruction_event& event, QBDI::VMInstanceRef vm, QBDI::GPRState* gpr,
     QBDI::FPRState* fpr
 ) {
   (void) fpr;
 
-  if (!config_.record_instructions && !config_.record_register_deltas && !config_.memory.enabled &&
-      config_.boundary_interval == 0) {
+  if (!instruction_flow_) {
     return;
   }
 
@@ -82,16 +154,10 @@ void rewind_recorder::on_instruction_post(
     capture_register_deltas(state, regs, pending.register_deltas);
   }
 
-  state.instruction_count += 1;
+  state.flow_count += 1;
   if (config_.boundary_interval > 0) {
-    state.instructions_since_boundary += 1;
-    if (state.instructions_since_boundary >= config_.boundary_interval) {
-      state.instructions_since_boundary = 0;
-      pending_boundary boundary{};
-      boundary.boundary_id = state.boundary_count++;
-      boundary.registers = capture_register_snapshot(regs);
-      boundary.stack_window = capture_stack_window(ctx, regs);
-      boundary.reason = "interval";
+    auto boundary = maybe_capture_boundary(ctx, state, regs);
+    if (boundary.has_value()) {
       pending.boundary = std::move(boundary);
     }
   }
@@ -107,7 +173,7 @@ void rewind_recorder::on_memory(
   (void) gpr;
   (void) fpr;
 
-  if (!config_.memory.enabled) {
+  if (!instruction_flow_ || !config_.memory.enabled) {
     return;
   }
 
@@ -157,7 +223,8 @@ void rewind_recorder::on_thread_stop(w1::trace_context& ctx, const w1::thread_ev
 
   log_.inf(
       "rewind stats", redlog::field("thread_id", state.thread_id),
-      redlog::field("instructions", state.instruction_count), redlog::field("boundaries", state.boundary_count),
+      redlog::field("flow_kind", instruction_flow_ ? "instructions" : "blocks"),
+      redlog::field("flow_events", state.flow_count), redlog::field("boundaries", state.boundary_count),
       redlog::field("memory_events", state.memory_events)
   );
 }
@@ -180,8 +247,10 @@ bool rewind_recorder::ensure_writer_ready(w1::trace_context& ctx) {
   header.architecture = w1::rewind::detect_trace_arch();
   header.pointer_size = w1::rewind::detect_pointer_size();
 
-  if (config_.record_instructions) {
+  if (instruction_flow_) {
     header.flags |= w1::rewind::trace_flag_instructions;
+  } else {
+    header.flags |= w1::rewind::trace_flag_blocks;
   }
   if (config_.record_register_deltas) {
     header.flags |= w1::rewind::trace_flag_register_deltas;
@@ -245,7 +314,7 @@ void rewind_recorder::flush_pending(thread_state& state) {
   pending_instruction pending = std::move(*state.pending);
   state.pending.reset();
 
-  if (config_.record_instructions) {
+  if (instruction_flow_) {
     if (!writer_->write_instruction(pending.record)) {
       return;
     }
@@ -368,6 +437,27 @@ std::vector<uint8_t> rewind_recorder::capture_stack_window(
   return *bytes;
 }
 
+std::optional<rewind_recorder::pending_boundary> rewind_recorder::maybe_capture_boundary(
+    w1::trace_context& ctx, thread_state& state, const w1::util::register_state& regs
+) {
+  if (config_.boundary_interval == 0) {
+    return std::nullopt;
+  }
+
+  state.flow_since_boundary += 1;
+  if (state.flow_since_boundary < config_.boundary_interval) {
+    return std::nullopt;
+  }
+  state.flow_since_boundary = 0;
+
+  pending_boundary boundary{};
+  boundary.boundary_id = state.boundary_count++;
+  boundary.registers = capture_register_snapshot(regs);
+  boundary.stack_window = capture_stack_window(ctx, regs);
+  boundary.reason = "interval";
+  return boundary;
+}
+
 void rewind_recorder::update_register_table(const w1::util::register_state& regs) {
   register_table_ = regs.get_register_names();
   register_ids_.clear();
@@ -408,6 +498,35 @@ std::pair<uint64_t, uint64_t> rewind_recorder::map_instruction_address(
     return {0, address};
   }
   return {it->second, address - module->base_address};
+}
+
+uint64_t rewind_recorder::ensure_block_id(uint64_t module_id, uint64_t module_offset, uint32_t size) {
+  block_key key{};
+  key.module_id = module_id;
+  key.module_offset = module_offset;
+  key.size = size;
+
+  auto it = block_ids_.find(key);
+  if (it != block_ids_.end()) {
+    return it->second;
+  }
+
+  if (!writer_ || !writer_->good()) {
+    return 0;
+  }
+
+  uint64_t block_id = next_block_id_++;
+  w1::rewind::block_definition_record record{};
+  record.block_id = block_id;
+  record.module_id = module_id;
+  record.module_offset = module_offset;
+  record.size = size;
+  if (!writer_->write_block_definition(record)) {
+    return 0;
+  }
+
+  block_ids_.emplace(std::move(key), block_id);
+  return block_id;
 }
 
 void rewind_recorder::append_memory_access(

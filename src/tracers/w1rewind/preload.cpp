@@ -16,9 +16,11 @@
 
 namespace {
 
-using rewind_session = w1::trace_session<w1rewind::rewind_tracer>;
+using rewind_instruction_session = w1::trace_session<w1rewind::rewind_instruction_tracer>;
+using rewind_block_session = w1::trace_session<w1rewind::rewind_block_tracer>;
 
-std::unique_ptr<rewind_session> g_session;
+std::unique_ptr<rewind_instruction_session> g_instruction_session;
+std::unique_ptr<rewind_block_session> g_block_session;
 w1rewind::rewind_config g_config;
 
 void configure_logging(int verbose) {
@@ -40,8 +42,13 @@ void configure_logging(int verbose) {
 void shutdown_tracer() {
   auto log = redlog::get_logger("w1rewind.preload");
 
-  if (g_session) {
-    g_session->shutdown(false);
+  if (g_instruction_session) {
+    g_instruction_session->shutdown(false);
+    g_instruction_session.reset();
+  }
+  if (g_block_session) {
+    g_block_session->shutdown(false);
+    g_block_session.reset();
   }
 }
 
@@ -76,14 +83,31 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
   session_config.thread_id = 1;
   session_config.thread_name = "main";
 
-  g_session = std::make_unique<rewind_session>(session_config, vm, std::in_place, g_config, writer);
+  bool instruction_flow = g_config.requires_instruction_flow();
+  if (instruction_flow && !g_config.record_instructions) {
+    log.wrn("instruction flow forced by state capture");
+  }
+
+  if (instruction_flow) {
+    g_instruction_session =
+        std::make_unique<rewind_instruction_session>(session_config, vm, std::in_place, g_config, writer);
+  } else {
+    g_block_session = std::make_unique<rewind_block_session>(session_config, vm, std::in_place, g_config, writer);
+  }
 
   log.inf(
       "starting rewind session", redlog::field("start", "0x%llx", static_cast<unsigned long long>(start)),
       redlog::field("stop", "0x%llx", static_cast<unsigned long long>(stop))
   );
 
-  if (!g_session->run(static_cast<uint64_t>(start), static_cast<uint64_t>(stop))) {
+  bool run_ok = false;
+  if (instruction_flow && g_instruction_session) {
+    run_ok = g_instruction_session->run(static_cast<uint64_t>(start), static_cast<uint64_t>(stop));
+  } else if (g_block_session) {
+    run_ok = g_block_session->run(static_cast<uint64_t>(start), static_cast<uint64_t>(stop));
+  }
+
+  if (!run_ok) {
     log.err("rewind session run failed");
     shutdown_tracer();
     return QBDIPRELOAD_ERR_STARTUP_FAILED;
