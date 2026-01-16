@@ -12,20 +12,21 @@ struct rewind_config {
   w1::core::instrumentation_policy instrumentation{};
   bool exclude_self = true;
   int verbose = 0;
-  bool record_instructions = true;
-  bool record_registers = true;
-  bool record_memory = true;
-  bool capture_memory_reads = false;
-  uint64_t frame_instruction_interval = 0;
-  std::string output_path;
-  std::string compare_trace_path;
 
-  enum class validation_mode { none, log_only, strict };
-  validation_mode mode = validation_mode::none;
-  uint64_t max_mismatches = 1;
-  uint64_t stack_window_bytes = 0x4000;
-  std::vector<std::string> ignore_registers;
-  std::vector<std::string> ignore_modules;
+  bool record_instructions = true;
+  bool record_register_deltas = true;
+  uint64_t boundary_interval = 4096;
+  uint64_t stack_window_bytes = 0;
+
+  struct memory_capture_options {
+    bool enabled = false;
+    bool include_reads = false;
+    bool include_values = false;
+    uint32_t max_value_bytes = 32;
+  };
+
+  memory_capture_options memory{};
+  std::string output_path;
 
   static rewind_config from_environment();
 };

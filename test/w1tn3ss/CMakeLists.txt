@@ -13,6 +13,7 @@ set(W1TN3SS_TEST_SOURCES
     jsonl_writer_test.cpp
     symbol_lookup_test.cpp
     abi_dispatcher_test.cpp
+    rewind_trace_io_test.cpp
 )
 
 w1_add_doctest_suite(w1tn3ss_unit_tests

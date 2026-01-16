@@ -1,0 +1,117 @@
+#include <filesystem>
+
+#include "doctest/doctest.hpp"
+
+#include "w1tn3ss/runtime/rewind/trace_reader.hpp"
+#include "w1tn3ss/runtime/rewind/trace_writer.hpp"
+
+TEST_CASE("rewind trace writer and reader round trip") {
+  namespace fs = std::filesystem;
+
+  fs::path path = fs::temp_directory_path() / "w1rewind_trace_io_test.trace";
+
+  w1::rewind::trace_writer_config config;
+  config.path = path.string();
+  config.log = redlog::get_logger("test.w1rewind.trace");
+
+  auto writer = w1::rewind::make_trace_writer(config);
+  REQUIRE(writer);
+  REQUIRE(writer->open());
+
+  w1::rewind::trace_header header{};
+  header.architecture = w1::rewind::detect_trace_arch();
+  header.pointer_size = w1::rewind::detect_pointer_size();
+  header.flags = w1::rewind::trace_flag_instructions | w1::rewind::trace_flag_register_deltas;
+  REQUIRE(writer->write_header(header));
+
+  w1::rewind::register_table_record reg_table{};
+  reg_table.names = {"r0", "r1"};
+  REQUIRE(writer->write_register_table(reg_table));
+
+  w1::rewind::module_record module{};
+  module.id = 1;
+  module.base = 0x1000;
+  module.size = 0x2000;
+  module.permissions = 5;
+  module.path = "/bin/test_module";
+
+  w1::rewind::module_table_record mod_table{};
+  mod_table.modules = {module};
+  REQUIRE(writer->write_module_table(mod_table));
+
+  w1::rewind::thread_start_record start{};
+  start.thread_id = 1;
+  start.name = "main";
+  REQUIRE(writer->write_thread_start(start));
+
+  w1::rewind::instruction_record instruction{};
+  instruction.sequence = 1;
+  instruction.thread_id = 1;
+  instruction.module_id = 1;
+  instruction.module_offset = 0x10;
+  instruction.size = 4;
+  REQUIRE(writer->write_instruction(instruction));
+
+  w1::rewind::register_delta_record deltas{};
+  deltas.sequence = 1;
+  deltas.thread_id = 1;
+  deltas.deltas = {
+      w1::rewind::register_delta{0, 0x1111},
+      w1::rewind::register_delta{1, 0x2222},
+  };
+  REQUIRE(writer->write_register_deltas(deltas));
+
+  w1::rewind::memory_access_record mem{};
+  mem.sequence = 1;
+  mem.thread_id = 1;
+  mem.kind = w1::rewind::memory_access_kind::write;
+  mem.address = 0x2000;
+  mem.size = 4;
+  mem.value_known = true;
+  mem.data = {0x01, 0x02, 0x03, 0x04};
+  REQUIRE(writer->write_memory_access(mem));
+
+  w1::rewind::boundary_record boundary{};
+  boundary.boundary_id = 7;
+  boundary.sequence = 1;
+  boundary.thread_id = 1;
+  boundary.registers = {
+      w1::rewind::register_delta{0, 0xAAAA},
+      w1::rewind::register_delta{1, 0xBBBB},
+  };
+  boundary.stack_window = {0x10, 0x20};
+  boundary.reason = "interval";
+  REQUIRE(writer->write_boundary(boundary));
+
+  w1::rewind::thread_end_record end{};
+  end.thread_id = 1;
+  REQUIRE(writer->write_thread_end(end));
+
+  writer->flush();
+  writer->close();
+
+  w1::rewind::trace_reader reader(path.string());
+  REQUIRE(reader.open());
+  CHECK(reader.header().version == w1::rewind::k_trace_version);
+  CHECK(reader.header().architecture == w1::rewind::detect_trace_arch());
+  CHECK(reader.header().pointer_size == w1::rewind::detect_pointer_size());
+
+  std::vector<w1::rewind::trace_record> records;
+  w1::rewind::trace_record record;
+  while (reader.read_next(record)) {
+    records.push_back(record);
+  }
+  CHECK(reader.error().empty());
+  REQUIRE(records.size() == 8);
+
+  CHECK(std::holds_alternative<w1::rewind::register_table_record>(records[0]));
+  CHECK(std::holds_alternative<w1::rewind::module_table_record>(records[1]));
+  CHECK(std::holds_alternative<w1::rewind::thread_start_record>(records[2]));
+  CHECK(std::holds_alternative<w1::rewind::instruction_record>(records[3]));
+  CHECK(std::holds_alternative<w1::rewind::register_delta_record>(records[4]));
+  CHECK(std::holds_alternative<w1::rewind::memory_access_record>(records[5]));
+  CHECK(std::holds_alternative<w1::rewind::boundary_record>(records[6]));
+  CHECK(std::holds_alternative<w1::rewind::thread_end_record>(records[7]));
+
+  fs::remove(path);
+}

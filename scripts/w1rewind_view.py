@@ -7,14 +7,14 @@
 # ]
 # ///
 
-"""w1rewind trace viewer"""
+"""w1rewind trace viewer (v4)"""
 
 from __future__ import annotations
 
 import struct
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable, List, Optional
+from typing import Iterable, List, Optional, Union
 
 import typer
 from rich.console import Console
@@ -23,66 +23,183 @@ from rich.table import Table
 console = Console()
 app = typer.Typer(add_completion=False, no_args_is_help=True)
 
-MAGIC = b"W1RWND\n\x00"
-HEADER_STRUCT = struct.Struct("<8sIIII")
-EVENT_HEADER_STRUCT = struct.Struct("<BQQQI")
-REGISTER_NAME_LEN_STRUCT = struct.Struct("<H")
-REGISTER_VALUE_STRUCT = struct.Struct("<Q")
-MEMORY_RECORD_HEADER_STRUCT = struct.Struct("<QI")
-BOOL_STRUCT = struct.Struct("<B")
-COUNT_STRUCT = struct.Struct("<I")
+MAGIC = b"W1RWND4\x00"
+HEADER_STRUCT = struct.Struct("<8sHHIQ")
+RECORD_HEADER_STRUCT = struct.Struct("<HHI")
+U8 = struct.Struct("<B")
+U16 = struct.Struct("<H")
+U32 = struct.Struct("<I")
+U64 = struct.Struct("<Q")
+
+TRACE_FLAG_INSTRUCTIONS = 1 << 0
+TRACE_FLAG_REGISTER_DELTAS = 1 << 1
+TRACE_FLAG_MEMORY_ACCESS = 1 << 2
+TRACE_FLAG_MEMORY_VALUES = 1 << 3
+TRACE_FLAG_BOUNDARIES = 1 << 4
+TRACE_FLAG_STACK_WINDOW = 1 << 5
+
+RECORD_REGISTER_TABLE = 1
+RECORD_MODULE_TABLE = 2
+RECORD_THREAD_START = 3
+RECORD_INSTRUCTION = 4
+RECORD_REGISTER_DELTAS = 5
+RECORD_MEMORY_ACCESS = 6
+RECORD_BOUNDARY = 7
+RECORD_THREAD_END = 8
+
+
+@dataclass
+class TraceHeader:
+    version: int
+    architecture: int
+    pointer_size: int
+    flags: int
+
+
+@dataclass
+class RegisterTableRecord:
+    names: List[str]
+
+
+@dataclass
+class ModuleRecord:
+    module_id: int
+    base: int
+    size: int
+    permissions: int
+    path: str
+
+
+@dataclass
+class ModuleTableRecord:
+    modules: List[ModuleRecord]
+
+
+@dataclass
+class ThreadStartRecord:
+    thread_id: int
+    name: str
+
+
+@dataclass
+class InstructionRecord:
+    sequence: int
+    thread_id: int
+    module_id: int
+    module_offset: int
+    size: int
+    flags: int
 
 
 @dataclass
 class RegisterDelta:
-    name: str
+    reg_id: int
     value: int
 
 
 @dataclass
-class MemoryAccess:
+class RegisterDeltaRecord:
+    sequence: int
+    thread_id: int
+    deltas: List[RegisterDelta]
+
+
+@dataclass
+class MemoryAccessRecord:
+    sequence: int
+    thread_id: int
+    kind: int
     address: int
     size: int
     value_known: bool
+    value_truncated: bool
     data: bytes = field(default_factory=bytes)
 
 
 @dataclass
-class BoundaryInfo:
+class BoundaryRecord:
     boundary_id: int
-    flags: int
+    sequence: int
+    thread_id: int
+    registers: List[RegisterDelta]
+    stack_window: bytes
     reason: str
 
 
 @dataclass
-class TraceEvent:
-    event_type: int
+class ThreadEndRecord:
     thread_id: int
-    sequence: int
-    address: int
-    size: int
-    registers: List[RegisterDelta] = field(default_factory=list)
-    reads: List[MemoryAccess] = field(default_factory=list)
-    writes: List[MemoryAccess] = field(default_factory=list)
-    boundary: Optional[BoundaryInfo] = None
+
+
+Record = Union[
+    RegisterTableRecord,
+    ModuleTableRecord,
+    ThreadStartRecord,
+    InstructionRecord,
+    RegisterDeltaRecord,
+    MemoryAccessRecord,
+    BoundaryRecord,
+    ThreadEndRecord,
+]
 
 
 @dataclass
 class TraceFile:
-    version: int
-    flags: int
-    architecture: int
-    events: List[TraceEvent]
+    header: TraceHeader
+    register_table: List[str]
+    module_table: List[ModuleRecord]
+    records: List[Record]
 
     def per_thread_counts(self) -> dict[int, int]:
         counts: dict[int, int] = {}
-        for event in self.events:
-            counts[event.thread_id] = counts.get(event.thread_id, 0) + 1
+        for record in self.records:
+            thread_id = _record_thread_id(record)
+            if thread_id is None:
+                continue
+            counts[thread_id] = counts.get(thread_id, 0) + 1
         return counts
 
 
 class TraceParserError(RuntimeError):
     pass
+
+
+class RecordReader:
+    def __init__(self, data: bytes) -> None:
+        self._data = memoryview(data)
+        self._cursor = 0
+
+    def _read(self, struct_obj: struct.Struct) -> int:
+        try:
+            value = struct_obj.unpack_from(self._data, self._cursor)[0]
+        except struct.error as exc:
+            raise TraceParserError("truncated record payload") from exc
+        self._cursor += struct_obj.size
+        return value
+
+    def read_u8(self) -> int:
+        return self._read(U8)
+
+    def read_u16(self) -> int:
+        return self._read(U16)
+
+    def read_u32(self) -> int:
+        return self._read(U32)
+
+    def read_u64(self) -> int:
+        return self._read(U64)
+
+    def read_bytes(self, size: int) -> bytes:
+        if self._cursor + size > len(self._data):
+            raise TraceParserError("truncated record payload")
+        data = bytes(self._data[self._cursor : self._cursor + size])
+        self._cursor += size
+        return data
+
+    def read_string(self) -> str:
+        length = self.read_u16()
+        raw = self.read_bytes(length)
+        return raw.decode("utf-8", errors="replace")
 
 
 class TraceParser:
@@ -91,134 +208,169 @@ class TraceParser:
         self._cursor = 0
 
     def parse(self) -> TraceFile:
-        magic, version, flags, arch, _reserved = HEADER_STRUCT.unpack_from(
-            self._data, self._cursor
-        )
+        try:
+            magic, version, arch, pointer_size, flags = HEADER_STRUCT.unpack_from(
+                self._data, self._cursor
+            )
+        except struct.error as exc:
+            raise TraceParserError("truncated trace header") from exc
         self._cursor += HEADER_STRUCT.size
+
         if magic != MAGIC:
-            raise TraceParserError(f"unexpected magic {magic!r}; not a w1rewind trace")
-        if version != 3:
-            raise TraceParserError(f"unsupported trace version {version} (expected v3)")
+            raise TraceParserError(f"unexpected magic {magic!r}; not a v4 w1rewind trace")
+        if version != 4:
+            raise TraceParserError(f"unsupported trace version {version} (expected v4)")
 
-        events: List[TraceEvent] = []
+        header = TraceHeader(
+            version=version,
+            architecture=arch,
+            pointer_size=pointer_size,
+            flags=flags,
+        )
+        register_table: List[str] = []
+        module_table: List[ModuleRecord] = []
+        records: List[Record] = []
+
         while self._cursor < len(self._data):
-            event = self._parse_event()
-            events.append(event)
+            record = self._parse_record(register_table, module_table)
+            records.append(record)
 
-        return TraceFile(version=version, flags=flags, architecture=arch, events=events)
+        return TraceFile(
+            header=header,
+            register_table=register_table,
+            module_table=module_table,
+            records=records,
+        )
 
-    def _parse_event(self) -> TraceEvent:
+    def _parse_record(
+        self, register_table: List[str], module_table: List[ModuleRecord]
+    ) -> Record:
         start = self._cursor
         try:
-            event_type, thread_id, sequence, address, size = (
-                EVENT_HEADER_STRUCT.unpack_from(self._data, self._cursor)
+            kind, flags, size = RECORD_HEADER_STRUCT.unpack_from(
+                self._data, self._cursor
             )
-            self._cursor += EVENT_HEADER_STRUCT.size
         except struct.error as exc:
-            raise TraceParserError(f"truncated event header at offset {start}") from exc
+            raise TraceParserError(f"truncated record header at offset {start}") from exc
+        self._cursor += RECORD_HEADER_STRUCT.size
 
-        if event_type not in (1, 2):
-            raise TraceParserError(
-                f"unsupported event type {event_type} at offset {start}"
-            )
+        if self._cursor + size > len(self._data):
+            raise TraceParserError("truncated record payload")
 
-        registers = self._parse_registers()
-        reads: List[MemoryAccess] = self._parse_memory_list()
-        writes = self._parse_memory_list()
+        payload = bytes(self._data[self._cursor : self._cursor + size])
+        self._cursor += size
+        reader = RecordReader(payload)
 
-        boundary_info: Optional[BoundaryInfo] = None
-        try:
-            has_boundary = BOOL_STRUCT.unpack_from(self._data, self._cursor)[0] != 0
-            self._cursor += BOOL_STRUCT.size
-        except struct.error as exc:
-            raise TraceParserError("truncated boundary flag") from exc
+        if kind == RECORD_REGISTER_TABLE:
+            count = reader.read_u16()
+            names = [reader.read_string() for _ in range(count)]
+            register_table.clear()
+            register_table.extend(names)
+            return RegisterTableRecord(names=names)
 
-        if has_boundary:
-            try:
-                boundary_id = REGISTER_VALUE_STRUCT.unpack_from(
-                    self._data, self._cursor
-                )[0]
-                self._cursor += REGISTER_VALUE_STRUCT.size
-                flags = COUNT_STRUCT.unpack_from(self._data, self._cursor)[0]
-                self._cursor += COUNT_STRUCT.size
-                reason_len = REGISTER_NAME_LEN_STRUCT.unpack_from(
-                    self._data, self._cursor
-                )[0]
-                self._cursor += REGISTER_NAME_LEN_STRUCT.size
-                reason_bytes = bytes(
-                    self._data[self._cursor : self._cursor + reason_len]
+        if kind == RECORD_MODULE_TABLE:
+            count = reader.read_u32()
+            modules = []
+            for _ in range(count):
+                module_id = reader.read_u64()
+                base = reader.read_u64()
+                size_value = reader.read_u64()
+                permissions = reader.read_u32()
+                path = reader.read_string()
+                modules.append(
+                    ModuleRecord(
+                        module_id=module_id,
+                        base=base,
+                        size=size_value,
+                        permissions=permissions,
+                        path=path,
+                    )
                 )
-                self._cursor += reason_len
-            except struct.error as exc:
-                raise TraceParserError("truncated boundary metadata") from exc
+            module_table.clear()
+            module_table.extend(modules)
+            return ModuleTableRecord(modules=modules)
 
-            boundary_info = BoundaryInfo(
+        if kind == RECORD_THREAD_START:
+            thread_id = reader.read_u64()
+            name = reader.read_string()
+            return ThreadStartRecord(thread_id=thread_id, name=name)
+
+        if kind == RECORD_INSTRUCTION:
+            sequence = reader.read_u64()
+            thread_id = reader.read_u64()
+            module_id = reader.read_u64()
+            module_offset = reader.read_u64()
+            size_value = reader.read_u32()
+            flags_value = reader.read_u32()
+            return InstructionRecord(
+                sequence=sequence,
+                thread_id=thread_id,
+                module_id=module_id,
+                module_offset=module_offset,
+                size=size_value,
+                flags=flags_value,
+            )
+
+        if kind == RECORD_REGISTER_DELTAS:
+            sequence = reader.read_u64()
+            thread_id = reader.read_u64()
+            count = reader.read_u16()
+            deltas = []
+            for _ in range(count):
+                reg_id = reader.read_u16()
+                value = reader.read_u64()
+                deltas.append(RegisterDelta(reg_id=reg_id, value=value))
+            return RegisterDeltaRecord(sequence=sequence, thread_id=thread_id, deltas=deltas)
+
+        if kind == RECORD_MEMORY_ACCESS:
+            sequence = reader.read_u64()
+            thread_id = reader.read_u64()
+            access_kind = reader.read_u8()
+            value_known = reader.read_u8() != 0
+            value_truncated = reader.read_u8() != 0
+            reader.read_u8()
+            address = reader.read_u64()
+            size_value = reader.read_u32()
+            data_size = reader.read_u32()
+            data = reader.read_bytes(data_size) if data_size else b""
+            return MemoryAccessRecord(
+                sequence=sequence,
+                thread_id=thread_id,
+                kind=access_kind,
+                address=address,
+                size=size_value,
+                value_known=value_known,
+                value_truncated=value_truncated,
+                data=data,
+            )
+
+        if kind == RECORD_BOUNDARY:
+            boundary_id = reader.read_u64()
+            sequence = reader.read_u64()
+            thread_id = reader.read_u64()
+            count = reader.read_u16()
+            registers = []
+            for _ in range(count):
+                reg_id = reader.read_u16()
+                value = reader.read_u64()
+                registers.append(RegisterDelta(reg_id=reg_id, value=value))
+            stack_size = reader.read_u32()
+            stack_window = reader.read_bytes(stack_size) if stack_size else b""
+            reason = reader.read_string()
+            return BoundaryRecord(
                 boundary_id=boundary_id,
-                flags=flags,
-                reason=reason_bytes.decode("ascii"),
+                sequence=sequence,
+                thread_id=thread_id,
+                registers=registers,
+                stack_window=stack_window,
+                reason=reason,
             )
 
-        return TraceEvent(
-            event_type=event_type,
-            thread_id=thread_id,
-            sequence=sequence,
-            address=address,
-            size=size,
-            registers=registers,
-            reads=reads,
-            writes=writes,
-            boundary=boundary_info,
-        )
+        if kind == RECORD_THREAD_END:
+            thread_id = reader.read_u64()
+            return ThreadEndRecord(thread_id=thread_id)
 
-    def _parse_registers(self) -> List[RegisterDelta]:
-        try:
-            reg_count = COUNT_STRUCT.unpack_from(self._data, self._cursor)[0]
-            self._cursor += COUNT_STRUCT.size
-        except struct.error as exc:
-            raise TraceParserError("truncated register count") from exc
-
-        registers: List[RegisterDelta] = []
-        for _ in range(reg_count):
-            name_len = REGISTER_NAME_LEN_STRUCT.unpack_from(self._data, self._cursor)[0]
-            self._cursor += REGISTER_NAME_LEN_STRUCT.size
-            name_bytes = bytes(self._data[self._cursor : self._cursor + name_len])
-            self._cursor += name_len
-            value = REGISTER_VALUE_STRUCT.unpack_from(self._data, self._cursor)[0]
-            self._cursor += REGISTER_VALUE_STRUCT.size
-            registers.append(
-                RegisterDelta(name=name_bytes.decode("ascii"), value=value)
-            )
-        return registers
-
-    def _parse_memory_list(self) -> List[MemoryAccess]:
-        try:
-            count = COUNT_STRUCT.unpack_from(self._data, self._cursor)[0]
-            self._cursor += COUNT_STRUCT.size
-        except struct.error as exc:
-            raise TraceParserError("truncated memory access count") from exc
-
-        accesses: List[MemoryAccess] = []
-        for _ in range(count):
-            try:
-                address, size = MEMORY_RECORD_HEADER_STRUCT.unpack_from(
-                    self._data, self._cursor
-                )
-                self._cursor += MEMORY_RECORD_HEADER_STRUCT.size
-                value_known = BOOL_STRUCT.unpack_from(self._data, self._cursor)[0] != 0
-                self._cursor += BOOL_STRUCT.size
-                data_len = COUNT_STRUCT.unpack_from(self._data, self._cursor)[0]
-                self._cursor += COUNT_STRUCT.size
-            except struct.error as exc:
-                raise TraceParserError("truncated memory access header") from exc
-
-            data = bytes(self._data[self._cursor : self._cursor + data_len])
-            self._cursor += data_len
-            accesses.append(
-                MemoryAccess(
-                    address=address, size=size, value_known=value_known, data=data
-                )
-            )
-        return accesses
+        raise TraceParserError(f"unsupported record kind {kind} at offset {start}")
 
 
 def load_trace(path: Path) -> TraceFile:
@@ -240,6 +392,35 @@ def format_architecture(arch: int) -> str:
     return mapping.get(arch, f"0x{arch:04x}")
 
 
+def format_flags(flags: int) -> str:
+    parts = []
+    if flags & TRACE_FLAG_INSTRUCTIONS:
+        parts.append("instructions")
+    if flags & TRACE_FLAG_REGISTER_DELTAS:
+        parts.append("register_deltas")
+    if flags & TRACE_FLAG_MEMORY_ACCESS:
+        parts.append("memory_access")
+    if flags & TRACE_FLAG_MEMORY_VALUES:
+        parts.append("memory_values")
+    if flags & TRACE_FLAG_BOUNDARIES:
+        parts.append("boundaries")
+    if flags & TRACE_FLAG_STACK_WINDOW:
+        parts.append("stack_window")
+    return ", ".join(parts) if parts else "none"
+
+
+def _record_thread_id(record: Record) -> Optional[int]:
+    if isinstance(record, (InstructionRecord, RegisterDeltaRecord, MemoryAccessRecord, BoundaryRecord)):
+        return record.thread_id
+    if isinstance(record, (ThreadStartRecord, ThreadEndRecord)):
+        return record.thread_id
+    return None
+
+
+def _module_by_id(modules: List[ModuleRecord]) -> dict[int, ModuleRecord]:
+    return {module.module_id: module for module in modules}
+
+
 @app.command()
 def summary(
     trace_path: Path = typer.Argument(
@@ -250,47 +431,34 @@ def summary(
     trace = load_trace(trace_path)
 
     console.print(f"[bold]trace[/] {trace_path}")
-    console.print(f"  version     : {trace.version}")
-    console.print(f"  architecture: {format_architecture(trace.architecture)}")
-    console.print(f"  events      : {len(trace.events)}")
-    inst_events = sum(1 for e in trace.events if e.event_type == 1)
-    boundary_events = sum(1 for e in trace.events if e.event_type == 2)
-    console.print(f"  instructions : {inst_events}")
-    console.print(f"  boundaries   : {boundary_events}")
+    console.print(f"  version     : {trace.header.version}")
+    console.print(f"  architecture: {format_architecture(trace.header.architecture)}")
+    console.print(f"  pointer size: {trace.header.pointer_size}")
+    console.print(f"  flags       : {format_flags(trace.header.flags)}")
+    console.print(f"  records     : {len(trace.records)}")
+
+    instruction_count = sum(isinstance(r, InstructionRecord) for r in trace.records)
+    boundary_count = sum(isinstance(r, BoundaryRecord) for r in trace.records)
+    memory_reads = sum(
+        isinstance(r, MemoryAccessRecord) and r.kind == 1 for r in trace.records
+    )
+    memory_writes = sum(
+        isinstance(r, MemoryAccessRecord) and r.kind == 2 for r in trace.records
+    )
+    console.print(f"  instructions: {instruction_count}")
+    console.print(f"  boundaries  : {boundary_count}")
+    if memory_reads or memory_writes:
+        console.print(f"  memory reads : {memory_reads}")
+        console.print(f"  memory writes: {memory_writes}")
 
     thread_counts = trace.per_thread_counts()
-    table = Table(title="Events per thread", show_lines=False)
-    table.add_column("thread id", justify="right")
-    table.add_column("events", justify="right")
-    for thread_id, count in sorted(thread_counts.items()):
-        table.add_row(str(thread_id), str(count))
-    console.print(table)
-
-    total_regs = sum(len(e.registers) for e in trace.events if e.event_type == 1)
-    boundary_regs = sum(len(e.registers) for e in trace.events if e.event_type == 2)
-    total_reads = sum(len(e.reads) for e in trace.events)
-    total_writes = sum(len(e.writes) for e in trace.events)
-    console.print(f"  register deltas: {total_regs}")
-    if boundary_regs:
-        console.print(f"  boundary regs  : {boundary_regs}")
-    console.print(f"  memory reads   : {total_reads}")
-    console.print(f"  memory writes  : {total_writes}")
-
-
-def _iter_events(
-    trace: TraceFile,
-    *,
-    thread_id: Optional[int] = None,
-    limit: Optional[int] = None,
-) -> Iterable[TraceEvent]:
-    count = 0
-    for event in trace.events:
-        if thread_id is not None and event.thread_id != thread_id:
-            continue
-        yield event
-        count += 1
-        if limit is not None and count >= limit:
-            break
+    if thread_counts:
+        table = Table(title="Records per thread", show_lines=False)
+        table.add_column("thread id", justify="right")
+        table.add_column("records", justify="right")
+        for thread_id, count in sorted(thread_counts.items()):
+            table.add_row(str(thread_id), str(count))
+        console.print(table)
 
 
 @app.command()
@@ -301,79 +469,128 @@ def events(
     thread_id: Optional[int] = typer.Option(
         None, help="Limit output to a specific thread id"
     ),
-    limit: Optional[int] = typer.Option(10, help="Maximum number of events to display"),
-    show_reads: bool = typer.Option(False, help="Show memory reads for each event"),
-    show_writes: bool = typer.Option(True, help="Show memory writes for each event"),
+    limit: Optional[int] = typer.Option(10, help="Maximum number of records to display"),
+    show_reads: bool = typer.Option(False, help="Include memory read records"),
+    show_writes: bool = typer.Option(True, help="Include memory write records"),
 ) -> None:
-    """Pretty-print trace events."""
+    """Pretty-print trace records."""
     trace = load_trace(trace_path)
-    events = list(_iter_events(trace, thread_id=thread_id, limit=limit))
-    if not events:
-        console.print("[yellow]no events matched filters[/]")
+    module_lookup = _module_by_id(trace.module_table)
+
+    records = list(
+        _iter_records(
+            trace.records,
+            thread_id=thread_id,
+            limit=limit,
+            show_reads=show_reads,
+            show_writes=show_writes,
+        )
+    )
+    if not records:
+        console.print("[yellow]no records matched filters[/]")
         return
 
-    table = Table(title=f"Events ({len(events)} displayed)")
+    table = Table(title=f"Records ({len(records)} displayed)")
     table.add_column("type", justify="left")
     table.add_column("seq", justify="right")
     table.add_column("thread", justify="right")
     table.add_column("addr", justify="right")
     table.add_column("size", justify="right")
-    table.add_column("regs", justify="right")
-    table.add_column("reads", justify="right")
-    table.add_column("writes", justify="right")
     table.add_column("info", justify="left")
 
-    for event in events:
-        event_type = "inst" if event.event_type == 1 else "boundary"
-        info = ""
-        if event.boundary is not None:
-            info = f"id={event.boundary.boundary_id} reason={event.boundary.reason}"
-        table.add_row(
-            event_type,
-            str(event.sequence),
-            str(event.thread_id),
-            f"0x{event.address:x}",
-            str(event.size),
-            str(len(event.registers)),
-            str(len(event.reads)),
-            str(len(event.writes)),
-            info,
-        )
+    for record in records:
+        row = _record_row(record, module_lookup)
+        table.add_row(*row)
+
     console.print(table)
 
-    if show_reads:
-        _print_memory_section(events, label="Reads", accessor=lambda e: e.reads)
-    if show_writes:
-        _print_memory_section(events, label="Writes", accessor=lambda e: e.writes)
 
-
-def _print_memory_section(
-    events: Iterable[TraceEvent],
+def _iter_records(
+    records: Iterable[Record],
     *,
-    label: str,
-    accessor,
-) -> None:
-    for event in events:
-        accesses = accessor(event)
-        if not accesses:
+    thread_id: Optional[int],
+    limit: Optional[int],
+    show_reads: bool,
+    show_writes: bool,
+) -> Iterable[Record]:
+    count = 0
+    for record in records:
+        if isinstance(record, (RegisterTableRecord, ModuleTableRecord)):
             continue
-        console.print(
-            f"[bold]{label.lower()}[/] event seq={event.sequence} thread={event.thread_id}"
+        if isinstance(record, MemoryAccessRecord):
+            if record.kind == 1 and not show_reads:
+                continue
+            if record.kind == 2 and not show_writes:
+                continue
+        if thread_id is not None:
+            rec_thread = _record_thread_id(record)
+            if rec_thread is None or rec_thread != thread_id:
+                continue
+        yield record
+        count += 1
+        if limit is not None and count >= limit:
+            break
+
+
+def _record_row(record: Record, module_lookup: dict[int, ModuleRecord]) -> List[str]:
+    if isinstance(record, ThreadStartRecord):
+        return ["thread_start", "", str(record.thread_id), "", "", record.name]
+    if isinstance(record, ThreadEndRecord):
+        return ["thread_end", "", str(record.thread_id), "", "", ""]
+    if isinstance(record, InstructionRecord):
+        module = module_lookup.get(record.module_id)
+        addr = _format_instruction_addr(record, module)
+        info = ""
+        if module:
+            info = Path(module.path).name
+        return ["inst", str(record.sequence), str(record.thread_id), addr, str(record.size), info]
+    if isinstance(record, RegisterDeltaRecord):
+        return [
+            "regs",
+            str(record.sequence),
+            str(record.thread_id),
+            "",
+            str(len(record.deltas)),
+            "",
+        ]
+    if isinstance(record, MemoryAccessRecord):
+        kind = "read" if record.kind == 1 else "write"
+        info = kind
+        if record.value_known:
+            info += f" data={len(record.data)}"
+            if record.value_truncated:
+                info += " truncated"
+        return [
+            "mem",
+            str(record.sequence),
+            str(record.thread_id),
+            f"0x{record.address:x}",
+            str(record.size),
+            info,
+        ]
+    if isinstance(record, BoundaryRecord):
+        info = (
+            f"id={record.boundary_id} regs={len(record.registers)} "
+            f"stack={len(record.stack_window)} reason={record.reason}"
         )
-        table = Table(show_header=True)
-        table.add_column("address", justify="right")
-        table.add_column("size", justify="right")
-        table.add_column("known", justify="right")
-        table.add_column("data", justify="left")
-        for entry in accesses:
-            data_preview = entry.data.hex()[:32] + ("…" if len(entry.data) > 16 else "")
-            table.add_row(
-                f"0x{entry.address:x}",
-                str(entry.size),
-                "yes" if entry.value_known else "no",
-                data_preview,
-            )
-        console.print(table)
+        return [
+            "boundary",
+            str(record.sequence),
+            str(record.thread_id),
+            "",
+            "",
+            info,
+        ]
+    return ["unknown", "", "", "", "", ""]
+
+
+def _format_instruction_addr(record: InstructionRecord, module: Optional[ModuleRecord]) -> str:
+    if record.module_id == 0:
+        return f"0x{record.module_offset:x}"
+    if module is None:
+        return f"m{record.module_id}+0x{record.module_offset:x}"
+    absolute = module.base + record.module_offset
+    return f"0x{absolute:x}"
 
 
 if __name__ == "__main__":

@@ -10,9 +10,7 @@
 #include "rewind_config.hpp"
 #include "rewind_tracer.hpp"
 
-#include "w1tn3ss/runtime/rewind/binary_trace_sink.hpp"
-#include "w1tn3ss/runtime/rewind/binary_trace_source.hpp"
-#include "w1tn3ss/runtime/rewind/trace_validator.hpp"
+#include "w1tn3ss/runtime/rewind/trace_writer.hpp"
 #include "w1tn3ss/tracer/trace_session.hpp"
 #include "w1tn3ss/util/self_exclude.hpp"
 
@@ -64,41 +62,13 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
     w1::util::append_self_excludes(g_config.instrumentation, reinterpret_cast<const void*>(&qbdipreload_on_run));
   }
 
-  w1::rewind::binary_trace_sink_config sink_config;
-  sink_config.path = g_config.output_path;
-  sink_config.log = redlog::get_logger("w1rewind.trace");
-  auto sink = w1::rewind::make_binary_trace_sink(std::move(sink_config));
-  if (!sink || !sink->initialize()) {
+  w1::rewind::trace_writer_config writer_config;
+  writer_config.path = g_config.output_path;
+  writer_config.log = redlog::get_logger("w1rewind.trace");
+  auto writer = w1::rewind::make_trace_writer(std::move(writer_config));
+  if (!writer || !writer->open()) {
     log.err("failed to initialize trace writer");
     return QBDIPRELOAD_ERR_STARTUP_FAILED;
-  }
-
-  w1::rewind::trace_validator_ptr validator;
-  if (!g_config.compare_trace_path.empty()) {
-    w1::rewind::binary_trace_source_config source_config;
-    source_config.path = g_config.compare_trace_path;
-    source_config.log = redlog::get_logger("w1rewind.trace_source");
-    auto trace_source = w1::rewind::make_binary_trace_source(std::move(source_config));
-
-    w1::rewind::validation_mode validator_mode = w1::rewind::validation_mode::strict;
-    if (g_config.mode == w1rewind::rewind_config::validation_mode::log_only) {
-      validator_mode = w1::rewind::validation_mode::log_only;
-    }
-
-    validator = std::make_shared<w1::rewind::trace_validator>(w1::rewind::trace_validator_config{
-        .source = trace_source,
-        .mode = validator_mode,
-        .max_mismatches = g_config.max_mismatches,
-        .stack_window_bytes = g_config.stack_window_bytes,
-        .ignore_registers = g_config.ignore_registers,
-        .ignore_modules = g_config.ignore_modules,
-        .log = redlog::get_logger("w1rewind.validator"),
-    });
-
-    if (!validator->initialize()) {
-      log.err("failed to initialize trace validator", redlog::field("trace", g_config.compare_trace_path));
-      return QBDIPRELOAD_ERR_STARTUP_FAILED;
-    }
   }
 
   w1::trace_session_config session_config;
@@ -106,7 +76,7 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
   session_config.thread_id = 1;
   session_config.thread_name = "main";
 
-  g_session = std::make_unique<rewind_session>(session_config, vm, std::in_place, g_config, sink, validator);
+  g_session = std::make_unique<rewind_session>(session_config, vm, std::in_place, g_config, writer);
 
   log.inf(
       "starting rewind session", redlog::field("start", "0x%llx", static_cast<unsigned long long>(start)),

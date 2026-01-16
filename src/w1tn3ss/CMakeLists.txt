@@ -15,9 +15,8 @@ add_library(w1tn3ss STATIC
     import_insertion/import_insertion.cpp
     io/jsonl_writer.cpp
     runtime/module_registry.cpp
-    runtime/rewind/binary_trace_sink.cpp
-    runtime/rewind/binary_trace_source.cpp
-    runtime/rewind/trace_validator.cpp
+    runtime/rewind/trace_writer.cpp
+    runtime/rewind/trace_reader.cpp
     util/env_config.cpp
     util/memory_reader.cpp
     util/module_identity.cpp
