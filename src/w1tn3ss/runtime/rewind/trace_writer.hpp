@@ -47,19 +47,12 @@ public:
 private:
   bool write_record(record_kind kind, uint16_t flags, const std::vector<uint8_t>& payload);
   bool flush_chunk_locked();
-  void write_u8(uint8_t value);
   void write_u16(uint16_t value);
   void write_u32(uint32_t value);
   void write_u64(uint64_t value);
   void write_bytes(const void* data, size_t size);
   void mark_failure();
   std::string make_default_path() const;
-
-  static void append_u8(std::vector<uint8_t>& out, uint8_t value);
-  static void append_u16(std::vector<uint8_t>& out, uint16_t value);
-  static void append_u32(std::vector<uint8_t>& out, uint32_t value);
-  static void append_u64(std::vector<uint8_t>& out, uint64_t value);
-  static bool append_string(std::vector<uint8_t>& out, const std::string& value, redlog::logger& log);
 
   trace_writer_config config_;
   std::ofstream stream_;

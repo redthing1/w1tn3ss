@@ -30,10 +30,6 @@ private:
   bool read_chunk();
   bool read_stream_bytes(void* data, size_t size);
   bool read_bytes(void* data, size_t size);
-  bool read_u8(uint8_t& value);
-  bool read_u16(uint16_t& value);
-  bool read_u32(uint32_t& value);
-  bool read_u64(uint64_t& value);
   bool read_record_header(record_header& header);
 
   bool parse_record(const record_header& header, const std::vector<uint8_t>& payload, trace_record& record);
