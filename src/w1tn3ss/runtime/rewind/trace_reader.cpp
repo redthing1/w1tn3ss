@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstring>
+#include <limits>
 
 #if defined(W1_REWIND_HAVE_ZSTD)
 #include <zstd.h>
@@ -32,6 +33,9 @@ void trace_reader::close() {
   header_read_ = false;
   chunk_buffer_.clear();
   chunk_offset_ = 0;
+  next_chunk_index_ = 0;
+  current_chunk_index_ = 0;
+  last_chunk_info_.reset();
   register_table_.clear();
   module_table_.clear();
   block_table_.clear();
@@ -47,6 +51,9 @@ void trace_reader::reset() {
   header_read_ = false;
   chunk_buffer_.clear();
   chunk_offset_ = 0;
+  next_chunk_index_ = 0;
+  current_chunk_index_ = 0;
+  last_chunk_info_.reset();
   register_table_.clear();
   module_table_.clear();
   block_table_.clear();
@@ -55,6 +62,10 @@ void trace_reader::reset() {
 }
 
 bool trace_reader::read_next(trace_record& record) {
+  return read_next(record, nullptr);
+}
+
+bool trace_reader::read_next(trace_record& record, trace_record_location* location) {
   if (!error_.empty()) {
     return false;
   }
@@ -64,6 +75,15 @@ bool trace_reader::read_next(trace_record& record) {
     }
   }
 
+  if (chunk_offset_ >= chunk_buffer_.size()) {
+    chunk_buffer_.clear();
+    chunk_offset_ = 0;
+    if (!read_chunk()) {
+      return false;
+    }
+  }
+
+  size_t record_offset = chunk_offset_;
   record_header header{};
   if (!read_record_header(header)) {
     return false;
@@ -82,6 +102,15 @@ bool trace_reader::read_next(trace_record& record) {
       error_ = "failed to parse record payload";
     }
     return false;
+  }
+
+  if (location) {
+    if (record_offset > std::numeric_limits<uint32_t>::max()) {
+      error_ = "record offset too large";
+      return false;
+    }
+    location->chunk_index = current_chunk_index_;
+    location->record_offset = static_cast<uint32_t>(record_offset);
   }
 
   return true;
@@ -161,6 +190,12 @@ bool trace_reader::read_chunk() {
     return false;
   }
 
+  std::streampos header_pos = stream_.tellg();
+  if (header_pos < 0) {
+    error_ = "failed to read chunk header offset";
+    return false;
+  }
+
   uint32_t compressed_size = 0;
   uint32_t uncompressed_size = 0;
   if (!read_stream_u32(stream_, compressed_size) || !read_stream_u32(stream_, uncompressed_size)) {
@@ -182,6 +217,14 @@ bool trace_reader::read_chunk() {
     }
     return false;
   }
+
+  last_chunk_info_ = trace_chunk_info{
+      static_cast<uint64_t>(header_pos),
+      compressed_size,
+      uncompressed_size,
+  };
+  current_chunk_index_ = next_chunk_index_;
+  next_chunk_index_ += 1;
 
   if (header_.compression == trace_compression::none) {
     if (compressed_size != uncompressed_size) {

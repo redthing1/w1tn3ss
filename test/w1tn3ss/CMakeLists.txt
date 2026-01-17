@@ -16,6 +16,7 @@ set(W1TN3SS_TEST_SOURCES
     rewind_trace_io_test.cpp
     rewind_recorder_recording_test.cpp
     rewind_recorder_block_recording_test.cpp
+    rewind_trace_index_test.cpp
 )
 
 w1_add_doctest_suite(w1tn3ss_unit_tests
