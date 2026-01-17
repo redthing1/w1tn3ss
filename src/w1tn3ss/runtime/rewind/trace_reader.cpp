@@ -116,6 +116,33 @@ bool trace_reader::read_next(trace_record& record, trace_record_location* locati
   return true;
 }
 
+bool trace_reader::seek_to_chunk(const trace_chunk_info& chunk, uint32_t chunk_index, uint32_t record_offset) {
+  if (!error_.empty()) {
+    return false;
+  }
+  if (!stream_.is_open()) {
+    error_ = "trace file not open";
+    return false;
+  }
+  if (!header_read_) {
+    stream_.clear();
+    stream_.seekg(0, std::ios::beg);
+    header_read_ = false;
+    if (!read_header()) {
+      return false;
+    }
+  }
+  if (!read_chunk_at(chunk.file_offset, chunk_index, &chunk)) {
+    return false;
+  }
+  if (record_offset > chunk_buffer_.size()) {
+    error_ = "record offset out of range";
+    return false;
+  }
+  chunk_offset_ = record_offset;
+  return true;
+}
+
 bool trace_reader::read_header() {
   if (!stream_.is_open()) {
     error_ = "trace file not open";
@@ -195,6 +222,27 @@ bool trace_reader::read_chunk() {
     error_ = "failed to read chunk header offset";
     return false;
   }
+  return read_chunk_at(static_cast<uint64_t>(header_pos), next_chunk_index_, nullptr);
+}
+
+bool trace_reader::read_chunk_at(uint64_t file_offset, uint32_t chunk_index, const trace_chunk_info* expected) {
+  if (!stream_.is_open()) {
+    error_ = "trace file not open";
+    return false;
+  }
+
+  stream_.clear();
+  stream_.seekg(static_cast<std::streamoff>(file_offset), std::ios::beg);
+  if (!stream_) {
+    error_ = "failed to seek to chunk";
+    return false;
+  }
+
+  std::streampos header_pos = stream_.tellg();
+  if (header_pos < 0) {
+    error_ = "failed to read chunk header offset";
+    return false;
+  }
 
   uint32_t compressed_size = 0;
   uint32_t uncompressed_size = 0;
@@ -210,6 +258,17 @@ bool trace_reader::read_chunk() {
     return false;
   }
 
+  if (expected) {
+    if (expected->file_offset != static_cast<uint64_t>(header_pos)) {
+      error_ = "trace chunk offset mismatch";
+      return false;
+    }
+    if (expected->compressed_size != compressed_size || expected->uncompressed_size != uncompressed_size) {
+      error_ = "trace chunk size mismatch";
+      return false;
+    }
+  }
+
   std::vector<uint8_t> compressed(compressed_size);
   if (!read_stream_bytes(compressed.data(), compressed.size())) {
     if (error_.empty()) {
@@ -223,8 +282,8 @@ bool trace_reader::read_chunk() {
       compressed_size,
       uncompressed_size,
   };
-  current_chunk_index_ = next_chunk_index_;
-  next_chunk_index_ += 1;
+  current_chunk_index_ = chunk_index;
+  next_chunk_index_ = chunk_index + 1;
 
   if (header_.compression == trace_compression::none) {
     if (compressed_size != uncompressed_size) {

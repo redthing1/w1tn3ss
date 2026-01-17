@@ -147,6 +147,7 @@ add_subdirectory(src/p1llx)
 add_subdirectory(src/w1nj3ct)
 add_subdirectory(src/w1debugger)
 add_subdirectory(src/w1tool)
+add_subdirectory(src/w1replay)
 add_subdirectory(src/p01s0n)
 
 # setup global include directories for clean project-based includes

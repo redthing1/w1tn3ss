@@ -31,6 +31,7 @@ public:
 
   bool read_next(trace_record& record);
   bool read_next(trace_record& record, trace_record_location* location);
+  bool seek_to_chunk(const trace_chunk_info& chunk, uint32_t chunk_index, uint32_t record_offset);
 
   const trace_header& header() const { return header_; }
   const std::vector<std::string>& register_table() const { return register_table_; }
@@ -43,6 +44,7 @@ public:
 private:
   bool read_header();
   bool read_chunk();
+  bool read_chunk_at(uint64_t file_offset, uint32_t chunk_index, const trace_chunk_info* expected);
   bool read_stream_bytes(void* data, size_t size);
   bool read_bytes(void* data, size_t size);
   bool read_record_header(record_header& header);

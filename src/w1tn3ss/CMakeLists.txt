@@ -18,6 +18,9 @@ add_library(w1tn3ss STATIC
     runtime/rewind/trace_writer.cpp
     runtime/rewind/trace_reader.cpp
     runtime/rewind/trace_index.cpp
+    runtime/rewind/trace_cursor.cpp
+    runtime/rewind/replay_state.cpp
+    runtime/rewind/replay_cursor.cpp
     util/env_config.cpp
     util/memory_reader.cpp
     util/module_identity.cpp
