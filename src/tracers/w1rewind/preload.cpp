@@ -72,6 +72,9 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
   w1::rewind::trace_writer_config writer_config;
   writer_config.path = g_config.output_path;
   writer_config.log = redlog::get_logger("w1rewind.trace");
+  writer_config.compression =
+      g_config.compress_trace ? w1::rewind::trace_compression::zstd : w1::rewind::trace_compression::none;
+  writer_config.chunk_size = g_config.chunk_size;
   auto writer = w1::rewind::make_trace_writer(std::move(writer_config));
   if (!writer || !writer->open()) {
     log.err("failed to initialize trace writer");

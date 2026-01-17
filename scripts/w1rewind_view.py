@@ -4,10 +4,11 @@
 # dependencies = [
 #     "typer",
 #     "rich",
+#     "zstandard",
 # ]
 # ///
 
-"""w1rewind trace viewer (v5)"""
+"""w1rewind trace viewer (v6)"""
 
 from __future__ import annotations
 
@@ -20,11 +21,17 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+try:
+    import zstandard as zstd
+except ImportError:  # pragma: no cover - optional dependency for compressed traces
+    zstd = None
+
 console = Console()
 app = typer.Typer(add_completion=False, no_args_is_help=True)
 
-MAGIC = b"W1RWND5\x00"
-HEADER_STRUCT = struct.Struct("<8sHHIQ")
+MAGIC = b"W1RWND6\x00"
+HEADER_STRUCT = struct.Struct("<8sHHIQII")
+CHUNK_HEADER_STRUCT = struct.Struct("<II")
 RECORD_HEADER_STRUCT = struct.Struct("<HHI")
 U8 = struct.Struct("<B")
 U16 = struct.Struct("<H")
@@ -38,6 +45,9 @@ TRACE_FLAG_MEMORY_VALUES = 1 << 3
 TRACE_FLAG_BOUNDARIES = 1 << 4
 TRACE_FLAG_STACK_WINDOW = 1 << 5
 TRACE_FLAG_BLOCKS = 1 << 6
+
+COMPRESSION_NONE = 0
+COMPRESSION_ZSTD = 1
 
 RECORD_REGISTER_TABLE = 1
 RECORD_MODULE_TABLE = 2
@@ -57,6 +67,8 @@ class TraceHeader:
     architecture: int
     pointer_size: int
     flags: int
+    compression: int
+    chunk_size: int
 
 
 @dataclass
@@ -230,7 +242,7 @@ class TraceParser:
 
     def parse(self) -> TraceFile:
         try:
-            magic, version, arch, pointer_size, flags = HEADER_STRUCT.unpack_from(
+            magic, version, arch, pointer_size, flags, compression, chunk_size = HEADER_STRUCT.unpack_from(
                 self._data, self._cursor
             )
         except struct.error as exc:
@@ -238,16 +250,24 @@ class TraceParser:
         self._cursor += HEADER_STRUCT.size
 
         if magic != MAGIC:
-            raise TraceParserError(f"unexpected magic {magic!r}; not a v5 w1rewind trace")
-        if version != 5:
-            raise TraceParserError(f"unsupported trace version {version} (expected v5)")
+            raise TraceParserError(f"unexpected magic {magic!r}; not a v6 w1rewind trace")
+        if version != 6:
+            raise TraceParserError(f"unsupported trace version {version} (expected v6)")
+        if chunk_size == 0:
+            raise TraceParserError("invalid chunk size in trace header")
 
         header = TraceHeader(
             version=version,
             architecture=arch,
             pointer_size=pointer_size,
             flags=flags,
+            compression=compression,
+            chunk_size=chunk_size,
         )
+
+        record_stream = self._expand_record_stream(compression)
+        self._data = memoryview(record_stream)
+        self._cursor = 0
         register_table: List[str] = []
         module_table: List[ModuleRecord] = []
         block_table: List[BlockDefinitionRecord] = []
@@ -264,6 +284,44 @@ class TraceParser:
             block_table=block_table,
             records=records,
         )
+
+    def _expand_record_stream(self, compression: int) -> bytes:
+        record_data = bytearray()
+        decompressor = None
+        if compression == COMPRESSION_ZSTD:
+            if zstd is None:
+                raise TraceParserError("trace uses zstd compression but zstandard is not installed")
+            decompressor = zstd.ZstdDecompressor()
+
+        while self._cursor < len(self._data):
+            if self._cursor + CHUNK_HEADER_STRUCT.size > len(self._data):
+                raise TraceParserError("truncated chunk header")
+            compressed_size, uncompressed_size = CHUNK_HEADER_STRUCT.unpack_from(
+                self._data, self._cursor
+            )
+            self._cursor += CHUNK_HEADER_STRUCT.size
+            if compressed_size == 0 or uncompressed_size == 0:
+                raise TraceParserError("invalid chunk header")
+            if self._cursor + compressed_size > len(self._data):
+                raise TraceParserError("truncated chunk payload")
+            payload = bytes(self._data[self._cursor : self._cursor + compressed_size])
+            self._cursor += compressed_size
+
+            if compression == COMPRESSION_NONE:
+                if compressed_size != uncompressed_size:
+                    raise TraceParserError("uncompressed chunk size mismatch")
+                record_data.extend(payload)
+                continue
+
+            if compression != COMPRESSION_ZSTD or decompressor is None:
+                raise TraceParserError("unsupported trace compression mode")
+
+            chunk = decompressor.decompress(payload, uncompressed_size)
+            if len(chunk) != uncompressed_size:
+                raise TraceParserError("zstd decompressed size mismatch")
+            record_data.extend(chunk)
+
+        return bytes(record_data)
 
     def _parse_record(
         self,
@@ -457,6 +515,14 @@ def format_flags(flags: int) -> str:
     return ", ".join(parts) if parts else "none"
 
 
+def format_compression(compression: int) -> str:
+    if compression == COMPRESSION_NONE:
+        return "none"
+    if compression == COMPRESSION_ZSTD:
+        return "zstd"
+    return f"0x{compression:x}"
+
+
 def _record_thread_id(record: Record) -> Optional[int]:
     if isinstance(
         record,
@@ -496,6 +562,8 @@ def summary(
     console.print(f"  architecture: {format_architecture(trace.header.architecture)}")
     console.print(f"  pointer size: {trace.header.pointer_size}")
     console.print(f"  flags       : {format_flags(trace.header.flags)}")
+    console.print(f"  compression : {format_compression(trace.header.compression)}")
+    console.print(f"  chunk size  : {trace.header.chunk_size}")
     console.print(f"  records     : {len(trace.records)}")
 
     flow = "unknown"

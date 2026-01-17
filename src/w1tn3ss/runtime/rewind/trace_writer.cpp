@@ -6,6 +6,10 @@
 #include <sstream>
 #include <system_error>
 
+#if defined(W1_REWIND_HAVE_ZSTD)
+#include <zstd.h>
+#endif
+
 #if defined(_WIN32)
 #include <process.h>
 #else
@@ -13,6 +17,12 @@
 #endif
 
 namespace w1::rewind {
+
+namespace {
+
+constexpr int k_zstd_level = 3;
+
+} // namespace
 
 trace_writer::trace_writer(trace_writer_config config) : config_(std::move(config)) {}
 
@@ -24,6 +34,17 @@ std::shared_ptr<trace_writer> make_trace_writer(trace_writer_config config) {
 
 bool trace_writer::open() {
   std::lock_guard<std::mutex> guard(mutex_);
+#if !defined(W1_REWIND_HAVE_ZSTD)
+  if (config_.compression == trace_compression::zstd) {
+    config_.log.err("zstd compression requested but zstd is not available");
+    good_ = false;
+    return false;
+  }
+#endif
+
+  if (config_.chunk_size == 0) {
+    config_.chunk_size = k_trace_chunk_bytes;
+  }
   if (stream_.is_open()) {
     stream_.close();
   }
@@ -50,6 +71,8 @@ bool trace_writer::open() {
   stream_.open(fs_path, std::ios::binary | std::ios::out | std::ios::trunc);
   good_ = stream_.good();
   header_written_ = false;
+  chunk_buffer_.clear();
+  chunk_encoded_.clear();
 
   if (!good_) {
     config_.log.err("failed to open trace", redlog::field("path", path_));
@@ -63,10 +86,16 @@ bool trace_writer::open() {
 void trace_writer::close() {
   std::lock_guard<std::mutex> guard(mutex_);
   if (stream_.is_open()) {
+    if (good_ && header_written_) {
+      flush_chunk_locked();
+      stream_.flush();
+    }
     stream_.close();
   }
   good_ = false;
   header_written_ = false;
+  chunk_buffer_.clear();
+  chunk_encoded_.clear();
 }
 
 bool trace_writer::write_header(const trace_header& header) {
@@ -79,11 +108,17 @@ bool trace_writer::write_header(const trace_header& header) {
     return true;
   }
 
+  trace_header updated = header;
+  updated.compression = config_.compression;
+  updated.chunk_size = config_.chunk_size;
+
   write_bytes(k_trace_magic.data(), k_trace_magic.size());
-  write_u16(header.version);
-  write_u16(static_cast<uint16_t>(header.architecture));
-  write_u32(header.pointer_size);
-  write_u64(header.flags);
+  write_u16(updated.version);
+  write_u16(static_cast<uint16_t>(updated.architecture));
+  write_u32(updated.pointer_size);
+  write_u64(updated.flags);
+  write_u32(static_cast<uint32_t>(updated.compression));
+  write_u32(updated.chunk_size);
 
   if (good_) {
     header_written_ = true;
@@ -250,6 +285,7 @@ void trace_writer::flush() {
   if (!good_) {
     return;
   }
+  flush_chunk_locked();
   stream_.flush();
   if (!stream_.good()) {
     mark_failure();
@@ -267,14 +303,79 @@ bool trace_writer::write_record(record_kind kind, uint16_t flags, const std::vec
     return false;
   }
 
-  write_u16(static_cast<uint16_t>(kind));
-  write_u16(flags);
-  write_u32(static_cast<uint32_t>(payload.size()));
+  append_u16(chunk_buffer_, static_cast<uint16_t>(kind));
+  append_u16(chunk_buffer_, flags);
+  append_u32(chunk_buffer_, static_cast<uint32_t>(payload.size()));
   if (!payload.empty()) {
-    write_bytes(payload.data(), payload.size());
+    chunk_buffer_.insert(chunk_buffer_.end(), payload.begin(), payload.end());
+  }
+
+  if (chunk_buffer_.size() >= config_.chunk_size) {
+    return flush_chunk_locked();
   }
 
   return good_;
+}
+
+bool trace_writer::flush_chunk_locked() {
+  if (!good_) {
+    return false;
+  }
+  if (chunk_buffer_.empty()) {
+    return true;
+  }
+  if (chunk_buffer_.size() > std::numeric_limits<uint32_t>::max()) {
+    config_.log.err("trace chunk too large", redlog::field("size", chunk_buffer_.size()));
+    mark_failure();
+    return false;
+  }
+
+  uint32_t uncompressed_size = static_cast<uint32_t>(chunk_buffer_.size());
+  if (config_.compression == trace_compression::none) {
+    write_u32(uncompressed_size);
+    write_u32(uncompressed_size);
+    write_bytes(chunk_buffer_.data(), chunk_buffer_.size());
+    chunk_buffer_.clear();
+    return good_;
+  }
+
+  if (config_.compression != trace_compression::zstd) {
+    config_.log.err("unsupported trace compression mode");
+    mark_failure();
+    return false;
+  }
+
+#if defined(W1_REWIND_HAVE_ZSTD)
+  size_t bound = ZSTD_compressBound(chunk_buffer_.size());
+  if (bound > std::numeric_limits<uint32_t>::max()) {
+    config_.log.err("compressed chunk bound too large", redlog::field("size", bound));
+    mark_failure();
+    return false;
+  }
+  chunk_encoded_.resize(bound);
+  size_t compressed_size = ZSTD_compress(
+      chunk_encoded_.data(), bound, chunk_buffer_.data(), chunk_buffer_.size(), k_zstd_level
+  );
+  if (ZSTD_isError(compressed_size)) {
+    config_.log.err("zstd compression failed", redlog::field("error", ZSTD_getErrorName(compressed_size)));
+    mark_failure();
+    return false;
+  }
+  if (compressed_size > std::numeric_limits<uint32_t>::max()) {
+    config_.log.err("compressed chunk too large", redlog::field("size", compressed_size));
+    mark_failure();
+    return false;
+  }
+  write_u32(static_cast<uint32_t>(compressed_size));
+  write_u32(uncompressed_size);
+  write_bytes(chunk_encoded_.data(), compressed_size);
+  chunk_buffer_.clear();
+  return good_;
+#else
+  config_.log.err("zstd compression requested but zstd is not available");
+  mark_failure();
+  return false;
+#endif
 }
 
 void trace_writer::write_u8(uint8_t value) {

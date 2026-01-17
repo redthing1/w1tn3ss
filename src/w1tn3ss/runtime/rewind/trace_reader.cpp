@@ -3,6 +3,10 @@
 #include <array>
 #include <cstring>
 
+#if defined(W1_REWIND_HAVE_ZSTD)
+#include <zstd.h>
+#endif
+
 namespace w1::rewind {
 namespace {
 
@@ -80,6 +84,8 @@ void trace_reader::close() {
     stream_.close();
   }
   header_read_ = false;
+  chunk_buffer_.clear();
+  chunk_offset_ = 0;
   register_table_.clear();
   module_table_.clear();
   block_table_.clear();
@@ -93,6 +99,8 @@ void trace_reader::reset() {
   stream_.clear();
   stream_.seekg(0, std::ios::beg);
   header_read_ = false;
+  chunk_buffer_.clear();
+  chunk_offset_ = 0;
   register_table_.clear();
   module_table_.clear();
   block_table_.clear();
@@ -140,8 +148,10 @@ bool trace_reader::read_header() {
   }
 
   std::array<uint8_t, 8> magic{};
-  if (!read_bytes(magic.data(), magic.size())) {
-    error_ = "truncated trace header";
+  if (!read_stream_bytes(magic.data(), magic.size())) {
+    if (error_.empty()) {
+      error_ = "truncated trace header";
+    }
     return false;
   }
   if (std::memcmp(magic.data(), k_trace_magic.data(), k_trace_magic.size()) != 0) {
@@ -153,8 +163,40 @@ bool trace_reader::read_header() {
   uint16_t arch = 0;
   uint32_t pointer_size = 0;
   uint64_t flags = 0;
+  uint32_t compression = 0;
+  uint32_t chunk_size = 0;
 
-  if (!read_u16(version) || !read_u16(arch) || !read_u32(pointer_size) || !read_u64(flags)) {
+  auto read_stream_u16 = [&](uint16_t& value) {
+    std::array<uint8_t, 2> buf{};
+    if (!read_stream_bytes(buf.data(), buf.size())) {
+      return false;
+    }
+    value = static_cast<uint16_t>(buf[0] | (static_cast<uint16_t>(buf[1]) << 8));
+    return true;
+  };
+  auto read_stream_u32 = [&](uint32_t& value) {
+    std::array<uint8_t, 4> buf{};
+    if (!read_stream_bytes(buf.data(), buf.size())) {
+      return false;
+    }
+    value = static_cast<uint32_t>(buf[0]) | (static_cast<uint32_t>(buf[1]) << 8) |
+            (static_cast<uint32_t>(buf[2]) << 16) | (static_cast<uint32_t>(buf[3]) << 24);
+    return true;
+  };
+  auto read_stream_u64 = [&](uint64_t& value) {
+    std::array<uint8_t, 8> buf{};
+    if (!read_stream_bytes(buf.data(), buf.size())) {
+      return false;
+    }
+    value = 0;
+    for (size_t i = 0; i < buf.size(); ++i) {
+      value |= static_cast<uint64_t>(buf[i]) << (8 * i);
+    }
+    return true;
+  };
+
+  if (!read_stream_u16(version) || !read_stream_u16(arch) || !read_stream_u32(pointer_size) ||
+      !read_stream_u64(flags) || !read_stream_u32(compression) || !read_stream_u32(chunk_size)) {
     error_ = "truncated trace header fields";
     return false;
   }
@@ -168,14 +210,130 @@ bool trace_reader::read_header() {
   header_.architecture = static_cast<trace_arch>(arch);
   header_.pointer_size = pointer_size;
   header_.flags = flags;
+  header_.compression = static_cast<trace_compression>(compression);
+  header_.chunk_size = chunk_size;
+
+  if (header_.chunk_size == 0) {
+    error_ = "invalid trace chunk size";
+    return false;
+  }
+  if (header_.compression != trace_compression::none && header_.compression != trace_compression::zstd) {
+    error_ = "unsupported trace compression mode";
+    return false;
+  }
+#if !defined(W1_REWIND_HAVE_ZSTD)
+  if (header_.compression == trace_compression::zstd) {
+    error_ = "trace requires zstd support";
+    return false;
+  }
+#endif
+
   header_read_ = true;
   return true;
 }
 
-bool trace_reader::read_bytes(void* data, size_t size) {
-  if (!stream_.read(reinterpret_cast<char*>(data), static_cast<std::streamsize>(size))) {
+bool trace_reader::read_chunk() {
+  if (!stream_.is_open()) {
+    error_ = "trace file not open";
     return false;
   }
+
+  int next = stream_.peek();
+  if (next == std::char_traits<char>::eof()) {
+    return false;
+  }
+
+  std::array<uint8_t, 8> buf{};
+  if (!read_stream_bytes(buf.data(), buf.size())) {
+    if (error_.empty()) {
+      error_ = "truncated chunk header";
+    }
+    return false;
+  }
+
+  uint32_t compressed_size = static_cast<uint32_t>(buf[0]) | (static_cast<uint32_t>(buf[1]) << 8) |
+                             (static_cast<uint32_t>(buf[2]) << 16) | (static_cast<uint32_t>(buf[3]) << 24);
+  uint32_t uncompressed_size = static_cast<uint32_t>(buf[4]) | (static_cast<uint32_t>(buf[5]) << 8) |
+                               (static_cast<uint32_t>(buf[6]) << 16) | (static_cast<uint32_t>(buf[7]) << 24);
+
+  if (compressed_size == 0 || uncompressed_size == 0) {
+    error_ = "invalid chunk header";
+    return false;
+  }
+
+  std::vector<uint8_t> compressed(compressed_size);
+  if (!read_stream_bytes(compressed.data(), compressed.size())) {
+    if (error_.empty()) {
+      error_ = "truncated chunk payload";
+    }
+    return false;
+  }
+
+  if (header_.compression == trace_compression::none) {
+    if (compressed_size != uncompressed_size) {
+      error_ = "uncompressed chunk size mismatch";
+      return false;
+    }
+    chunk_buffer_ = std::move(compressed);
+    chunk_offset_ = 0;
+    return true;
+  }
+
+  if (header_.compression != trace_compression::zstd) {
+    error_ = "unsupported trace compression mode";
+    return false;
+  }
+
+#if defined(W1_REWIND_HAVE_ZSTD)
+  chunk_buffer_.assign(uncompressed_size, 0);
+  size_t result = ZSTD_decompress(
+      chunk_buffer_.data(), chunk_buffer_.size(), compressed.data(), compressed.size()
+  );
+  if (ZSTD_isError(result)) {
+    error_ = std::string("zstd decompression failed: ") + ZSTD_getErrorName(result);
+    return false;
+  }
+  if (result != uncompressed_size) {
+    error_ = "zstd decompressed size mismatch";
+    return false;
+  }
+  chunk_offset_ = 0;
+  return true;
+#else
+  error_ = "trace requires zstd support";
+  return false;
+#endif
+}
+
+bool trace_reader::read_stream_bytes(void* data, size_t size) {
+  stream_.read(reinterpret_cast<char*>(data), static_cast<std::streamsize>(size));
+  if (stream_.gcount() != static_cast<std::streamsize>(size)) {
+    error_ = "truncated trace data";
+    return false;
+  }
+  return true;
+}
+
+bool trace_reader::read_bytes(void* data, size_t size) {
+  if (size == 0) {
+    return true;
+  }
+
+  if (chunk_offset_ >= chunk_buffer_.size()) {
+    chunk_buffer_.clear();
+    chunk_offset_ = 0;
+    if (!read_chunk()) {
+      return false;
+    }
+  }
+
+  if (chunk_offset_ + size > chunk_buffer_.size()) {
+    error_ = "record spans chunk boundary";
+    return false;
+  }
+
+  std::memcpy(data, chunk_buffer_.data() + chunk_offset_, size);
+  chunk_offset_ += size;
   return true;
 }
 
@@ -221,11 +379,7 @@ bool trace_reader::read_u64(uint64_t& value) {
 
 bool trace_reader::read_record_header(record_header& header) {
   std::array<uint8_t, 8> buf{};
-  if (!stream_.read(reinterpret_cast<char*>(buf.data()), static_cast<std::streamsize>(buf.size()))) {
-    if (stream_.eof()) {
-      return false;
-    }
-    error_ = "failed to read record header";
+  if (!read_bytes(buf.data(), buf.size())) {
     return false;
   }
 

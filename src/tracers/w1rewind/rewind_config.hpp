@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "w1tn3ss/core/instrumentation_policy.hpp"
+#include "w1tn3ss/runtime/rewind/trace_format.hpp"
 
 namespace w1rewind {
 
@@ -27,6 +28,8 @@ struct rewind_config {
 
   memory_capture_options memory{};
   std::string output_path;
+  bool compress_trace = false;
+  uint32_t chunk_size = w1::rewind::k_trace_chunk_bytes;
 
   static rewind_config from_environment();
   bool requires_instruction_flow() const;

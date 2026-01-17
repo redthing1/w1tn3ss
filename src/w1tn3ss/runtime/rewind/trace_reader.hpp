@@ -27,6 +27,8 @@ public:
 
 private:
   bool read_header();
+  bool read_chunk();
+  bool read_stream_bytes(void* data, size_t size);
   bool read_bytes(void* data, size_t size);
   bool read_u8(uint8_t& value);
   bool read_u16(uint16_t& value);
@@ -40,6 +42,8 @@ private:
   std::ifstream stream_;
   trace_header header_{};
   bool header_read_ = false;
+  std::vector<uint8_t> chunk_buffer_{};
+  size_t chunk_offset_ = 0;
   std::vector<std::string> register_table_{};
   std::vector<module_record> module_table_{};
   std::vector<block_definition_record> block_table_{};

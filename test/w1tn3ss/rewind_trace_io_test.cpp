@@ -105,6 +105,8 @@ TEST_CASE("rewind trace writer and reader round trip (instructions)") {
   CHECK(reader.header().version == w1::rewind::k_trace_version);
   CHECK(reader.header().architecture == w1::rewind::detect_trace_arch());
   CHECK(reader.header().pointer_size == w1::rewind::detect_pointer_size());
+  CHECK(reader.header().compression == w1::rewind::trace_compression::none);
+  CHECK(reader.header().chunk_size == w1::rewind::k_trace_chunk_bytes);
   CHECK((reader.header().flags & w1::rewind::trace_flag_instructions) != 0);
   CHECK((reader.header().flags & w1::rewind::trace_flag_blocks) == 0);
 
@@ -127,6 +129,92 @@ TEST_CASE("rewind trace writer and reader round trip (instructions)") {
 
   fs::remove(path);
 }
+
+#if defined(W1_REWIND_HAVE_ZSTD)
+TEST_CASE("rewind trace writer and reader round trip (compressed blocks)") {
+  namespace fs = std::filesystem;
+
+  fs::path path = make_temp_path("w1rewind_trace_io_compressed_block.trace");
+
+  w1::rewind::trace_writer_config config;
+  config.path = path.string();
+  config.log = redlog::get_logger("test.w1rewind.trace");
+  config.compression = w1::rewind::trace_compression::zstd;
+
+  auto writer = w1::rewind::make_trace_writer(config);
+  REQUIRE(writer);
+  REQUIRE(writer->open());
+
+  w1::rewind::trace_header header{};
+  header.architecture = w1::rewind::detect_trace_arch();
+  header.pointer_size = w1::rewind::detect_pointer_size();
+  header.flags = w1::rewind::trace_flag_blocks;
+  REQUIRE(writer->write_header(header));
+
+  w1::rewind::register_table_record reg_table{};
+  reg_table.names = {"r0"};
+  REQUIRE(writer->write_register_table(reg_table));
+
+  w1::rewind::module_record module{};
+  module.id = 1;
+  module.base = 0x1000;
+  module.size = 0x2000;
+  module.permissions = 5;
+  module.path = "/bin/test_module";
+
+  w1::rewind::module_table_record mod_table{};
+  mod_table.modules = {module};
+  REQUIRE(writer->write_module_table(mod_table));
+
+  w1::rewind::thread_start_record start{};
+  start.thread_id = 1;
+  start.name = "main";
+  REQUIRE(writer->write_thread_start(start));
+
+  w1::rewind::block_definition_record block_def{};
+  block_def.block_id = 10;
+  block_def.module_id = 1;
+  block_def.module_offset = 0x80;
+  block_def.size = 12;
+  REQUIRE(writer->write_block_definition(block_def));
+
+  w1::rewind::block_exec_record block_exec{};
+  block_exec.sequence = 1;
+  block_exec.thread_id = 1;
+  block_exec.block_id = 10;
+  REQUIRE(writer->write_block_exec(block_exec));
+
+  w1::rewind::thread_end_record end{};
+  end.thread_id = 1;
+  REQUIRE(writer->write_thread_end(end));
+
+  writer->flush();
+  writer->close();
+
+  w1::rewind::trace_reader reader(path.string());
+  REQUIRE(reader.open());
+  CHECK(reader.header().version == w1::rewind::k_trace_version);
+  CHECK(reader.header().compression == w1::rewind::trace_compression::zstd);
+  CHECK((reader.header().flags & w1::rewind::trace_flag_blocks) != 0);
+
+  std::vector<w1::rewind::trace_record> records;
+  w1::rewind::trace_record record;
+  while (reader.read_next(record)) {
+    records.push_back(record);
+  }
+  CHECK(reader.error().empty());
+  REQUIRE(records.size() == 6);
+
+  CHECK(std::holds_alternative<w1::rewind::register_table_record>(records[0]));
+  CHECK(std::holds_alternative<w1::rewind::module_table_record>(records[1]));
+  CHECK(std::holds_alternative<w1::rewind::thread_start_record>(records[2]));
+  CHECK(std::holds_alternative<w1::rewind::block_definition_record>(records[3]));
+  CHECK(std::holds_alternative<w1::rewind::block_exec_record>(records[4]));
+  CHECK(std::holds_alternative<w1::rewind::thread_end_record>(records[5]));
+
+  fs::remove(path);
+}
+#endif
 
 TEST_CASE("rewind trace writer and reader round trip (blocks)") {
   namespace fs = std::filesystem;
@@ -202,6 +290,8 @@ TEST_CASE("rewind trace writer and reader round trip (blocks)") {
   w1::rewind::trace_reader reader(path.string());
   REQUIRE(reader.open());
   CHECK(reader.header().version == w1::rewind::k_trace_version);
+  CHECK(reader.header().compression == w1::rewind::trace_compression::none);
+  CHECK(reader.header().chunk_size == w1::rewind::k_trace_chunk_bytes);
   CHECK((reader.header().flags & w1::rewind::trace_flag_blocks) != 0);
   CHECK((reader.header().flags & w1::rewind::trace_flag_instructions) == 0);
 

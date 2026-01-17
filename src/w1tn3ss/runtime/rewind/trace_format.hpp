@@ -10,8 +10,9 @@
 
 namespace w1::rewind {
 
-constexpr uint16_t k_trace_version = 5;
-constexpr std::array<uint8_t, 8> k_trace_magic = {'W', '1', 'R', 'W', 'N', 'D', '5', '\0'};
+constexpr uint16_t k_trace_version = 6;
+constexpr std::array<uint8_t, 8> k_trace_magic = {'W', '1', 'R', 'W', 'N', 'D', '6', '\0'};
+constexpr uint32_t k_trace_chunk_bytes = 8 * 1024 * 1024;
 
 enum class trace_arch : uint16_t {
   unknown = 0,
@@ -29,6 +30,11 @@ enum trace_flags : uint64_t {
   trace_flag_boundaries = 1ull << 4,
   trace_flag_stack_window = 1ull << 5,
   trace_flag_blocks = 1ull << 6,
+};
+
+enum class trace_compression : uint32_t {
+  none = 0,
+  zstd = 1,
 };
 
 enum class record_kind : uint16_t {
@@ -49,6 +55,8 @@ struct trace_header {
   trace_arch architecture = trace_arch::unknown;
   uint32_t pointer_size = 0;
   uint64_t flags = 0;
+  trace_compression compression = trace_compression::none;
+  uint32_t chunk_size = 0;
 };
 
 struct record_header {

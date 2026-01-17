@@ -46,6 +46,8 @@ rewind_config rewind_config::from_environment() {
   config.memory.include_values = loader.get<bool>("MEMORY_VALUES", false);
   config.memory.max_value_bytes = loader.get<uint32_t>("MEMORY_MAX_BYTES", config.memory.max_value_bytes);
   config.output_path = loader.get<std::string>("OUTPUT", "");
+  config.compress_trace = loader.get<bool>("COMPRESS", config.compress_trace);
+  config.chunk_size = loader.get<uint32_t>("CHUNK_SIZE", config.chunk_size);
 
   return config;
 }

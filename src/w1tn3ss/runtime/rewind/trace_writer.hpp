@@ -16,6 +16,8 @@ namespace w1::rewind {
 struct trace_writer_config {
   std::string path;
   redlog::logger log;
+  trace_compression compression = trace_compression::none;
+  uint32_t chunk_size = k_trace_chunk_bytes;
 };
 
 class trace_writer {
@@ -44,6 +46,7 @@ public:
 
 private:
   bool write_record(record_kind kind, uint16_t flags, const std::vector<uint8_t>& payload);
+  bool flush_chunk_locked();
   void write_u8(uint8_t value);
   void write_u16(uint16_t value);
   void write_u32(uint32_t value);
@@ -63,6 +66,8 @@ private:
   std::string path_;
   bool good_ = false;
   bool header_written_ = false;
+  std::vector<uint8_t> chunk_buffer_;
+  std::vector<uint8_t> chunk_encoded_;
   std::mutex mutex_;
 };
 
