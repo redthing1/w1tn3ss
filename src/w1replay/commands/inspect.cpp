@@ -1,6 +1,5 @@
 #include "inspect.hpp"
 
-#include <filesystem>
 #include <iomanip>
 #include <iostream>
 #include <optional>
@@ -8,8 +7,8 @@
 
 #include <redlog.hpp>
 
-#include "w1tn3ss/runtime/rewind/replay_cursor.hpp"
-#include "w1tn3ss/runtime/rewind/trace_index.hpp"
+#include "asmr_block_decoder.hpp"
+#include "w1tn3ss/runtime/rewind/replay_session.hpp"
 
 namespace w1replay::commands {
 
@@ -80,22 +79,6 @@ int inspect(const inspect_options& options) {
     return 1;
   }
 
-  std::string index_path = options.index_path;
-  if (index_path.empty()) {
-    index_path = w1::rewind::default_trace_index_path(options.trace_path);
-    if (!std::filesystem::exists(index_path)) {
-      log.inf("building trace index", redlog::field("index", index_path));
-      w1::rewind::trace_index_options index_options;
-      w1::rewind::trace_index built;
-      if (!w1::rewind::build_trace_index(
-              options.trace_path, index_path, index_options, &built, log
-          )) {
-        std::cerr << "error: failed to build trace index" << std::endl;
-        return 1;
-      }
-    }
-  }
-
   std::string mem_error;
   auto mem_query = parse_memory_query(options.memory_range, mem_error);
   if (!mem_error.empty()) {
@@ -104,23 +87,28 @@ int inspect(const inspect_options& options) {
     return 1;
   }
 
-  w1::rewind::replay_cursor_config config{};
+  w1::rewind::replay_session_config config{};
   config.trace_path = options.trace_path;
-  config.index_path = index_path;
+  config.index_path = options.index_path;
   config.history_size = options.history_size;
   config.track_registers = options.show_registers;
   config.track_memory = mem_query.has_value();
+  config.thread_id = options.thread_id;
+  config.start_sequence = options.start_sequence;
+  config.checkpoint_path = options.checkpoint_path;
 
-  w1::rewind::replay_cursor cursor(config);
-  if (!cursor.open()) {
-    log.err("failed to open trace", redlog::field("error", cursor.error()));
-    std::cerr << "error: " << cursor.error() << std::endl;
-    return 1;
+  std::optional<asmr_block_decoder> decoder;
+  if (options.instruction_steps) {
+    if (asmr_decoder_available()) {
+      decoder.emplace();
+      config.block_decoder = &*decoder;
+    }
   }
 
-  if (!cursor.seek(options.thread_id, options.start_sequence)) {
-    log.err("failed to seek", redlog::field("error", cursor.error()));
-    std::cerr << "error: " << cursor.error() << std::endl;
+  w1::rewind::replay_session session(config);
+  if (!session.open()) {
+    log.err("failed to open trace", redlog::field("error", session.error()));
+    std::cerr << "error: " << session.error() << std::endl;
     return 1;
   }
 
@@ -130,15 +118,14 @@ int inspect(const inspect_options& options) {
               << std::endl;
 
     if (options.show_registers) {
-      const auto* state = cursor.state();
-      const auto& names = cursor.register_names();
-      if (!state || names.empty()) {
+      const auto& names = session.register_names();
+      auto regs = session.read_registers();
+      if (names.empty()) {
         std::cout << "  regs: unavailable" << std::endl;
       } else {
         bool wrote_any = false;
         std::ostringstream out;
         out << "  regs:";
-        const auto& regs = state->registers();
         for (size_t i = 0; i < names.size() && i < regs.size(); ++i) {
           if (!regs[i].has_value()) {
             continue;
@@ -154,18 +141,13 @@ int inspect(const inspect_options& options) {
     }
 
     if (mem_query.has_value()) {
-      const auto* state = cursor.state();
-      if (!state) {
-        std::cout << "  mem: unavailable" << std::endl;
-      } else {
-        auto bytes = state->read_memory(mem_query->address, mem_query->size);
-        std::ostringstream out;
-        out << "  mem[" << format_address(mem_query->address) << ":" << mem_query->size << "]:";
-        for (const auto& byte : bytes) {
-          out << " " << format_byte(byte);
-        }
-        std::cout << out.str() << std::endl;
+      auto bytes = session.read_memory(mem_query->address, mem_query->size);
+      std::ostringstream out;
+      out << "  mem[" << format_address(mem_query->address) << ":" << mem_query->size << "]:";
+      for (const auto& byte : bytes) {
+        out << " " << format_byte(byte);
       }
+      std::cout << out.str() << std::endl;
     }
   };
 
@@ -174,31 +156,91 @@ int inspect(const inspect_options& options) {
   }
 
   w1::rewind::flow_step step{};
-  if (options.reverse) {
-    if (!cursor.step_forward(step)) {
-      log.err("failed to read step", redlog::field("error", cursor.error()));
-      std::cerr << "error: " << cursor.error() << std::endl;
-      return 1;
+  auto emit_notice = [&]() {
+    auto notice = session.take_notice();
+    if (!notice.has_value()) {
+      return;
     }
-    print_step(step);
-    for (uint32_t i = 1; i < options.count; ++i) {
-      if (!cursor.step_backward(step)) {
-        log.err("failed to step backward", redlog::field("error", cursor.error()));
-        std::cerr << "error: " << cursor.error() << std::endl;
+    log.warn("replay notice", redlog::field("message", notice->message));
+    std::cerr << "warning: " << notice->message << std::endl;
+  };
+
+  if (options.reverse) {
+    if (options.instruction_steps) {
+      if (!session.step_flow()) {
+        log.err("failed to read step", redlog::field("error", session.error()));
+        std::cerr << "error: " << session.error() << std::endl;
         return 1;
       }
+      step = session.current_step();
+      if (!step.is_block) {
+        print_step(step);
+        emit_notice();
+        for (uint32_t i = 1; i < options.count; ++i) {
+          if (!session.step_instruction_backward()) {
+            log.err("failed to step backward", redlog::field("error", session.error()));
+            std::cerr << "error: " << session.error() << std::endl;
+            return 1;
+          }
+          step = session.current_step();
+          print_step(step);
+          emit_notice();
+        }
+        return 0;
+      }
+
+      if (!session.step_instruction_backward()) {
+        log.err("failed to step backward", redlog::field("error", session.error()));
+        std::cerr << "error: " << session.error() << std::endl;
+        return 1;
+      }
+      step = session.current_step();
       print_step(step);
+      emit_notice();
+      for (uint32_t i = 1; i < options.count; ++i) {
+        if (!session.step_instruction_backward()) {
+          log.err("failed to step backward", redlog::field("error", session.error()));
+          std::cerr << "error: " << session.error() << std::endl;
+          return 1;
+        }
+        step = session.current_step();
+        print_step(step);
+        emit_notice();
+      }
+      return 0;
+    }
+
+    if (!session.step_flow()) {
+      log.err("failed to read step", redlog::field("error", session.error()));
+      std::cerr << "error: " << session.error() << std::endl;
+      return 1;
+    }
+    step = session.current_step();
+    print_step(step);
+    emit_notice();
+    for (uint32_t i = 1; i < options.count; ++i) {
+      if (!session.step_backward()) {
+        log.err("failed to step backward", redlog::field("error", session.error()));
+        std::cerr << "error: " << session.error() << std::endl;
+        return 1;
+      }
+      step = session.current_step();
+      print_step(step);
+      emit_notice();
     }
     return 0;
   }
 
   for (uint32_t i = 0; i < options.count; ++i) {
-    if (!cursor.step_forward(step)) {
-      log.err("failed to read step", redlog::field("error", cursor.error()));
-      std::cerr << "error: " << cursor.error() << std::endl;
+    bool ok = options.instruction_steps ? session.step_instruction() : session.step_flow();
+    if (!ok) {
+      log.err("failed to read step", redlog::field("error", session.error()));
+      std::cerr << "error: " << session.error() << std::endl;
       return 1;
     }
+    step = session.current_step();
     print_step(step);
+    emit_notice();
   }
 
   return 0;

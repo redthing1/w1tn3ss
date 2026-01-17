@@ -2,77 +2,17 @@
 
 #include "doctest/doctest.hpp"
 
-#include "w1tn3ss/runtime/rewind/replay_cursor.hpp"
+#include "rewind_test_helpers.hpp"
+#include "w1tn3ss/runtime/rewind/replay_flow_cursor.hpp"
 #include "w1tn3ss/runtime/rewind/trace_index.hpp"
 #include "w1tn3ss/runtime/rewind/trace_writer.hpp"
 
-namespace {
-
-void write_module_table(w1::rewind::trace_writer& writer, uint64_t module_id, uint64_t base) {
-  w1::rewind::module_record module{};
-  module.id = module_id;
-  module.base = base;
-  module.size = 0x1000;
-  module.permissions = 5;
-  module.path = "test_module";
-
-  w1::rewind::module_table_record table{};
-  table.modules.push_back(module);
-  REQUIRE(writer.write_module_table(table));
-}
-
-void write_instruction(
-    w1::rewind::trace_writer& writer,
-    uint64_t thread_id,
-    uint64_t sequence,
-    uint64_t module_id,
-    uint64_t module_offset
-) {
-  w1::rewind::instruction_record record{};
-  record.sequence = sequence;
-  record.thread_id = thread_id;
-  record.module_id = module_id;
-  record.module_offset = module_offset;
-  record.size = 4;
-  record.flags = 0;
-  REQUIRE(writer.write_instruction(record));
-}
-
-void write_block_def(
-    w1::rewind::trace_writer& writer,
-    uint64_t block_id,
-    uint64_t module_id,
-    uint64_t module_offset,
-    uint32_t size
-) {
-  w1::rewind::block_definition_record record{};
-  record.block_id = block_id;
-  record.module_id = module_id;
-  record.module_offset = module_offset;
-  record.size = size;
-  REQUIRE(writer.write_block_definition(record));
-}
-
-void write_block_exec(
-    w1::rewind::trace_writer& writer,
-    uint64_t thread_id,
-    uint64_t sequence,
-    uint64_t block_id
-) {
-  w1::rewind::block_exec_record record{};
-  record.sequence = sequence;
-  record.thread_id = thread_id;
-  record.block_id = block_id;
-  REQUIRE(writer.write_block_exec(record));
-}
-
-} // namespace
-
 TEST_CASE("w1rewind replay cursor steps through instruction flow") {
   namespace fs = std::filesystem;
+  using namespace w1::rewind::test_helpers;
 
-  fs::path trace_path = fs::temp_directory_path() / "w1rewind_replay_inst.trace";
-  fs::path index_path = fs::temp_directory_path() / "w1rewind_replay_inst.trace.idx";
+  fs::path trace_path = temp_path("w1rewind_replay_inst.trace");
+  fs::path index_path = temp_path("w1rewind_replay_inst.trace.idx");
 
   w1::rewind::trace_writer_config writer_config;
   writer_config.path = trace_path.string();
@@ -88,16 +28,8 @@ TEST_CASE("w1rewind replay cursor steps through instruction flow") {
   REQUIRE(writer->write_header(header));
 
   write_module_table(*writer, 1, 0x1000);
-
-  w1::rewind::thread_start_record start1{};
-  start1.thread_id = 1;
-  start1.name = "thread1";
-  REQUIRE(writer->write_thread_start(start1));
-
-  w1::rewind::thread_start_record start2{};
-  start2.thread_id = 2;
-  start2.name = "thread2";
-  REQUIRE(writer->write_thread_start(start2));
+  write_thread_start(*writer, 1, "thread1");
+  write_thread_start(*writer, 2, "thread2");
 
   for (uint64_t i = 0; i < 4; ++i) {
     write_instruction(*writer, 1, i, 1, 0x10 + i * 4);
@@ -106,13 +38,8 @@ TEST_CASE("w1rewind replay cursor steps through instruction flow") {
     }
   }
 
-  w1::rewind::thread_end_record end1{};
-  end1.thread_id = 1;
-  REQUIRE(writer->write_thread_end(end1));
-
-  w1::rewind::thread_end_record end2{};
-  end2.thread_id = 2;
-  REQUIRE(writer->write_thread_end(end2));
+  write_thread_end(*writer, 1);
+  write_thread_end(*writer, 2);
 
   writer->flush();
   writer->close();
@@ -121,7 +48,7 @@ TEST_CASE("w1rewind replay cursor steps through instruction flow") {
   w1::rewind::trace_index index;
   REQUIRE(w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, &index, writer_config.log));
 
-  w1::rewind::replay_cursor cursor({trace_path.string(), index_path.string(), 4});
+  w1::rewind::replay_flow_cursor cursor({trace_path.string(), index_path.string(), 4});
   REQUIRE(cursor.open());
   REQUIRE(cursor.seek(1, 2));
 
@@ -140,9 +67,10 @@ TEST_CASE("w1rewind replay cursor steps through instruction flow") {
 
 TEST_CASE("w1rewind replay cursor resolves block flow addresses") {
   namespace fs = std::filesystem;
+  using namespace w1::rewind::test_helpers;
 
-  fs::path trace_path = fs::temp_directory_path() / "w1rewind_replay_block.trace";
-  fs::path index_path = fs::temp_directory_path() / "w1rewind_replay_block.trace.idx";
+  fs::path trace_path = temp_path("w1rewind_replay_block.trace");
+  fs::path index_path = temp_path("w1rewind_replay_block.trace.idx");
 
   w1::rewind::trace_writer_config writer_config;
   writer_config.path = trace_path.string();
@@ -158,20 +86,14 @@ TEST_CASE("w1rewind replay cursor resolves block flow addresses") {
   REQUIRE(writer->write_header(header));
 
   write_module_table(*writer, 7, 0x2000);
-
-  w1::rewind::thread_start_record start{};
-  start.thread_id = 1;
-  start.name = "thread1";
-  REQUIRE(writer->write_thread_start(start));
+  write_thread_start(*writer, 1, "thread1");
 
   write_block_def(*writer, 1, 7, 0x10, 4);
   write_block_def(*writer, 2, 7, 0x20, 4);
   write_block_exec(*writer, 1, 0, 1);
   write_block_exec(*writer, 1, 1, 2);
 
-  w1::rewind::thread_end_record end{};
-  end.thread_id = 1;
-  REQUIRE(writer->write_thread_end(end));
+  write_thread_end(*writer, 1);
 
   writer->flush();
   writer->close();
@@ -180,7 +102,7 @@ TEST_CASE("w1rewind replay cursor resolves block flow addresses") {
   w1::rewind::trace_index index;
   REQUIRE(w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, &index, writer_config.log));
 
-  w1::rewind::replay_cursor cursor({trace_path.string(), index_path.string(), 4});
+  w1::rewind::replay_flow_cursor cursor({trace_path.string(), index_path.string(), 4});
   REQUIRE(cursor.open());
   REQUIRE(cursor.seek(1, 0));
 

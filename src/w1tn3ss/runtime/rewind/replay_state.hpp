@@ -17,6 +17,8 @@ public:
   void apply_register_deltas(const std::vector<register_delta>& regs);
   std::optional<uint64_t> register_value(uint16_t reg_id) const;
   const std::vector<std::optional<uint64_t>>& registers() const { return registers_; }
+  const std::unordered_map<uint64_t, uint8_t>& memory_map() const { return memory_; }
+  void set_memory_map(std::unordered_map<uint64_t, uint8_t> memory) { memory_ = std::move(memory); }
 
   void apply_memory_bytes(uint64_t address, const std::vector<uint8_t>& data);
   void apply_stack_window(uint64_t sp, const std::vector<uint8_t>& bytes);

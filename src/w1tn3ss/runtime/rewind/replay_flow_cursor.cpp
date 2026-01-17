@@ -1,57 +1,21 @@
-#include "replay_cursor.hpp"
+#include "replay_flow_cursor.hpp"
 
 #include <algorithm>
+#include <unordered_map>
 
 namespace w1::rewind {
 
-namespace {
-
-std::optional<uint16_t> find_register_id(const std::vector<std::string>& names, const std::string& target) {
-  for (size_t i = 0; i < names.size(); ++i) {
-    if (names[i] == target) {
-      return static_cast<uint16_t>(i);
-    }
-  }
-  return std::nullopt;
-}
-
-std::optional<uint16_t> resolve_stack_reg_id(trace_arch arch, const std::vector<std::string>& names) {
-  switch (arch) {
-  case trace_arch::x86_64:
-    return find_register_id(names, "rsp");
-  case trace_arch::x86:
-    return find_register_id(names, "esp");
-  case trace_arch::aarch64:
-  case trace_arch::arm:
-    return find_register_id(names, "sp");
-  default:
-    break;
-  }
-  auto candidate = find_register_id(names, "sp");
-  if (candidate.has_value()) {
-    return candidate;
-  }
-  candidate = find_register_id(names, "rsp");
-  if (candidate.has_value()) {
-    return candidate;
-  }
-  return find_register_id(names, "esp");
-}
-
-} // namespace
-
-replay_cursor::replay_cursor(replay_cursor_config config)
+replay_flow_cursor::replay_flow_cursor(replay_flow_cursor_config config)
     : config_(std::move(config)), cursor_({config_.trace_path, config_.index_path}) {
-  if (config_.history_size == 0) {
-    history_size_ = 1;
-  } else {
-    history_size_ = config_.history_size;
-  }
+  history_size_ = config_.history_size == 0 ? 1 : config_.history_size;
   track_registers_ = config_.track_registers;
   track_memory_ = config_.track_memory;
+  if (config_.context) {
+    context_ = config_.context;
+  }
 }
 
-bool replay_cursor::open() {
+bool replay_flow_cursor::open() {
   close();
 
   if (!cursor_.open()) {
@@ -74,7 +38,7 @@ bool replay_cursor::open() {
 
   flow_kind_ = use_blocks ? flow_kind::blocks : flow_kind::instructions;
 
-  if (!load_metadata()) {
+  if (!load_context()) {
     return false;
   }
 
@@ -82,12 +46,11 @@ bool replay_cursor::open() {
   return true;
 }
 
-void replay_cursor::close() {
+void replay_flow_cursor::close() {
   cursor_.close();
-  modules_by_id_.clear();
-  blocks_by_id_.clear();
-  register_names_.clear();
-  sp_reg_id_.reset();
+  owned_context_.reset();
+  context_ = nullptr;
+  state_applier_.reset();
   state_.reset();
   history_.clear();
   history_pos_ = 0;
@@ -100,7 +63,7 @@ void replay_cursor::close() {
   error_.clear();
 }
 
-bool replay_cursor::seek(uint64_t thread_id, uint64_t sequence) {
+bool replay_flow_cursor::seek(uint64_t thread_id, uint64_t sequence) {
   error_.clear();
 
   if (!open_) {
@@ -119,7 +82,7 @@ bool replay_cursor::seek(uint64_t thread_id, uint64_t sequence) {
   if (track_registers_ || track_memory_) {
     state_.reset();
     if (track_registers_) {
-      state_.set_register_count(register_names_.size());
+      state_.set_register_count(context_->register_names.size());
     }
 
     const trace_index* index = cursor_.index();
@@ -153,7 +116,59 @@ bool replay_cursor::seek(uint64_t thread_id, uint64_t sequence) {
   return true;
 }
 
-bool replay_cursor::step_forward(flow_step& out) {
+bool replay_flow_cursor::seek_with_checkpoint(const replay_checkpoint_entry& checkpoint, uint64_t sequence) {
+  error_.clear();
+
+  if (!open_) {
+    error_ = "trace not open";
+    return false;
+  }
+  if (checkpoint.thread_id == 0) {
+    error_ = "checkpoint missing thread id";
+    return false;
+  }
+  if (checkpoint.sequence > sequence) {
+    error_ = "checkpoint beyond target sequence";
+    return false;
+  }
+
+  active_thread_id_ = checkpoint.thread_id;
+  history_.clear();
+  history_pos_ = 0;
+  has_position_ = false;
+  current_step_ = flow_step{};
+  pending_flow_.reset();
+  pending_location_.reset();
+
+  if (track_registers_ || track_memory_) {
+    state_.reset();
+    if (track_registers_) {
+      state_.set_register_count(context_->register_names.size());
+      state_.apply_register_snapshot(checkpoint.registers);
+    }
+    if (track_memory_) {
+      std::unordered_map<uint64_t, uint8_t> memory;
+      memory.reserve(checkpoint.memory.size());
+      for (const auto& entry : checkpoint.memory) {
+        memory.emplace(entry.first, entry.second);
+      }
+      state_.set_memory_map(std::move(memory));
+    }
+  }
+
+  if (!cursor_.seek_to_location(checkpoint.location)) {
+    error_ = cursor_.error();
+    return false;
+  }
+
+  if (!scan_until_sequence(checkpoint.thread_id, sequence)) {
+    return false;
+  }
+
+  return true;
+}
+
+bool replay_flow_cursor::step_forward(flow_step& out) {
   error_.clear();
 
   if (!open_) {
@@ -199,7 +214,7 @@ bool replay_cursor::step_forward(flow_step& out) {
   return true;
 }
 
-bool replay_cursor::step_backward(flow_step& out) {
+bool replay_flow_cursor::step_backward(flow_step& out) {
   error_.clear();
 
   if (!open_) {
@@ -246,69 +261,48 @@ bool replay_cursor::step_backward(flow_step& out) {
   return step_forward(out);
 }
 
-bool replay_cursor::load_metadata() {
-  modules_by_id_.clear();
-  blocks_by_id_.clear();
-  register_names_.clear();
-  sp_reg_id_.reset();
-
-  trace_reader reader(config_.trace_path);
-  if (!reader.open()) {
-    error_ = reader.error();
-    return false;
-  }
-
-  bool need_blocks = (flow_kind_ == flow_kind::blocks);
-  bool need_registers = track_registers_ || track_memory_;
-  bool have_modules = false;
-  bool have_registers = !need_registers;
-
-  trace_record record;
-  while (reader.read_next(record)) {
-    if (std::holds_alternative<register_table_record>(record)) {
-      if (need_registers) {
-        register_names_ = std::get<register_table_record>(record).names;
-        have_registers = true;
-      }
-    } else if (std::holds_alternative<module_table_record>(record)) {
-      const auto& modules = std::get<module_table_record>(record).modules;
-      modules_by_id_.clear();
-      for (const auto& module : modules) {
-        modules_by_id_.emplace(module.id, module);
-      }
-      have_modules = true;
-    } else if (need_blocks && std::holds_alternative<block_definition_record>(record)) {
-      const auto& def = std::get<block_definition_record>(record);
-      blocks_by_id_.emplace(def.block_id, def);
+bool replay_flow_cursor::load_context() {
+  if (!context_) {
+    replay_context loaded;
+    if (!load_replay_context(config_.trace_path, loaded, error_)) {
+      return false;
     }
+    owned_context_ = std::move(loaded);
+    context_ = &*owned_context_;
   }
 
-  if (!reader.error().empty()) {
-    error_ = reader.error();
+  const auto& header = cursor_.reader().header();
+  if (context_->header.version != header.version || context_->header.flags != header.flags ||
+      context_->header.architecture != header.architecture || context_->header.pointer_size != header.pointer_size) {
+    error_ = "replay context header mismatch";
     return false;
   }
 
-  if (!have_modules) {
+  if (context_->modules_by_id.empty()) {
     error_ = "module table missing";
     return false;
   }
-  if (need_registers && !have_registers) {
+  if ((track_registers_ || track_memory_) && context_->register_names.empty()) {
     error_ = "register table missing";
     return false;
   }
+  if (flow_kind_ == flow_kind::blocks && context_->blocks_by_id.empty()) {
+    error_ = "block definitions missing";
+    return false;
+  }
 
-  if (need_registers) {
-    sp_reg_id_ = resolve_stack_reg_id(reader.header().architecture, register_names_);
+  if (track_registers_ || track_memory_) {
+    state_applier_.emplace(*context_);
   }
 
   if (track_registers_) {
-    state_.set_register_count(register_names_.size());
+    state_.set_register_count(context_->register_names.size());
   }
 
   return true;
 }
 
-bool replay_cursor::scan_until_sequence(uint64_t thread_id, uint64_t sequence) {
+bool replay_flow_cursor::scan_until_sequence(uint64_t thread_id, uint64_t sequence) {
   trace_record record;
   trace_record_location location{};
 
@@ -352,21 +346,15 @@ bool replay_cursor::scan_until_sequence(uint64_t thread_id, uint64_t sequence) {
   return false;
 }
 
-bool replay_cursor::resolve_address(uint64_t module_id, uint64_t module_offset, uint64_t& address) {
-  if (module_id == 0) {
-    address = module_offset;
-    return true;
-  }
-  auto it = modules_by_id_.find(module_id);
-  if (it == modules_by_id_.end()) {
+bool replay_flow_cursor::resolve_address(uint64_t module_id, uint64_t module_offset, uint64_t& address) {
+  if (!context_->resolve_address(module_id, module_offset, address)) {
     error_ = "module id not found";
     return false;
   }
-  address = it->second.base + module_offset;
   return true;
 }
 
-bool replay_cursor::try_parse_flow(const trace_record& record, flow_step& out, bool& is_flow) {
+bool replay_flow_cursor::try_parse_flow(const trace_record& record, flow_step& out, bool& is_flow) {
   is_flow = false;
   if (flow_kind_ == flow_kind::instructions) {
     if (!std::holds_alternative<instruction_record>(record)) {
@@ -391,8 +379,8 @@ bool replay_cursor::try_parse_flow(const trace_record& record, flow_step& out, b
   }
 
   const auto& exec = std::get<block_exec_record>(record);
-  auto it = blocks_by_id_.find(exec.block_id);
-  if (it == blocks_by_id_.end()) {
+  auto it = context_->blocks_by_id.find(exec.block_id);
+  if (it == context_->blocks_by_id.end()) {
     error_ = "block id not found";
     return false;
   }
@@ -411,101 +399,14 @@ bool replay_cursor::try_parse_flow(const trace_record& record, flow_step& out, b
   return true;
 }
 
-bool replay_cursor::apply_state_record(const trace_record& record) {
-  if (!(track_registers_ || track_memory_) || active_thread_id_ == 0) {
+bool replay_flow_cursor::apply_state_record(const trace_record& record) {
+  if (!state_applier_.has_value()) {
     return true;
   }
-
-  if (std::holds_alternative<register_delta_record>(record)) {
-    return apply_register_deltas(std::get<register_delta_record>(record));
-  }
-  if (std::holds_alternative<memory_access_record>(record)) {
-    return apply_memory_access(std::get<memory_access_record>(record));
-  }
-  if (std::holds_alternative<boundary_record>(record)) {
-    return apply_boundary_record(std::get<boundary_record>(record));
-  }
-
-  return true;
+  return state_applier_->apply_record(record, active_thread_id_, track_registers_, track_memory_, state_);
 }
 
-bool replay_cursor::apply_register_deltas(const register_delta_record& record) {
-  if (!track_registers_) {
-    return true;
-  }
-  if (record.thread_id != active_thread_id_) {
-    return true;
-  }
-  state_.apply_register_deltas(record.deltas);
-  return true;
-}
-
-bool replay_cursor::apply_memory_access(const memory_access_record& record) {
-  if (!track_memory_) {
-    return true;
-  }
-  if (record.thread_id != active_thread_id_) {
-    return true;
-  }
-  if (!record.value_known || record.data.empty()) {
-    return true;
-  }
-  if (record.kind != memory_access_kind::write) {
-    return true;
-  }
-  state_.apply_memory_bytes(record.address, record.data);
-  return true;
-}
-
-bool replay_cursor::apply_boundary_record(const boundary_record& record) {
-  if (record.thread_id != active_thread_id_) {
-    return true;
-  }
-
-  if (track_registers_) {
-    state_.apply_register_snapshot(record.registers);
-  }
-
-  if (track_memory_ && !record.stack_window.empty()) {
-    uint64_t sp = 0;
-    bool have_sp = false;
-    if (sp_reg_id_.has_value()) {
-      if (track_registers_) {
-        auto value = state_.register_value(*sp_reg_id_);
-        if (value.has_value()) {
-          sp = *value;
-          have_sp = true;
-        }
-      }
-      if (!have_sp) {
-        auto value = read_register_value(record.registers, *sp_reg_id_);
-        if (value.has_value()) {
-          sp = *value;
-          have_sp = true;
-        }
-      }
-    }
-    if (have_sp) {
-      state_.apply_stack_window(sp, record.stack_window);
-    }
-  }
-
-  return true;
-}
-
-std::optional<uint64_t> replay_cursor::read_register_value(
-    const std::vector<register_delta>& regs,
-    uint16_t reg_id
-) const {
-  for (const auto& reg : regs) {
-    if (reg.reg_id == reg_id) {
-      return reg.value;
-    }
-  }
-  return std::nullopt;
-}
-
-bool replay_cursor::read_next_flow(flow_step& out, trace_record_location* location) {
+bool replay_flow_cursor::read_next_flow(flow_step& out, trace_record_location* location) {
   if (pending_flow_.has_value()) {
     out = *pending_flow_;
     pending_flow_.reset();
@@ -547,7 +448,7 @@ bool replay_cursor::read_next_flow(flow_step& out, trace_record_location* locati
   return false;
 }
 
-bool replay_cursor::consume_sequence_records(uint64_t thread_id, uint64_t sequence) {
+bool replay_flow_cursor::consume_sequence_records(uint64_t thread_id, uint64_t sequence) {
   trace_record record;
   trace_record_location loc{};
 
@@ -586,7 +487,7 @@ bool replay_cursor::consume_sequence_records(uint64_t thread_id, uint64_t sequen
   return true;
 }
 
-void replay_cursor::push_history(const flow_step& step, const trace_record_location& location) {
+void replay_flow_cursor::push_history(const flow_step& step, const trace_record_location& location) {
   if (history_.size() == history_size_) {
     history_.pop_front();
     if (history_pos_ > 0) {
@@ -599,7 +500,7 @@ void replay_cursor::push_history(const flow_step& step, const trace_record_locat
   has_position_ = true;
 }
 
-bool replay_cursor::seek_to_history(size_t index) {
+bool replay_flow_cursor::seek_to_history(size_t index) {
   if (index >= history_.size()) {
     error_ = "history index out of range";
     return false;

@@ -2,15 +2,12 @@
 
 #include "doctest/doctest.hpp"
 
-#include "w1tn3ss/runtime/rewind/replay_cursor.hpp"
+#include "rewind_test_helpers.hpp"
+#include "w1tn3ss/runtime/rewind/replay_flow_cursor.hpp"
 #include "w1tn3ss/runtime/rewind/trace_index.hpp"
 #include "w1tn3ss/runtime/rewind/trace_writer.hpp"
 
 namespace {
-
-std::filesystem::path make_temp_path(const char* name) {
-  return std::filesystem::temp_directory_path() / name;
-}
 
 std::vector<std::string> make_register_names(w1::rewind::trace_arch arch) {
   switch (arch) {
@@ -27,42 +24,14 @@ std::vector<std::string> make_register_names(w1::rewind::trace_arch arch) {
   return {"r0", "sp"};
 }
 
-void write_module_table(w1::rewind::trace_writer& writer) {
-  w1::rewind::module_record module{};
-  module.id = 1;
-  module.base = 0x1000;
-  module.size = 0x2000;
-  module.permissions = 5;
-  module.path = "test_module";
-
-  w1::rewind::module_table_record table{};
-  table.modules.push_back(module);
-  REQUIRE(writer.write_module_table(table));
-}
-
-void write_instruction(
-    w1::rewind::trace_writer& writer,
-    uint64_t thread_id,
-    uint64_t sequence,
-    uint64_t module_offset
-) {
-  w1::rewind::instruction_record record{};
-  record.sequence = sequence;
-  record.thread_id = thread_id;
-  record.module_id = 1;
-  record.module_offset = module_offset;
-  record.size = 4;
-  record.flags = 0;
-  REQUIRE(writer.write_instruction(record));
-}
-
 } // namespace
 
 TEST_CASE("w1rewind replay cursor applies register and memory state") {
   namespace fs = std::filesystem;
+  using namespace w1::rewind::test_helpers;
 
-  fs::path trace_path = make_temp_path("w1rewind_replay_state.trace");
-  fs::path index_path = make_temp_path("w1rewind_replay_state.trace.idx");
+  fs::path trace_path = temp_path("w1rewind_replay_state.trace");
+  fs::path index_path = temp_path("w1rewind_replay_state.trace.idx");
 
   w1::rewind::trace_writer_config config;
   config.path = trace_path.string();
@@ -81,18 +50,12 @@ TEST_CASE("w1rewind replay cursor applies register and memory state") {
                  w1::rewind::trace_flag_boundaries | w1::rewind::trace_flag_stack_window;
   REQUIRE(writer->write_header(header));
 
-  w1::rewind::register_table_record reg_table{};
-  reg_table.names = make_register_names(header.architecture);
-  REQUIRE(writer->write_register_table(reg_table));
+  write_register_table(*writer, make_register_names(header.architecture));
+  write_module_table(*writer, 1, 0x1000);
 
-  write_module_table(*writer);
+  write_thread_start(*writer, 1, "main");
 
-  w1::rewind::thread_start_record start{};
-  start.thread_id = 1;
-  start.name = "main";
-  REQUIRE(writer->write_thread_start(start));
-
-  write_instruction(*writer, 1, 1, 0x10);
+  write_instruction(*writer, 1, 1, 1, 0x10);
 
   w1::rewind::register_delta_record deltas{};
   deltas.sequence = 1;
@@ -125,9 +88,7 @@ TEST_CASE("w1rewind replay cursor applies register and memory state") {
   boundary.reason = "test";
   REQUIRE(writer->write_boundary(boundary));
 
-  w1::rewind::thread_end_record end{};
-  end.thread_id = 1;
-  REQUIRE(writer->write_thread_end(end));
+  write_thread_end(*writer, 1);
 
   writer->flush();
   writer->close();
@@ -136,14 +97,14 @@ TEST_CASE("w1rewind replay cursor applies register and memory state") {
   w1::rewind::trace_index index;
   REQUIRE(w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, &index, config.log));
 
-  w1::rewind::replay_cursor_config replay_config{};
+  w1::rewind::replay_flow_cursor_config replay_config{};
   replay_config.trace_path = trace_path.string();
   replay_config.index_path = index_path.string();
   replay_config.history_size = 4;
   replay_config.track_registers = true;
   replay_config.track_memory = true;
 
-  w1::rewind::replay_cursor cursor(replay_config);
+  w1::rewind::replay_flow_cursor cursor(replay_config);
   REQUIRE(cursor.open());
   REQUIRE(cursor.seek(1, 1));
 
