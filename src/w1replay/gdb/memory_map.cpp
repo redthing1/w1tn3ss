@@ -40,6 +40,19 @@ std::vector<range> build_module_ranges(const std::vector<w1::rewind::module_reco
   return ranges;
 }
 
+std::vector<range> build_memory_ranges(const std::vector<w1::rewind::memory_region_record>& regions) {
+  std::vector<range> ranges;
+  ranges.reserve(regions.size());
+  for (const auto& region : regions) {
+    range r{};
+    r.start = region.base;
+    r.end = region.base + region.size;
+    ranges.push_back(r);
+  }
+  std::sort(ranges.begin(), ranges.end(), [](const range& a, const range& b) { return a.start < b.start; });
+  return ranges;
+}
+
 bool address_in_ranges(uint64_t address, const std::vector<range>& ranges) {
   auto it = std::upper_bound(
       ranges.begin(),
@@ -112,24 +125,36 @@ std::vector<gdbstub::memory_region> build_recorded_regions(
 
 std::vector<gdbstub::memory_region> build_memory_map(
     const std::vector<w1::rewind::module_record>& modules,
+    const std::vector<w1::rewind::memory_region_record>& memory_map,
     const w1::rewind::replay_state* state
 ) {
   std::vector<gdbstub::memory_region> regions;
-  regions.reserve(modules.size());
-
-  for (const auto& module : modules) {
-    gdbstub::memory_region region{};
-    region.start = module.base;
-    region.size = module.size;
-    region.perms = perms_from_module(module.permissions);
-    if (!module.path.empty()) {
-      region.name = module.path;
+  if (!modules.empty()) {
+    regions.reserve(modules.size());
+    for (const auto& module : modules) {
+      gdbstub::memory_region region{};
+      region.start = module.base;
+      region.size = module.size;
+      region.perms = perms_from_module(module.permissions);
+      if (!module.path.empty()) {
+        region.name = module.path;
+      }
+      regions.push_back(std::move(region));
     }
-    regions.push_back(std::move(region));
+  } else if (!memory_map.empty()) {
+    regions.reserve(memory_map.size());
+    for (const auto& region_info : memory_map) {
+      gdbstub::memory_region region{};
+      region.start = region_info.base;
+      region.size = region_info.size;
+      region.perms = perms_from_module(region_info.permissions);
+      region.name = region_info.name;
+      regions.push_back(std::move(region));
+    }
   }
 
-  auto module_ranges = build_module_ranges(modules);
-  auto recorded = build_recorded_regions(state, module_ranges);
+  auto ranges = !modules.empty() ? build_module_ranges(modules) : build_memory_ranges(memory_map);
+  auto recorded = build_recorded_regions(state, ranges);
   if (!recorded.empty()) {
     regions.insert(regions.end(), recorded.begin(), recorded.end());
   }

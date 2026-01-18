@@ -39,6 +39,7 @@ endfunction()
 
 add_library(w1rewind_record STATIC
     record/trace_writer.cpp
+    record/trace_builder.cpp
 )
 
 target_include_directories(w1rewind_record

@@ -91,10 +91,6 @@ bool adapter::load_context() {
   if (!config_.module_mappings.empty() || !config_.module_dirs.empty()) {
     state_.module_source_state.apply_to_context(state_.context);
   }
-  if (state_.context.modules.empty()) {
-    error_ = "module table missing";
-    return false;
-  }
   if (state_.context.threads.empty()) {
     error_ = "trace has no thread records";
     return false;
@@ -120,6 +116,18 @@ bool adapter::load_context() {
   auto features = state_.context.features();
   state_.trace_is_block = features.has_blocks;
   state_.track_memory = features.track_memory;
+  if (state_.context.target_info.has_value()) {
+    switch (state_.context.target_info->endianness) {
+    case w1::rewind::trace_endianness::big:
+      state_.target_endian = endian::big;
+      break;
+    case w1::rewind::trace_endianness::little:
+    case w1::rewind::trace_endianness::unknown:
+    default:
+      state_.target_endian = endian::little;
+      break;
+    }
+  }
 
   return true;
 }
@@ -127,7 +135,7 @@ bool adapter::load_context() {
 bool adapter::open_session() {
   if (asmr_decoder_available()) {
     state_.decoder = std::make_unique<w1replay::asmr_block_decoder>();
-    state_.decoder->set_module_source(&state_.module_source_state);
+    state_.decoder->set_code_source(&state_.module_source_state);
     state_.decoder_available = true;
   }
 
@@ -179,11 +187,11 @@ bool adapter::prime_position() {
 }
 
 bool adapter::build_layout() {
-  state_.layout = build_register_layout(
-      state_.context.header.architecture,
-      state_.context.header.pointer_size,
-      state_.context.register_names
-  );
+  if (!state_.context.target_info.has_value()) {
+    error_ = "target metadata missing";
+    return false;
+  }
+  state_.layout = build_register_layout(*state_.context.target_info, state_.context.register_specs);
   if (state_.layout.architecture.empty() || state_.layout.registers.empty()) {
     error_ = "unsupported trace architecture";
     return false;
@@ -212,7 +220,7 @@ bool adapter::build_arch_spec() {
   state_.arch_spec.osabi.clear();
   state_.arch_spec.reg_count = static_cast<int>(state_.layout.registers.size());
   state_.arch_spec.pc_reg_num = state_.pc_reg_num;
-  state_.arch_spec.address_bits = static_cast<int>(state_.context.header.pointer_size * 8);
+  state_.arch_spec.address_bits = static_cast<int>(state_.context.target_info->pointer_bits);
   state_.arch_spec.swap_register_endianness = false;
   return true;
 }

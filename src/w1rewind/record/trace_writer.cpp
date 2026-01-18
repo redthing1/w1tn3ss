@@ -140,6 +140,24 @@ bool trace_writer::write_register_table(const register_table_record& record) {
   return write_record(record_kind::register_table, 0, payload);
 }
 
+bool trace_writer::write_target_info(const target_info_record& record) {
+  std::vector<uint8_t> payload;
+  trace_buffer_writer writer(payload);
+  if (!encode_target_info(record, writer, config_.log)) {
+    return false;
+  }
+  return write_record(record_kind::target_info, 0, payload);
+}
+
+bool trace_writer::write_register_spec(const register_spec_record& record) {
+  std::vector<uint8_t> payload;
+  trace_buffer_writer writer(payload);
+  if (!encode_register_spec(record, writer, config_.log)) {
+    return false;
+  }
+  return write_record(record_kind::register_spec, 0, payload);
+}
+
 bool trace_writer::write_module_table(const module_table_record& record) {
   std::vector<uint8_t> payload;
   trace_buffer_writer writer(payload);
@@ -147,6 +165,15 @@ bool trace_writer::write_module_table(const module_table_record& record) {
     return false;
   }
   return write_record(record_kind::module_table, 0, payload);
+}
+
+bool trace_writer::write_memory_map(const memory_map_record& record) {
+  std::vector<uint8_t> payload;
+  trace_buffer_writer writer(payload);
+  if (!encode_memory_map(record, writer, config_.log)) {
+    return false;
+  }
+  return write_record(record_kind::memory_map, 0, payload);
 }
 
 bool trace_writer::write_thread_start(const thread_start_record& record) {
@@ -186,6 +213,15 @@ bool trace_writer::write_register_deltas(const register_delta_record& record) {
     return false;
   }
   return write_record(record_kind::register_deltas, 0, payload);
+}
+
+bool trace_writer::write_register_bytes(const register_bytes_record& record) {
+  std::vector<uint8_t> payload;
+  trace_buffer_writer writer(payload);
+  if (!encode_register_bytes(record, writer, config_.log)) {
+    return false;
+  }
+  return write_record(record_kind::register_bytes, 0, payload);
 }
 
 bool trace_writer::write_memory_access(const memory_access_record& record) {

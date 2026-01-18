@@ -182,4 +182,31 @@ const image_layout* module_source::get_module_layout(const w1::rewind::module_re
 #endif
 }
 
+bool module_source::read_by_address(
+    const w1::rewind::replay_context& context,
+    uint64_t address,
+    std::span<std::byte> out,
+    std::string& error
+) {
+  if (out.empty()) {
+    return true;
+  }
+
+  auto result = read_address_image(context, address, out.size());
+  if (!result.error.empty()) {
+    error = result.error;
+    return false;
+  }
+  if (!result.complete) {
+    error = "module bytes incomplete";
+    return false;
+  }
+  if (result.bytes.size() < out.size()) {
+    error = "module bytes truncated";
+    return false;
+  }
+  std::copy(result.bytes.begin(), result.bytes.begin() + static_cast<std::ptrdiff_t>(out.size()), out.begin());
+  return true;
+}
+
 } // namespace w1replay

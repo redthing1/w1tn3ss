@@ -33,12 +33,16 @@ public:
 
   bool write_header(const trace_header& header);
   bool write_register_table(const register_table_record& record);
+  bool write_target_info(const target_info_record& record);
+  bool write_register_spec(const register_spec_record& record);
   bool write_module_table(const module_table_record& record);
+  bool write_memory_map(const memory_map_record& record);
   bool write_thread_start(const thread_start_record& record);
   bool write_instruction(const instruction_record& record);
   bool write_block_definition(const block_definition_record& record);
   bool write_block_exec(const block_exec_record& record);
   bool write_register_deltas(const register_delta_record& record);
+  bool write_register_bytes(const register_bytes_record& record);
   bool write_memory_access(const memory_access_record& record);
   bool write_snapshot(const snapshot_record& record);
   bool write_thread_end(const thread_end_record& record);

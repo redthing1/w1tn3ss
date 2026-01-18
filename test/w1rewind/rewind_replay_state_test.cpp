@@ -51,12 +51,12 @@ TEST_CASE("w1rewind replay cursor applies register and memory state") {
                  w1::rewind::trace_flag_snapshots | w1::rewind::trace_flag_stack_snapshot;
   REQUIRE(writer->write_header(header));
 
-  write_register_table(*writer, make_register_names(header.architecture));
+  write_basic_metadata(*writer, header.architecture, header.pointer_size, make_register_names(header.architecture));
   write_module_table(*writer, 1, 0x1000);
 
   write_thread_start(*writer, 1, "main");
 
-  write_instruction(*writer, 1, 1, 1, 0x10);
+  write_instruction(*writer, 1, 1, 0x1000 + 0x10);
 
   w1::rewind::register_delta_record deltas{};
   deltas.sequence = 1;

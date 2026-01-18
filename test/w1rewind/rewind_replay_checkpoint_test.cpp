@@ -1,3 +1,5 @@
+#include <array>
+#include <cstddef>
 #include <filesystem>
 
 #include "doctest/doctest.hpp"
@@ -8,25 +10,6 @@
 #include "w1rewind/replay/replay_session.hpp"
 #include "w1rewind/replay/trace_index.hpp"
 #include "w1rewind/record/trace_writer.hpp"
-
-namespace {
-
-std::vector<std::string> make_register_names(w1::rewind::trace_arch arch) {
-  switch (arch) {
-  case w1::rewind::trace_arch::x86_64:
-    return {"rax", "rsp"};
-  case w1::rewind::trace_arch::x86:
-    return {"eax", "esp"};
-  case w1::rewind::trace_arch::aarch64:
-  case w1::rewind::trace_arch::arm:
-    return {"x0", "sp"};
-  default:
-    break;
-  }
-  return {"r0", "sp"};
-}
-
-} // namespace
 
 TEST_CASE("w1rewind replay checkpoint restores register state") {
   namespace fs = std::filesystem;
@@ -51,14 +34,42 @@ TEST_CASE("w1rewind replay checkpoint restores register state") {
   header.flags = w1::rewind::trace_flag_instructions | w1::rewind::trace_flag_register_deltas;
   REQUIRE(writer->write_header(header));
 
-  write_register_table(*writer, make_register_names(header.architecture));
+  write_target_info(*writer, header.architecture, header.pointer_size);
+  w1::rewind::register_spec_record specs{};
+  w1::rewind::register_spec gpr{};
+  gpr.reg_id = 0;
+  gpr.name = "r0";
+  gpr.bits = static_cast<uint16_t>(header.pointer_size * 8);
+  gpr.gdb_name = "r0";
+  gpr.reg_class = w1::rewind::register_class::gpr;
+  gpr.value_kind = w1::rewind::register_value_kind::u64;
+  w1::rewind::register_spec vec{};
+  vec.reg_id = 1;
+  vec.name = "v0";
+  vec.bits = 128;
+  vec.gdb_name = "v0";
+  vec.reg_class = w1::rewind::register_class::simd;
+  vec.value_kind = w1::rewind::register_value_kind::bytes;
+  specs.registers = {gpr, vec};
+  REQUIRE(writer->write_register_spec(specs));
   write_module_table(*writer, 1, 0x1000);
 
   write_thread_start(*writer, 1, "main");
 
   for (uint64_t seq = 0; seq < 4; ++seq) {
-    write_instruction(*writer, 1, seq, 1, 0x10 + seq * 4);
+    write_instruction(*writer, 1, seq, 0x1000 + 0x10 + seq * 4);
     write_register_delta(*writer, 1, seq, 0, 0x1000 + seq);
+    if (seq == 0) {
+      w1::rewind::register_bytes_record bytes{};
+      bytes.sequence = seq;
+      bytes.thread_id = 1;
+      bytes.entries = {w1::rewind::register_bytes_entry{1, 0, 16}};
+      bytes.data = {0x10, 0x11, 0x12, 0x13,
+                    0x20, 0x21, 0x22, 0x23,
+                    0x30, 0x31, 0x32, 0x33,
+                    0x40, 0x41, 0x42, 0x43};
+      REQUIRE(writer->write_register_bytes(bytes));
+    }
   }
 
   write_thread_end(*writer, 1);
@@ -104,6 +115,12 @@ TEST_CASE("w1rewind replay checkpoint restores register state") {
   const auto* state = cursor.state();
   REQUIRE(state != nullptr);
   CHECK(state->register_value(0) == 0x1000 + 2);
+  std::array<std::byte, 16> byte_out{};
+  bool known = false;
+  REQUIRE(state->copy_register_bytes(1, byte_out, known));
+  CHECK(known);
+  CHECK(byte_out[0] == std::byte{0x10});
+  CHECK(byte_out[15] == std::byte{0x43});
 
   w1::rewind::replay_session_config session_config{};
   session_config.trace_path = trace_path.string();
@@ -122,6 +139,12 @@ TEST_CASE("w1rewind replay checkpoint restores register state") {
   REQUIRE(!regs.empty());
   CHECK(regs[0].has_value());
   CHECK(regs[0].value() == 0x1000 + 2);
+  std::array<std::byte, 16> session_bytes{};
+  bool session_known = false;
+  REQUIRE(session.read_register_bytes(1, session_bytes, session_known));
+  CHECK(session_known);
+  CHECK(session_bytes[0] == std::byte{0x10});
+  CHECK(session_bytes[15] == std::byte{0x43});
 
   fs::remove(trace_path);
   fs::remove(index_path);

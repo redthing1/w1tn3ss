@@ -21,6 +21,14 @@ bool replay_state_applier::apply_record(
         state
     );
   }
+  if (std::holds_alternative<register_bytes_record>(record)) {
+    return apply_register_bytes(
+        std::get<register_bytes_record>(record),
+        active_thread_id,
+        track_registers,
+        state
+    );
+  }
   if (std::holds_alternative<memory_access_record>(record)) {
     return apply_memory_access(
         std::get<memory_access_record>(record),
@@ -56,6 +64,21 @@ bool replay_state_applier::apply_register_deltas(
   }
   state.apply_register_deltas(record.deltas);
   return true;
+}
+
+bool replay_state_applier::apply_register_bytes(
+    const register_bytes_record& record,
+    uint64_t active_thread_id,
+    bool track_registers,
+    replay_state& state
+) const {
+  if (!track_registers) {
+    return true;
+  }
+  if (record.thread_id != active_thread_id) {
+    return true;
+  }
+  return state.apply_register_bytes(record.entries, record.data);
 }
 
 bool replay_state_applier::apply_memory_access(

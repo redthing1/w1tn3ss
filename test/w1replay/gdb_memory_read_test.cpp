@@ -34,10 +34,12 @@ TEST_CASE("gdb adapter reads recorded memory bytes") {
                  w1::rewind::trace_flag_memory_values;
   REQUIRE(writer->write_header(header));
 
+  std::vector<std::string> registers = {"pc", "sp"};
+  write_target_info(*writer, w1::rewind::trace_arch::aarch64, 8);
+  write_register_specs(*writer, registers, w1::rewind::trace_arch::aarch64, 8);
   write_module_table(*writer, 1, 0x1000);
-  write_register_table(*writer, {"pc", "sp"});
   write_thread_start(*writer, 1, "thread1");
-  write_instruction(*writer, 1, 0, 1, 0x10);
+  write_instruction(*writer, 1, 0, 0x1000 + 0x10);
 
   w1::rewind::memory_access_record access{};
   access.sequence = 0;
@@ -92,9 +94,12 @@ TEST_CASE("gdb adapter reads module bytes when memory missing") {
   header.flags = w1::rewind::trace_flag_instructions;
   REQUIRE(writer->write_header(header));
 
+  std::vector<std::string> registers = {"pc"};
+  write_target_info(*writer, w1::rewind::trace_arch::aarch64, 8);
+  write_register_specs(*writer, registers, w1::rewind::trace_arch::aarch64, 8);
   write_module_table(*writer, 1, 0x1000);
   write_thread_start(*writer, 1, "thread1");
-  write_instruction(*writer, 1, 0, 1, 0x10);
+  write_instruction(*writer, 1, 0, 0x1000 + 0x10);
   write_thread_end(*writer, 1);
 
   writer->flush();
@@ -142,10 +147,12 @@ TEST_CASE("gdb adapter prefers recorded memory over module bytes") {
                  w1::rewind::trace_flag_memory_values;
   REQUIRE(writer->write_header(header));
 
+  std::vector<std::string> registers = {"pc", "sp"};
+  write_target_info(*writer, w1::rewind::trace_arch::aarch64, 8);
+  write_register_specs(*writer, registers, w1::rewind::trace_arch::aarch64, 8);
   write_module_table(*writer, 1, 0x1000);
-  write_register_table(*writer, {"pc", "sp"});
   write_thread_start(*writer, 1, "thread1");
-  write_instruction(*writer, 1, 0, 1, 0x10);
+  write_instruction(*writer, 1, 0, 0x1000 + 0x10);
 
   w1::rewind::memory_access_record access{};
   access.sequence = 0;

@@ -1,6 +1,6 @@
 #include "asmr_block_decoder.hpp"
 
-#include "module_source.hpp"
+#include "code_source.hpp"
 
 #include <cstddef>
 #include <limits>
@@ -44,31 +44,28 @@ asmr_block_decoder::~asmr_block_decoder() = default;
 
 bool asmr_block_decoder::decode_block(
     const w1::rewind::replay_context& context,
-    uint64_t module_id,
-    uint64_t module_offset,
+    uint64_t address,
     uint32_t size,
     w1::rewind::replay_decoded_block& out,
     std::string& error
 ) {
 #if !defined(WITNESS_ASMR_ENABLED)
   (void)context;
-  (void)module_id;
-  (void)module_offset;
+  (void)address;
   (void)size;
   (void)out;
   error = "asmr decoder unavailable (build with WITNESS_ASMR=ON)";
   return false;
 #elif !defined(WITNESS_LIEF_ENABLED)
   (void)context;
-  (void)module_id;
-  (void)module_offset;
+  (void)address;
   (void)size;
   (void)out;
   error = "asmr decoder unavailable (build with WITNESS_LIEF=ON)";
   return false;
 #else
-  if (!module_source_) {
-    error = "module source missing";
+  if (!source_) {
+    error = "code source missing";
     return false;
   }
 
@@ -77,32 +74,17 @@ bool asmr_block_decoder::decode_block(
     return false;
   }
 
-  auto module_it = context.modules_by_id.find(module_id);
-  if (module_it == context.modules_by_id.end()) {
-    error = "module id not found";
+  std::vector<std::byte> raw_bytes;
+  raw_bytes.resize(size);
+  if (!source_->read_by_address(context, address, std::span<std::byte>(raw_bytes), error)) {
     return false;
   }
-  if (module_it->second.path.empty()) {
-    error = "module path missing";
-    return false;
-  }
-
-  auto read = module_source_->read_module_image(module_it->second, module_offset, size);
-  if (!read.error.empty()) {
-    error = read.error;
-    return false;
-  }
-  if (!read.complete) {
-    error = "module bytes incomplete";
-    return false;
-  }
-  const auto& raw_bytes = read.bytes;
   std::vector<uint8_t> buffer;
   buffer.resize(raw_bytes.size());
   for (size_t i = 0; i < raw_bytes.size(); ++i) {
     buffer[i] = std::to_integer<uint8_t>(raw_bytes[i]);
   }
-  uint64_t base_address = module_it->second.base + module_offset;
+  uint64_t base_address = address;
 
   auto arch_value = trace_arch_to_asmr_arch(context.header.architecture);
   if (!arch_value.has_value()) {
@@ -128,8 +110,7 @@ bool asmr_block_decoder::decode_block(
   }
 
   out = w1::rewind::replay_decoded_block{};
-  out.module_id = module_id;
-  out.module_offset = module_offset;
+  out.address = address;
   out.size = size;
   out.instructions.reserve(decoded.value.size());
 

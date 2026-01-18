@@ -10,7 +10,7 @@
 #include "w1rewind/record/trace_writer.hpp"
 #include "w1rewind/rewind_test_helpers.hpp"
 
-TEST_CASE("gdb adapter opens pc-only trace without register table") {
+TEST_CASE("gdb adapter opens pc-only trace with minimal register specs") {
   namespace fs = std::filesystem;
   using namespace w1::rewind::test_helpers;
 
@@ -31,9 +31,12 @@ TEST_CASE("gdb adapter opens pc-only trace without register table") {
   header.flags = w1::rewind::trace_flag_instructions;
   REQUIRE(writer->write_header(header));
 
+  std::vector<std::string> registers = {"x0", "pc"};
+  write_target_info(*writer, w1::rewind::trace_arch::aarch64, 8);
+  write_register_specs(*writer, registers, w1::rewind::trace_arch::aarch64, 8);
   write_module_table(*writer, 1, 0x1000);
   write_thread_start(*writer, 1, "thread1");
-  write_instruction(*writer, 1, 0, 1, 0x40);
+  write_instruction(*writer, 1, 0, 0x1000 + 0x40);
   write_thread_end(*writer, 1);
 
   writer->flush();

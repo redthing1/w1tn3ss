@@ -11,8 +11,8 @@
 
 namespace w1::rewind {
 
-constexpr uint16_t k_replay_checkpoint_version = 1;
-constexpr std::array<uint8_t, 8> k_replay_checkpoint_magic = {'W', '1', 'R', 'C', 'H', 'K', '1', '\0'};
+constexpr uint16_t k_replay_checkpoint_version = 2;
+constexpr std::array<uint8_t, 8> k_replay_checkpoint_magic = {'W', '1', 'R', 'C', 'H', 'K', '2', '\0'};
 
 struct replay_checkpoint_header {
   uint16_t version = k_replay_checkpoint_version;
@@ -29,6 +29,8 @@ struct replay_checkpoint_entry {
   uint64_t sequence = 0;
   trace_record_location location{};
   std::vector<register_delta> registers;
+  std::vector<register_bytes_entry> register_bytes_entries;
+  std::vector<uint8_t> register_bytes;
   std::vector<std::pair<uint64_t, uint8_t>> memory;
 };
 

@@ -18,12 +18,131 @@ w1::rewind::module_perm module_perm_from_qbdi(uint32_t perms) {
   }
   return out;
 }
+
+std::string arch_id_for_trace(w1::rewind::trace_arch arch) {
+  switch (arch) {
+  case w1::rewind::trace_arch::x86_64:
+    return "x86_64";
+  case w1::rewind::trace_arch::x86:
+    return "x86";
+  case w1::rewind::trace_arch::aarch64:
+    return "aarch64";
+  case w1::rewind::trace_arch::arm:
+    return "arm";
+  default:
+    break;
+  }
+  return "unknown";
+}
+
+std::string gdb_arch_for_trace(w1::rewind::trace_arch arch) {
+  switch (arch) {
+  case w1::rewind::trace_arch::x86_64:
+    return "i386:x86-64";
+  case w1::rewind::trace_arch::x86:
+    return "i386";
+  case w1::rewind::trace_arch::aarch64:
+    return "aarch64";
+  case w1::rewind::trace_arch::arm:
+    return "arm";
+  default:
+    break;
+  }
+  return {};
+}
+
+std::string gdb_feature_for_trace(w1::rewind::trace_arch arch) {
+  switch (arch) {
+  case w1::rewind::trace_arch::x86_64:
+  case w1::rewind::trace_arch::x86:
+    return "org.gnu.gdb.i386.core";
+  case w1::rewind::trace_arch::aarch64:
+    return "org.gnu.gdb.aarch64.core";
+  case w1::rewind::trace_arch::arm:
+    return "org.gnu.gdb.arm.core";
+  default:
+    break;
+  }
+  return "org.w1tn3ss.rewind";
+}
+
+std::string detect_os_id() {
+#if defined(_WIN32)
+  return "windows";
+#elif defined(__APPLE__)
+  return "macos";
+#elif defined(__linux__)
+  return "linux";
+#else
+  return {};
+#endif
+}
+
+bool is_pc_name(const std::string& name) {
+  return name == "pc" || name == "rip" || name == "eip";
+}
+
+bool is_sp_name(const std::string& name) {
+  return name == "sp" || name == "rsp" || name == "esp";
+}
+
+bool is_flags_name(const std::string& name) {
+  return name == "eflags" || name == "rflags" || name == "nzcv" || name == "cpsr";
+}
+
+w1::rewind::register_class register_class_for_name(const std::string& name) {
+  if (is_flags_name(name)) {
+    return w1::rewind::register_class::flags;
+  }
+  return w1::rewind::register_class::gpr;
+}
+
+uint32_t register_bitsize_for_name(w1::rewind::trace_arch arch, const std::string& name, uint32_t pointer_size_bytes) {
+  uint32_t pointer_bits = pointer_size_bytes * 8;
+  if (arch == w1::rewind::trace_arch::x86_64 || arch == w1::rewind::trace_arch::x86) {
+    if (name == "eflags" || name == "rflags") {
+      return 32;
+    }
+    if (name == "fs" || name == "gs") {
+      return 16;
+    }
+  }
+  if (arch == w1::rewind::trace_arch::aarch64) {
+    if (name == "nzcv") {
+      return 32;
+    }
+  }
+  if (arch == w1::rewind::trace_arch::arm) {
+    if (name == "cpsr") {
+      return 32;
+    }
+  }
+  return pointer_bits;
+}
+
+std::string gdb_name_for_register(const std::string& name, w1::rewind::trace_arch arch) {
+  if (arch == w1::rewind::trace_arch::aarch64 && name == "nzcv") {
+    return "cpsr";
+  }
+  return name;
+}
 } // namespace
 
 namespace w1rewind {
 
 rewind_recorder::rewind_recorder(rewind_config config, std::shared_ptr<w1::rewind::trace_writer> writer)
-    : config_(std::move(config)), writer_(std::move(writer)), instruction_flow_(config_.requires_instruction_flow()) {}
+    : config_(std::move(config)), writer_(std::move(writer)), instruction_flow_(config_.requires_instruction_flow()) {
+  w1::rewind::trace_builder_config builder_config;
+  builder_config.writer = writer_;
+  builder_config.log = log_;
+  builder_config.options.record_instructions = instruction_flow_;
+  builder_config.options.record_register_deltas = config_.record_register_deltas;
+  builder_config.options.record_memory_access = config_.memory.enabled;
+  builder_config.options.record_memory_values = config_.memory.include_values;
+  builder_config.options.record_snapshots = config_.snapshot_interval > 0;
+  builder_config.options.record_stack_snapshot = config_.stack_snapshot_bytes > 0;
+  builder_ = std::make_unique<w1::rewind::trace_builder>(std::move(builder_config));
+}
 
 void rewind_recorder::on_thread_start(w1::trace_context& ctx, const w1::thread_event& event) {
   (void) ctx;
@@ -51,22 +170,12 @@ void rewind_recorder::on_basic_block_entry(
     thread.thread_id = event.thread_id;
   }
 
-  if (!ensure_writer_ready(ctx)) {
+  if (!ensure_builder_ready(ctx, gpr)) {
     return;
   }
 
-  if (!ensure_tables(ctx, gpr)) {
+  if (!builder_->begin_thread(thread.thread_id, thread.thread_name)) {
     return;
-  }
-
-  if (!thread.thread_start_written) {
-    w1::rewind::thread_start_record start{};
-    start.thread_id = thread.thread_id;
-    start.name = thread.thread_name;
-    if (!writer_->write_thread_start(start)) {
-      return;
-    }
-    thread.thread_start_written = true;
   }
 
   uint64_t address = event.address;
@@ -75,17 +184,8 @@ void rewind_recorder::on_basic_block_entry(
     return;
   }
 
-  auto [module_id, module_offset] = map_instruction_address(ctx.modules(), address);
-  uint64_t block_id = ensure_block_id(module_id, module_offset, size);
-  if (block_id == 0) {
-    return;
-  }
-
-  w1::rewind::block_exec_record exec{};
-  exec.sequence = thread.sequence++;
-  exec.thread_id = thread.thread_id;
-  exec.block_id = block_id;
-  if (!writer_->write_block_exec(exec)) {
+  uint64_t sequence = 0;
+  if (!builder_->emit_block(thread.thread_id, address, size, sequence)) {
     return;
   }
 
@@ -95,14 +195,14 @@ void rewind_recorder::on_basic_block_entry(
     w1::util::register_state regs = w1::util::register_capturer::capture(gpr);
     auto snapshot = maybe_capture_snapshot(ctx, thread, regs);
     if (snapshot.has_value()) {
-      w1::rewind::snapshot_record record{};
-      record.snapshot_id = snapshot->snapshot_id;
-      record.sequence = exec.sequence;
-      record.thread_id = exec.thread_id;
-      record.registers = std::move(snapshot->registers);
-      record.stack_snapshot = std::move(snapshot->stack_snapshot);
-      record.reason = std::move(snapshot->reason);
-      writer_->write_snapshot(record);
+      builder_->emit_snapshot(
+          thread.thread_id,
+          sequence,
+          snapshot->snapshot_id,
+          snapshot->registers,
+          snapshot->stack_snapshot,
+          std::move(snapshot->reason)
+      );
     }
   }
 }
@@ -122,22 +222,12 @@ void rewind_recorder::on_instruction_post(
     state.thread_id = event.thread_id;
   }
 
-  if (!ensure_writer_ready(ctx)) {
+  if (!ensure_builder_ready(ctx, gpr)) {
     return;
   }
 
-  if (!ensure_tables(ctx, gpr)) {
+  if (!builder_->begin_thread(state.thread_id, state.thread_name)) {
     return;
-  }
-
-  if (!state.thread_start_written) {
-    w1::rewind::thread_start_record start{};
-    start.thread_id = state.thread_id;
-    start.name = state.thread_name;
-    if (!writer_->write_thread_start(start)) {
-      return;
-    }
-    state.thread_start_written = true;
   }
 
   flush_pending(state);
@@ -151,14 +241,11 @@ void rewind_recorder::on_instruction_post(
     }
   }
 
-  auto [module_id, module_offset] = map_instruction_address(ctx.modules(), address);
-
   pending_instruction pending{};
-  pending.record.sequence = state.sequence++;
-  pending.record.thread_id = state.thread_id;
-  pending.record.module_id = module_id;
-  pending.record.module_offset = module_offset;
-  pending.record.size = size;
+  pending.thread_id = state.thread_id;
+  pending.address = address;
+  pending.size = size;
+  pending.flags = 0;
 
   bool need_registers = config_.record_register_deltas || config_.snapshot_interval > 0 || config_.stack_snapshot_bytes > 0;
   w1::util::register_state regs;
@@ -223,18 +310,10 @@ void rewind_recorder::on_thread_stop(w1::trace_context& ctx, const w1::thread_ev
   auto& state = it->second;
   flush_pending(state);
 
-  if (writer_ && writer_->good()) {
-    if (!state.thread_start_written && tables_written_) {
-      w1::rewind::thread_start_record start{};
-      start.thread_id = state.thread_id;
-      start.name = state.thread_name;
-      writer_->write_thread_start(start);
-      state.thread_start_written = true;
-    }
-    w1::rewind::thread_end_record end{};
-    end.thread_id = state.thread_id;
-    writer_->write_thread_end(end);
-    writer_->flush();
+  if (builder_ready_ && builder_ && builder_->good()) {
+    builder_->begin_thread(state.thread_id, state.thread_name);
+    builder_->end_thread(state.thread_id);
+    builder_->flush();
   }
 
   log_.inf(
@@ -245,80 +324,51 @@ void rewind_recorder::on_thread_stop(w1::trace_context& ctx, const w1::thread_ev
   );
 }
 
-bool rewind_recorder::ensure_writer_ready(w1::trace_context& ctx) {
-  (void) ctx;
-  if (writer_ready_) {
+bool rewind_recorder::ensure_builder_ready(w1::trace_context& ctx, const QBDI::GPRState* gpr) {
+  if (builder_ready_) {
     return true;
   }
-  if (!writer_) {
-    log_.err("trace writer missing");
+  if (!builder_ || !builder_->good()) {
+    log_.err("trace builder not ready");
     return false;
-  }
-  if (!writer_->good()) {
-    log_.err("trace writer not ready");
-    return false;
-  }
-
-  w1::rewind::trace_header header{};
-  header.architecture = w1::rewind::detect_trace_arch();
-  header.pointer_size = w1::rewind::detect_pointer_size();
-
-  if (instruction_flow_) {
-    header.flags |= w1::rewind::trace_flag_instructions;
-  } else {
-    header.flags |= w1::rewind::trace_flag_blocks;
-  }
-  if (config_.record_register_deltas) {
-    header.flags |= w1::rewind::trace_flag_register_deltas;
-  }
-  if (config_.memory.enabled) {
-    header.flags |= w1::rewind::trace_flag_memory_access;
-    if (config_.memory.include_values) {
-      header.flags |= w1::rewind::trace_flag_memory_values;
-    }
-  }
-  if (config_.snapshot_interval > 0) {
-    header.flags |= w1::rewind::trace_flag_snapshots;
-  }
-  if (config_.stack_snapshot_bytes > 0) {
-    header.flags |= w1::rewind::trace_flag_stack_snapshot;
-  }
-
-  if (!writer_->write_header(header)) {
-    return false;
-  }
-
-  writer_ready_ = true;
-  return true;
-}
-
-bool rewind_recorder::ensure_tables(w1::trace_context& ctx, const QBDI::GPRState* gpr) {
-  if (tables_written_) {
-    return true;
   }
   if (!gpr) {
-    log_.err("missing gpr state for register table");
+    log_.err("missing gpr state for register specs");
     return false;
   }
 
   w1::util::register_state regs = w1::util::register_capturer::capture(gpr);
   update_register_table(regs);
+  if (register_specs_.empty()) {
+    log_.err("register specs missing");
+    return false;
+  }
   ctx.modules().refresh();
   update_module_table(ctx.modules());
 
-  w1::rewind::register_table_record reg_table{};
-  reg_table.names = register_table_;
-  if (!writer_->write_register_table(reg_table)) {
+  const auto arch = w1::rewind::detect_trace_arch();
+  w1::rewind::target_info_record target{};
+  target.arch_id = arch_id_for_trace(arch);
+  target.pointer_bits = w1::rewind::detect_pointer_size() * 8;
+  target.endianness = w1::rewind::detect_trace_endianness();
+  target.os = detect_os_id();
+  target.abi.clear();
+  target.cpu.clear();
+  target.gdb_arch = gdb_arch_for_trace(arch);
+  target.gdb_feature = gdb_feature_for_trace(arch);
+  if (!builder_->begin_trace(target, register_specs_)) {
+    log_.err("failed to begin trace", redlog::field("error", builder_->error()));
     return false;
   }
 
-  w1::rewind::module_table_record mod_table{};
-  mod_table.modules = module_table_;
-  if (!writer_->write_module_table(mod_table)) {
-    return false;
+  if (!module_table_.empty()) {
+    if (!builder_->set_module_table(module_table_)) {
+      log_.err("failed to write module table", redlog::field("error", builder_->error()));
+      return false;
+    }
   }
 
-  tables_written_ = true;
+  builder_ready_ = true;
   return true;
 }
 
@@ -330,39 +380,49 @@ void rewind_recorder::flush_pending(thread_state& state) {
   pending_instruction pending = std::move(*state.pending);
   state.pending.reset();
 
+  if (!builder_ || !builder_->good()) {
+    return;
+  }
+
+  uint64_t sequence = 0;
   if (instruction_flow_) {
-    if (!writer_->write_instruction(pending.record)) {
+    if (!builder_->emit_instruction(pending.thread_id, pending.address, pending.size, pending.flags, sequence)) {
       return;
     }
   }
 
   if (config_.record_register_deltas && !pending.register_deltas.empty()) {
-    w1::rewind::register_delta_record deltas{};
-    deltas.sequence = pending.record.sequence;
-    deltas.thread_id = pending.record.thread_id;
-    deltas.deltas = std::move(pending.register_deltas);
-    if (!writer_->write_register_deltas(deltas)) {
+    if (!builder_->emit_register_deltas(pending.thread_id, sequence, pending.register_deltas)) {
       return;
     }
   }
 
   if (config_.memory.enabled) {
-    for (auto& access : pending.memory_accesses) {
-      if (!writer_->write_memory_access(access)) {
+    for (const auto& access : pending.memory_accesses) {
+      if (!builder_->emit_memory_access(
+              pending.thread_id,
+              sequence,
+              access.kind,
+              access.address,
+              access.size,
+              access.value_known,
+              access.value_truncated,
+              access.data
+          )) {
         return;
       }
     }
   }
 
   if (pending.snapshot.has_value() && config_.snapshot_interval > 0) {
-    w1::rewind::snapshot_record record{};
-    record.snapshot_id = pending.snapshot->snapshot_id;
-    record.sequence = pending.record.sequence;
-    record.thread_id = pending.record.thread_id;
-    record.registers = std::move(pending.snapshot->registers);
-    record.stack_snapshot = std::move(pending.snapshot->stack_snapshot);
-    record.reason = std::move(pending.snapshot->reason);
-    writer_->write_snapshot(record);
+    builder_->emit_snapshot(
+        pending.thread_id,
+        sequence,
+        pending.snapshot->snapshot_id,
+        pending.snapshot->registers,
+        pending.snapshot->stack_snapshot,
+        std::move(pending.snapshot->reason)
+    );
   }
 }
 
@@ -481,14 +541,38 @@ std::optional<rewind_recorder::pending_snapshot> rewind_recorder::maybe_capture_
 void rewind_recorder::update_register_table(const w1::util::register_state& regs) {
   register_table_ = regs.get_register_names();
   register_ids_.clear();
+  register_specs_.clear();
+  register_specs_.reserve(register_table_.size());
+  const auto arch = w1::rewind::detect_trace_arch();
+  const uint32_t pointer_size = w1::rewind::detect_pointer_size();
   for (size_t i = 0; i < register_table_.size(); ++i) {
-    register_ids_[register_table_[i]] = static_cast<uint16_t>(i);
+    const auto& name = register_table_[i];
+    auto reg_id = static_cast<uint16_t>(i);
+    register_ids_[name] = reg_id;
+
+    w1::rewind::register_spec spec{};
+    spec.reg_id = reg_id;
+    spec.name = name;
+    spec.bits = static_cast<uint16_t>(register_bitsize_for_name(arch, name, pointer_size));
+    spec.flags = 0;
+    if (is_pc_name(name)) {
+      spec.flags |= w1::rewind::register_flag_pc;
+    }
+    if (is_sp_name(name)) {
+      spec.flags |= w1::rewind::register_flag_sp;
+    }
+    if (is_flags_name(name)) {
+      spec.flags |= w1::rewind::register_flag_flags;
+    }
+    spec.gdb_name = gdb_name_for_register(name, arch);
+    spec.reg_class = register_class_for_name(name);
+    spec.value_kind = w1::rewind::register_value_kind::u64;
+    register_specs_.push_back(std::move(spec));
   }
 }
 
 void rewind_recorder::update_module_table(const w1::runtime::module_registry& modules) {
   module_table_.clear();
-  module_id_by_base_.clear();
 
   auto list = modules.list_modules();
   module_table_.reserve(list.size());
@@ -501,52 +585,8 @@ void rewind_recorder::update_module_table(const w1::runtime::module_registry& mo
     record.size = module.size;
     record.permissions = module_perm_from_qbdi(module.permissions);
     record.path = module.path.empty() ? module.name : module.path;
-    module_id_by_base_[module.base_address] = record.id;
     module_table_.push_back(std::move(record));
   }
-}
-
-std::pair<uint64_t, uint64_t> rewind_recorder::map_instruction_address(
-    const w1::runtime::module_registry& modules, uint64_t address
-) {
-  const auto* module = modules.find_containing(address);
-  if (!module) {
-    return {0, address};
-  }
-  auto it = module_id_by_base_.find(module->base_address);
-  if (it == module_id_by_base_.end()) {
-    return {0, address};
-  }
-  return {it->second, address - module->base_address};
-}
-
-uint64_t rewind_recorder::ensure_block_id(uint64_t module_id, uint64_t module_offset, uint32_t size) {
-  block_key key{};
-  key.module_id = module_id;
-  key.module_offset = module_offset;
-  key.size = size;
-
-  auto it = block_ids_.find(key);
-  if (it != block_ids_.end()) {
-    return it->second;
-  }
-
-  if (!writer_ || !writer_->good()) {
-    return 0;
-  }
-
-  uint64_t block_id = next_block_id_++;
-  w1::rewind::block_definition_record record{};
-  record.block_id = block_id;
-  record.module_id = module_id;
-  record.module_offset = module_offset;
-  record.size = size;
-  if (!writer_->write_block_definition(record)) {
-    return 0;
-  }
-
-  block_ids_.emplace(std::move(key), block_id);
-  return block_id;
 }
 
 void rewind_recorder::append_memory_access(
@@ -556,9 +596,7 @@ void rewind_recorder::append_memory_access(
     return;
   }
 
-  w1::rewind::memory_access_record record{};
-  record.sequence = state.pending->record.sequence;
-  record.thread_id = state.pending->record.thread_id;
+  pending_memory_access record{};
   record.kind = kind;
   record.address = event.address;
   record.size = event.size;

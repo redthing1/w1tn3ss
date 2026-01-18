@@ -28,6 +28,13 @@ w1_add_harness_test(test_gadget_executor
     OUTPUT_SUBDIR test/harness
 )
 
+w1_add_harness_test(test_rewind_format
+    SOURCES test_rewind_format.cpp
+    INCLUDE_DIRS ${WITNESS_SOURCE_DIR}/src
+    LIBS w1rewind_record w1rewind_replay
+    OUTPUT_SUBDIR test/harness
+)
+
 set_tests_properties(test_gadget_executor PROPERTIES
     LABELS "unit;gadget;executor"
 )

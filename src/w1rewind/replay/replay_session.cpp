@@ -268,25 +268,49 @@ void replay_session::remove_breakpoint(uint64_t address) { breakpoints_.erase(ad
 void replay_session::clear_breakpoints() { breakpoints_.clear(); }
 
 std::vector<std::optional<uint64_t>> replay_session::read_registers() const {
+  const size_t count = context_.register_specs.size();
   if (!flow_cursor_.has_value()) {
-    return build_unknown_registers(context_.register_names.size());
+    return build_unknown_registers(count);
   }
   const replay_state* state = flow_cursor_->state();
   if (!state) {
-    return build_unknown_registers(context_.register_names.size());
+    return build_unknown_registers(count);
   }
 
   const auto& regs = state->registers();
-  if (regs.size() == context_.register_names.size()) {
+  if (regs.size() == count) {
     return regs;
   }
 
-  auto out = build_unknown_registers(context_.register_names.size());
+  auto out = build_unknown_registers(count);
   size_t copy_count = std::min(out.size(), regs.size());
   for (size_t i = 0; i < copy_count; ++i) {
     out[i] = regs[i];
   }
   return out;
+}
+
+bool replay_session::read_register_bytes(uint16_t reg_id, std::span<std::byte> out, bool& known) const {
+  known = false;
+  if (reg_id >= context_.register_specs.size()) {
+    return false;
+  }
+  const auto& spec = context_.register_specs[reg_id];
+  if (spec.value_kind != register_value_kind::bytes) {
+    return false;
+  }
+  size_t size = (spec.bits + 7u) / 8u;
+  if (size == 0 || out.size() < size) {
+    return false;
+  }
+  if (!flow_cursor_.has_value()) {
+    return true;
+  }
+  const replay_state* state = flow_cursor_->state();
+  if (!state) {
+    return true;
+  }
+  return state->copy_register_bytes(reg_id, out, known);
 }
 
 std::vector<std::optional<uint8_t>> replay_session::read_memory(uint64_t address, size_t size) const {
@@ -404,7 +428,7 @@ bool replay_session::validate_checkpoint(const replay_checkpoint_index& index) {
     set_error("checkpoint pointer size mismatch");
     return false;
   }
-  if (!context_.register_names.empty() && index.header.register_count != context_.register_names.size()) {
+  if (!context_.register_specs.empty() && index.header.register_count != context_.register_specs.size()) {
     set_error("checkpoint register count mismatch");
     return false;
   }
@@ -440,11 +464,6 @@ bool replay_session::load_context() {
   std::string error;
   if (!load_replay_context(config_.trace_path, context_, error)) {
     set_error(error);
-    return false;
-  }
-
-  if (context_.modules.empty()) {
-    set_error("module table missing");
     return false;
   }
 

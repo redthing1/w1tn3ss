@@ -13,8 +13,7 @@ class test_block_decoder final : public w1::rewind::replay_block_decoder {
 public:
   bool decode_block(
       const w1::rewind::replay_context&,
-      uint64_t module_id,
-      uint64_t module_offset,
+      uint64_t address,
       uint32_t size,
       w1::rewind::replay_decoded_block& out,
       std::string&
@@ -23,8 +22,7 @@ public:
       return false;
     }
 
-    out.module_id = module_id;
-    out.module_offset = module_offset;
+    out.address = address;
     out.size = size;
 
     uint32_t offset = 0;
@@ -60,12 +58,15 @@ TEST_CASE("w1rewind replay instruction cursor decodes blocks and steps backward"
   REQUIRE(writer->open());
 
   w1::rewind::trace_header header{};
+  header.architecture = w1::rewind::detect_trace_arch();
+  header.pointer_size = w1::rewind::detect_pointer_size();
   header.flags = w1::rewind::trace_flag_blocks;
   REQUIRE(writer->write_header(header));
 
+  write_basic_metadata(*writer, header.architecture, header.pointer_size, minimal_registers(header.architecture));
   write_module_table(*writer, 1, 0x2000);
   write_thread_start(*writer, 1, "thread1");
-  write_block_def(*writer, 1, 1, 0x20, 4);
+  write_block_def(*writer, 1, 0x2000 + 0x20, 4);
   write_block_exec(*writer, 1, 0, 1);
   write_thread_end(*writer, 1);
 
@@ -119,12 +120,15 @@ TEST_CASE("w1rewind replay instruction cursor reports missing decoder") {
   REQUIRE(writer->open());
 
   w1::rewind::trace_header header{};
+  header.architecture = w1::rewind::detect_trace_arch();
+  header.pointer_size = w1::rewind::detect_pointer_size();
   header.flags = w1::rewind::trace_flag_blocks;
   REQUIRE(writer->write_header(header));
 
+  write_basic_metadata(*writer, header.architecture, header.pointer_size, minimal_registers(header.architecture));
   write_module_table(*writer, 2, 0x4000);
   write_thread_start(*writer, 1, "thread1");
-  write_block_def(*writer, 1, 2, 0x10, 4);
+  write_block_def(*writer, 1, 0x4000 + 0x10, 4);
   write_block_exec(*writer, 1, 0, 1);
   write_thread_end(*writer, 1);
 

@@ -37,7 +37,7 @@ gdbstub::target_status regs_component::read_reg(int regno, std::span<std::byte> 
       fill_unknown(out);
       return gdbstub::target_status::ok;
     }
-    if (!encode_uint64(*pc, size, out)) {
+    if (!encode_uint64(*pc, size, out, state_.target_endian)) {
       return gdbstub::target_status::invalid;
     }
     return gdbstub::target_status::ok;
@@ -52,6 +52,17 @@ gdbstub::target_status regs_component::read_reg(int regno, std::span<std::byte> 
     return gdbstub::target_status::ok;
   }
 
+  if (reg.value_kind == w1::rewind::register_value_kind::bytes) {
+    bool known = false;
+    if (!state_.session->read_register_bytes(static_cast<uint16_t>(*reg.trace_index), out, known)) {
+      return gdbstub::target_status::invalid;
+    }
+    if (!known) {
+      fill_unknown(out);
+    }
+    return gdbstub::target_status::ok;
+  }
+
   auto regs = state_.session->read_registers();
   if (*reg.trace_index >= regs.size()) {
     fill_unknown(out);
@@ -61,7 +72,7 @@ gdbstub::target_status regs_component::read_reg(int regno, std::span<std::byte> 
     fill_unknown(out);
     return gdbstub::target_status::ok;
   }
-  if (!encode_uint64(*regs[*reg.trace_index], size, out)) {
+  if (!encode_uint64(*regs[*reg.trace_index], size, out, state_.target_endian)) {
     return gdbstub::target_status::invalid;
   }
   return gdbstub::target_status::ok;
@@ -190,7 +201,7 @@ memory_layout_component::memory_layout_component(adapter_state& state) : state_(
 
 std::vector<gdbstub::memory_region> memory_layout_component::memory_map() const {
   const auto* replay_state = (state_.session && state_.track_memory) ? state_.session->state() : nullptr;
-  return build_memory_map(state_.context.modules, replay_state);
+  return build_memory_map(state_.context.modules, state_.context.memory_map, replay_state);
 }
 
 offsets_component::offsets_component(adapter_state& state) : state_(state) {}

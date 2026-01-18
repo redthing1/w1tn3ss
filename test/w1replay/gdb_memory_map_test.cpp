@@ -16,7 +16,7 @@ TEST_CASE("gdb memory map skips recorded bytes inside module ranges") {
   state.apply_memory_bytes(0x1010, {0xAA});
   state.apply_memory_bytes(0x3000, {0xBB, 0xCC});
 
-  auto regions = w1replay::gdb::build_memory_map({module}, &state);
+  auto regions = w1replay::gdb::build_memory_map({module}, {}, &state);
 
   bool saw_module = false;
   bool saw_recorded = false;

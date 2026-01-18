@@ -16,6 +16,7 @@ set(W1REPLAY_TEST_SOURCES
     gdb_run_policy_test.cpp
     gdb_register_info_test.cpp
     gdb_stepper_test.cpp
+    gdb_value_codec_test.cpp
     module_image_test.cpp
     module_source_test.cpp
     replay_context_test.cpp

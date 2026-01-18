@@ -35,6 +35,13 @@ public:
       replay_state& state
   ) const;
 
+  bool apply_register_bytes(
+      const register_bytes_record& record,
+      uint64_t active_thread_id,
+      bool track_registers,
+      replay_state& state
+  ) const;
+
   bool apply_memory_access(
       const memory_access_record& record,
       uint64_t active_thread_id,

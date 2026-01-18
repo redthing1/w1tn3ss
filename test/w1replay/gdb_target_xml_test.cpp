@@ -4,6 +4,7 @@
 
 #include "w1replay/gdb/layout.hpp"
 #include "w1replay/gdb/target_xml.hpp"
+#include "w1rewind/rewind_test_helpers.hpp"
 
 namespace {
 
@@ -20,17 +21,16 @@ bool xml_has_reg(const std::string& xml, const std::string& name, size_t regnum)
 } // namespace
 
 TEST_CASE("gdb target xml encodes architecture and regnums") {
-  auto layout = w1replay::gdb::build_register_layout(
-      w1::rewind::trace_arch::aarch64,
-      8,
-      {"x0", "x1", "lr", "sp", "pc", "nzcv"}
-  );
+  std::vector<std::string> regs = {"x0", "x1", "lr", "sp", "pc", "nzcv"};
+  auto target = w1::rewind::test_helpers::make_target_info(w1::rewind::trace_arch::aarch64, 8);
+  auto specs = w1::rewind::test_helpers::make_register_specs(regs, w1::rewind::trace_arch::aarch64, 8);
+  auto layout = w1replay::gdb::build_register_layout(target, specs);
 
   auto xml = w1replay::gdb::build_target_xml(layout);
   CHECK(xml.find("<architecture>aarch64</architecture>") != std::string::npos);
   CHECK(xml_has_reg(xml, "x0", 0));
-  CHECK(xml_has_reg(xml, "x30", 30));
-  CHECK(xml_has_reg(xml, "sp", 31));
-  CHECK(xml_has_reg(xml, "pc", 32));
-  CHECK(xml_has_reg(xml, "cpsr", 33));
+  CHECK(xml_has_reg(xml, "lr", 2));
+  CHECK(xml_has_reg(xml, "sp", 3));
+  CHECK(xml_has_reg(xml, "pc", 4));
+  CHECK(xml_has_reg(xml, "cpsr", 5));
 }
