@@ -29,9 +29,9 @@ bool replay_state_applier::apply_record(
         state
     );
   }
-  if (std::holds_alternative<boundary_record>(record)) {
-    return apply_boundary(
-        std::get<boundary_record>(record),
+  if (std::holds_alternative<snapshot_record>(record)) {
+    return apply_snapshot(
+        std::get<snapshot_record>(record),
         active_thread_id,
         track_registers,
         track_memory,
@@ -80,8 +80,8 @@ bool replay_state_applier::apply_memory_access(
   return true;
 }
 
-bool replay_state_applier::apply_boundary(
-    const boundary_record& record,
+bool replay_state_applier::apply_snapshot(
+    const snapshot_record& record,
     uint64_t active_thread_id,
     bool track_registers,
     bool track_memory,
@@ -95,7 +95,7 @@ bool replay_state_applier::apply_boundary(
     state.apply_register_snapshot(record.registers);
   }
 
-  if (!track_memory || record.stack_window.empty()) {
+  if (!track_memory || record.stack_snapshot.empty()) {
     return true;
   }
 
@@ -121,7 +121,7 @@ bool replay_state_applier::apply_boundary(
   }
 
   if (have_sp) {
-    state.apply_stack_window(sp, record.stack_window);
+    state.apply_stack_snapshot(sp, record.stack_snapshot);
   }
 
   return true;

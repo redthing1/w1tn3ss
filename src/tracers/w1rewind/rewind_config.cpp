@@ -39,8 +39,8 @@ rewind_config rewind_config::from_environment() {
   config.verbose = loader.get<int>("VERBOSE", 0);
   config.record_instructions = loader.get<bool>("RECORD_INSTRUCTIONS", config.record_instructions);
   config.record_register_deltas = loader.get<bool>("RECORD_REGISTER_DELTAS", config.record_register_deltas);
-  config.boundary_interval = loader.get<uint64_t>("BOUNDARY_INTERVAL", config.boundary_interval);
-  config.stack_window_bytes = loader.get<uint64_t>("STACK_WINDOW", config.stack_window_bytes);
+  config.snapshot_interval = loader.get<uint64_t>("SNAPSHOT_INTERVAL", config.snapshot_interval);
+  config.stack_snapshot_bytes = loader.get<uint64_t>("STACK_SNAPSHOT", config.stack_snapshot_bytes);
   config.memory.enabled = loader.get<bool>("MEMORY", false);
   config.memory.include_reads = loader.get<bool>("MEMORY_READS", false);
   config.memory.include_values = loader.get<bool>("MEMORY_VALUES", false);

@@ -210,16 +210,16 @@ inline bool decode_memory_access(trace_buffer_reader& reader, memory_access_reco
   return true;
 }
 
-inline bool encode_boundary(const boundary_record& record, trace_buffer_writer& writer, redlog::logger& log) {
+inline bool encode_snapshot(const snapshot_record& record, trace_buffer_writer& writer, redlog::logger& log) {
   if (record.registers.size() > std::numeric_limits<uint16_t>::max()) {
-    log.err("boundary register list too large", redlog::field("count", record.registers.size()));
+    log.err("snapshot register list too large", redlog::field("count", record.registers.size()));
     return false;
   }
-  if (record.stack_window.size() > std::numeric_limits<uint32_t>::max()) {
-    log.err("boundary stack window too large", redlog::field("size", record.stack_window.size()));
+  if (record.stack_snapshot.size() > std::numeric_limits<uint32_t>::max()) {
+    log.err("snapshot stack slice too large", redlog::field("size", record.stack_snapshot.size()));
     return false;
   }
-  writer.write_u64(record.boundary_id);
+  writer.write_u64(record.snapshot_id);
   writer.write_u64(record.sequence);
   writer.write_u64(record.thread_id);
   writer.write_u16(static_cast<uint16_t>(record.registers.size()));
@@ -227,9 +227,9 @@ inline bool encode_boundary(const boundary_record& record, trace_buffer_writer& 
     writer.write_u16(reg.reg_id);
     writer.write_u64(reg.value);
   }
-  writer.write_u32(static_cast<uint32_t>(record.stack_window.size()));
-  if (!record.stack_window.empty()) {
-    writer.write_bytes(record.stack_window.data(), record.stack_window.size());
+  writer.write_u32(static_cast<uint32_t>(record.stack_snapshot.size()));
+  if (!record.stack_snapshot.empty()) {
+    writer.write_bytes(record.stack_snapshot.data(), record.stack_snapshot.size());
   }
   if (!writer.write_string(record.reason)) {
     log.err("trace string too long", redlog::field("length", record.reason.size()));
@@ -238,10 +238,10 @@ inline bool encode_boundary(const boundary_record& record, trace_buffer_writer& 
   return true;
 }
 
-inline bool decode_boundary(trace_buffer_reader& reader, boundary_record& out) {
+inline bool decode_snapshot(trace_buffer_reader& reader, snapshot_record& out) {
   uint16_t reg_count = 0;
   uint32_t stack_size = 0;
-  if (!reader.read_u64(out.boundary_id) || !reader.read_u64(out.sequence) || !reader.read_u64(out.thread_id) ||
+  if (!reader.read_u64(out.snapshot_id) || !reader.read_u64(out.sequence) || !reader.read_u64(out.thread_id) ||
       !reader.read_u16(reg_count)) {
     return false;
   }
@@ -257,7 +257,7 @@ inline bool decode_boundary(trace_buffer_reader& reader, boundary_record& out) {
     return false;
   }
   if (stack_size > 0) {
-    if (!reader.read_bytes(out.stack_window, stack_size)) {
+    if (!reader.read_bytes(out.stack_snapshot, stack_size)) {
       return false;
     }
   }

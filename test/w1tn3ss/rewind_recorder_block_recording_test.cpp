@@ -26,7 +26,7 @@ int rewind_block_test_worker(int count) {
 
 } // namespace
 
-TEST_CASE("w1rewind records block flow and boundaries") {
+TEST_CASE("w1rewind records block flow and snapshots") {
   namespace fs = std::filesystem;
 
   fs::path path = fs::temp_directory_path() / "w1rewind_recorder_blocks.trace";
@@ -43,8 +43,8 @@ TEST_CASE("w1rewind records block flow and boundaries") {
   config.output_path = path.string();
   config.record_instructions = false;
   config.record_register_deltas = false;
-  config.boundary_interval = 1;
-  config.stack_window_bytes = 0;
+  config.snapshot_interval = 1;
+  config.stack_snapshot_bytes = 0;
   config.memory.enabled = false;
 
   w1::trace_session_config session_config;
@@ -73,7 +73,7 @@ TEST_CASE("w1rewind records block flow and boundaries") {
 
   size_t block_exec_count = 0;
   size_t block_def_count = 0;
-  size_t boundary_count = 0;
+  size_t snapshot_count = 0;
   size_t thread_start_count = 0;
   size_t thread_end_count = 0;
   size_t instruction_count = 0;
@@ -99,10 +99,10 @@ TEST_CASE("w1rewind records block flow and boundaries") {
       block_exec_count += 1;
       block_sequences.insert(exec.sequence);
       CHECK(block_ids.find(exec.block_id) != block_ids.end());
-    } else if (std::holds_alternative<w1::rewind::boundary_record>(record)) {
-      const auto& boundary = std::get<w1::rewind::boundary_record>(record);
-      CHECK(block_sequences.find(boundary.sequence) != block_sequences.end());
-      boundary_count += 1;
+    } else if (std::holds_alternative<w1::rewind::snapshot_record>(record)) {
+      const auto& snapshot = std::get<w1::rewind::snapshot_record>(record);
+      CHECK(block_sequences.find(snapshot.sequence) != block_sequences.end());
+      snapshot_count += 1;
     } else if (std::holds_alternative<w1::rewind::instruction_record>(record)) {
       instruction_count += 1;
     } else if (std::holds_alternative<w1::rewind::thread_start_record>(record)) {
@@ -118,7 +118,7 @@ TEST_CASE("w1rewind records block flow and boundaries") {
   CHECK((reader.header().flags & w1::rewind::trace_flag_instructions) == 0);
   CHECK((reader.header().flags & w1::rewind::trace_flag_register_deltas) == 0);
   CHECK((reader.header().flags & w1::rewind::trace_flag_memory_access) == 0);
-  CHECK((reader.header().flags & w1::rewind::trace_flag_boundaries) != 0);
+  CHECK((reader.header().flags & w1::rewind::trace_flag_snapshots) != 0);
   CHECK(!reader.register_table().empty());
   CHECK(!reader.module_table().empty());
   CHECK(!reader.block_table().empty());
@@ -126,10 +126,10 @@ TEST_CASE("w1rewind records block flow and boundaries") {
   CHECK(block_def_count > 0);
   CHECK(block_exec_count > 0);
   CHECK(instruction_count == 0);
-  CHECK(boundary_count > 0);
+  CHECK(snapshot_count > 0);
   CHECK(thread_start_count == 1);
   CHECK(thread_end_count == 1);
-  CHECK(boundary_count == block_exec_count / config.boundary_interval);
+  CHECK(snapshot_count == block_exec_count / config.snapshot_interval);
 
   fs::remove(path);
 }

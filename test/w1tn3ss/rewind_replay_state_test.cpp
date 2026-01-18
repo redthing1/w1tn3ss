@@ -4,6 +4,7 @@
 
 #include "rewind_test_helpers.hpp"
 #include "w1tn3ss/runtime/rewind/replay_flow_cursor.hpp"
+#include "w1tn3ss/runtime/rewind/trace_format.hpp"
 #include "w1tn3ss/runtime/rewind/trace_index.hpp"
 #include "w1tn3ss/runtime/rewind/trace_writer.hpp"
 
@@ -47,7 +48,7 @@ TEST_CASE("w1rewind replay cursor applies register and memory state") {
   header.pointer_size = w1::rewind::detect_pointer_size();
   header.flags = w1::rewind::trace_flag_instructions | w1::rewind::trace_flag_register_deltas |
                  w1::rewind::trace_flag_memory_access | w1::rewind::trace_flag_memory_values |
-                 w1::rewind::trace_flag_boundaries | w1::rewind::trace_flag_stack_window;
+                 w1::rewind::trace_flag_snapshots | w1::rewind::trace_flag_stack_snapshot;
   REQUIRE(writer->write_header(header));
 
   write_register_table(*writer, make_register_names(header.architecture));
@@ -76,17 +77,17 @@ TEST_CASE("w1rewind replay cursor applies register and memory state") {
   mem.data = {0xDE, 0xAD};
   REQUIRE(writer->write_memory_access(mem));
 
-  w1::rewind::boundary_record boundary{};
-  boundary.boundary_id = 1;
-  boundary.sequence = 1;
-  boundary.thread_id = 1;
-  boundary.registers = {
+  w1::rewind::snapshot_record snapshot{};
+  snapshot.snapshot_id = 1;
+  snapshot.sequence = 1;
+  snapshot.thread_id = 1;
+  snapshot.registers = {
       w1::rewind::register_delta{0, 0x2222},
       w1::rewind::register_delta{1, 0x3000},
   };
-  boundary.stack_window = {0x10, 0x20};
-  boundary.reason = "test";
-  REQUIRE(writer->write_boundary(boundary));
+  snapshot.stack_snapshot = {0x10, 0x20};
+  snapshot.reason = "test";
+  REQUIRE(writer->write_snapshot(snapshot));
 
   write_thread_end(*writer, 1);
 
@@ -123,7 +124,8 @@ TEST_CASE("w1rewind replay cursor applies register and memory state") {
   CHECK(mem_bytes[0].value() == 0xDE);
   CHECK(mem_bytes[1].value() == 0xAD);
 
-  auto stack_bytes = state->read_memory(0x3000, 2);
+  auto stack_layout = w1::rewind::compute_stack_snapshot_layout(0x3000, 2);
+  auto stack_bytes = state->read_memory(stack_layout.base, 2);
   REQUIRE(stack_bytes.size() == 2);
   CHECK(stack_bytes[0].has_value());
   CHECK(stack_bytes[1].has_value());

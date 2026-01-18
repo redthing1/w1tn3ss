@@ -30,9 +30,9 @@ replay_context::trace_features replay_context::features() const {
   out.has_registers = has_registers();
   out.has_memory_access = (header.flags & trace_flag_memory_access) != 0;
   out.has_memory_values = (header.flags & trace_flag_memory_values) != 0;
-  out.has_stack_window = (header.flags & trace_flag_stack_window) != 0;
+  out.has_stack_snapshot = (header.flags & trace_flag_stack_snapshot) != 0;
   out.has_blocks = has_blocks();
-  out.track_memory = out.has_registers && ((out.has_memory_access && out.has_memory_values) || out.has_stack_window);
+  out.track_memory = out.has_registers && ((out.has_memory_access && out.has_memory_values) || out.has_stack_snapshot);
   return out;
 }
 

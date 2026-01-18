@@ -97,16 +97,16 @@ bool replay_flow_cursor::seek(uint64_t thread_id, uint64_t sequence) {
 
     const trace_index* index = cursor_.index();
     if (index) {
-      auto boundary = index->find_boundary(thread_id, sequence);
-      if (boundary.has_value() && boundary->sequence == sequence) {
+      auto snapshot = index->find_snapshot(thread_id, sequence);
+      if (snapshot.has_value() && snapshot->sequence == sequence) {
         if (sequence > 0) {
-          boundary = index->find_boundary(thread_id, sequence - 1);
+          snapshot = index->find_snapshot(thread_id, sequence - 1);
         } else {
-          boundary.reset();
+          snapshot.reset();
         }
       }
-      if (boundary.has_value()) {
-        if (!cursor_.seek_to_location({boundary->chunk_index, boundary->record_offset})) {
+      if (snapshot.has_value()) {
+        if (!cursor_.seek_to_location({snapshot->chunk_index, snapshot->record_offset})) {
           set_error(replay_flow_error_kind::other, cursor_.error());
           return false;
         }

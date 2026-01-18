@@ -26,7 +26,7 @@ int rewind_test_worker(int count) {
 
 } // namespace
 
-TEST_CASE("w1rewind records instruction flow, memory, and boundaries") {
+TEST_CASE("w1rewind records instruction flow, memory, and snapshots") {
   namespace fs = std::filesystem;
 
   fs::path path = fs::temp_directory_path() / "w1rewind_recorder_recording.trace";
@@ -43,8 +43,8 @@ TEST_CASE("w1rewind records instruction flow, memory, and boundaries") {
   config.output_path = path.string();
   config.record_instructions = true;
   config.record_register_deltas = true;
-  config.boundary_interval = 8;
-  config.stack_window_bytes = 0;
+  config.snapshot_interval = 8;
+  config.stack_snapshot_bytes = 0;
   config.memory.enabled = true;
   config.memory.include_reads = true;
   config.memory.include_values = true;
@@ -77,7 +77,7 @@ TEST_CASE("w1rewind records instruction flow, memory, and boundaries") {
   size_t instruction_count = 0;
   size_t delta_count = 0;
   size_t memory_count = 0;
-  size_t boundary_count = 0;
+  size_t snapshot_count = 0;
   size_t thread_start_count = 0;
   size_t thread_end_count = 0;
   bool saw_truncated = false;
@@ -114,10 +114,10 @@ TEST_CASE("w1rewind records instruction flow, memory, and boundaries") {
         CHECK(mem.data.size() <= memory_max_bytes);
       }
       memory_count += 1;
-    } else if (std::holds_alternative<w1::rewind::boundary_record>(record)) {
-      const auto& boundary = std::get<w1::rewind::boundary_record>(record);
-      CHECK(instruction_sequences.find(boundary.sequence) != instruction_sequences.end());
-      boundary_count += 1;
+    } else if (std::holds_alternative<w1::rewind::snapshot_record>(record)) {
+      const auto& snapshot = std::get<w1::rewind::snapshot_record>(record);
+      CHECK(instruction_sequences.find(snapshot.sequence) != instruction_sequences.end());
+      snapshot_count += 1;
     } else if (std::holds_alternative<w1::rewind::thread_start_record>(record)) {
       thread_start_count += 1;
     } else if (std::holds_alternative<w1::rewind::thread_end_record>(record)) {
@@ -132,19 +132,19 @@ TEST_CASE("w1rewind records instruction flow, memory, and boundaries") {
   CHECK((reader.header().flags & w1::rewind::trace_flag_register_deltas) != 0);
   CHECK((reader.header().flags & w1::rewind::trace_flag_memory_access) != 0);
   CHECK((reader.header().flags & w1::rewind::trace_flag_memory_values) != 0);
-  CHECK((reader.header().flags & w1::rewind::trace_flag_boundaries) != 0);
+  CHECK((reader.header().flags & w1::rewind::trace_flag_snapshots) != 0);
   CHECK(!reader.register_table().empty());
   CHECK(!reader.module_table().empty());
 
   CHECK(instruction_count > 0);
   CHECK(delta_count > 0);
   CHECK(memory_count > 0);
-  CHECK(boundary_count > 0);
+  CHECK(snapshot_count > 0);
   CHECK(thread_start_count == 1);
   CHECK(thread_end_count == 1);
   CHECK(delta_count <= instruction_count);
   CHECK(saw_truncated);
-  CHECK(boundary_count == instruction_count / config.boundary_interval);
+  CHECK(snapshot_count == instruction_count / config.snapshot_interval);
 
   fs::remove(path);
 }

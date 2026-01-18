@@ -14,24 +14,24 @@ namespace w1::rewind {
 constexpr uint16_t k_trace_version = 6;
 constexpr std::array<uint8_t, 8> k_trace_magic = {'W', '1', 'R', 'W', 'N', 'D', '6', '\0'};
 constexpr uint32_t k_trace_chunk_bytes = 8 * 1024 * 1024;
-constexpr uint64_t k_stack_window_above_cap = 0x200;
+constexpr uint64_t k_stack_snapshot_above_cap = 0x200;
 
-struct stack_window_layout {
+struct stack_snapshot_layout {
   uint64_t base = 0;
   uint64_t size = 0;
   uint64_t below = 0;
   uint64_t above = 0;
 };
 
-inline stack_window_layout compute_stack_window_layout(uint64_t sp, uint64_t window_bytes) {
-  stack_window_layout layout{};
+inline stack_snapshot_layout compute_stack_snapshot_layout(uint64_t sp, uint64_t window_bytes) {
+  stack_snapshot_layout layout{};
   if (window_bytes == 0) {
     return layout;
   }
 
   uint64_t above = window_bytes / 4;
-  if (above > k_stack_window_above_cap) {
-    above = k_stack_window_above_cap;
+  if (above > k_stack_snapshot_above_cap) {
+    above = k_stack_snapshot_above_cap;
   }
   if (above > window_bytes) {
     above = window_bytes;
@@ -77,8 +77,8 @@ enum trace_flags : uint64_t {
   trace_flag_register_deltas = 1ull << 1,
   trace_flag_memory_access = 1ull << 2,
   trace_flag_memory_values = 1ull << 3,
-  trace_flag_boundaries = 1ull << 4,
-  trace_flag_stack_window = 1ull << 5,
+  trace_flag_snapshots = 1ull << 4,
+  trace_flag_stack_snapshot = 1ull << 5,
   trace_flag_blocks = 1ull << 6,
 };
 
@@ -94,7 +94,7 @@ enum class record_kind : uint16_t {
   instruction = 4,
   register_deltas = 5,
   memory_access = 6,
-  boundary = 7,
+  snapshot = 7,
   thread_end = 8,
   block_definition = 9,
   block_exec = 10,
@@ -182,12 +182,12 @@ struct memory_access_record {
   std::vector<uint8_t> data;
 };
 
-struct boundary_record {
-  uint64_t boundary_id = 0;
+struct snapshot_record {
+  uint64_t snapshot_id = 0;
   uint64_t sequence = 0;
   uint64_t thread_id = 0;
   std::vector<register_delta> registers;
-  std::vector<uint8_t> stack_window;
+  std::vector<uint8_t> stack_snapshot;
   std::string reason;
 };
 
@@ -197,7 +197,7 @@ struct thread_end_record {
 
 using trace_record = std::variant<
     register_table_record, module_table_record, thread_start_record, instruction_record, block_definition_record,
-    block_exec_record, register_delta_record, memory_access_record, boundary_record, thread_end_record>;
+    block_exec_record, register_delta_record, memory_access_record, snapshot_record, thread_end_record>;
 
 inline trace_arch detect_trace_arch() {
 #if defined(QBDI_ARCH_X86_64)

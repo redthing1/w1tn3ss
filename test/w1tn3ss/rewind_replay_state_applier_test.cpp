@@ -1,8 +1,9 @@
 #include "doctest/doctest.hpp"
 
 #include "w1tn3ss/runtime/rewind/replay_state_applier.hpp"
+#include "w1tn3ss/runtime/rewind/trace_format.hpp"
 
-TEST_CASE("w1rewind replay state applier applies boundary snapshot and stack window") {
+TEST_CASE("w1rewind replay state applier applies snapshot state and stack snapshot") {
   w1::rewind::replay_context context{};
   context.register_names = {"r0", "sp"};
   context.sp_reg_id = 1;
@@ -10,22 +11,23 @@ TEST_CASE("w1rewind replay state applier applies boundary snapshot and stack win
   w1::rewind::replay_state state;
   state.set_register_count(context.register_names.size());
 
-  w1::rewind::boundary_record boundary{};
-  boundary.thread_id = 1;
-  boundary.registers = {
+  w1::rewind::snapshot_record snapshot{};
+  snapshot.thread_id = 1;
+  snapshot.registers = {
       w1::rewind::register_delta{0, 0x1111},
       w1::rewind::register_delta{1, 0x2000},
   };
-  boundary.stack_window = {0xAA, 0xBB};
+  snapshot.stack_snapshot = {0xAA, 0xBB};
 
   w1::rewind::replay_state_applier applier(context);
-  REQUIRE(applier.apply_boundary(boundary, 1, true, true, state));
+  REQUIRE(applier.apply_snapshot(snapshot, 1, true, true, state));
 
   CHECK(state.register_value(0) == 0x1111);
   CHECK(state.register_value(1) == 0x2000);
 
-  auto mem = state.read_memory(0x2000, 2);
-  REQUIRE(mem.size() == 2);
+  auto layout = w1::rewind::compute_stack_snapshot_layout(0x2000, snapshot.stack_snapshot.size());
+  auto mem = state.read_memory(layout.base, snapshot.stack_snapshot.size());
+  REQUIRE(mem.size() == snapshot.stack_snapshot.size());
   CHECK(mem[0].has_value());
   CHECK(mem[1].has_value());
   CHECK(mem[0].value() == 0xAA);

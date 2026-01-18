@@ -16,7 +16,7 @@ namespace {
 struct thread_build_state {
   uint64_t flow_count = 0;
   std::vector<trace_anchor> anchors;
-  std::vector<trace_anchor> boundaries;
+  std::vector<trace_anchor> snapshots;
 };
 
 bool write_index_header(
@@ -25,7 +25,7 @@ bool write_index_header(
     uint32_t chunk_count,
     uint32_t thread_count,
     uint32_t anchor_count,
-    uint32_t boundary_count
+    uint32_t snapshot_count
 ) {
   if (!write_stream_bytes(out, k_trace_index_magic.data(), k_trace_index_magic.size())) {
     return false;
@@ -34,7 +34,7 @@ bool write_index_header(
          write_stream_u32(out, header.chunk_size) && write_stream_u64(out, header.trace_flags) &&
          write_stream_u32(out, header.anchor_stride) && write_stream_u32(out, chunk_count) &&
          write_stream_u32(out, thread_count) && write_stream_u32(out, anchor_count) &&
-         write_stream_u32(out, boundary_count);
+         write_stream_u32(out, snapshot_count);
 }
 
 bool read_index_header(
@@ -43,7 +43,7 @@ bool read_index_header(
     uint32_t& chunk_count,
     uint32_t& thread_count,
     uint32_t& anchor_count,
-    uint32_t& boundary_count
+    uint32_t& snapshot_count
 ) {
   std::array<uint8_t, 8> magic{};
   if (!read_stream_bytes(in, magic.data(), magic.size())) {
@@ -56,7 +56,7 @@ bool read_index_header(
          read_stream_u32(in, header.chunk_size) && read_stream_u64(in, header.trace_flags) &&
          read_stream_u32(in, header.anchor_stride) && read_stream_u32(in, chunk_count) &&
          read_stream_u32(in, thread_count) && read_stream_u32(in, anchor_count) &&
-         read_stream_u32(in, boundary_count);
+         read_stream_u32(in, snapshot_count);
 }
 
 std::optional<trace_anchor> find_anchor_in_span(
@@ -109,12 +109,12 @@ std::optional<trace_anchor> trace_index::find_anchor(uint64_t thread_id, uint64_
   return find_anchor_in_span(anchors, entry->anchor_start, entry->anchor_count, sequence);
 }
 
-std::optional<trace_anchor> trace_index::find_boundary(uint64_t thread_id, uint64_t sequence) const {
+std::optional<trace_anchor> trace_index::find_snapshot(uint64_t thread_id, uint64_t sequence) const {
   const trace_thread_index* entry = find_thread(thread_id);
   if (!entry) {
     return std::nullopt;
   }
-  return find_anchor_in_span(boundaries, entry->boundary_start, entry->boundary_count, sequence);
+  return find_anchor_in_span(snapshots, entry->snapshot_start, entry->snapshot_count, sequence);
 }
 
 std::string default_trace_index_path(const std::string& trace_path) { return trace_path + ".idx"; }
@@ -189,10 +189,10 @@ bool build_trace_index(
         state.anchors.push_back(trace_anchor{inst.sequence, location.chunk_index, location.record_offset});
       }
       state.flow_count += 1;
-    } else if (options.include_boundaries && std::holds_alternative<boundary_record>(record)) {
-      const auto& boundary = std::get<boundary_record>(record);
-      auto& state = threads[boundary.thread_id];
-      state.boundaries.push_back(trace_anchor{boundary.sequence, location.chunk_index, location.record_offset});
+    } else if (options.include_snapshots && std::holds_alternative<snapshot_record>(record)) {
+      const auto& snapshot = std::get<snapshot_record>(record);
+      auto& state = threads[snapshot.thread_id];
+      state.snapshots.push_back(trace_anchor{snapshot.sequence, location.chunk_index, location.record_offset});
     }
   }
 
@@ -207,9 +207,9 @@ bool build_trace_index(
     entry.anchor_start = static_cast<uint32_t>(index.anchors.size());
     entry.anchor_count = static_cast<uint32_t>(state.anchors.size());
     index.anchors.insert(index.anchors.end(), state.anchors.begin(), state.anchors.end());
-    entry.boundary_start = static_cast<uint32_t>(index.boundaries.size());
-    entry.boundary_count = static_cast<uint32_t>(state.boundaries.size());
-    index.boundaries.insert(index.boundaries.end(), state.boundaries.begin(), state.boundaries.end());
+    entry.snapshot_start = static_cast<uint32_t>(index.snapshots.size());
+    entry.snapshot_count = static_cast<uint32_t>(state.snapshots.size());
+    index.snapshots.insert(index.snapshots.end(), state.snapshots.begin(), state.snapshots.end());
     index.threads.push_back(entry);
   }
 
@@ -225,7 +225,7 @@ bool build_trace_index(
           static_cast<uint32_t>(index.chunks.size()),
           static_cast<uint32_t>(index.threads.size()),
           static_cast<uint32_t>(index.anchors.size()),
-          static_cast<uint32_t>(index.boundaries.size())
+          static_cast<uint32_t>(index.snapshots.size())
       )) {
     log.err("failed to write trace index header", redlog::field("path", index_path));
     return false;
@@ -241,8 +241,8 @@ bool build_trace_index(
 
   for (const auto& thread : index.threads) {
     if (!write_stream_u64(out_stream, thread.thread_id) || !write_stream_u32(out_stream, thread.anchor_start) ||
-        !write_stream_u32(out_stream, thread.anchor_count) || !write_stream_u32(out_stream, thread.boundary_start) ||
-        !write_stream_u32(out_stream, thread.boundary_count)) {
+        !write_stream_u32(out_stream, thread.anchor_count) || !write_stream_u32(out_stream, thread.snapshot_start) ||
+        !write_stream_u32(out_stream, thread.snapshot_count)) {
       log.err("failed to write trace thread index", redlog::field("path", index_path));
       return false;
     }
@@ -256,10 +256,10 @@ bool build_trace_index(
     }
   }
 
-  for (const auto& anchor : index.boundaries) {
+  for (const auto& anchor : index.snapshots) {
     if (!write_stream_u64(out_stream, anchor.sequence) || !write_stream_u32(out_stream, anchor.chunk_index) ||
         !write_stream_u32(out_stream, anchor.record_offset)) {
-      log.err("failed to write trace boundary index", redlog::field("path", index_path));
+      log.err("failed to write trace snapshot index", redlog::field("path", index_path));
       return false;
     }
   }
@@ -286,9 +286,9 @@ bool load_trace_index(const std::string& index_path, trace_index& out, redlog::l
   uint32_t chunk_count = 0;
   uint32_t thread_count = 0;
   uint32_t anchor_count = 0;
-  uint32_t boundary_count = 0;
+  uint32_t snapshot_count = 0;
 
-  if (!read_index_header(in, index.header, chunk_count, thread_count, anchor_count, boundary_count)) {
+  if (!read_index_header(in, index.header, chunk_count, thread_count, anchor_count, snapshot_count)) {
     log.err("invalid trace index header", redlog::field("path", index_path));
     return false;
   }
@@ -310,8 +310,8 @@ bool load_trace_index(const std::string& index_path, trace_index& out, redlog::l
   index.threads.resize(thread_count);
   for (auto& thread : index.threads) {
     if (!read_stream_u64(in, thread.thread_id) || !read_stream_u32(in, thread.anchor_start) ||
-        !read_stream_u32(in, thread.anchor_count) || !read_stream_u32(in, thread.boundary_start) ||
-        !read_stream_u32(in, thread.boundary_count)) {
+        !read_stream_u32(in, thread.anchor_count) || !read_stream_u32(in, thread.snapshot_start) ||
+        !read_stream_u32(in, thread.snapshot_count)) {
       log.err("failed to read trace thread index", redlog::field("path", index_path));
       return false;
     }
@@ -326,11 +326,11 @@ bool load_trace_index(const std::string& index_path, trace_index& out, redlog::l
     }
   }
 
-  index.boundaries.resize(boundary_count);
-  for (auto& anchor : index.boundaries) {
+  index.snapshots.resize(snapshot_count);
+  for (auto& anchor : index.snapshots) {
     if (!read_stream_u64(in, anchor.sequence) || !read_stream_u32(in, anchor.chunk_index) ||
         !read_stream_u32(in, anchor.record_offset)) {
-      log.err("failed to read trace boundary index", redlog::field("path", index_path));
+      log.err("failed to read trace snapshot index", redlog::field("path", index_path));
       return false;
     }
   }
@@ -340,8 +340,8 @@ bool load_trace_index(const std::string& index_path, trace_index& out, redlog::l
       log.err("trace index anchor range out of bounds", redlog::field("thread_id", thread.thread_id));
       return false;
     }
-    if (thread.boundary_start + thread.boundary_count > index.boundaries.size()) {
-      log.err("trace index boundary range out of bounds", redlog::field("thread_id", thread.thread_id));
+    if (thread.snapshot_start + thread.snapshot_count > index.snapshots.size()) {
+      log.err("trace index snapshot range out of bounds", redlog::field("thread_id", thread.thread_id));
       return false;
     }
   }

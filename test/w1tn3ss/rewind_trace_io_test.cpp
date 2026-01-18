@@ -31,7 +31,7 @@ TEST_CASE("rewind trace writer and reader round trip (instructions)") {
   header.pointer_size = w1::rewind::detect_pointer_size();
   header.flags = w1::rewind::trace_flag_instructions | w1::rewind::trace_flag_register_deltas |
                  w1::rewind::trace_flag_memory_access | w1::rewind::trace_flag_memory_values |
-                 w1::rewind::trace_flag_boundaries | w1::rewind::trace_flag_stack_window;
+                 w1::rewind::trace_flag_snapshots | w1::rewind::trace_flag_stack_snapshot;
   REQUIRE(writer->write_header(header));
 
   w1::rewind::register_table_record reg_table{};
@@ -42,7 +42,7 @@ TEST_CASE("rewind trace writer and reader round trip (instructions)") {
   module.id = 1;
   module.base = 0x1000;
   module.size = 0x2000;
-  module.permissions = 5;
+  module.permissions = w1::rewind::module_perm::read | w1::rewind::module_perm::exec;
   module.path = "/bin/test_module";
 
   w1::rewind::module_table_record mod_table{};
@@ -81,17 +81,17 @@ TEST_CASE("rewind trace writer and reader round trip (instructions)") {
   mem.data = {0x01, 0x02, 0x03, 0x04};
   REQUIRE(writer->write_memory_access(mem));
 
-  w1::rewind::boundary_record boundary{};
-  boundary.boundary_id = 7;
-  boundary.sequence = 1;
-  boundary.thread_id = 1;
-  boundary.registers = {
+  w1::rewind::snapshot_record snapshot{};
+  snapshot.snapshot_id = 7;
+  snapshot.sequence = 1;
+  snapshot.thread_id = 1;
+  snapshot.registers = {
       w1::rewind::register_delta{0, 0xAAAA},
       w1::rewind::register_delta{1, 0xBBBB},
   };
-  boundary.stack_window = {0x10, 0x20};
-  boundary.reason = "interval";
-  REQUIRE(writer->write_boundary(boundary));
+  snapshot.stack_snapshot = {0x10, 0x20};
+  snapshot.reason = "interval";
+  REQUIRE(writer->write_snapshot(snapshot));
 
   w1::rewind::thread_end_record end{};
   end.thread_id = 1;
@@ -124,7 +124,7 @@ TEST_CASE("rewind trace writer and reader round trip (instructions)") {
   CHECK(std::holds_alternative<w1::rewind::instruction_record>(records[3]));
   CHECK(std::holds_alternative<w1::rewind::register_delta_record>(records[4]));
   CHECK(std::holds_alternative<w1::rewind::memory_access_record>(records[5]));
-  CHECK(std::holds_alternative<w1::rewind::boundary_record>(records[6]));
+  CHECK(std::holds_alternative<w1::rewind::snapshot_record>(records[6]));
   CHECK(std::holds_alternative<w1::rewind::thread_end_record>(records[7]));
 
   fs::remove(path);
@@ -159,7 +159,7 @@ TEST_CASE("rewind trace writer and reader round trip (compressed blocks)") {
   module.id = 1;
   module.base = 0x1000;
   module.size = 0x2000;
-  module.permissions = 5;
+  module.permissions = w1::rewind::module_perm::read | w1::rewind::module_perm::exec;
   module.path = "/bin/test_module";
 
   w1::rewind::module_table_record mod_table{};
@@ -232,7 +232,7 @@ TEST_CASE("rewind trace writer and reader round trip (blocks)") {
   w1::rewind::trace_header header{};
   header.architecture = w1::rewind::detect_trace_arch();
   header.pointer_size = w1::rewind::detect_pointer_size();
-  header.flags = w1::rewind::trace_flag_blocks | w1::rewind::trace_flag_boundaries;
+  header.flags = w1::rewind::trace_flag_blocks | w1::rewind::trace_flag_snapshots;
   REQUIRE(writer->write_header(header));
 
   w1::rewind::register_table_record reg_table{};
@@ -243,7 +243,7 @@ TEST_CASE("rewind trace writer and reader round trip (blocks)") {
   module.id = 1;
   module.base = 0x5000;
   module.size = 0x2000;
-  module.permissions = 5;
+  module.permissions = w1::rewind::module_perm::read | w1::rewind::module_perm::exec;
   module.path = "/bin/test_module";
 
   w1::rewind::module_table_record mod_table{};
@@ -268,17 +268,17 @@ TEST_CASE("rewind trace writer and reader round trip (blocks)") {
   block_exec.block_id = 10;
   REQUIRE(writer->write_block_exec(block_exec));
 
-  w1::rewind::boundary_record boundary{};
-  boundary.boundary_id = 3;
-  boundary.sequence = 1;
-  boundary.thread_id = 1;
-  boundary.registers = {
+  w1::rewind::snapshot_record snapshot{};
+  snapshot.snapshot_id = 3;
+  snapshot.sequence = 1;
+  snapshot.thread_id = 1;
+  snapshot.registers = {
       w1::rewind::register_delta{0, 0xAAAA},
       w1::rewind::register_delta{1, 0xBBBB},
   };
-  boundary.stack_window = {};
-  boundary.reason = "interval";
-  REQUIRE(writer->write_boundary(boundary));
+  snapshot.stack_snapshot = {};
+  snapshot.reason = "interval";
+  REQUIRE(writer->write_snapshot(snapshot));
 
   w1::rewind::thread_end_record end{};
   end.thread_id = 1;
@@ -308,7 +308,7 @@ TEST_CASE("rewind trace writer and reader round trip (blocks)") {
   CHECK(std::holds_alternative<w1::rewind::thread_start_record>(records[2]));
   CHECK(std::holds_alternative<w1::rewind::block_definition_record>(records[3]));
   CHECK(std::holds_alternative<w1::rewind::block_exec_record>(records[4]));
-  CHECK(std::holds_alternative<w1::rewind::boundary_record>(records[5]));
+  CHECK(std::holds_alternative<w1::rewind::snapshot_record>(records[5]));
   CHECK(std::holds_alternative<w1::rewind::thread_end_record>(records[6]));
   CHECK(reader.block_table().size() == 1);
 

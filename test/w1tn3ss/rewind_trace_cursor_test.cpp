@@ -70,7 +70,7 @@ TEST_CASE("w1rewind trace cursor seeks to a flow sequence") {
 
   w1::rewind::trace_index_options options;
   options.anchor_stride = 2;
-  options.include_boundaries = false;
+  options.include_snapshots = false;
 
   w1::rewind::trace_index index;
   REQUIRE(w1::rewind::build_trace_index(trace_path.string(), index_path.string(), options, &index, writer_config.log));

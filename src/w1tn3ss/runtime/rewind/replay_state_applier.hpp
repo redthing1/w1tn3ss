@@ -20,8 +20,8 @@ public:
       replay_state& state
   ) const;
 
-  bool apply_boundary(
-      const boundary_record& record,
+  bool apply_snapshot(
+      const snapshot_record& record,
       uint64_t active_thread_id,
       bool track_registers,
       bool track_memory,

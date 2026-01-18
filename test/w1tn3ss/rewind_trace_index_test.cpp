@@ -73,7 +73,7 @@ TEST_CASE("w1rewind trace index builds anchors for instruction flow") {
 
   w1::rewind::trace_index_options options;
   options.anchor_stride = 3;
-  options.include_boundaries = false;
+  options.include_snapshots = false;
 
   w1::rewind::trace_index index;
   REQUIRE(w1::rewind::build_trace_index(trace_path.string(), index_path.string(), options, &index, writer_config.log));

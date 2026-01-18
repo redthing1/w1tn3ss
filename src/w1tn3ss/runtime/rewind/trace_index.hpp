@@ -33,13 +33,13 @@ struct trace_thread_index {
   uint64_t thread_id = 0;
   uint32_t anchor_start = 0;
   uint32_t anchor_count = 0;
-  uint32_t boundary_start = 0;
-  uint32_t boundary_count = 0;
+  uint32_t snapshot_start = 0;
+  uint32_t snapshot_count = 0;
 };
 
 struct trace_index_options {
   uint32_t anchor_stride = 50000;
-  bool include_boundaries = true;
+  bool include_snapshots = true;
 };
 
 struct trace_index {
@@ -47,11 +47,11 @@ struct trace_index {
   std::vector<trace_chunk_info> chunks{};
   std::vector<trace_thread_index> threads{};
   std::vector<trace_anchor> anchors{};
-  std::vector<trace_anchor> boundaries{};
+  std::vector<trace_anchor> snapshots{};
 
   const trace_thread_index* find_thread(uint64_t thread_id) const;
   std::optional<trace_anchor> find_anchor(uint64_t thread_id, uint64_t sequence) const;
-  std::optional<trace_anchor> find_boundary(uint64_t thread_id, uint64_t sequence) const;
+  std::optional<trace_anchor> find_snapshot(uint64_t thread_id, uint64_t sequence) const;
 };
 
 std::string default_trace_index_path(const std::string& trace_path);

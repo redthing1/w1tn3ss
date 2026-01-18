@@ -16,8 +16,8 @@ struct rewind_config {
 
   bool record_instructions = false;
   bool record_register_deltas = false;
-  uint64_t boundary_interval = 4096;
-  uint64_t stack_window_bytes = 0;
+  uint64_t snapshot_interval = 4096;
+  uint64_t stack_snapshot_bytes = 0;
 
   struct memory_capture_options {
     bool enabled = false;

@@ -233,14 +233,14 @@ bool build_replay_checkpoint(
       continue;
     }
 
-    if (std::holds_alternative<boundary_record>(record)) {
-      const auto& boundary = std::get<boundary_record>(record);
-      if (config.thread_id != 0 && boundary.thread_id != config.thread_id) {
+    if (std::holds_alternative<snapshot_record>(record)) {
+      const auto& snapshot = std::get<snapshot_record>(record);
+      if (config.thread_id != 0 && snapshot.thread_id != config.thread_id) {
         continue;
       }
-      auto& state = threads[boundary.thread_id];
-      applier.apply_boundary(boundary, boundary.thread_id, true, config.include_memory, state.state);
-      for (const auto& delta : boundary.registers) {
+      auto& state = threads[snapshot.thread_id];
+      applier.apply_snapshot(snapshot, snapshot.thread_id, true, config.include_memory, state.state);
+      for (const auto& delta : snapshot.registers) {
         max_register_id = std::max(max_register_id, static_cast<uint32_t>(delta.reg_id));
         have_registers = true;
       }

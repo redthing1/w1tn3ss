@@ -57,11 +57,11 @@ void replay_state::apply_memory_bytes(uint64_t address, const std::vector<uint8_
   }
 }
 
-void replay_state::apply_stack_window(uint64_t sp, const std::vector<uint8_t>& bytes) {
+void replay_state::apply_stack_snapshot(uint64_t sp, const std::vector<uint8_t>& bytes) {
   if (bytes.empty()) {
     return;
   }
-  auto layout = compute_stack_window_layout(sp, static_cast<uint64_t>(bytes.size()));
+  auto layout = compute_stack_snapshot_layout(sp, static_cast<uint64_t>(bytes.size()));
   if (layout.size == 0) {
     return;
   }

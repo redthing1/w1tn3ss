@@ -442,9 +442,9 @@ bool trace_reader::parse_record(const record_header& header, const std::vector<u
     record = std::move(out);
     return true;
   }
-  case record_kind::boundary: {
-    boundary_record out{};
-    if (!decode_boundary(reader, out)) {
+  case record_kind::snapshot: {
+    snapshot_record out{};
+    if (!decode_snapshot(reader, out)) {
       return false;
     }
     record = std::move(out);

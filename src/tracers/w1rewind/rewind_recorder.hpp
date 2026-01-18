@@ -40,10 +40,10 @@ public:
   void on_thread_stop(w1::trace_context& ctx, const w1::thread_event& event);
 
 private:
-  struct pending_boundary {
-    uint64_t boundary_id = 0;
+  struct pending_snapshot {
+    uint64_t snapshot_id = 0;
     std::vector<w1::rewind::register_delta> registers;
-    std::vector<uint8_t> stack_window;
+    std::vector<uint8_t> stack_snapshot;
     std::string reason;
   };
 
@@ -51,7 +51,7 @@ private:
     w1::rewind::instruction_record record;
     std::vector<w1::rewind::register_delta> register_deltas;
     std::vector<w1::rewind::memory_access_record> memory_accesses;
-    std::optional<pending_boundary> boundary;
+    std::optional<pending_snapshot> snapshot;
   };
 
   struct thread_state {
@@ -59,8 +59,8 @@ private:
     std::string thread_name;
     uint64_t sequence = 0;
     uint64_t flow_count = 0;
-    uint64_t boundary_count = 0;
-    uint64_t flow_since_boundary = 0;
+    uint64_t snapshot_count = 0;
+    uint64_t flow_since_snapshot = 0;
     uint64_t memory_events = 0;
     bool thread_start_written = false;
     std::optional<w1::util::register_state> last_registers;
@@ -74,8 +74,8 @@ private:
       thread_state& state, const w1::util::register_state& regs, std::vector<w1::rewind::register_delta>& out
   );
   std::vector<w1::rewind::register_delta> capture_register_snapshot(const w1::util::register_state& regs) const;
-  std::vector<uint8_t> capture_stack_window(w1::trace_context& ctx, const w1::util::register_state& regs) const;
-  std::optional<pending_boundary> maybe_capture_boundary(
+  std::vector<uint8_t> capture_stack_snapshot(w1::trace_context& ctx, const w1::util::register_state& regs) const;
+  std::optional<pending_snapshot> maybe_capture_snapshot(
       w1::trace_context& ctx, thread_state& state, const w1::util::register_state& regs
   );
   void update_register_table(const w1::util::register_state& regs);

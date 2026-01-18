@@ -75,18 +75,18 @@ void rewind_recorder::on_basic_block_entry(
 
   thread.flow_count += 1;
 
-  if (config_.boundary_interval > 0) {
+  if (config_.snapshot_interval > 0) {
     w1::util::register_state regs = w1::util::register_capturer::capture(gpr);
-    auto boundary = maybe_capture_boundary(ctx, thread, regs);
-    if (boundary.has_value()) {
-      w1::rewind::boundary_record record{};
-      record.boundary_id = boundary->boundary_id;
+    auto snapshot = maybe_capture_snapshot(ctx, thread, regs);
+    if (snapshot.has_value()) {
+      w1::rewind::snapshot_record record{};
+      record.snapshot_id = snapshot->snapshot_id;
       record.sequence = exec.sequence;
       record.thread_id = exec.thread_id;
-      record.registers = std::move(boundary->registers);
-      record.stack_window = std::move(boundary->stack_window);
-      record.reason = std::move(boundary->reason);
-      writer_->write_boundary(record);
+      record.registers = std::move(snapshot->registers);
+      record.stack_snapshot = std::move(snapshot->stack_snapshot);
+      record.reason = std::move(snapshot->reason);
+      writer_->write_snapshot(record);
     }
   }
 }
@@ -144,7 +144,7 @@ void rewind_recorder::on_instruction_post(
   pending.record.module_offset = module_offset;
   pending.record.size = size;
 
-  bool need_registers = config_.record_register_deltas || config_.boundary_interval > 0 || config_.stack_window_bytes > 0;
+  bool need_registers = config_.record_register_deltas || config_.snapshot_interval > 0 || config_.stack_snapshot_bytes > 0;
   w1::util::register_state regs;
   if (need_registers) {
     regs = w1::util::register_capturer::capture(gpr);
@@ -155,10 +155,10 @@ void rewind_recorder::on_instruction_post(
   }
 
   state.flow_count += 1;
-  if (config_.boundary_interval > 0) {
-    auto boundary = maybe_capture_boundary(ctx, state, regs);
-    if (boundary.has_value()) {
-      pending.boundary = std::move(boundary);
+  if (config_.snapshot_interval > 0) {
+    auto snapshot = maybe_capture_snapshot(ctx, state, regs);
+    if (snapshot.has_value()) {
+      pending.snapshot = std::move(snapshot);
     }
   }
 
@@ -224,7 +224,7 @@ void rewind_recorder::on_thread_stop(w1::trace_context& ctx, const w1::thread_ev
   log_.inf(
       "rewind stats", redlog::field("thread_id", state.thread_id),
       redlog::field("flow_kind", instruction_flow_ ? "instructions" : "blocks"),
-      redlog::field("flow_events", state.flow_count), redlog::field("boundaries", state.boundary_count),
+      redlog::field("flow_events", state.flow_count), redlog::field("snapshots", state.snapshot_count),
       redlog::field("memory_events", state.memory_events)
   );
 }
@@ -261,11 +261,11 @@ bool rewind_recorder::ensure_writer_ready(w1::trace_context& ctx) {
       header.flags |= w1::rewind::trace_flag_memory_values;
     }
   }
-  if (config_.boundary_interval > 0) {
-    header.flags |= w1::rewind::trace_flag_boundaries;
+  if (config_.snapshot_interval > 0) {
+    header.flags |= w1::rewind::trace_flag_snapshots;
   }
-  if (config_.stack_window_bytes > 0) {
-    header.flags |= w1::rewind::trace_flag_stack_window;
+  if (config_.stack_snapshot_bytes > 0) {
+    header.flags |= w1::rewind::trace_flag_stack_snapshot;
   }
 
   if (!writer_->write_header(header)) {
@@ -338,15 +338,15 @@ void rewind_recorder::flush_pending(thread_state& state) {
     }
   }
 
-  if (pending.boundary.has_value() && config_.boundary_interval > 0) {
-    w1::rewind::boundary_record record{};
-    record.boundary_id = pending.boundary->boundary_id;
+  if (pending.snapshot.has_value() && config_.snapshot_interval > 0) {
+    w1::rewind::snapshot_record record{};
+    record.snapshot_id = pending.snapshot->snapshot_id;
     record.sequence = pending.record.sequence;
     record.thread_id = pending.record.thread_id;
-    record.registers = std::move(pending.boundary->registers);
-    record.stack_window = std::move(pending.boundary->stack_window);
-    record.reason = std::move(pending.boundary->reason);
-    writer_->write_boundary(record);
+    record.registers = std::move(pending.snapshot->registers);
+    record.stack_snapshot = std::move(pending.snapshot->stack_snapshot);
+    record.reason = std::move(pending.snapshot->reason);
+    writer_->write_snapshot(record);
   }
 }
 
@@ -416,10 +416,10 @@ std::vector<w1::rewind::register_delta> rewind_recorder::capture_register_snapsh
   return out;
 }
 
-std::vector<uint8_t> rewind_recorder::capture_stack_window(
+std::vector<uint8_t> rewind_recorder::capture_stack_snapshot(
     w1::trace_context& ctx, const w1::util::register_state& regs
 ) const {
-  if (config_.stack_window_bytes == 0) {
+  if (config_.stack_snapshot_bytes == 0) {
     return {};
   }
   if (regs.get_register_map().empty()) {
@@ -430,7 +430,7 @@ std::vector<uint8_t> rewind_recorder::capture_stack_window(
     return {};
   }
 
-  auto layout = w1::rewind::compute_stack_window_layout(sp, config_.stack_window_bytes);
+  auto layout = w1::rewind::compute_stack_snapshot_layout(sp, config_.stack_snapshot_bytes);
   if (layout.size == 0) {
     return {};
   }
@@ -441,25 +441,25 @@ std::vector<uint8_t> rewind_recorder::capture_stack_window(
   return *bytes;
 }
 
-std::optional<rewind_recorder::pending_boundary> rewind_recorder::maybe_capture_boundary(
+std::optional<rewind_recorder::pending_snapshot> rewind_recorder::maybe_capture_snapshot(
     w1::trace_context& ctx, thread_state& state, const w1::util::register_state& regs
 ) {
-  if (config_.boundary_interval == 0) {
+  if (config_.snapshot_interval == 0) {
     return std::nullopt;
   }
 
-  state.flow_since_boundary += 1;
-  if (state.flow_since_boundary < config_.boundary_interval) {
+  state.flow_since_snapshot += 1;
+  if (state.flow_since_snapshot < config_.snapshot_interval) {
     return std::nullopt;
   }
-  state.flow_since_boundary = 0;
+  state.flow_since_snapshot = 0;
 
-  pending_boundary boundary{};
-  boundary.boundary_id = state.boundary_count++;
-  boundary.registers = capture_register_snapshot(regs);
-  boundary.stack_window = capture_stack_window(ctx, regs);
-  boundary.reason = "interval";
-  return boundary;
+  pending_snapshot snapshot{};
+  snapshot.snapshot_id = state.snapshot_count++;
+  snapshot.registers = capture_register_snapshot(regs);
+  snapshot.stack_snapshot = capture_stack_snapshot(ctx, regs);
+  snapshot.reason = "interval";
+  return snapshot;
 }
 
 void rewind_recorder::update_register_table(const w1::util::register_state& regs) {

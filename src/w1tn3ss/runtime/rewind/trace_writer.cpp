@@ -197,13 +197,13 @@ bool trace_writer::write_memory_access(const memory_access_record& record) {
   return write_record(record_kind::memory_access, 0, payload);
 }
 
-bool trace_writer::write_boundary(const boundary_record& record) {
+bool trace_writer::write_snapshot(const snapshot_record& record) {
   std::vector<uint8_t> payload;
   trace_buffer_writer writer(payload);
-  if (!encode_boundary(record, writer, config_.log)) {
+  if (!encode_snapshot(record, writer, config_.log)) {
     return false;
   }
-  return write_record(record_kind::boundary, 0, payload);
+  return write_record(record_kind::snapshot, 0, payload);
 }
 
 bool trace_writer::write_thread_end(const thread_end_record& record) {

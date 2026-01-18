@@ -30,7 +30,7 @@ struct replay_context {
     bool has_registers = false;
     bool has_memory_access = false;
     bool has_memory_values = false;
-    bool has_stack_window = false;
+    bool has_stack_snapshot = false;
     bool has_blocks = false;
     bool track_memory = false;
   };
