@@ -8,8 +8,8 @@
 
 #include <redlog.hpp>
 
-#include "w1tn3ss/io/jsonl_writer.hpp"
-#include "w1tn3ss/runtime/module_registry.hpp"
+#include "w1formats/jsonl_writer.hpp"
+#include "w1runtime/module_registry.hpp"
 
 #include "trace_config.hpp"
 

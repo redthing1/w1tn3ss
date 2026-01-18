@@ -4,8 +4,8 @@
 #include "runtime/script_context.hpp"
 #include "script_config.hpp"
 
-#include "w1tn3ss/tracer/event.hpp"
-#include "w1tn3ss/tracer/trace_context.hpp"
+#include "w1instrument/tracer/event.hpp"
+#include "w1instrument/tracer/trace_context.hpp"
 
 #include <QBDI.h>
 #include <memory>

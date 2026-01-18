@@ -31,3 +31,9 @@
 [submodule "src/third_party/gdbstub_cpp"]
 	path = src/third_party/gdbstub_cpp
 	url = https://github.com/redthing1/gdbstub_cpp
+[submodule "src/third_party/capstone"]
+	path = src/third_party/capstone
+	url = https://github.com/capstone-engine/capstone.git
+[submodule "src/third_party/keystone"]
+	path = src/third_party/keystone
+	url = https://github.com/redthing1/keystone-engine

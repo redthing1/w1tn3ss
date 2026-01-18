@@ -1,5 +1,5 @@
 #include "read_dump.hpp"
-#include <w1tn3ss/dump/process_dumper.hpp>
+#include <w1dump/process_dumper.hpp>
 #include <iomanip>
 #include <iostream>
 #include <sstream>

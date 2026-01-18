@@ -5,8 +5,8 @@
 #include <unordered_map>
 #include <vector>
 
-#include "w1tn3ss/formats/drcov.hpp"
-#include "w1tn3ss/runtime/module_registry.hpp"
+#include "w1formats/drcov.hpp"
+#include "w1runtime/module_registry.hpp"
 
 namespace w1cov {
 

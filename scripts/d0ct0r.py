@@ -336,7 +336,7 @@ class P1llxRunner:
     def find_p1llx() -> Path:
         """find the p1llx executable"""
         script_dir = Path(__file__).parent
-        p1llx_path = script_dir.parent / "build-release" / "p1llx"
+        p1llx_path = script_dir.parent / "build-release" / "bin" / "p1llx"
 
         if not p1llx_path.exists():
             raise FileNotFoundError(f"p1llx not found at {p1llx_path}")
@@ -379,7 +379,7 @@ class InsertLibraryRunner:
     def find_w1tool() -> Path:
         """find the w1tool executable"""
         script_dir = Path(__file__).parent
-        w1tool_path = script_dir.parent / "build-release" / "w1tool"
+        w1tool_path = script_dir.parent / "build-release" / "bin" / "w1tool"
 
         if not w1tool_path.exists():
             raise FileNotFoundError(f"w1tool not found at {w1tool_path}")

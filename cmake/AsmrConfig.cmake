@@ -5,10 +5,17 @@ include_guard()
 
 option(P1LL_BUILD_ASMR "Build p1ll asmr disassembler/assembler" OFF)
 
-set(P1LL_ASMR_CAPSTONE_REPO "https://github.com/capstone-engine/capstone.git" CACHE STRING "capstone repository")
-set(P1LL_ASMR_CAPSTONE_TAG "484857da5dc67f7d0e0a01c36b0ebc37a349e0fd" CACHE STRING "capstone tag")
-set(P1LL_ASMR_KEYSTONE_REPO "https://github.com/keystone-engine/keystone.git" CACHE STRING "keystone repository")
-set(P1LL_ASMR_KEYSTONE_TAG "fb92f32391c6cced868252167509590319eeb58b" CACHE STRING "keystone tag")
+set(P1LL_ASMR_CAPSTONE_DIR "${WITNESS_SOURCE_DIR}/src/third_party/capstone" CACHE PATH "capstone source directory")
+set(P1LL_ASMR_KEYSTONE_DIR "${WITNESS_SOURCE_DIR}/src/third_party/keystone" CACHE PATH "keystone source directory")
+
+function(validate_asmr_submodules)
+    if(NOT EXISTS "${P1LL_ASMR_CAPSTONE_DIR}/CMakeLists.txt")
+        message(FATAL_ERROR "capstone submodule not found at ${P1LL_ASMR_CAPSTONE_DIR}. run: git submodule update --init --recursive")
+    endif()
+    if(NOT EXISTS "${P1LL_ASMR_KEYSTONE_DIR}/CMakeLists.txt")
+        message(FATAL_ERROR "keystone submodule not found at ${P1LL_ASMR_KEYSTONE_DIR}. run: git submodule update --init --recursive")
+    endif()
+endfunction()
 
 function(setup_asmr_environment)
     if(NOT P1LL_BUILD_ASMR)
@@ -28,67 +35,6 @@ function(setup_asmr_environment)
     # keystone build options
     set(BUILD_LIBS_ONLY ON CACHE BOOL "build keystone library only" FORCE)
     set(KEYSTONE_BUILD_STATIC_RUNTIME ON CACHE BOOL "embed static runtime for keystone" FORCE)
-endfunction()
-
-function(fetch_asmr_dependencies)
-    if(NOT P1LL_BUILD_ASMR)
-        return()
-    endif()
-
-    include(FetchContent)
-
-    FetchContent_Declare(
-        capstone
-        GIT_REPOSITORY ${P1LL_ASMR_CAPSTONE_REPO}
-        GIT_TAG ${P1LL_ASMR_CAPSTONE_TAG}
-        GIT_SHALLOW TRUE
-    )
-
-    FetchContent_GetProperties(capstone)
-    if(NOT capstone_POPULATED)
-        FetchContent_Populate(capstone)
-        add_subdirectory(${capstone_SOURCE_DIR} ${capstone_BINARY_DIR})
-    endif()
-
-    FetchContent_Declare(
-        keystone
-        GIT_REPOSITORY ${P1LL_ASMR_KEYSTONE_REPO}
-        GIT_TAG ${P1LL_ASMR_KEYSTONE_TAG}
-        GIT_SHALLOW TRUE
-    )
-
-    FetchContent_GetProperties(keystone)
-    if(NOT keystone_POPULATED)
-        FetchContent_Populate(keystone)
-    endif()
-
-    # Keystone pins CMP0051 to OLD, which newer CMake releases reject.
-    # Patch the fetched sources in-place to keep the build compatible.
-    set(_witness_keystone_policy_files
-        "${keystone_SOURCE_DIR}/CMakeLists.txt"
-        "${keystone_SOURCE_DIR}/llvm/CMakeLists.txt"
-    )
-    foreach(_witness_policy_file IN LISTS _witness_keystone_policy_files)
-        if(EXISTS "${_witness_policy_file}")
-            file(READ "${_witness_policy_file}" _witness_policy_contents)
-            string(REPLACE "cmake_policy(SET CMP0051 OLD)"
-                "cmake_policy(SET CMP0051 NEW)"
-                _witness_policy_contents
-                "${_witness_policy_contents}"
-            )
-            file(WRITE "${_witness_policy_file}" "${_witness_policy_contents}")
-        endif()
-    endforeach()
-    set(_witness_prev_cxx_standard "${CMAKE_CXX_STANDARD}")
-    set(_witness_prev_cxx_standard_required "${CMAKE_CXX_STANDARD_REQUIRED}")
-    set(CMAKE_CXX_STANDARD 11)
-    set(CMAKE_CXX_STANDARD_REQUIRED ON)
-    add_subdirectory(${keystone_SOURCE_DIR} ${keystone_BINARY_DIR})
-    set(CMAKE_CXX_STANDARD "${_witness_prev_cxx_standard}")
-    set(CMAKE_CXX_STANDARD_REQUIRED "${_witness_prev_cxx_standard_required}")
-
-    set(P1LL_ASMR_CAPSTONE_INCLUDE_DIR "${capstone_SOURCE_DIR}/include" PARENT_SCOPE)
-    set(P1LL_ASMR_KEYSTONE_INCLUDE_DIR "${keystone_SOURCE_DIR}/include" PARENT_SCOPE)
 endfunction()
 
 function(configure_asmr_targets)
@@ -144,15 +90,40 @@ function(configure_asmr_dependencies)
 
     set(BUILD_SHARED_LIBS OFF CACHE BOOL "force static libs for keystone" FORCE)
     setup_asmr_environment()
-    fetch_asmr_dependencies()
+    validate_asmr_submodules()
+
+    add_subdirectory("${P1LL_ASMR_CAPSTONE_DIR}" "${CMAKE_BINARY_DIR}/capstone")
+
+    # Keystone pins CMP0051 to OLD, which newer CMake releases reject.
+    # Patch the submodule sources in-place to keep the build compatible.
+    set(_witness_keystone_policy_files
+        "${P1LL_ASMR_KEYSTONE_DIR}/CMakeLists.txt"
+        "${P1LL_ASMR_KEYSTONE_DIR}/llvm/CMakeLists.txt"
+    )
+    foreach(_witness_policy_file IN LISTS _witness_keystone_policy_files)
+        if(EXISTS "${_witness_policy_file}")
+            file(READ "${_witness_policy_file}" _witness_policy_contents)
+            string(REPLACE "cmake_policy(SET CMP0051 OLD)"
+                "cmake_policy(SET CMP0051 NEW)"
+                _witness_policy_contents
+                "${_witness_policy_contents}"
+            )
+            file(WRITE "${_witness_policy_file}" "${_witness_policy_contents}")
+        endif()
+    endforeach()
+
+    set(_witness_prev_cxx_standard "${CMAKE_CXX_STANDARD}")
+    set(_witness_prev_cxx_standard_required "${CMAKE_CXX_STANDARD_REQUIRED}")
+    set(CMAKE_CXX_STANDARD 11)
+    set(CMAKE_CXX_STANDARD_REQUIRED ON)
+    add_subdirectory("${P1LL_ASMR_KEYSTONE_DIR}" "${CMAKE_BINARY_DIR}/keystone")
+    set(CMAKE_CXX_STANDARD "${_witness_prev_cxx_standard}")
+    set(CMAKE_CXX_STANDARD_REQUIRED "${_witness_prev_cxx_standard_required}")
+
     configure_asmr_targets()
 
-    if(DEFINED P1LL_ASMR_CAPSTONE_INCLUDE_DIR)
-        set(P1LL_ASMR_CAPSTONE_INCLUDE_DIR "${P1LL_ASMR_CAPSTONE_INCLUDE_DIR}" PARENT_SCOPE)
-    endif()
-    if(DEFINED P1LL_ASMR_KEYSTONE_INCLUDE_DIR)
-        set(P1LL_ASMR_KEYSTONE_INCLUDE_DIR "${P1LL_ASMR_KEYSTONE_INCLUDE_DIR}" PARENT_SCOPE)
-    endif()
+    set(P1LL_ASMR_CAPSTONE_INCLUDE_DIR "${P1LL_ASMR_CAPSTONE_DIR}/include" PARENT_SCOPE)
+    set(P1LL_ASMR_KEYSTONE_INCLUDE_DIR "${P1LL_ASMR_KEYSTONE_DIR}/include" PARENT_SCOPE)
 
     if(_witness_llvm_targets_was_set)
         set(LLVM_TARGETS_TO_BUILD "${_witness_llvm_targets_prev}" CACHE STRING "restore LLVM_TARGETS_TO_BUILD" FORCE)

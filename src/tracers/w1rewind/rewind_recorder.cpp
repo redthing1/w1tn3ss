@@ -1,8 +1,24 @@
 #include "rewind_recorder.hpp"
 
-#include "w1tn3ss/util/memory_reader.hpp"
+#include "w1runtime/memory_reader.hpp"
 
 #include <algorithm>
+
+namespace {
+w1::rewind::module_perm module_perm_from_qbdi(uint32_t perms) {
+  w1::rewind::module_perm out = w1::rewind::module_perm::none;
+  if (perms & QBDI::PF_READ) {
+    out = out | w1::rewind::module_perm::read;
+  }
+  if (perms & QBDI::PF_WRITE) {
+    out = out | w1::rewind::module_perm::write;
+  }
+  if (perms & QBDI::PF_EXEC) {
+    out = out | w1::rewind::module_perm::exec;
+  }
+  return out;
+}
+} // namespace
 
 namespace w1rewind {
 
@@ -483,7 +499,7 @@ void rewind_recorder::update_module_table(const w1::runtime::module_registry& mo
     record.id = next_id++;
     record.base = module.base_address;
     record.size = module.size;
-    record.permissions = w1::rewind::module_perm_from_qbdi(module.permissions);
+    record.permissions = module_perm_from_qbdi(module.permissions);
     record.path = module.path.empty() ? module.name : module.path;
     module_id_by_base_[module.base_address] = record.id;
     module_table_.push_back(std::move(record));

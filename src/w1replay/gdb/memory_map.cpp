@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-#include "w1tn3ss/runtime/rewind/trace_format.hpp"
+#include "w1rewind/format/trace_format.hpp"
 
 namespace w1replay::gdb {
 

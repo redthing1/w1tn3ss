@@ -8,17 +8,17 @@
 #include <utility>
 #include <vector>
 #ifdef _WIN32
-#include <w1common/windows_clean.hpp>
+#include <w1base/windows_clean.hpp>
 #else
 #include <unistd.h>
 #endif
 
 #include <redlog.hpp>
-#include "w1common/cli/verbosity.hpp"
+#include "w1base/cli/verbosity.hpp"
 
 #include "tracers/w1cov/session.hpp"
 #include "tracers/w1xfer/session.hpp"
-#include "w1tn3ss/tracer/trace_session.hpp"
+#include "w1instrument/tracer/trace_session.hpp"
 #ifdef WITNESS_SCRIPT_ENABLED
 #include "tracers/w1script/session.hpp"
 #endif

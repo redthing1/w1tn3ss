@@ -5,7 +5,7 @@
 #include "doctest/doctest.hpp"
 
 #include "w1replay/module_source.hpp"
-#include "w1tn3ss/runtime/rewind/replay_context.hpp"
+#include "w1rewind/replay/replay_context.hpp"
 
 TEST_CASE("module_source applies overrides and directory search") {
   namespace fs = std::filesystem;

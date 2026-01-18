@@ -9,7 +9,7 @@
 
 #include "asmr_block_decoder.hpp"
 #include "module_source.hpp"
-#include "w1tn3ss/runtime/rewind/replay_session.hpp"
+#include "w1rewind/replay/replay_session.hpp"
 
 namespace w1replay::commands {
 

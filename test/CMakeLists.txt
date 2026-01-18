@@ -1,5 +1,10 @@
 cmake_minimum_required(VERSION 3.16)
 
-add_subdirectory(w1tn3ss)
+add_subdirectory(w1base)
+add_subdirectory(w1formats)
+add_subdirectory(w1runtime)
+add_subdirectory(w1instrument)
+add_subdirectory(w1analysis)
+add_subdirectory(w1rewind)
 add_subdirectory(p1ll)
 add_subdirectory(w1replay)

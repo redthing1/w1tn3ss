@@ -31,8 +31,8 @@ if(WITNESS_SCRIPT)
         PRIVATE 
         p1ll_core
         p1ll_script
+        w1base
         w1nj3ct
-        redlog::redlog
     )
 
     if(P1LL_BUILD_ASMR)
@@ -42,12 +42,11 @@ if(WITNESS_SCRIPT)
     # include directories
     target_include_directories(p1llx 
         PRIVATE 
-        ${CMAKE_CURRENT_SOURCE_DIR}/..
-        ${CMAKE_CURRENT_SOURCE_DIR}/../common
+        ${CMAKE_CURRENT_SOURCE_DIR}
     )
     
     # set output directory to root like w1tool
-    set_target_properties(p1llx PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+    set_target_properties(p1llx PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
     
     message(STATUS "p1llx static patcher tool configured")
     

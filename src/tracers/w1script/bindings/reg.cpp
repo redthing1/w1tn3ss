@@ -1,6 +1,6 @@
 #include "reg.hpp"
 
-#include "w1tn3ss/util/register_capture.hpp"
+#include "w1runtime/register_capture.hpp"
 
 namespace w1::tracers::script::bindings {
 

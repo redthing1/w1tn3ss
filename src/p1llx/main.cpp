@@ -7,9 +7,9 @@
 #include "commands/poison.hpp"
 #include "commands/sig.hpp"
 #include <cstdint>
-#include <w1common/ext/args.hpp>
+#include <w1base/ext/args.hpp>
 #include <redlog.hpp>
-#include <w1common/cli/verbosity.hpp>
+#include <w1base/cli/verbosity.hpp>
 #include <string>
 
 // global executable path for library discovery (like w1tool)

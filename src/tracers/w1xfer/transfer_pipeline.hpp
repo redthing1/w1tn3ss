@@ -6,14 +6,14 @@
 
 #include <QBDI.h>
 
-#include "w1tn3ss/analysis/abi_dispatcher.hpp"
-#include "w1tn3ss/analysis/symbol_lookup.hpp"
-#include "w1tn3ss/runtime/module_registry.hpp"
-#include "w1tn3ss/tracer/trace_context.hpp"
-#include "w1tn3ss/tracer/types.hpp"
-#include "w1tn3ss/util/memory_reader.hpp"
-#include "w1tn3ss/util/register_capture.hpp"
-#include "w1tn3ss/util/stack_capture.hpp"
+#include "w1analysis/abi_dispatcher.hpp"
+#include "w1analysis/symbol_lookup.hpp"
+#include "w1runtime/module_registry.hpp"
+#include "w1instrument/tracer/trace_context.hpp"
+#include "w1instrument/tracer/types.hpp"
+#include "w1runtime/memory_reader.hpp"
+#include "w1runtime/register_capture.hpp"
+#include "w1runtime/stack_capture.hpp"
 
 #include "transfer_config.hpp"
 #include "transfer_types.hpp"

@@ -26,7 +26,6 @@ set_target_properties(p1ll_c PROPERTIES
 
 # export header for installation
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
-    install(FILES p1ll_c.h DESTINATION include)
     install(TARGETS p1ll_c DESTINATION lib)
 endif()
 

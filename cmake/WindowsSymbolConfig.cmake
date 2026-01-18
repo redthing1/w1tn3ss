@@ -22,10 +22,16 @@ function(configure_windows_symbol_resolution target)
             endforeach()
         endif()
         
-        # also check transitive dependencies from w1tn3ss which may have both
-        if(target_libs AND target_libs MATCHES "w1tn3ss")
-            set(has_qbdi TRUE)
-            set(has_lief TRUE)
+        # also check common witness wrapper targets that imply QBDI/LIEF usage
+        if(target_libs)
+            foreach(lib IN LISTS target_libs)
+                if(lib MATCHES "w1import")
+                    set(has_lief TRUE)
+                endif()
+                if(lib MATCHES "w1runtime|w1instrument|w1analysis|w1dump|w1gadget|w1cov|w1mem|w1trace|w1inst|w1xfer|w1script|w1rewind")
+                    set(has_qbdi TRUE)
+                endif()
+            endforeach()
         endif()
         
         # debug output to see what we found

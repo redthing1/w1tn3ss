@@ -1,5 +1,5 @@
 #include "insert_library.hpp"
-#include "w1tn3ss/import_insertion/import_insertion.hpp"
+#include "w1import/import_insertion.hpp"
 #include <redlog.hpp>
 
 namespace w1tool::commands {

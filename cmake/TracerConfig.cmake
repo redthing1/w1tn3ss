@@ -19,14 +19,13 @@ endfunction()
 # configure individual tracer target
 function(configure_tracer_target target_name tracer_name)
     target_include_directories(${target_name} PRIVATE
-        ${WITNESS_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}
         ${WITNESS_SOURCE_DIR}/src/third_party/qbdi/tools/QBDIPreload/include
     )
 
-    target_link_libraries(${target_name} PRIVATE
-        w1tn3ss
+    target_link_libraries(${target_name} PUBLIC
+        w1instrument
         QBDI_static
-        redlog::redlog
     )
     
     # on linux only, force inclusion of static library symbols for shared library

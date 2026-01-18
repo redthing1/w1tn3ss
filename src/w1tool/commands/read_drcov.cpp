@@ -1,5 +1,5 @@
 #include "read_drcov.hpp"
-#include <w1tn3ss/formats/drcov.hpp>
+#include <w1formats/drcov.hpp>
 #include <iomanip>
 #include <iostream>
 #include <locale>

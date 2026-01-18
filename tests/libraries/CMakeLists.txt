@@ -2,7 +2,7 @@
 
 include(${WITNESS_SOURCE_DIR}/cmake/TestConfig.cmake)
 
-set(TEST_LIBRARY_OUTPUT_SUBDIR tests/libraries)
+set(TEST_LIBRARY_OUTPUT_SUBDIR test/libraries)
 
 function(w1_add_test_library target source)
     add_library(${target} SHARED ${source})
@@ -40,6 +40,6 @@ foreach(target IN LISTS TEST_LIBRARY_TARGETS)
 endforeach()
 
 install(TARGETS ${TEST_LIBRARY_TARGETS}
-    LIBRARY DESTINATION tests/libraries
-    RUNTIME DESTINATION tests/libraries
+    LIBRARY DESTINATION test/libraries
+    RUNTIME DESTINATION test/libraries
 )

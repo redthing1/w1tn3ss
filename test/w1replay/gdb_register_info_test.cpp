@@ -8,8 +8,8 @@
 
 #include "w1replay/gdb/adapter.hpp"
 #include "w1replay/gdb/layout.hpp"
-#include "w1tn3ss/runtime/rewind/trace_writer.hpp"
-#include "w1tn3ss/rewind_test_helpers.hpp"
+#include "w1rewind/record/trace_writer.hpp"
+#include "w1rewind/rewind_test_helpers.hpp"
 
 TEST_CASE("gdb adapter exposes register info with pc/sp generics") {
   namespace fs = std::filesystem;

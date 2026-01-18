@@ -23,17 +23,15 @@ add_executable(w1replay
     commands/threads.cpp
 )
 
-set_target_properties(w1replay PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+set_target_properties(w1replay PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 target_include_directories(w1replay PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${WITNESS_SOURCE_DIR}/src
 )
 
 target_link_libraries(w1replay PRIVATE
-    w1tn3ss
-    common
-    redlog::redlog
+    w1base
+    w1rewind_replay
     gdbstub::gdbstub
     Threads::Threads
 )

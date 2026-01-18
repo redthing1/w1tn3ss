@@ -17,19 +17,19 @@ add_executable(w1tool
 )
 
 
-set_target_properties(w1tool PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+set_target_properties(w1tool PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 target_include_directories(w1tool PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${WITNESS_SOURCE_DIR}/src
 )
 
 target_link_libraries(w1tool PRIVATE
-    w1tn3ss
+    w1base
+    w1dump
+    w1formats
+    w1import
     w1nj3ct
     w1debugger
-    common
-    redlog::redlog
 )
 
 

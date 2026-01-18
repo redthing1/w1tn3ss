@@ -9,8 +9,8 @@
 #include "gdbstub/server.hpp"
 #include "gdbstub/target.hpp"
 
-#include "w1tn3ss/runtime/rewind/replay_context.hpp"
-#include "w1tn3ss/runtime/rewind/replay_session.hpp"
+#include "w1rewind/replay/replay_context.hpp"
+#include "w1rewind/replay/replay_session.hpp"
 
 #include "w1replay/module_source.hpp"
 #include "layout.hpp"

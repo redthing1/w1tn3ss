@@ -34,13 +34,9 @@ add_library(w1debugger STATIC ${COMMON_SOURCES} ${PLATFORM_SOURCES})
 target_include_directories(w1debugger
     PUBLIC 
         $<BUILD_INTERFACE:${WITNESS_SOURCE_DIR}/src>
-        $<INSTALL_INTERFACE:include>
     PRIVATE 
         ${CMAKE_CURRENT_SOURCE_DIR}
-        ${WITNESS_SOURCE_DIR}/src
 )
-
-target_link_libraries(w1debugger PUBLIC common redlog::redlog)
 
 # platform-specific libraries
 if(APPLE)
@@ -67,6 +63,3 @@ install(TARGETS w1debugger
     ARCHIVE DESTINATION lib
     RUNTIME DESTINATION bin
 )
-
-install(FILES w1debugger.hpp types.hpp error.hpp 
-    DESTINATION include/w1debugger)

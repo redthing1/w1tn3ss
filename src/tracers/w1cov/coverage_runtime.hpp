@@ -5,7 +5,7 @@
 
 #include <QBDI.h>
 
-#include <w1tn3ss/formats/drcov.hpp>
+#include <w1formats/drcov.hpp>
 
 #include "coverage_collector.hpp"
 #include "coverage_config.hpp"

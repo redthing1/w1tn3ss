@@ -8,8 +8,8 @@
 #include <unordered_set>
 #include <vector>
 
-#include "w1tn3ss/core/instrumentation_policy.hpp"
-#include "w1tn3ss/util/env_config.hpp"
+#include "w1instrument/core/instrumentation_policy.hpp"
+#include "w1base/env_config.hpp"
 
 #if defined(_WIN32)
 extern "C" char** _environ;

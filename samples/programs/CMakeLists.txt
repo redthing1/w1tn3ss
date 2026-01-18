@@ -2,7 +2,7 @@
 
 include(${WITNESS_SOURCE_DIR}/cmake/SampleConfig.cmake)
 
-set(samples_output_dir ${CMAKE_BINARY_DIR}/samples/programs)
+set(samples_output_dir ${CMAKE_BINARY_DIR}/bin/samples/programs)
 
 add_subdirectory(instraware)
 
@@ -136,5 +136,5 @@ w1_apply_debug_sanitizers_to_targets(${sample_targets})
 
 # install targets
 install(TARGETS ${sample_targets}
-    RUNTIME DESTINATION samples/programs
+    RUNTIME DESTINATION bin/samples/programs
 )

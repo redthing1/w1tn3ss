@@ -8,13 +8,13 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 include(FetchContent)
 
-set(REDLOG_BUILD_TESTS OFF CACHE BOOL "disable redlog tests" FORCE)
-FetchContent_Declare(
-    redlog_cpp
-    GIT_REPOSITORY https://github.com/redthing1/redlog_cpp.git
-    GIT_TAG main
-)
-FetchContent_MakeAvailable(redlog_cpp)
+get_filename_component(P1LL_SOURCE_DIR "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLUTE)
+get_filename_component(WITNESS_THIRD_PARTY_DIR "${P1LL_SOURCE_DIR}/../third_party" ABSOLUTE)
+
+if(NOT TARGET redlog::redlog)
+    set(REDLOG_BUILD_TESTS OFF CACHE BOOL "disable redlog tests" FORCE)
+    add_subdirectory("${WITNESS_THIRD_PARTY_DIR}/redlog_cpp" "${CMAKE_BINARY_DIR}/redlog_cpp")
+endif()
 
 find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
 
@@ -31,7 +31,6 @@ FetchContent_MakeAvailable(nanobind)
 set(WITNESS_SCRIPT OFF CACHE BOOL "disable scripting for standalone p1ll python build" FORCE)
 set(P1LL_BUILD_CAPI OFF CACHE BOOL "disable p1ll c api for python build" FORCE)
 
-get_filename_component(P1LL_SOURCE_DIR "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLUTE)
 add_subdirectory("${P1LL_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/p1ll_core")
 
 nanobind_add_module(_p1ll

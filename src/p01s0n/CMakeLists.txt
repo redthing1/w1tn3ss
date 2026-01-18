@@ -27,7 +27,6 @@ if(WITNESS_SCRIPT)
     # include directories
     target_include_directories(p01s0n PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}
-        ${WITNESS_SOURCE_DIR}/src
     )
 
     # apply common configuration like other w1 libraries

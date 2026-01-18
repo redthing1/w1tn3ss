@@ -4,9 +4,9 @@
 #include <string>
 
 #include <redlog.hpp>
-#include "ext/args.hpp"
+#include "w1base/ext/args.hpp"
 
-#include "w1common/cli/verbosity.hpp"
+#include "w1base/cli/verbosity.hpp"
 
 #include "commands/cover.hpp"
 #include "commands/debug.hpp"

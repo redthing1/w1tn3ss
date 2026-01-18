@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <initializer_list>
 
-#include "w1tn3ss/runtime/rewind/replay_registers.hpp"
+#include "w1rewind/replay/replay_registers.hpp"
 
 namespace w1replay::gdb {
 

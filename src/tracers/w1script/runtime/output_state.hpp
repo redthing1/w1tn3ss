@@ -1,6 +1,6 @@
 #pragma once
 
-#include "w1tn3ss/io/jsonl_writer.hpp"
+#include "w1formats/jsonl_writer.hpp"
 
 #include <memory>
 #include <string>

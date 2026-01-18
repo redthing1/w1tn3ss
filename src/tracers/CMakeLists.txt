@@ -1,4 +1,4 @@
-# Tracers - w1tn3ss Framework Tracers
+# Tracers - w1 framework tracers
 cmake_minimum_required(VERSION 3.16)
 
 # Add tracer subdirectories

@@ -6,10 +6,10 @@
 #include <redlog.hpp>
 
 #include "w1replay/gdb/stepper.hpp"
-#include "w1tn3ss/runtime/rewind/replay_session.hpp"
-#include "w1tn3ss/runtime/rewind/trace_writer.hpp"
+#include "w1rewind/replay/replay_session.hpp"
+#include "w1rewind/record/trace_writer.hpp"
 
-#include "w1tn3ss/rewind_test_helpers.hpp"
+#include "w1rewind/rewind_test_helpers.hpp"
 
 namespace {
 

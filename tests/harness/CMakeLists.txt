@@ -5,8 +5,8 @@ include(${WITNESS_SOURCE_DIR}/cmake/TestConfig.cmake)
 w1_add_harness_test(test_standalone_tracers
     SOURCES test_standalone_tracers.cpp
     INCLUDE_DIRS ${WITNESS_SOURCE_DIR}/src
-    LIBS w1cov_static w1xfer_static w1tn3ss redlog::redlog
-    OUTPUT_SUBDIR tests
+    LIBS w1cov_static w1xfer_static
+    OUTPUT_SUBDIR test/harness
     ARGS all
 )
 
@@ -24,8 +24,8 @@ endif()
 w1_add_harness_test(test_gadget_executor
     SOURCES test_gadget_executor.cpp
     INCLUDE_DIRS ${WITNESS_SOURCE_DIR}/src
-    LIBS w1tn3ss QBDI_static redlog::redlog
-    OUTPUT_SUBDIR tests
+    LIBS w1gadget
+    OUTPUT_SUBDIR test/harness
 )
 
 set_tests_properties(test_gadget_executor PROPERTIES

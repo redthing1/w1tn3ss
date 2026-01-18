@@ -5,7 +5,7 @@
 #include <string>
 #include <utility>
 
-#include "w1tn3ss/runtime/module_registry.hpp"
+#include "w1runtime/module_registry.hpp"
 
 namespace gadgetdemo {
 

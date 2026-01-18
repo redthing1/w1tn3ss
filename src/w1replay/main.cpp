@@ -3,9 +3,9 @@
 #include <string>
 
 #include <redlog.hpp>
-#include "ext/args.hpp"
+#include "w1base/ext/args.hpp"
 
-#include "w1common/cli/verbosity.hpp"
+#include "w1base/cli/verbosity.hpp"
 
 #include "commands/checkpoint.hpp"
 #include "commands/inspect.hpp"

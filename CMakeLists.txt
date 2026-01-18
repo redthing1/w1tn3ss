@@ -144,8 +144,15 @@ endif()
 configure_asmr_dependencies()
 
 # add project subdirectories
-add_subdirectory(src/w1common)
-add_subdirectory(src/w1tn3ss)
+add_subdirectory(src/w1base)
+add_subdirectory(src/w1formats)
+add_subdirectory(src/w1runtime)
+add_subdirectory(src/w1instrument)
+add_subdirectory(src/w1analysis)
+add_subdirectory(src/w1import)
+add_subdirectory(src/w1dump)
+add_subdirectory(src/w1gadget)
+add_subdirectory(src/w1rewind)
 add_subdirectory(src/tracers)
 add_subdirectory(src/p1ll)
 add_subdirectory(src/p1llx)
@@ -154,10 +161,6 @@ add_subdirectory(src/w1debugger)
 add_subdirectory(src/w1tool)
 add_subdirectory(src/w1replay)
 add_subdirectory(src/p01s0n)
-
-# setup global include directories for clean project-based includes
-# this allows includes like <w1common/platform_utils.hpp> instead of ../common/platform_utils.hpp
-include_directories(${WITNESS_SOURCE_DIR}/src)
 
 # add tests (optional)
 option(BUILD_TESTS "Build test programs and libraries" ON)

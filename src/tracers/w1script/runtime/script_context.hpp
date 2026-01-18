@@ -3,10 +3,10 @@
 #include "../script_config.hpp"
 #include "output_state.hpp"
 
-#include "w1tn3ss/analysis/abi_dispatcher.hpp"
-#include "w1tn3ss/analysis/symbol_lookup.hpp"
-#include "w1tn3ss/runtime/module_registry.hpp"
-#include "w1tn3ss/util/memory_reader.hpp"
+#include "w1analysis/abi_dispatcher.hpp"
+#include "w1analysis/symbol_lookup.hpp"
+#include "w1runtime/module_registry.hpp"
+#include "w1runtime/memory_reader.hpp"
 
 #include <QBDI.h>
 #include <redlog.hpp>

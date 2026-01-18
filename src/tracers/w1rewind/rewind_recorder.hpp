@@ -12,11 +12,11 @@
 
 #include "rewind_config.hpp"
 
-#include "w1tn3ss/runtime/module_registry.hpp"
-#include "w1tn3ss/runtime/rewind/trace_writer.hpp"
-#include "w1tn3ss/tracer/trace_context.hpp"
-#include "w1tn3ss/tracer/types.hpp"
-#include "w1tn3ss/util/register_capture.hpp"
+#include "w1runtime/module_registry.hpp"
+#include "w1rewind/record/trace_writer.hpp"
+#include "w1instrument/tracer/trace_context.hpp"
+#include "w1instrument/tracer/types.hpp"
+#include "w1runtime/register_capture.hpp"
 
 namespace w1rewind {
 

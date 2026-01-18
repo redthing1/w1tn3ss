@@ -36,7 +36,11 @@ w1_add_doctest_suite(w1replay_unit_tests
         ${WITNESS_SOURCE_DIR}/src
         ${WITNESS_SOURCE_DIR}/src/third_party
         ${WITNESS_SOURCE_DIR}/test
-    LIBS w1tn3ss gdbstub::gdbstub Threads::Threads
+    LIBS
+        w1rewind_record
+        w1rewind_replay
+        gdbstub::gdbstub
+        Threads::Threads
     OUTPUT_SUBDIR test/w1replay
 )
 
@@ -44,35 +48,37 @@ add_test(
     NAME w1replay_trace_e2e
     COMMAND ${Python3_EXECUTABLE}
         ${CMAKE_CURRENT_LIST_DIR}/e2e/trace_e2e_test.py
-        --w1tool ${CMAKE_BINARY_DIR}/w1tool
-        --w1replay ${CMAKE_BINARY_DIR}/w1replay
-        --samples-dir ${CMAKE_BINARY_DIR}/samples/programs
+        --w1tool ${CMAKE_BINARY_DIR}/bin/w1tool
+        --w1replay ${CMAKE_BINARY_DIR}/bin/w1replay
+        --samples-dir ${CMAKE_BINARY_DIR}/bin/samples/programs
 )
 set_tests_properties(w1replay_trace_e2e PROPERTIES
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     LABELS \"trace\"
 )
 
-add_test(
-    NAME w1replay_lldb_flow_e2e
-    COMMAND ${Python3_EXECUTABLE}
-        ${CMAKE_CURRENT_LIST_DIR}/e2e/lldb_flow_e2e_test.py
-        --w1tool ${CMAKE_BINARY_DIR}/w1tool
-        --w1replay ${CMAKE_BINARY_DIR}/w1replay
-        --samples-dir ${CMAKE_BINARY_DIR}/samples/programs
-)
-set_tests_properties(w1replay_lldb_flow_e2e PROPERTIES
-    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    LABELS \"lldb\"
-)
+if(WITNESS_LIEF)
+    add_test(
+        NAME w1replay_lldb_flow_e2e
+        COMMAND ${Python3_EXECUTABLE}
+            ${CMAKE_CURRENT_LIST_DIR}/e2e/lldb_flow_e2e_test.py
+            --w1tool ${CMAKE_BINARY_DIR}/bin/w1tool
+            --w1replay ${CMAKE_BINARY_DIR}/bin/w1replay
+            --samples-dir ${CMAKE_BINARY_DIR}/bin/samples/programs
+    )
+    set_tests_properties(w1replay_lldb_flow_e2e PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+        LABELS \"lldb\"
+    )
+endif()
 
 add_test(
     NAME w1replay_lldb_state_e2e
     COMMAND ${Python3_EXECUTABLE}
         ${CMAKE_CURRENT_LIST_DIR}/e2e/lldb_state_e2e_test.py
-        --w1tool ${CMAKE_BINARY_DIR}/w1tool
-        --w1replay ${CMAKE_BINARY_DIR}/w1replay
-        --samples-dir ${CMAKE_BINARY_DIR}/samples/programs
+        --w1tool ${CMAKE_BINARY_DIR}/bin/w1tool
+        --w1replay ${CMAKE_BINARY_DIR}/bin/w1replay
+        --samples-dir ${CMAKE_BINARY_DIR}/bin/samples/programs
 )
 set_tests_properties(w1replay_lldb_state_e2e PROPERTIES
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}

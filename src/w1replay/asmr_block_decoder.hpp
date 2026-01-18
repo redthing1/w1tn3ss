@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <string>
 
-#include "w1tn3ss/runtime/rewind/replay_decode.hpp"
+#include "w1rewind/replay/replay_decode.hpp"
 
 namespace w1replay {
 

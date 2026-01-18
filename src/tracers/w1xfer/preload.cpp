@@ -5,11 +5,11 @@
 #include <redlog.hpp>
 
 #if defined(_WIN32) || defined(WIN32)
-#include <w1common/windows_console.hpp>
+#include <w1base/windows_console.hpp>
 #endif
 
-#include "w1tn3ss/tracer/trace_session.hpp"
-#include "w1tn3ss/util/self_exclude.hpp"
+#include "w1instrument/tracer/trace_session.hpp"
+#include "w1instrument/self_exclude.hpp"
 
 #include "transfer_config.hpp"
 #include "transfer_tracer.hpp"

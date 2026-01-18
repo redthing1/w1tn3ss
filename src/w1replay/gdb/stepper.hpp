@@ -6,7 +6,7 @@
 
 #include "gdbstub/target.hpp"
 
-#include "w1tn3ss/runtime/rewind/replay_session.hpp"
+#include "w1rewind/replay/replay_session.hpp"
 
 #include "run_policy.hpp"
 

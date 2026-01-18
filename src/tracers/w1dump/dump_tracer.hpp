@@ -2,10 +2,11 @@
 
 #include "dump_config.hpp"
 
-#include "w1tn3ss/dump/memory_dumper.hpp"
-#include "w1tn3ss/dump/process_dumper.hpp"
-#include "w1tn3ss/tracer/event.hpp"
-#include "w1tn3ss/tracer/trace_context.hpp"
+#include "w1dump/memory_dumper.hpp"
+#include "w1dump/process_dumper.hpp"
+#include "w1instrument/tracer/event.hpp"
+#include "w1instrument/tracer/trace_context.hpp"
+#include "w1instrument/tracer/types.hpp"
 
 #include <QBDI.h>
 #include <redlog.hpp>

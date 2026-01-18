@@ -1,6 +1,6 @@
 #pragma once
 
-#include \"w1tn3ss/tracer/trace_session.hpp\"
+#include \"w1instrument/tracer/trace_session.hpp\"
 
 #include \"trace_tracer.hpp\"
 

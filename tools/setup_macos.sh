@@ -17,9 +17,9 @@ else
 fi
 
 # check if w1tool exists
-if [ -f "$BUILD_DIR/w1tool" ]; then
+if [ -f "$BUILD_DIR/bin/w1tool" ]; then
     echo "signing w1tool..."
-    ./tools/macos_signing/sign.sh "$CERT_NAME" "$BUILD_DIR/w1tool"
+    ./tools/macos_signing/sign.sh "$CERT_NAME" "$BUILD_DIR/bin/w1tool"
     echo "w1tool signed successfully"
 else
     echo "w1tool not found - build project first with:"

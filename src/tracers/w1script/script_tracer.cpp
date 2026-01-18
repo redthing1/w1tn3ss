@@ -1,6 +1,6 @@
 #include "script_tracer.hpp"
 
-#include "w1tn3ss/tracer/event.hpp"
+#include "w1instrument/tracer/event.hpp"
 
 #include <utility>
 

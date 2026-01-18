@@ -2,7 +2,7 @@
 # provides functions for setting up lief dependencies
 
 # global lief configuration
-option(WITNESS_LIEF "enable lief binary analysis support" OFF)
+option(WITNESS_LIEF "enable lief binary analysis support" ON)
 
 # validate lief submodule availability
 function(validate_lief_submodule)

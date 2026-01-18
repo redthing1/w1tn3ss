@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <utility>
 
-#include "w1tn3ss/formats/drcov.hpp"
+#include "w1formats/drcov.hpp"
 
 namespace w1cov {
 

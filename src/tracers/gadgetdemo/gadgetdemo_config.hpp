@@ -2,8 +2,8 @@
 
 #include <cstdint>
 
-#include "w1tn3ss/core/instrumentation_policy.hpp"
-#include "w1tn3ss/util/env_config.hpp"
+#include "w1instrument/core/instrumentation_policy.hpp"
+#include "w1base/env_config.hpp"
 
 namespace gadgetdemo {
 

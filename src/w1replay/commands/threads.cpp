@@ -5,7 +5,7 @@
 
 #include <redlog.hpp>
 
-#include "w1tn3ss/runtime/rewind/replay_context.hpp"
+#include "w1rewind/replay/replay_context.hpp"
 
 namespace w1replay::commands {
 

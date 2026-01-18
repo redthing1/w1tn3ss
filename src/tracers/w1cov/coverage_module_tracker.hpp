@@ -6,7 +6,7 @@
 
 #include <redlog.hpp>
 
-#include "w1tn3ss/runtime/module_registry.hpp"
+#include "w1runtime/module_registry.hpp"
 
 #include "coverage_collector.hpp"
 #include "coverage_config.hpp"

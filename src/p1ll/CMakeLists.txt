@@ -23,8 +23,9 @@ set(P1LL_CORE_SOURCES
 add_library(p1ll_core STATIC ${P1LL_CORE_SOURCES})
 target_link_libraries(p1ll_core PUBLIC redlog::redlog)
 target_include_directories(p1ll_core 
-    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
-    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..
+    PUBLIC 
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/..
 )
 set_target_properties(p1ll_core PROPERTIES 
     ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
@@ -48,8 +49,9 @@ if(WITNESS_SCRIPT)
     add_library(p1ll_script STATIC ${P1LL_SCRIPT_SOURCES})
     target_link_libraries(p1ll_script PUBLIC p1ll_core PRIVATE redlog::redlog)
     target_include_directories(p1ll_script 
-        PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
-        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..
+        PUBLIC 
+            ${CMAKE_CURRENT_SOURCE_DIR}
+            ${CMAKE_CURRENT_SOURCE_DIR}/..
     )
     target_compile_definitions(p1ll_script PUBLIC P1LL_HAS_SCRIPTING=1)
     
@@ -94,8 +96,9 @@ if(P1LL_BUILD_ASMR)
     add_library(p1ll_asmr STATIC ${P1LL_ASMR_SOURCES})
     target_link_libraries(p1ll_asmr PUBLIC p1ll_core PRIVATE capstone::capstone keystone::keystone)
     target_include_directories(p1ll_asmr
-        PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
-        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..
+        PUBLIC 
+            ${CMAKE_CURRENT_SOURCE_DIR}
+            ${CMAKE_CURRENT_SOURCE_DIR}/..
     )
     if(DEFINED P1LL_ASMR_CAPSTONE_INCLUDE_DIR)
         target_include_directories(p1ll_asmr PRIVATE ${P1LL_ASMR_CAPSTONE_INCLUDE_DIR})

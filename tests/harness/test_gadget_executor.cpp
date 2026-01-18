@@ -1,11 +1,11 @@
 /**
- * Comprehensive test suite for w1tn3ss gadget_executor
+ * Comprehensive test suite for w1gadget gadget_executor
  *
  * This test validates the gadget execution capability that allows
  * calling arbitrary code from within QBDI VM callbacks.
  */
 
-#include "w1tn3ss/gadget/gadget_executor.hpp"
+#include "w1gadget/gadget_executor.hpp"
 #include <QBDI.h>
 #include <cassert>
 #include <chrono>

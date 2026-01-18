@@ -7,10 +7,10 @@
 #include "rewind_config.hpp"
 #include "rewind_recorder.hpp"
 
-#include "w1tn3ss/runtime/rewind/trace_writer.hpp"
-#include "w1tn3ss/tracer/event.hpp"
-#include "w1tn3ss/tracer/trace_context.hpp"
-#include "w1tn3ss/tracer/types.hpp"
+#include "w1rewind/record/trace_writer.hpp"
+#include "w1instrument/tracer/event.hpp"
+#include "w1instrument/tracer/trace_context.hpp"
+#include "w1instrument/tracer/types.hpp"
 
 namespace w1rewind {
 

@@ -3,10 +3,10 @@
 #include <QBDI.h>
 #include <redlog.hpp>
 
-#include "w1tn3ss/tracer/event.hpp"
-#include "w1tn3ss/tracer/trace_context.hpp"
-#include "w1tn3ss/tracer/tracer.hpp"
-#include "w1tn3ss/tracer/types.hpp"
+#include "w1instrument/tracer/event.hpp"
+#include "w1instrument/tracer/trace_context.hpp"
+#include "w1instrument/tracer/tracer.hpp"
+#include "w1instrument/tracer/types.hpp"
 
 #include "memory_collector.hpp"
 #include "memory_config.hpp"

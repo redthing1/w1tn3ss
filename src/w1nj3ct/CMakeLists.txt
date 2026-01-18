@@ -31,12 +31,11 @@ endif()
 add_library(w1nj3ct STATIC ${COMMON_SOURCES} ${PLATFORM_SOURCES})
 
 target_include_directories(w1nj3ct
-    PUBLIC $<BUILD_INTERFACE:${WITNESS_SOURCE_DIR}/src> $<INSTALL_INTERFACE:include>
+    PUBLIC $<BUILD_INTERFACE:${WITNESS_SOURCE_DIR}/src>
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
-            ${WITNESS_SOURCE_DIR}/src
 )
 
-target_link_libraries(w1nj3ct PUBLIC common redlog::redlog)
+target_link_libraries(w1nj3ct PUBLIC redlog::redlog)
 
 # platform-specific libraries
 if(WIN32)
@@ -55,5 +54,3 @@ install(TARGETS w1nj3ct
     ARCHIVE DESTINATION lib
     RUNTIME DESTINATION bin
 )
-
-install(FILES w1nj3ct.hpp error.hpp DESTINATION include/w1nj3ct)
