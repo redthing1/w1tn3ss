@@ -430,7 +430,11 @@ std::vector<uint8_t> rewind_recorder::capture_stack_window(
     return {};
   }
 
-  auto bytes = ctx.memory().read_bytes(sp, static_cast<size_t>(config_.stack_window_bytes));
+  auto layout = w1::rewind::compute_stack_window_layout(sp, config_.stack_window_bytes);
+  if (layout.size == 0) {
+    return {};
+  }
+  auto bytes = ctx.memory().read_bytes(layout.base, static_cast<size_t>(layout.size));
   if (!bytes.has_value()) {
     return {};
   }
@@ -479,7 +483,7 @@ void rewind_recorder::update_module_table(const w1::runtime::module_registry& mo
     record.id = next_id++;
     record.base = module.base_address;
     record.size = module.size;
-    record.permissions = module.permissions;
+    record.permissions = w1::rewind::module_perm_from_qbdi(module.permissions);
     record.path = module.path.empty() ? module.name : module.path;
     module_id_by_base_[module.base_address] = record.id;
     module_table_.push_back(std::move(record));

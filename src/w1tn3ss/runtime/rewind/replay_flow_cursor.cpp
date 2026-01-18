@@ -15,15 +15,25 @@ replay_flow_cursor::replay_flow_cursor(replay_flow_cursor_config config)
   }
 }
 
+void replay_flow_cursor::clear_error() {
+  error_.clear();
+  error_kind_ = replay_flow_error_kind::none;
+}
+
+void replay_flow_cursor::set_error(replay_flow_error_kind kind, const std::string& message) {
+  error_ = message;
+  error_kind_ = kind;
+}
+
 bool replay_flow_cursor::open() {
   close();
 
   if (!cursor_.open()) {
-    error_ = cursor_.error();
+    set_error(replay_flow_error_kind::other, cursor_.error());
     return false;
   }
   if (!cursor_.load_index()) {
-    error_ = cursor_.error();
+    set_error(replay_flow_error_kind::other, cursor_.error());
     return false;
   }
 
@@ -32,7 +42,7 @@ bool replay_flow_cursor::open() {
   bool use_instructions = (header.flags & trace_flag_instructions) != 0;
 
   if (use_blocks == use_instructions) {
-    error_ = "trace has unsupported flow flags";
+    set_error(replay_flow_error_kind::other, "trace has unsupported flow flags");
     return false;
   }
 
@@ -60,14 +70,14 @@ void replay_flow_cursor::close() {
   pending_location_.reset();
   has_position_ = false;
   open_ = false;
-  error_.clear();
+  clear_error();
 }
 
 bool replay_flow_cursor::seek(uint64_t thread_id, uint64_t sequence) {
-  error_.clear();
+  clear_error();
 
   if (!open_) {
-    error_ = "trace not open";
+    set_error(replay_flow_error_kind::other, "trace not open");
     return false;
   }
 
@@ -97,7 +107,7 @@ bool replay_flow_cursor::seek(uint64_t thread_id, uint64_t sequence) {
       }
       if (boundary.has_value()) {
         if (!cursor_.seek_to_location({boundary->chunk_index, boundary->record_offset})) {
-          error_ = cursor_.error();
+          set_error(replay_flow_error_kind::other, cursor_.error());
           return false;
         }
         if (!scan_until_sequence(thread_id, sequence)) {
@@ -109,7 +119,7 @@ bool replay_flow_cursor::seek(uint64_t thread_id, uint64_t sequence) {
   }
 
   if (!cursor_.seek_flow(thread_id, sequence)) {
-    error_ = cursor_.error();
+    set_error(replay_flow_error_kind::other, cursor_.error());
     return false;
   }
 
@@ -117,18 +127,18 @@ bool replay_flow_cursor::seek(uint64_t thread_id, uint64_t sequence) {
 }
 
 bool replay_flow_cursor::seek_with_checkpoint(const replay_checkpoint_entry& checkpoint, uint64_t sequence) {
-  error_.clear();
+  clear_error();
 
   if (!open_) {
-    error_ = "trace not open";
+    set_error(replay_flow_error_kind::other, "trace not open");
     return false;
   }
   if (checkpoint.thread_id == 0) {
-    error_ = "checkpoint missing thread id";
+    set_error(replay_flow_error_kind::other, "checkpoint missing thread id");
     return false;
   }
   if (checkpoint.sequence > sequence) {
-    error_ = "checkpoint beyond target sequence";
+    set_error(replay_flow_error_kind::other, "checkpoint beyond target sequence");
     return false;
   }
 
@@ -157,7 +167,7 @@ bool replay_flow_cursor::seek_with_checkpoint(const replay_checkpoint_entry& che
   }
 
   if (!cursor_.seek_to_location(checkpoint.location)) {
-    error_ = cursor_.error();
+    set_error(replay_flow_error_kind::other, cursor_.error());
     return false;
   }
 
@@ -169,14 +179,14 @@ bool replay_flow_cursor::seek_with_checkpoint(const replay_checkpoint_entry& che
 }
 
 bool replay_flow_cursor::step_forward(flow_step& out) {
-  error_.clear();
+  clear_error();
 
   if (!open_) {
-    error_ = "trace not open";
+    set_error(replay_flow_error_kind::other, "trace not open");
     return false;
   }
   if (active_thread_id_ == 0) {
-    error_ = "thread not selected";
+    set_error(replay_flow_error_kind::other, "thread not selected");
     return false;
   }
 
@@ -192,7 +202,7 @@ bool replay_flow_cursor::step_forward(flow_step& out) {
   if (has_future) {
     const auto& expected = history_[history_pos_ + 1];
     if (expected.step.thread_id != step.thread_id || expected.step.sequence != step.sequence) {
-      error_ = "history mismatch";
+      set_error(replay_flow_error_kind::other, "history mismatch");
       return false;
     }
     history_pos_ += 1;
@@ -215,18 +225,18 @@ bool replay_flow_cursor::step_forward(flow_step& out) {
 }
 
 bool replay_flow_cursor::step_backward(flow_step& out) {
-  error_.clear();
+  clear_error();
 
   if (!open_) {
-    error_ = "trace not open";
+    set_error(replay_flow_error_kind::other, "trace not open");
     return false;
   }
   if (!has_position_) {
-    error_ = "no current position";
+    set_error(replay_flow_error_kind::other, "no current position");
     return false;
   }
   if (current_step_.sequence == 0) {
-    error_ = "at start of trace";
+    set_error(replay_flow_error_kind::begin_of_trace, "at start of trace");
     return false;
   }
 
@@ -239,7 +249,7 @@ bool replay_flow_cursor::step_backward(flow_step& out) {
   }
 
   if (history_.empty()) {
-    error_ = "history empty";
+    set_error(replay_flow_error_kind::other, "history empty");
     return false;
   }
 
@@ -274,20 +284,20 @@ bool replay_flow_cursor::load_context() {
   const auto& header = cursor_.reader().header();
   if (context_->header.version != header.version || context_->header.flags != header.flags ||
       context_->header.architecture != header.architecture || context_->header.pointer_size != header.pointer_size) {
-    error_ = "replay context header mismatch";
+    set_error(replay_flow_error_kind::other, "replay context header mismatch");
     return false;
   }
 
   if (context_->modules_by_id.empty()) {
-    error_ = "module table missing";
+    set_error(replay_flow_error_kind::other, "module table missing");
     return false;
   }
   if ((track_registers_ || track_memory_) && context_->register_names.empty()) {
-    error_ = "register table missing";
+    set_error(replay_flow_error_kind::other, "register table missing");
     return false;
   }
   if (flow_kind_ == flow_kind::blocks && context_->blocks_by_id.empty()) {
-    error_ = "block definitions missing";
+    set_error(replay_flow_error_kind::other, "block definitions missing");
     return false;
   }
 
@@ -329,7 +339,7 @@ bool replay_flow_cursor::scan_until_sequence(uint64_t thread_id, uint64_t sequen
     }
 
     if (step.sequence > sequence) {
-      error_ = "flow sequence not found";
+      set_error(replay_flow_error_kind::other, "flow sequence not found");
       return false;
     }
 
@@ -339,16 +349,16 @@ bool replay_flow_cursor::scan_until_sequence(uint64_t thread_id, uint64_t sequen
   }
 
   if (!cursor_.error().empty()) {
-    error_ = cursor_.error();
+    set_error(replay_flow_error_kind::other, cursor_.error());
   } else {
-    error_ = "end of trace";
+    set_error(replay_flow_error_kind::end_of_trace, "end of trace");
   }
   return false;
 }
 
 bool replay_flow_cursor::resolve_address(uint64_t module_id, uint64_t module_offset, uint64_t& address) {
   if (!context_->resolve_address(module_id, module_offset, address)) {
-    error_ = "module id not found";
+    set_error(replay_flow_error_kind::other, "module id not found");
     return false;
   }
   return true;
@@ -381,7 +391,7 @@ bool replay_flow_cursor::try_parse_flow(const trace_record& record, flow_step& o
   const auto& exec = std::get<block_exec_record>(record);
   auto it = context_->blocks_by_id.find(exec.block_id);
   if (it == context_->blocks_by_id.end()) {
-    error_ = "block id not found";
+    set_error(replay_flow_error_kind::other, "block id not found");
     return false;
   }
 
@@ -441,9 +451,9 @@ bool replay_flow_cursor::read_next_flow(flow_step& out, trace_record_location* l
   }
 
   if (!cursor_.error().empty()) {
-    error_ = cursor_.error();
+    set_error(replay_flow_error_kind::other, cursor_.error());
   } else {
-    error_ = "end of trace";
+    set_error(replay_flow_error_kind::end_of_trace, "end of trace");
   }
   return false;
 }
@@ -480,7 +490,7 @@ bool replay_flow_cursor::consume_sequence_records(uint64_t thread_id, uint64_t s
   }
 
   if (!cursor_.error().empty()) {
-    error_ = cursor_.error();
+    set_error(replay_flow_error_kind::other, cursor_.error());
     return false;
   }
 
@@ -502,20 +512,20 @@ void replay_flow_cursor::push_history(const flow_step& step, const trace_record_
 
 bool replay_flow_cursor::seek_to_history(size_t index) {
   if (index >= history_.size()) {
-    error_ = "history index out of range";
+    set_error(replay_flow_error_kind::other, "history index out of range");
     return false;
   }
 
   const auto& entry = history_[index];
   if (!cursor_.seek_to_location(entry.location)) {
-    error_ = cursor_.error();
+    set_error(replay_flow_error_kind::other, cursor_.error());
     return false;
   }
 
   trace_record record;
   trace_record_location location{};
   if (!cursor_.read_next(record, &location)) {
-    error_ = cursor_.error();
+    set_error(replay_flow_error_kind::other, cursor_.error());
     return false;
   }
 

@@ -100,6 +100,11 @@ if(NOT TARGET nlohmann_json::nlohmann_json)
     add_subdirectory(src/third_party/nlohmann_json)
 endif()
 
+# configure gdbstub_cpp
+if(NOT TARGET gdbstub::gdbstub)
+    add_subdirectory(src/third_party/gdbstub_cpp EXCLUDE_FROM_ALL)
+endif()
+
 # configure plthook
 if(NOT TARGET plthook::plthook)
     option(PLTHOOK_BUILD_TESTS "Build plthook tests" OFF)

@@ -52,7 +52,7 @@ inline bool encode_module_table(const module_table_record& record, trace_buffer_
     writer.write_u64(module.id);
     writer.write_u64(module.base);
     writer.write_u64(module.size);
-    writer.write_u32(module.permissions);
+    writer.write_u32(static_cast<uint32_t>(module.permissions));
     if (!writer.write_string(module.path)) {
       log.err("trace string too long", redlog::field("length", module.path.size()));
       return false;
@@ -69,10 +69,12 @@ inline bool decode_module_table(trace_buffer_reader& reader, module_table_record
   out.modules.reserve(count);
   for (uint32_t i = 0; i < count; ++i) {
     module_record module{};
+    uint32_t perms = 0;
     if (!reader.read_u64(module.id) || !reader.read_u64(module.base) || !reader.read_u64(module.size) ||
-        !reader.read_u32(module.permissions) || !reader.read_string(module.path)) {
+        !reader.read_u32(perms) || !reader.read_string(module.path)) {
       return false;
     }
+    module.permissions = static_cast<module_perm>(perms);
     out.modules.push_back(std::move(module));
   }
   return true;

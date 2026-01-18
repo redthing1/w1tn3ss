@@ -25,6 +25,17 @@ bool replay_context::has_blocks() const { return (header.flags & trace_flag_bloc
 
 bool replay_context::has_registers() const { return !register_names.empty(); }
 
+replay_context::trace_features replay_context::features() const {
+  trace_features out{};
+  out.has_registers = has_registers();
+  out.has_memory_access = (header.flags & trace_flag_memory_access) != 0;
+  out.has_memory_values = (header.flags & trace_flag_memory_values) != 0;
+  out.has_stack_window = (header.flags & trace_flag_stack_window) != 0;
+  out.has_blocks = has_blocks();
+  out.track_memory = out.has_registers && ((out.has_memory_access && out.has_memory_values) || out.has_stack_window);
+  return out;
+}
+
 bool load_replay_context(const std::string& trace_path, replay_context& out, std::string& error) {
   error.clear();
 

@@ -7,12 +7,47 @@
 #include <vector>
 
 #include <QBDI/Config.h>
+#include <QBDI/Memory.hpp>
 
 namespace w1::rewind {
 
 constexpr uint16_t k_trace_version = 6;
 constexpr std::array<uint8_t, 8> k_trace_magic = {'W', '1', 'R', 'W', 'N', 'D', '6', '\0'};
 constexpr uint32_t k_trace_chunk_bytes = 8 * 1024 * 1024;
+constexpr uint64_t k_stack_window_above_cap = 0x200;
+
+struct stack_window_layout {
+  uint64_t base = 0;
+  uint64_t size = 0;
+  uint64_t below = 0;
+  uint64_t above = 0;
+};
+
+inline stack_window_layout compute_stack_window_layout(uint64_t sp, uint64_t window_bytes) {
+  stack_window_layout layout{};
+  if (window_bytes == 0) {
+    return layout;
+  }
+
+  uint64_t above = window_bytes / 4;
+  if (above > k_stack_window_above_cap) {
+    above = k_stack_window_above_cap;
+  }
+  if (above > window_bytes) {
+    above = window_bytes;
+  }
+
+  uint64_t below = window_bytes - above;
+  if (sp < below) {
+    below = sp;
+  }
+
+  layout.base = sp - below;
+  layout.size = below + above;
+  layout.below = below;
+  layout.above = above;
+  return layout;
+}
 
 enum class trace_arch : uint16_t {
   unknown = 0,
@@ -21,6 +56,21 @@ enum class trace_arch : uint16_t {
   aarch64 = 0x0201,
   arm = 0x0202,
 };
+
+enum class module_perm : uint32_t {
+  none = 0,
+  read = 1u << 0,
+  write = 1u << 1,
+  exec = 1u << 2,
+};
+
+inline module_perm operator|(module_perm lhs, module_perm rhs) {
+  return static_cast<module_perm>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
+}
+
+inline module_perm operator&(module_perm lhs, module_perm rhs) {
+  return static_cast<module_perm>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
+}
 
 enum trace_flags : uint64_t {
   trace_flag_instructions = 1ull << 0,
@@ -73,7 +123,7 @@ struct module_record {
   uint64_t id = 0;
   uint64_t base = 0;
   uint64_t size = 0;
-  uint32_t permissions = 0;
+  module_perm permissions = module_perm::none;
   std::string path;
 };
 
@@ -164,5 +214,19 @@ inline trace_arch detect_trace_arch() {
 }
 
 inline uint32_t detect_pointer_size() { return static_cast<uint32_t>(sizeof(void*)); }
+
+inline module_perm module_perm_from_qbdi(uint32_t perms) {
+  module_perm out = module_perm::none;
+  if (perms & QBDI::PF_READ) {
+    out = out | module_perm::read;
+  }
+  if (perms & QBDI::PF_WRITE) {
+    out = out | module_perm::write;
+  }
+  if (perms & QBDI::PF_EXEC) {
+    out = out | module_perm::exec;
+  }
+  return out;
+}
 
 } // namespace w1::rewind

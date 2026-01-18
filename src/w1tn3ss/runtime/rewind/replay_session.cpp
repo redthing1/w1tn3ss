@@ -36,6 +36,19 @@ bool is_index_error(const std::string& error) {
   return error.find("trace index") != std::string::npos;
 }
 
+replay_session::replay_error_kind map_flow_error_kind(replay_flow_error_kind kind) {
+  switch (kind) {
+  case replay_flow_error_kind::begin_of_trace:
+    return replay_session::replay_error_kind::begin_of_trace;
+  case replay_flow_error_kind::end_of_trace:
+    return replay_session::replay_error_kind::end_of_trace;
+  case replay_flow_error_kind::none:
+    return replay_session::replay_error_kind::none;
+  default:
+    return replay_session::replay_error_kind::other;
+  }
+}
+
 } // namespace
 
 replay_session::replay_session(replay_session_config config) : config_(std::move(config)) {
@@ -44,7 +57,7 @@ replay_session::replay_session(replay_session_config config) : config_(std::move
 
 bool replay_session::open() {
   close();
-  error_.clear();
+  clear_error();
 
   if (config_.trace_path.empty()) {
     set_error("trace path required");
@@ -91,11 +104,11 @@ void replay_session::close() {
   notice_.reset();
   open_ = false;
   has_position_ = false;
-  error_.clear();
+  clear_error();
 }
 
 bool replay_session::select_thread(uint64_t thread_id, uint64_t sequence) {
-  error_.clear();
+  clear_error();
 
   if (!open_) {
     set_error("session not open");
@@ -111,7 +124,7 @@ bool replay_session::select_thread(uint64_t thread_id, uint64_t sequence) {
     const auto* checkpoint = find_checkpoint(thread_id, sequence);
     if (checkpoint) {
       if (!flow_cursor_->seek_with_checkpoint(*checkpoint, sequence)) {
-        set_error(flow_cursor_->error());
+        set_error(map_flow_error_kind(flow_cursor_->error_kind()), flow_cursor_->error());
         return false;
       }
       used_checkpoint = true;
@@ -119,7 +132,7 @@ bool replay_session::select_thread(uint64_t thread_id, uint64_t sequence) {
   }
   if (!used_checkpoint) {
     if (!flow_cursor_->seek(thread_id, sequence)) {
-      set_error(flow_cursor_->error());
+      set_error(map_flow_error_kind(flow_cursor_->error_kind()), flow_cursor_->error());
       return false;
     }
   }
@@ -163,7 +176,7 @@ bool replay_session::step_backward() {
 }
 
 bool replay_session::step_instruction() {
-  error_.clear();
+  clear_error();
 
   if (!open_) {
     set_error("session not open");
@@ -176,7 +189,12 @@ bool replay_session::step_instruction() {
 
   flow_step step{};
   if (!instruction_cursor_->step_forward(step)) {
-    set_error(instruction_cursor_->error());
+    auto kind = replay_error_kind::other;
+    if (flow_cursor_.has_value()) {
+      auto mapped = map_flow_error_kind(flow_cursor_->error_kind());
+      kind = mapped == replay_error_kind::none ? replay_error_kind::other : mapped;
+    }
+    set_error(kind, instruction_cursor_->error());
     return false;
   }
 
@@ -190,7 +208,7 @@ bool replay_session::step_instruction() {
 }
 
 bool replay_session::step_instruction_backward() {
-  error_.clear();
+  clear_error();
 
   if (!open_) {
     set_error("session not open");
@@ -207,7 +225,12 @@ bool replay_session::step_instruction_backward() {
 
   flow_step step{};
   if (!instruction_cursor_->step_backward(step)) {
-    set_error(instruction_cursor_->error());
+    auto kind = replay_error_kind::other;
+    if (flow_cursor_.has_value()) {
+      auto mapped = map_flow_error_kind(flow_cursor_->error_kind());
+      kind = mapped == replay_error_kind::none ? replay_error_kind::other : mapped;
+    }
+    set_error(kind, instruction_cursor_->error());
     return false;
   }
 
@@ -221,7 +244,7 @@ bool replay_session::step_instruction_backward() {
 }
 
 bool replay_session::continue_until_break() {
-  error_.clear();
+  clear_error();
 
   if (!open_) {
     set_error("session not open");
@@ -275,6 +298,13 @@ std::vector<std::optional<uint8_t>> replay_session::read_memory(uint64_t address
     return build_unknown_memory(size);
   }
   return state->read_memory(address, size);
+}
+
+const replay_state* replay_session::state() const {
+  if (!flow_cursor_.has_value()) {
+    return nullptr;
+  }
+  return flow_cursor_->state();
 }
 
 bool replay_session::ensure_index() {
@@ -438,7 +468,7 @@ bool replay_session::ensure_flow_cursor() {
   flow_cursor_.emplace(cursor_config);
   if (!flow_cursor_->open()) {
     if (!config_.auto_build_index || !is_index_error(flow_cursor_->error())) {
-      set_error(flow_cursor_->error());
+      set_error(map_flow_error_kind(flow_cursor_->error_kind()), flow_cursor_->error());
       return false;
     }
 
@@ -450,7 +480,7 @@ bool replay_session::ensure_flow_cursor() {
     }
 
     if (!flow_cursor_->open()) {
-      set_error(flow_cursor_->error());
+      set_error(map_flow_error_kind(flow_cursor_->error_kind()), flow_cursor_->error());
       return false;
     }
   }
@@ -461,7 +491,7 @@ bool replay_session::ensure_flow_cursor() {
 }
 
 bool replay_session::step_flow_internal(flow_step& out) {
-  error_.clear();
+  clear_error();
 
   if (!open_) {
     set_error("session not open");
@@ -474,7 +504,7 @@ bool replay_session::step_flow_internal(flow_step& out) {
 
   flow_step step{};
   if (!flow_cursor_->step_forward(step)) {
-    set_error(flow_cursor_->error());
+    set_error(map_flow_error_kind(flow_cursor_->error_kind()), flow_cursor_->error());
     return false;
   }
 
@@ -483,7 +513,7 @@ bool replay_session::step_flow_internal(flow_step& out) {
 }
 
 bool replay_session::step_flow_backward_internal(flow_step& out) {
-  error_.clear();
+  clear_error();
 
   if (!open_) {
     set_error("session not open");
@@ -500,19 +530,19 @@ bool replay_session::step_flow_backward_internal(flow_step& out) {
 
   if ((config_.track_registers || config_.track_memory) && checkpoint_index_.has_value()) {
     if (current_step_.sequence == 0) {
-      set_error("at start of trace");
+      set_error(replay_error_kind::begin_of_trace, "at start of trace");
       return false;
     }
     uint64_t target = current_step_.sequence - 1;
     const auto* checkpoint = find_checkpoint(active_thread_id_, target);
     if (checkpoint) {
       if (!flow_cursor_->seek_with_checkpoint(*checkpoint, target)) {
-        set_error(flow_cursor_->error());
+        set_error(map_flow_error_kind(flow_cursor_->error_kind()), flow_cursor_->error());
         return false;
       }
       flow_step step{};
       if (!flow_cursor_->step_forward(step)) {
-        set_error(flow_cursor_->error());
+        set_error(map_flow_error_kind(flow_cursor_->error_kind()), flow_cursor_->error());
         return false;
       }
       out = step;
@@ -522,7 +552,7 @@ bool replay_session::step_flow_backward_internal(flow_step& out) {
 
   flow_step step{};
   if (!flow_cursor_->step_backward(step)) {
-    set_error(flow_cursor_->error());
+    set_error(map_flow_error_kind(flow_cursor_->error_kind()), flow_cursor_->error());
     return false;
   }
 
@@ -540,6 +570,16 @@ bool replay_session::is_breakpoint_hit() const {
   return breakpoints_.find(current_step_.address) != breakpoints_.end();
 }
 
-void replay_session::set_error(const std::string& message) { error_ = message; }
+void replay_session::clear_error() {
+  error_.clear();
+  error_kind_ = replay_error_kind::none;
+}
+
+void replay_session::set_error(const std::string& message) { set_error(replay_error_kind::other, message); }
+
+void replay_session::set_error(replay_error_kind kind, const std::string& message) {
+  error_ = message;
+  error_kind_ = kind;
+}
 
 } // namespace w1::rewind

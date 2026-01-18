@@ -25,7 +25,7 @@ inline void write_module_table(
   module.id = module_id;
   module.base = base;
   module.size = 0x1000;
-  module.permissions = 5;
+  module.permissions = module_perm::read | module_perm::exec;
   module.path = path;
 
   module_table_record table{};

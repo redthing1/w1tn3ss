@@ -3,11 +3,21 @@ cmake_minimum_required(VERSION 3.16)
 include(${WITNESS_SOURCE_DIR}/cmake/CommonConfig.cmake)
 include(${WITNESS_SOURCE_DIR}/cmake/LIEFConfig.cmake)
 
+find_package(Threads REQUIRED)
+
 add_executable(w1replay
     main.cpp
     asmr_block_decoder.cpp
+    gdb/adapter.cpp
+    gdb/adapter_components.cpp
+    gdb/layout.cpp
+    gdb/target_xml.cpp
+    gdb/memory_map.cpp
+    gdb/value_codec.cpp
+    gdb/stepper.cpp
     commands/checkpoint.cpp
     commands/inspect.cpp
+    commands/server.cpp
     commands/threads.cpp
 )
 
@@ -22,6 +32,8 @@ target_link_libraries(w1replay PRIVATE
     w1tn3ss
     common
     redlog::redlog
+    gdbstub::gdbstub
+    Threads::Threads
 )
 
 if(TARGET p1ll_asmr)

@@ -26,9 +26,19 @@ struct replay_context {
   std::vector<replay_thread_info> threads;
   std::optional<uint16_t> sp_reg_id;
 
+  struct trace_features {
+    bool has_registers = false;
+    bool has_memory_access = false;
+    bool has_memory_values = false;
+    bool has_stack_window = false;
+    bool has_blocks = false;
+    bool track_memory = false;
+  };
+
   bool resolve_address(uint64_t module_id, uint64_t module_offset, uint64_t& address) const;
   bool has_blocks() const;
   bool has_registers() const;
+  trace_features features() const;
 };
 
 bool load_replay_context(const std::string& trace_path, replay_context& out, std::string& error);

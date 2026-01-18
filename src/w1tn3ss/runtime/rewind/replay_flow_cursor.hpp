@@ -23,6 +23,8 @@ struct replay_flow_cursor_config {
   const replay_context* context = nullptr;
 };
 
+enum class replay_flow_error_kind { none, begin_of_trace, end_of_trace, other };
+
 struct flow_step {
   uint64_t thread_id = 0;
   uint64_t sequence = 0;
@@ -50,6 +52,7 @@ public:
   bool has_position() const { return has_position_; }
   const flow_step& current_step() const { return current_step_; }
   const std::string& error() const { return error_; }
+  replay_flow_error_kind error_kind() const { return error_kind_; }
 
 private:
   enum class flow_kind { instructions, blocks };
@@ -68,6 +71,8 @@ private:
   bool consume_sequence_records(uint64_t thread_id, uint64_t sequence);
   void push_history(const flow_step& step, const trace_record_location& location);
   bool seek_to_history(size_t index);
+  void clear_error();
+  void set_error(replay_flow_error_kind kind, const std::string& message);
 
   replay_flow_cursor_config config_;
   trace_cursor cursor_;
@@ -88,6 +93,7 @@ private:
   bool track_registers_ = false;
   bool track_memory_ = false;
   std::string error_;
+  replay_flow_error_kind error_kind_ = replay_flow_error_kind::none;
 };
 
 } // namespace w1::rewind

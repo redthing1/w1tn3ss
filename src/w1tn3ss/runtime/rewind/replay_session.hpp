@@ -55,8 +55,11 @@ public:
   const trace_header& header() const { return context_.header; }
   const std::vector<module_record>& modules() const { return context_.modules; }
   const std::vector<replay_thread_info>& threads() const { return context_.threads; }
+  const replay_state* state() const;
   std::optional<replay_notice> take_notice();
   const std::string& error() const { return error_; }
+  enum class replay_error_kind { none, begin_of_trace, end_of_trace, other };
+  replay_error_kind error_kind() const { return error_kind_; }
 
 private:
   bool ensure_index();
@@ -69,7 +72,9 @@ private:
   bool step_flow_internal(flow_step& out);
   void reset_instruction_cursor();
   bool is_breakpoint_hit() const;
+  void clear_error();
   void set_error(const std::string& message);
+  void set_error(replay_error_kind kind, const std::string& message);
 
   replay_session_config config_;
   replay_context context_{};
@@ -86,6 +91,7 @@ private:
   bool open_ = false;
   bool has_position_ = false;
   std::string error_;
+  replay_error_kind error_kind_ = replay_error_kind::none;
 };
 
 } // namespace w1::rewind
