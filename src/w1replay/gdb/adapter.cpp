@@ -56,6 +56,7 @@ bool adapter::open() {
   breakpoints_component_ = std::make_unique<breakpoints_component>(state_);
   threads_component_ = std::make_unique<threads_component>(state_);
   memory_layout_component_ = std::make_unique<memory_layout_component>(state_);
+  offsets_component_ = std::make_unique<offsets_component>(state_);
   register_info_component_ = std::make_unique<register_info_component>(state_);
 
   return true;
@@ -69,6 +70,7 @@ gdbstub::target adapter::make_target() {
       *breakpoints_component_,
       *threads_component_,
       *memory_layout_component_,
+      *offsets_component_,
       *register_info_component_
   );
 }

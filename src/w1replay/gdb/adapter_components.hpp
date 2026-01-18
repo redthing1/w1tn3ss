@@ -83,6 +83,16 @@ private:
   adapter_state& state_;
 };
 
+class offsets_component {
+public:
+  explicit offsets_component(adapter_state& state);
+
+  std::optional<gdbstub::offsets_info> get_offsets_info() const;
+
+private:
+  adapter_state& state_;
+};
+
 class register_info_component {
 public:
   explicit register_info_component(adapter_state& state);

@@ -57,6 +57,7 @@ private:
   std::unique_ptr<breakpoints_component> breakpoints_component_;
   std::unique_ptr<threads_component> threads_component_;
   std::unique_ptr<memory_layout_component> memory_layout_component_;
+  std::unique_ptr<offsets_component> offsets_component_;
   std::unique_ptr<register_info_component> register_info_component_;
 };
 

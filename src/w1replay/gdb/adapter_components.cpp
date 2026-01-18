@@ -193,6 +193,33 @@ std::vector<gdbstub::memory_region> memory_layout_component::memory_map() const 
   return build_memory_map(state_.context.modules, replay_state);
 }
 
+offsets_component::offsets_component(adapter_state& state) : state_(state) {}
+
+std::optional<gdbstub::offsets_info> offsets_component::get_offsets_info() const {
+  auto pc = state_.current_pc();
+  if (!pc.has_value()) {
+    return std::nullopt;
+  }
+
+  uint64_t module_offset = 0;
+  auto* module = state_.context.find_module_for_address(*pc, 1, module_offset);
+  if (!module) {
+    return std::nullopt;
+  }
+
+  std::string error;
+  const auto* layout = state_.module_source_state.get_module_layout(*module, error);
+  if (!layout) {
+    return std::nullopt;
+  }
+
+  if (module->base < layout->link_base) {
+    return std::nullopt;
+  }
+  uint64_t slide = module->base - layout->link_base;
+  return gdbstub::offsets_info::section(slide, slide, slide);
+}
+
 register_info_component::register_info_component(adapter_state& state) : state_(state) {}
 
 std::optional<gdbstub::register_info> register_info_component::get_register_info(int regno) const {

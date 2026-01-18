@@ -100,29 +100,14 @@ image_read_result module_source::read_module_image(
   result.error = "module bytes unavailable (build with WITNESS_LIEF=ON)";
   return result;
 #else
-  if (module.path.empty()) {
-    result.error = "module path missing";
+  std::string layout_error;
+  const auto* layout = get_module_layout(module, layout_error);
+  if (!layout) {
+    result.error = layout_error.empty() ? "module layout unavailable" : layout_error;
     return result;
   }
 
-  auto& entry = modules_[module.path];
-  if (!entry.binary) {
-    auto binary = LIEF::Parser::parse(module.path);
-    if (!binary) {
-      result.error = "failed to parse module: " + module.path;
-      return result;
-    }
-    entry.binary = std::move(binary);
-    std::string layout_error;
-    if (!build_image_layout(*entry.binary, entry.layout, layout_error)) {
-      result.error = "failed to build module layout: " + layout_error;
-      entry.binary.reset();
-      entry.layout = image_layout{};
-      return result;
-    }
-  }
-
-  result = read_image_bytes(entry.layout, module_offset, size);
+  result = read_image_bytes(*layout, module_offset, size);
   if (!result.error.empty()) {
     result.error = "module image read failed: " + result.error;
   }
@@ -163,6 +148,38 @@ image_read_result module_source::read_address_image(
   }
 
   return read_module_image(*matched, module_offset, size);
+}
+
+const image_layout* module_source::get_module_layout(const w1::rewind::module_record& module, std::string& error) {
+  error.clear();
+#if !defined(WITNESS_LIEF_ENABLED)
+  (void)module;
+  error = "module bytes unavailable (build with WITNESS_LIEF=ON)";
+  return nullptr;
+#else
+  if (module.path.empty()) {
+    error = "module path missing";
+    return nullptr;
+  }
+
+  auto& entry = modules_[module.path];
+  if (!entry.binary) {
+    auto binary = LIEF::Parser::parse(module.path);
+    if (!binary) {
+      error = "failed to parse module: " + module.path;
+      return nullptr;
+    }
+    entry.binary = std::move(binary);
+    if (!build_image_layout(*entry.binary, entry.layout, error)) {
+      error = "failed to build module layout: " + error;
+      entry.binary.reset();
+      entry.layout = image_layout{};
+      return nullptr;
+    }
+  }
+
+  return &entry.layout;
+#endif
 }
 
 } // namespace w1replay

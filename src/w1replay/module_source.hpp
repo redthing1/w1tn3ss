@@ -28,6 +28,7 @@ struct module_source {
 
   image_read_result read_module_image(const w1::rewind::module_record& module, uint64_t module_offset, size_t size);
   image_read_result read_address_image(const w1::rewind::replay_context& context, uint64_t address, size_t size);
+  const image_layout* get_module_layout(const w1::rewind::module_record& module, std::string& error);
 
 private:
   std::vector<std::string> module_mappings_;
