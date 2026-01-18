@@ -1,6 +1,6 @@
 #include "asmr_block_decoder.hpp"
 
-#include "module_source.hpp"
+#include "code_source.hpp"
 
 #include <cstddef>
 #include <limits>
@@ -68,8 +68,8 @@ bool asmr_block_decoder::decode_block(
   error = "asmr decoder unavailable (build with WITNESS_LIEF=ON)";
   return false;
 #else
-  if (!module_source_) {
-    error = "module source missing";
+  if (!source_) {
+    error = "code source missing";
     return false;
   }
 
@@ -79,25 +79,29 @@ bool asmr_block_decoder::decode_block(
   }
 
   auto module_it = context.modules_by_id.find(module_id);
-  if (module_it == context.modules_by_id.end()) {
-    error = "module id not found";
-    return false;
-  }
-  if (module_it->second.path.empty()) {
-    error = "module path missing";
-    return false;
-  }
-
   std::vector<std::byte> raw_bytes;
-  if (!module_source_->read_module_bytes(module_it->second, module_offset, size, raw_bytes, error)) {
-    return false;
+  if (module_id == 0) {
+    raw_bytes.resize(size);
+    if (!source_->read_by_address(context, module_offset, std::span<std::byte>(raw_bytes), error)) {
+      return false;
+    }
+  } else {
+    if (!source_->read_by_module(context, module_id, module_offset, size, raw_bytes, error)) {
+      return false;
+    }
   }
   std::vector<uint8_t> buffer;
   buffer.resize(raw_bytes.size());
   for (size_t i = 0; i < raw_bytes.size(); ++i) {
     buffer[i] = std::to_integer<uint8_t>(raw_bytes[i]);
   }
-  uint64_t base_address = module_it->second.base + module_offset;
+  uint64_t base_address = 0;
+  if (module_id == 0) {
+    base_address = module_offset;
+  } else if (!context.resolve_address(module_id, module_offset, base_address)) {
+    error = "failed to resolve module address";
+    return false;
+  }
 
   auto arch_value = trace_arch_to_platform_arch(context.header.architecture);
   if (!arch_value.has_value()) {

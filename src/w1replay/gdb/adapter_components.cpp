@@ -90,7 +90,7 @@ gdbstub::target_status mem_component::read_mem(uint64_t addr, std::span<std::byt
   std::vector<std::byte> module_bytes;
   module_bytes.resize(out.size());
   std::string module_error;
-  bool module_ok = state_.module_source_state.read_address_bytes(state_.context, addr, module_bytes, module_error);
+  bool module_ok = state_.module_source_state.read_by_address(state_.context, addr, module_bytes, module_error);
 
   bool complete = merge_memory_bytes(recorded, module_bytes, module_ok, out);
   return complete ? gdbstub::target_status::ok : gdbstub::target_status::unsupported;
@@ -193,7 +193,7 @@ memory_layout_component::memory_layout_component(adapter_state& state) : state_(
 
 std::vector<gdbstub::memory_region> memory_layout_component::memory_map() const {
   const auto* replay_state = (state_.session && state_.track_memory) ? state_.session->state() : nullptr;
-  return build_memory_map(state_.context.modules, replay_state);
+  return build_memory_map(state_.context.modules, state_.context.memory_map, replay_state);
 }
 
 register_info_component::register_info_component(adapter_state& state) : state_(state) {}

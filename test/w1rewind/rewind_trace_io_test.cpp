@@ -2,6 +2,7 @@
 
 #include "doctest/doctest.hpp"
 
+#include "w1rewind/rewind_test_helpers.hpp"
 #include "w1rewind/replay/trace_reader.hpp"
 #include "w1rewind/record/trace_writer.hpp"
 
@@ -15,6 +16,7 @@ std::filesystem::path make_temp_path(const char* name) {
 
 TEST_CASE("rewind trace writer and reader round trip (instructions)") {
   namespace fs = std::filesystem;
+  using namespace w1::rewind::test_helpers;
 
   fs::path path = make_temp_path("w1rewind_trace_io_instruction.trace");
 
@@ -34,9 +36,7 @@ TEST_CASE("rewind trace writer and reader round trip (instructions)") {
                  w1::rewind::trace_flag_snapshots | w1::rewind::trace_flag_stack_snapshot;
   REQUIRE(writer->write_header(header));
 
-  w1::rewind::register_table_record reg_table{};
-  reg_table.names = {"r0", "r1"};
-  REQUIRE(writer->write_register_table(reg_table));
+  write_basic_metadata(*writer, header.architecture, header.pointer_size, {"r0", "r1"});
 
   w1::rewind::module_record module{};
   module.id = 1;
@@ -116,16 +116,17 @@ TEST_CASE("rewind trace writer and reader round trip (instructions)") {
     records.push_back(record);
   }
   CHECK(reader.error().empty());
-  REQUIRE(records.size() == 8);
+  REQUIRE(records.size() == 9);
 
-  CHECK(std::holds_alternative<w1::rewind::register_table_record>(records[0]));
-  CHECK(std::holds_alternative<w1::rewind::module_table_record>(records[1]));
-  CHECK(std::holds_alternative<w1::rewind::thread_start_record>(records[2]));
-  CHECK(std::holds_alternative<w1::rewind::instruction_record>(records[3]));
-  CHECK(std::holds_alternative<w1::rewind::register_delta_record>(records[4]));
-  CHECK(std::holds_alternative<w1::rewind::memory_access_record>(records[5]));
-  CHECK(std::holds_alternative<w1::rewind::snapshot_record>(records[6]));
-  CHECK(std::holds_alternative<w1::rewind::thread_end_record>(records[7]));
+  CHECK(std::holds_alternative<w1::rewind::target_info_record>(records[0]));
+  CHECK(std::holds_alternative<w1::rewind::register_spec_record>(records[1]));
+  CHECK(std::holds_alternative<w1::rewind::module_table_record>(records[2]));
+  CHECK(std::holds_alternative<w1::rewind::thread_start_record>(records[3]));
+  CHECK(std::holds_alternative<w1::rewind::instruction_record>(records[4]));
+  CHECK(std::holds_alternative<w1::rewind::register_delta_record>(records[5]));
+  CHECK(std::holds_alternative<w1::rewind::memory_access_record>(records[6]));
+  CHECK(std::holds_alternative<w1::rewind::snapshot_record>(records[7]));
+  CHECK(std::holds_alternative<w1::rewind::thread_end_record>(records[8]));
 
   fs::remove(path);
 }
@@ -133,6 +134,7 @@ TEST_CASE("rewind trace writer and reader round trip (instructions)") {
 #if defined(W1_REWIND_HAVE_ZSTD)
 TEST_CASE("rewind trace writer and reader round trip (compressed blocks)") {
   namespace fs = std::filesystem;
+  using namespace w1::rewind::test_helpers;
 
   fs::path path = make_temp_path("w1rewind_trace_io_compressed_block.trace");
 
@@ -151,9 +153,7 @@ TEST_CASE("rewind trace writer and reader round trip (compressed blocks)") {
   header.flags = w1::rewind::trace_flag_blocks;
   REQUIRE(writer->write_header(header));
 
-  w1::rewind::register_table_record reg_table{};
-  reg_table.names = {"r0"};
-  REQUIRE(writer->write_register_table(reg_table));
+  write_basic_metadata(*writer, header.architecture, header.pointer_size, {"r0"});
 
   w1::rewind::module_record module{};
   module.id = 1;
@@ -203,14 +203,15 @@ TEST_CASE("rewind trace writer and reader round trip (compressed blocks)") {
     records.push_back(record);
   }
   CHECK(reader.error().empty());
-  REQUIRE(records.size() == 6);
+  REQUIRE(records.size() == 7);
 
-  CHECK(std::holds_alternative<w1::rewind::register_table_record>(records[0]));
-  CHECK(std::holds_alternative<w1::rewind::module_table_record>(records[1]));
-  CHECK(std::holds_alternative<w1::rewind::thread_start_record>(records[2]));
-  CHECK(std::holds_alternative<w1::rewind::block_definition_record>(records[3]));
-  CHECK(std::holds_alternative<w1::rewind::block_exec_record>(records[4]));
-  CHECK(std::holds_alternative<w1::rewind::thread_end_record>(records[5]));
+  CHECK(std::holds_alternative<w1::rewind::target_info_record>(records[0]));
+  CHECK(std::holds_alternative<w1::rewind::register_spec_record>(records[1]));
+  CHECK(std::holds_alternative<w1::rewind::module_table_record>(records[2]));
+  CHECK(std::holds_alternative<w1::rewind::thread_start_record>(records[3]));
+  CHECK(std::holds_alternative<w1::rewind::block_definition_record>(records[4]));
+  CHECK(std::holds_alternative<w1::rewind::block_exec_record>(records[5]));
+  CHECK(std::holds_alternative<w1::rewind::thread_end_record>(records[6]));
 
   fs::remove(path);
 }
@@ -218,6 +219,7 @@ TEST_CASE("rewind trace writer and reader round trip (compressed blocks)") {
 
 TEST_CASE("rewind trace writer and reader round trip (blocks)") {
   namespace fs = std::filesystem;
+  using namespace w1::rewind::test_helpers;
 
   fs::path path = make_temp_path("w1rewind_trace_io_block.trace");
 
@@ -235,9 +237,7 @@ TEST_CASE("rewind trace writer and reader round trip (blocks)") {
   header.flags = w1::rewind::trace_flag_blocks | w1::rewind::trace_flag_snapshots;
   REQUIRE(writer->write_header(header));
 
-  w1::rewind::register_table_record reg_table{};
-  reg_table.names = {"r0", "r1"};
-  REQUIRE(writer->write_register_table(reg_table));
+  write_basic_metadata(*writer, header.architecture, header.pointer_size, {"r0", "r1"});
 
   w1::rewind::module_record module{};
   module.id = 1;
@@ -301,15 +301,16 @@ TEST_CASE("rewind trace writer and reader round trip (blocks)") {
     records.push_back(record);
   }
   CHECK(reader.error().empty());
-  REQUIRE(records.size() == 7);
+  REQUIRE(records.size() == 8);
 
-  CHECK(std::holds_alternative<w1::rewind::register_table_record>(records[0]));
-  CHECK(std::holds_alternative<w1::rewind::module_table_record>(records[1]));
-  CHECK(std::holds_alternative<w1::rewind::thread_start_record>(records[2]));
-  CHECK(std::holds_alternative<w1::rewind::block_definition_record>(records[3]));
-  CHECK(std::holds_alternative<w1::rewind::block_exec_record>(records[4]));
-  CHECK(std::holds_alternative<w1::rewind::snapshot_record>(records[5]));
-  CHECK(std::holds_alternative<w1::rewind::thread_end_record>(records[6]));
+  CHECK(std::holds_alternative<w1::rewind::target_info_record>(records[0]));
+  CHECK(std::holds_alternative<w1::rewind::register_spec_record>(records[1]));
+  CHECK(std::holds_alternative<w1::rewind::module_table_record>(records[2]));
+  CHECK(std::holds_alternative<w1::rewind::thread_start_record>(records[3]));
+  CHECK(std::holds_alternative<w1::rewind::block_definition_record>(records[4]));
+  CHECK(std::holds_alternative<w1::rewind::block_exec_record>(records[5]));
+  CHECK(std::holds_alternative<w1::rewind::snapshot_record>(records[6]));
+  CHECK(std::holds_alternative<w1::rewind::thread_end_record>(records[7]));
   CHECK(reader.block_table().size() == 1);
 
   fs::remove(path);

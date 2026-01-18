@@ -34,8 +34,9 @@ TEST_CASE("gdb adapter exposes register info with pc/sp generics") {
 
   std::vector<std::string> registers = {"x0", "sp", "pc", "nzcv"};
 
+  write_target_info(*writer, w1::rewind::trace_arch::aarch64, 8);
+  write_register_specs(*writer, registers, w1::rewind::trace_arch::aarch64, 8);
   write_module_table(*writer, 1, 0x1000);
-  write_register_table(*writer, registers);
   write_thread_start(*writer, 1, "thread1");
   write_instruction(*writer, 1, 0, 1, 0x10);
   write_thread_end(*writer, 1);
@@ -49,23 +50,21 @@ TEST_CASE("gdb adapter exposes register info with pc/sp generics") {
   w1replay::gdb::adapter adapter(std::move(config));
   REQUIRE(adapter.open());
 
-  auto target = adapter.make_target();
-  REQUIRE(target.view().reg_info.has_value());
+  auto gdb_target = adapter.make_target();
+  REQUIRE(gdb_target.view().reg_info.has_value());
 
-  auto layout = w1replay::gdb::build_register_layout(
-      w1::rewind::trace_arch::aarch64,
-      8,
-      registers
-  );
+  auto target_info = w1::rewind::test_helpers::make_target_info(w1::rewind::trace_arch::aarch64, 8);
+  auto specs = w1::rewind::test_helpers::make_register_specs(registers, w1::rewind::trace_arch::aarch64, 8);
+  auto layout = w1replay::gdb::build_register_layout(target_info, specs);
   REQUIRE(layout.pc_reg_num >= 0);
   REQUIRE(layout.sp_reg_num >= 0);
 
-  auto pc_info = target.view().reg_info->get_register_info(layout.pc_reg_num);
+  auto pc_info = gdb_target.view().reg_info->get_register_info(layout.pc_reg_num);
   REQUIRE(pc_info.has_value());
   CHECK(pc_info->generic.has_value());
   CHECK(*pc_info->generic == "pc");
 
-  auto sp_info = target.view().reg_info->get_register_info(layout.sp_reg_num);
+  auto sp_info = gdb_target.view().reg_info->get_register_info(layout.sp_reg_num);
   REQUIRE(sp_info.has_value());
   CHECK(sp_info->generic.has_value());
   CHECK(*sp_info->generic == "sp");

@@ -51,7 +51,7 @@ TEST_CASE("w1rewind replay checkpoint restores register state") {
   header.flags = w1::rewind::trace_flag_instructions | w1::rewind::trace_flag_register_deltas;
   REQUIRE(writer->write_header(header));
 
-  write_register_table(*writer, make_register_names(header.architecture));
+  write_basic_metadata(*writer, header.architecture, header.pointer_size, make_register_names(header.architecture));
   write_module_table(*writer, 1, 0x1000);
 
   write_thread_start(*writer, 1, "main");

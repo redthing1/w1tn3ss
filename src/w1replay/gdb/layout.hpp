@@ -27,9 +27,8 @@ struct register_layout {
 };
 
 register_layout build_register_layout(
-    w1::rewind::trace_arch arch,
-    uint32_t pointer_size,
-    const std::vector<std::string>& trace_registers
+    const w1::rewind::target_info_record& target,
+    const std::vector<w1::rewind::register_spec>& register_specs
 );
 
 } // namespace w1replay::gdb

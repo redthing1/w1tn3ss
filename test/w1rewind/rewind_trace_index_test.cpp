@@ -2,6 +2,7 @@
 
 #include "doctest/doctest.hpp"
 
+#include "w1rewind/rewind_test_helpers.hpp"
 #include "w1rewind/replay/trace_index.hpp"
 #include "w1rewind/replay/trace_reader.hpp"
 #include "w1rewind/record/trace_writer.hpp"
@@ -31,6 +32,7 @@ void write_instruction_range(
 
 TEST_CASE("w1rewind trace index builds anchors for instruction flow") {
   namespace fs = std::filesystem;
+  using namespace w1::rewind::test_helpers;
 
   fs::path trace_path = fs::temp_directory_path() / "w1rewind_index.trace";
   fs::path index_path = fs::temp_directory_path() / "w1rewind_index.trace.idx";
@@ -44,9 +46,12 @@ TEST_CASE("w1rewind trace index builds anchors for instruction flow") {
   REQUIRE(writer->open());
 
   w1::rewind::trace_header header{};
+  header.architecture = w1::rewind::detect_trace_arch();
+  header.pointer_size = w1::rewind::detect_pointer_size();
   header.flags = w1::rewind::trace_flag_instructions;
   REQUIRE(writer->write_header(header));
 
+  write_basic_metadata(*writer, header.architecture, header.pointer_size, minimal_registers(header.architecture));
   w1::rewind::thread_start_record start1{};
   start1.thread_id = 1;
   start1.name = "thread1";

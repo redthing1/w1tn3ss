@@ -288,10 +288,6 @@ bool replay_flow_cursor::load_context() {
     return false;
   }
 
-  if (context_->modules_by_id.empty()) {
-    set_error(replay_flow_error_kind::other, "module table missing");
-    return false;
-  }
   if ((track_registers_ || track_memory_) && context_->register_names.empty()) {
     set_error(replay_flow_error_kind::other, "register table missing");
     return false;

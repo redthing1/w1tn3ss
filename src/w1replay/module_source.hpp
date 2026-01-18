@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-#include "w1rewind/replay/replay_context.hpp"
+#include "code_source.hpp"
 
 #if defined(WITNESS_LIEF_ENABLED)
 #include <LIEF/LIEF.hpp>
@@ -19,7 +19,7 @@ namespace w1replay {
 
 using module_address_reader = std::function<bool(uint64_t address, std::span<std::byte> out, std::string& error)>;
 
-struct module_source {
+struct module_source : public code_source {
   void configure(std::vector<std::string> module_mappings, std::vector<std::string> module_dirs);
   void set_address_reader(module_address_reader reader);
 
@@ -39,6 +39,22 @@ struct module_source {
       std::span<std::byte> out,
       std::string& error
   );
+
+  bool read_by_module(
+      const w1::rewind::replay_context& context,
+      uint64_t module_id,
+      uint64_t module_offset,
+      uint32_t size,
+      std::vector<std::byte>& out,
+      std::string& error
+  ) override;
+
+  bool read_by_address(
+      const w1::rewind::replay_context& context,
+      uint64_t address,
+      std::span<std::byte> out,
+      std::string& error
+  ) override;
 
 private:
   std::vector<std::string> module_mappings_;

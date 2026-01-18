@@ -133,7 +133,8 @@ TEST_CASE("w1rewind records instruction flow, memory, and snapshots") {
   CHECK((reader.header().flags & w1::rewind::trace_flag_memory_access) != 0);
   CHECK((reader.header().flags & w1::rewind::trace_flag_memory_values) != 0);
   CHECK((reader.header().flags & w1::rewind::trace_flag_snapshots) != 0);
-  CHECK(!reader.register_table().empty());
+  CHECK(reader.target_info().has_value());
+  CHECK(!reader.register_specs().empty());
   CHECK(!reader.module_table().empty());
 
   CHECK(instruction_count > 0);

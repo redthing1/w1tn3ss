@@ -36,8 +36,11 @@ void trace_reader::close() {
   next_chunk_index_ = 0;
   current_chunk_index_ = 0;
   last_chunk_info_.reset();
+  target_info_.reset();
+  register_specs_.clear();
   register_table_.clear();
   module_table_.clear();
+  memory_map_.clear();
   block_table_.clear();
   error_.clear();
 }
@@ -54,8 +57,11 @@ void trace_reader::reset() {
   next_chunk_index_ = 0;
   current_chunk_index_ = 0;
   last_chunk_info_.reset();
+  target_info_.reset();
+  register_specs_.clear();
   register_table_.clear();
   module_table_.clear();
+  memory_map_.clear();
   block_table_.clear();
   error_.clear();
   read_header();
@@ -375,6 +381,24 @@ bool trace_reader::parse_record(const record_header& header, const std::vector<u
   trace_buffer_reader reader(std::span<const uint8_t>(payload.data(), payload.size()));
 
   switch (header.kind) {
+  case record_kind::target_info: {
+    target_info_record out{};
+    if (!decode_target_info(reader, out)) {
+      return false;
+    }
+    target_info_ = out;
+    record = std::move(out);
+    return true;
+  }
+  case record_kind::register_spec: {
+    register_spec_record out{};
+    if (!decode_register_spec(reader, out)) {
+      return false;
+    }
+    register_specs_ = out.registers;
+    record = std::move(out);
+    return true;
+  }
   case record_kind::register_table: {
     register_table_record out{};
     if (!decode_register_table(reader, out)) {
@@ -390,6 +414,15 @@ bool trace_reader::parse_record(const record_header& header, const std::vector<u
       return false;
     }
     module_table_ = out.modules;
+    record = std::move(out);
+    return true;
+  }
+  case record_kind::memory_map: {
+    memory_map_record out{};
+    if (!decode_memory_map(reader, out)) {
+      return false;
+    }
+    memory_map_ = out.regions;
     record = std::move(out);
     return true;
   }

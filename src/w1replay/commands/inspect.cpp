@@ -111,7 +111,7 @@ int inspect(const inspect_options& options) {
   if (options.instruction_steps) {
     if (asmr_decoder_available()) {
       decoder.emplace();
-      decoder->set_module_source(&source);
+      decoder->set_code_source(&source);
       config.block_decoder = &*decoder;
     }
   }

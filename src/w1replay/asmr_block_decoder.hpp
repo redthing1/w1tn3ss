@@ -7,13 +7,13 @@
 
 namespace w1replay {
 
-struct module_source;
+class code_source;
 
 class asmr_block_decoder final : public w1::rewind::replay_block_decoder {
 public:
   ~asmr_block_decoder();
 
-  void set_module_source(module_source* module_source) { module_source_ = module_source; }
+  void set_code_source(code_source* source) { source_ = source; }
 
   bool decode_block(
       const w1::rewind::replay_context& context,
@@ -25,7 +25,7 @@ public:
   ) override;
 
 private:
-  module_source* module_source_ = nullptr;
+  code_source* source_ = nullptr;
 };
 
 bool asmr_decoder_available();

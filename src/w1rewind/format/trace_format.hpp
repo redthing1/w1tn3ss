@@ -8,8 +8,8 @@
 
 namespace w1::rewind {
 
-constexpr uint16_t k_trace_version = 6;
-constexpr std::array<uint8_t, 8> k_trace_magic = {'W', '1', 'R', 'W', 'N', 'D', '6', '\0'};
+constexpr uint16_t k_trace_version = 7;
+constexpr std::array<uint8_t, 8> k_trace_magic = {'W', '1', 'R', 'W', 'N', 'D', '7', '\0'};
 constexpr uint32_t k_trace_chunk_bytes = 8 * 1024 * 1024;
 constexpr uint64_t k_stack_snapshot_above_cap = 0x200;
 
@@ -54,6 +54,12 @@ enum class trace_arch : uint16_t {
   arm = 0x0202,
 };
 
+enum class trace_endianness : uint8_t {
+  unknown = 0,
+  little = 1,
+  big = 2,
+};
+
 enum class module_perm : uint32_t {
   none = 0,
   read = 1u << 0,
@@ -95,6 +101,9 @@ enum class record_kind : uint16_t {
   thread_end = 8,
   block_definition = 9,
   block_exec = 10,
+  target_info = 11,
+  register_spec = 12,
+  memory_map = 13,
 };
 
 struct trace_header {
@@ -116,6 +125,52 @@ struct register_table_record {
   std::vector<std::string> names;
 };
 
+struct target_info_record {
+  std::string arch_id;
+  uint32_t pointer_bits = 0;
+  trace_endianness endianness = trace_endianness::unknown;
+  std::string os;
+  std::string abi;
+  std::string cpu;
+  std::string gdb_arch;
+  std::string gdb_feature;
+};
+
+enum register_flags : uint16_t {
+  register_flag_pc = 1u << 0,
+  register_flag_sp = 1u << 1,
+  register_flag_flags = 1u << 2,
+};
+
+enum class register_class : uint8_t {
+  unknown = 0,
+  gpr = 1,
+  fpr = 2,
+  simd = 3,
+  flags = 4,
+  system = 5,
+};
+
+enum class register_value_kind : uint8_t {
+  unknown = 0,
+  u64 = 1,
+  bytes = 2,
+};
+
+struct register_spec {
+  uint16_t reg_id = 0;
+  std::string name;
+  uint16_t bits = 0;
+  uint16_t flags = 0;
+  std::string gdb_name;
+  register_class reg_class = register_class::unknown;
+  register_value_kind value_kind = register_value_kind::unknown;
+};
+
+struct register_spec_record {
+  std::vector<register_spec> registers;
+};
+
 struct module_record {
   uint64_t id = 0;
   uint64_t base = 0;
@@ -126,6 +181,18 @@ struct module_record {
 
 struct module_table_record {
   std::vector<module_record> modules;
+};
+
+struct memory_region_record {
+  uint64_t base = 0;
+  uint64_t size = 0;
+  module_perm permissions = module_perm::none;
+  uint64_t image_id = 0;
+  std::string name;
+};
+
+struct memory_map_record {
+  std::vector<memory_region_record> regions;
 };
 
 struct thread_start_record {
@@ -193,8 +260,19 @@ struct thread_end_record {
 };
 
 using trace_record = std::variant<
-    register_table_record, module_table_record, thread_start_record, instruction_record, block_definition_record,
-    block_exec_record, register_delta_record, memory_access_record, snapshot_record, thread_end_record>;
+    register_table_record,
+    target_info_record,
+    register_spec_record,
+    module_table_record,
+    memory_map_record,
+    thread_start_record,
+    instruction_record,
+    block_definition_record,
+    block_exec_record,
+    register_delta_record,
+    memory_access_record,
+    snapshot_record,
+    thread_end_record>;
 
 inline trace_arch detect_trace_arch() {
 #if defined(__x86_64__) || defined(_M_X64)
@@ -211,5 +289,17 @@ inline trace_arch detect_trace_arch() {
 }
 
 inline uint32_t detect_pointer_size() { return static_cast<uint32_t>(sizeof(void*)); }
+
+inline trace_endianness detect_trace_endianness() {
+  uint16_t value = 0x0102;
+  auto* bytes = reinterpret_cast<const uint8_t*>(&value);
+  if (bytes[0] == 0x02) {
+    return trace_endianness::little;
+  }
+  if (bytes[0] == 0x01) {
+    return trace_endianness::big;
+  }
+  return trace_endianness::unknown;
+}
 
 } // namespace w1::rewind

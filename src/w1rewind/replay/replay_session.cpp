@@ -443,11 +443,6 @@ bool replay_session::load_context() {
     return false;
   }
 
-  if (context_.modules.empty()) {
-    set_error("module table missing");
-    return false;
-  }
-
   if (config_.context_hook) {
     config_.context_hook(context_);
   }

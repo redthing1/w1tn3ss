@@ -202,4 +202,31 @@ bool module_source::read_address_bytes(
   return true;
 }
 
+bool module_source::read_by_module(
+    const w1::rewind::replay_context& context,
+    uint64_t module_id,
+    uint64_t module_offset,
+    uint32_t size,
+    std::vector<std::byte>& out,
+    std::string& error
+) {
+  out.clear();
+  error.clear();
+  auto it = context.modules_by_id.find(module_id);
+  if (it == context.modules_by_id.end()) {
+    error = "module id not found";
+    return false;
+  }
+  return read_module_bytes(it->second, module_offset, size, out, error);
+}
+
+bool module_source::read_by_address(
+    const w1::rewind::replay_context& context,
+    uint64_t address,
+    std::span<std::byte> out,
+    std::string& error
+) {
+  return read_address_bytes(context, address, out, error);
+}
+
 } // namespace w1replay

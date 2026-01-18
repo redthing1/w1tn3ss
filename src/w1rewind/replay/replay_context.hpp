@@ -19,8 +19,11 @@ struct replay_thread_info {
 
 struct replay_context {
   trace_header header{};
+  std::optional<target_info_record> target_info;
+  std::vector<register_spec> register_specs;
   std::vector<std::string> register_names;
   std::vector<module_record> modules;
+  std::vector<memory_region_record> memory_map;
   std::unordered_map<uint64_t, module_record> modules_by_id;
   std::unordered_map<uint64_t, block_definition_record> blocks_by_id;
   std::vector<replay_thread_info> threads;
