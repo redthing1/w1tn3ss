@@ -8,6 +8,8 @@ find_package(Threads REQUIRED)
 add_executable(w1replay
     main.cpp
     asmr_block_decoder.cpp
+    module_image.cpp
+    module_image_lief.cpp
     module_source.cpp
     gdb/adapter.cpp
     gdb/adapter_components.cpp

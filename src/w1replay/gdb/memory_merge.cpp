@@ -7,7 +7,7 @@ namespace w1replay::gdb {
 bool merge_memory_bytes(
     const std::vector<std::optional<uint8_t>>& recorded,
     const std::vector<std::byte>& module_bytes,
-    bool module_ok,
+    std::span<const uint8_t> module_known,
     std::span<std::byte> out
 ) {
   if (out.empty()) {
@@ -17,10 +17,7 @@ bool merge_memory_bytes(
     std::fill(out.begin(), out.end(), std::byte{0});
     return false;
   }
-  if (module_ok && module_bytes.size() < out.size()) {
-    std::fill(out.begin(), out.end(), std::byte{0});
-    return false;
-  }
+  const bool module_ready = module_bytes.size() >= out.size() && module_known.size() >= out.size();
 
   bool any_unknown = false;
   for (size_t i = 0; i < out.size(); ++i) {
@@ -28,7 +25,7 @@ bool merge_memory_bytes(
       out[i] = static_cast<std::byte>(*recorded[i]);
       continue;
     }
-    if (module_ok) {
+    if (module_ready && module_known[i]) {
       out[i] = module_bytes[i];
       continue;
     }

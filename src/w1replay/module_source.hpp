@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "module_image.hpp"
 #include "w1rewind/replay/replay_context.hpp"
 
 #if defined(WITNESS_LIEF_ENABLED)
@@ -25,20 +26,8 @@ struct module_source {
 
   void apply_to_context(w1::rewind::replay_context& context);
 
-  bool read_module_bytes(
-      const w1::rewind::module_record& module,
-      uint64_t module_offset,
-      uint32_t size,
-      std::vector<std::byte>& out,
-      std::string& error
-  );
-
-  bool read_address_bytes(
-      const w1::rewind::replay_context& context,
-      uint64_t address,
-      std::span<std::byte> out,
-      std::string& error
-  );
+  image_read_result read_module_image(const w1::rewind::module_record& module, uint64_t module_offset, size_t size);
+  image_read_result read_address_image(const w1::rewind::replay_context& context, uint64_t address, size_t size);
 
 private:
   std::vector<std::string> module_mappings_;
@@ -47,8 +36,8 @@ private:
 
 #if defined(WITNESS_LIEF_ENABLED)
   struct module_entry {
-    std::string path;
     std::unique_ptr<LIEF::Binary> binary;
+    image_layout layout;
   };
 
   std::unordered_map<std::string, module_entry> modules_{};

@@ -16,8 +16,11 @@ set(W1REPLAY_TEST_SOURCES
     gdb_run_policy_test.cpp
     gdb_register_info_test.cpp
     gdb_stepper_test.cpp
+    module_image_test.cpp
     module_source_test.cpp
     replay_context_test.cpp
+    ${WITNESS_SOURCE_DIR}/src/w1replay/module_image.cpp
+    ${WITNESS_SOURCE_DIR}/src/w1replay/module_image_lief.cpp
     ${WITNESS_SOURCE_DIR}/src/w1replay/asmr_block_decoder.cpp
     ${WITNESS_SOURCE_DIR}/src/w1replay/module_source.cpp
     ${WITNESS_SOURCE_DIR}/src/w1replay/gdb/adapter.cpp

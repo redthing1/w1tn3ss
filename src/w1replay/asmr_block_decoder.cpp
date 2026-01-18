@@ -87,10 +87,16 @@ bool asmr_block_decoder::decode_block(
     return false;
   }
 
-  std::vector<std::byte> raw_bytes;
-  if (!module_source_->read_module_bytes(module_it->second, module_offset, size, raw_bytes, error)) {
+  auto read = module_source_->read_module_image(module_it->second, module_offset, size);
+  if (!read.error.empty()) {
+    error = read.error;
     return false;
   }
+  if (!read.complete) {
+    error = "module bytes incomplete";
+    return false;
+  }
+  const auto& raw_bytes = read.bytes;
   std::vector<uint8_t> buffer;
   buffer.resize(raw_bytes.size());
   for (size_t i = 0; i < raw_bytes.size(); ++i) {
