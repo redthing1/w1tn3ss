@@ -160,7 +160,9 @@ struct inspect_report {
 };
 
 std::string to_lower(std::string value) {
-  std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+  std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) {
+    return static_cast<char>(std::tolower(c));
+  });
   return value;
 }
 
@@ -245,9 +247,7 @@ std::string macho_endianness(const LIEF::MachO::Header& header) {
   return "unknown";
 }
 
-std::unique_ptr<LIEF::Binary> parse_binary(
-    const inspect_request& request, redlog::logger& log
-) {
+std::unique_ptr<LIEF::Binary> parse_binary(const inspect_request& request, redlog::logger& log) {
   if (request.forced_format.empty()) {
     return LIEF::Parser::parse(request.binary_path);
   }
@@ -271,9 +271,7 @@ std::unique_ptr<LIEF::Binary> parse_binary(
   return nullptr;
 }
 
-std::string format_name_or_placeholder(const std::string& name) {
-  return name.empty() ? "-" : name;
-}
+std::string format_name_or_placeholder(const std::string& name) { return name.empty() ? "-" : name; }
 
 inspect_report build_report(const inspect_request& request, LIEF::Binary& binary) {
   inspect_report report;
@@ -423,8 +421,8 @@ inspect_report build_report(const inspect_request& request, LIEF::Binary& binary
 
     report.summary.architecture = LIEF::ELF::to_string(header.machine_type());
     report.summary.bitness = header.identity_class() == LIEF::ELF::Header::CLASS::ELF64 ? "64-bit" : "32-bit";
-    report.summary.endianness = header.identity_data() == LIEF::ELF::Header::ELF_DATA::LSB ? "little-endian"
-                                                                                           : "big-endian";
+    report.summary.endianness =
+        header.identity_data() == LIEF::ELF::Header::ELF_DATA::LSB ? "little-endian" : "big-endian";
     report.summary.file_type = LIEF::ELF::to_string(header.file_type());
     report.summary.entrypoint = elf.entrypoint();
     report.summary.has_entrypoint = true;
@@ -450,7 +448,7 @@ inspect_report build_report(const inspect_request& request, LIEF::Binary& binary
     } else {
       for (const auto& segment : elf.segments()) {
         report.summary.segments++;
-        (void)segment;
+        (void) segment;
       }
     }
 
@@ -465,17 +463,20 @@ inspect_report build_report(const inspect_request& request, LIEF::Binary& binary
         header_info.interpreter = elf.interpreter();
       }
       if (elf.has(LIEF::ELF::DynamicEntry::TAG::SONAME)) {
-        if (const auto* soname = dynamic_cast<const LIEF::ELF::DynamicSharedObject*>(elf.get(LIEF::ELF::DynamicEntry::TAG::SONAME))) {
+        if (const auto* soname =
+                dynamic_cast<const LIEF::ELF::DynamicSharedObject*>(elf.get(LIEF::ELF::DynamicEntry::TAG::SONAME))) {
           header_info.soname = soname->name();
         }
       }
       if (elf.has(LIEF::ELF::DynamicEntry::TAG::RPATH)) {
-        if (const auto* rpath = dynamic_cast<const LIEF::ELF::DynamicEntryRpath*>(elf.get(LIEF::ELF::DynamicEntry::TAG::RPATH))) {
+        if (const auto* rpath =
+                dynamic_cast<const LIEF::ELF::DynamicEntryRpath*>(elf.get(LIEF::ELF::DynamicEntry::TAG::RPATH))) {
           header_info.rpath = rpath->rpath();
         }
       }
       if (elf.has(LIEF::ELF::DynamicEntry::TAG::RUNPATH)) {
-        if (const auto* runpath = dynamic_cast<const LIEF::ELF::DynamicEntryRunPath*>(elf.get(LIEF::ELF::DynamicEntry::TAG::RUNPATH))) {
+        if (const auto* runpath =
+                dynamic_cast<const LIEF::ELF::DynamicEntryRunPath*>(elf.get(LIEF::ELF::DynamicEntry::TAG::RUNPATH))) {
           header_info.runpath = runpath->runpath();
         }
       }
@@ -544,9 +545,12 @@ inspect_report build_report(const inspect_request& request, LIEF::Binary& binary
         info.vsize = segment.virtual_size();
         info.offset = segment.file_offset();
         info.fsize = segment.file_size();
-        bool read = (segment.init_protection() & static_cast<uint32_t>(LIEF::MachO::SegmentCommand::VM_PROTECTIONS::READ)) != 0;
-        bool write = (segment.init_protection() & static_cast<uint32_t>(LIEF::MachO::SegmentCommand::VM_PROTECTIONS::WRITE)) != 0;
-        bool exec = (segment.init_protection() & static_cast<uint32_t>(LIEF::MachO::SegmentCommand::VM_PROTECTIONS::EXECUTE)) != 0;
+        bool read =
+            (segment.init_protection() & static_cast<uint32_t>(LIEF::MachO::SegmentCommand::VM_PROTECTIONS::READ)) != 0;
+        bool write = (segment.init_protection() &
+                      static_cast<uint32_t>(LIEF::MachO::SegmentCommand::VM_PROTECTIONS::WRITE)) != 0;
+        bool exec = (segment.init_protection() &
+                     static_cast<uint32_t>(LIEF::MachO::SegmentCommand::VM_PROTECTIONS::EXECUTE)) != 0;
         info.perms = format_permissions(read, write, exec);
         info.kind = "Mach-O";
         report.segments.push_back(std::move(info));
@@ -554,7 +558,7 @@ inspect_report build_report(const inspect_request& request, LIEF::Binary& binary
     } else {
       for (const auto& segment : macho.segments()) {
         report.summary.segments++;
-        (void)segment;
+        (void) segment;
       }
     }
 
@@ -596,191 +600,234 @@ inspect_report build_report(const inspect_request& request, LIEF::Binary& binary
   return report;
 }
 
+namespace {
+constexpr const char* kIndent = "  ";
+constexpr const char* kSubIndent = "    ";
+
+void print_section_title(const std::string& title) { std::cout << title << ":\n"; }
+
+template <typename T> void print_kv(const std::string& key, const T& value, const char* indent = kIndent) {
+  std::cout << indent << key << "=" << value << "\n";
+}
+
+void print_line(const std::string& line, const char* indent = kIndent) { std::cout << indent << line << "\n"; }
+
+std::string join_csv(const std::vector<std::string>& items) {
+  std::ostringstream out;
+  for (size_t i = 0; i < items.size(); ++i) {
+    if (i != 0) {
+      out << ", ";
+    }
+    out << items[i];
+  }
+  return out.str();
+}
+} // namespace
+
 void render_summary(const summary_info& summary) {
-  std::cout << "=== Binary Summary ===\n";
-  std::cout << "path: " << summary.path << "\n";
-  std::cout << "format: " << summary.format << "\n";
-  std::cout << "arch: " << summary.architecture << " (" << summary.bitness << "), " << summary.endianness << ", "
-            << summary.file_type << "\n";
-  if (summary.has_entrypoint) {
-    std::cout << "entry: " << format_address(summary.entrypoint) << "\n";
-  } else {
-    std::cout << "entry: n/a\n";
-  }
-  if (summary.has_imagebase) {
-    std::cout << "image base: " << format_address(summary.imagebase) << "\n";
-  } else {
-    std::cout << "image base: n/a\n";
-  }
-  std::cout << "file size: " << format_bytes(summary.file_size) << "\n";
+  print_section_title("binary");
+  print_kv("path", summary.path);
+  print_kv("format", summary.format);
+
+  std::ostringstream arch_line;
+  arch_line << "arch=" << summary.architecture << " bitness=" << summary.bitness << " endianness=" << summary.endianness
+            << " type=" << summary.file_type;
+  print_line(arch_line.str());
+
+  std::ostringstream entry_line;
+  entry_line << "entry=" << (summary.has_entrypoint ? format_address(summary.entrypoint) : "n/a")
+             << " image_base=" << (summary.has_imagebase ? format_address(summary.imagebase) : "n/a");
+  print_line(entry_line.str());
+
+  std::ostringstream stats_line;
+  stats_line << "size=" << format_bytes(summary.file_size) << " sections=" << summary.sections << " segments=";
   if (summary.segments_supported) {
-    std::cout << "sections: " << summary.sections << ", segments: " << summary.segments << ", imports: " << summary.imports
-              << ", exports: " << summary.exports << ", symbols: " << summary.symbols << ", relocs: "
-              << summary.relocations << ", libraries: " << summary.libraries << "\n";
+    stats_line << summary.segments;
   } else {
-    std::cout << "sections: " << summary.sections << ", segments: n/a, imports: " << summary.imports
-              << ", exports: " << summary.exports << ", symbols: " << summary.symbols << ", relocs: "
-              << summary.relocations << ", libraries: " << summary.libraries << "\n";
+    stats_line << "n/a";
   }
+  stats_line << " imports=" << summary.imports << " exports=" << summary.exports << " symbols=" << summary.symbols
+             << " relocs=" << summary.relocations << " libraries=" << summary.libraries;
+  print_line(stats_line.str());
+  std::cout << "\n";
 }
 
 void render_headers(const inspect_report& report) {
-  std::cout << "\n=== Headers ===\n";
+  print_section_title("headers");
+  bool wrote_any = false;
   if (report.elf_header) {
+    wrote_any = true;
     const auto& info = *report.elf_header;
-    std::cout << "os abi: " << info.os_abi << "\n";
-    std::cout << "abi version: " << info.abi_version << "\n";
-    std::cout << "class: " << info.class_type << "\n";
-    std::cout << "data: " << info.data_encoding << "\n";
-    std::cout << "machine: " << info.machine << "\n";
+    std::ostringstream base;
+    base << "elf: os_abi=" << info.os_abi << " abi_version=" << info.abi_version << " class=" << info.class_type
+         << " data=" << info.data_encoding << " machine=" << info.machine;
+    print_line(base.str());
     if (!info.interpreter.empty()) {
-      std::cout << "interpreter: " << info.interpreter << "\n";
+      print_kv("interpreter", info.interpreter);
     }
     if (!info.soname.empty()) {
-      std::cout << "soname: " << info.soname << "\n";
+      print_kv("soname", info.soname);
     }
     if (!info.rpath.empty()) {
-      std::cout << "rpath: " << info.rpath << "\n";
+      print_kv("rpath", info.rpath);
     }
     if (!info.runpath.empty()) {
-      std::cout << "runpath: " << info.runpath << "\n";
+      print_kv("runpath", info.runpath);
     }
     if (!info.build_id.empty()) {
-      std::cout << "build id: " << info.build_id << "\n";
+      print_kv("build_id", info.build_id);
     }
   } else if (report.pe_header) {
+    wrote_any = true;
     const auto& info = *report.pe_header;
-    std::cout << "machine: " << info.machine << "\n";
-    std::cout << "subsystem: " << info.subsystem << "\n";
-    std::cout << "timestamp: " << info.timestamp << "\n";
-    std::cout << "linker version: " << static_cast<int>(info.linker_major) << "."
-              << static_cast<int>(info.linker_minor) << "\n";
-    std::cout << "image base: " << format_address(info.imagebase) << "\n";
-    std::cout << "entry rva: " << format_address(info.entrypoint_rva) << "\n";
-    std::cout << "entry va: " << format_address(info.entrypoint) << "\n";
-    std::cout << "section alignment: " << info.section_alignment << "\n";
-    std::cout << "file alignment: " << info.file_alignment << "\n";
+    std::ostringstream base;
+    base << "pe: machine=" << info.machine << " subsystem=" << info.subsystem << " timestamp=" << info.timestamp;
+    print_line(base.str());
+    std::ostringstream entry_line;
+    entry_line << "image_base=" << format_address(info.imagebase)
+               << " entry_rva=" << format_address(info.entrypoint_rva)
+               << " entry_va=" << format_address(info.entrypoint);
+    print_line(entry_line.str());
+    std::ostringstream align_line;
+    align_line << "align_section=" << info.section_alignment << " align_file=" << info.file_alignment
+               << " linker=" << static_cast<int>(info.linker_major) << "." << static_cast<int>(info.linker_minor);
+    print_line(align_line.str());
     if (!info.dll_characteristics.empty()) {
-      std::cout << "dll characteristics: ";
-      for (size_t i = 0; i < info.dll_characteristics.size(); ++i) {
-        if (i != 0) {
-          std::cout << ", ";
-        }
-        std::cout << info.dll_characteristics[i];
-      }
-      std::cout << "\n";
+      print_kv("dll_chars", join_csv(info.dll_characteristics));
     }
   } else if (report.macho_header) {
+    wrote_any = true;
     const auto& info = *report.macho_header;
-    std::cout << "cpu type: " << info.cpu_type << "\n";
-    std::cout << "cpu subtype: " << info.cpu_subtype << "\n";
-    std::cout << "file type: " << info.file_type << "\n";
-    std::cout << "load commands: " << info.load_commands << "\n";
+    std::ostringstream base;
+    base << "macho: cpu=" << info.cpu_type << " subtype=" << info.cpu_subtype << " file_type=" << info.file_type
+         << " load_cmds=" << info.load_commands;
+    print_line(base.str());
     if (!info.flags.empty()) {
-      std::cout << "flags: ";
-      for (size_t i = 0; i < info.flags.size(); ++i) {
-        if (i != 0) {
-          std::cout << ", ";
-        }
-        std::cout << info.flags[i];
-      }
-      std::cout << "\n";
+      print_kv("flags", join_csv(info.flags));
     }
     if (!info.uuid.empty()) {
-      std::cout << "uuid: " << info.uuid << "\n";
+      print_kv("uuid", info.uuid);
     }
     if (!info.build_platform.empty()) {
-      std::cout << "build platform: " << info.build_platform << "\n";
+      print_kv("build_platform", info.build_platform);
     }
     if (!info.build_minos.empty()) {
-      std::cout << "build minos: " << info.build_minos << "\n";
+      print_kv("build_minos", info.build_minos);
     }
     if (!info.build_sdk.empty()) {
-      std::cout << "build sdk: " << info.build_sdk << "\n";
+      print_kv("build_sdk", info.build_sdk);
     }
     if (!info.dylinker.empty()) {
-      std::cout << "dylinker: " << info.dylinker << "\n";
+      print_kv("dylinker", info.dylinker);
     }
     if (!info.rpaths.empty()) {
-      std::cout << "rpaths:\n";
+      print_line("rpaths:");
       for (const auto& rpath : info.rpaths) {
-        std::cout << "  - " << rpath << "\n";
+        print_line(rpath, kSubIndent);
       }
     }
   }
+  if (!wrote_any) {
+    print_line("none");
+  }
+  std::cout << "\n";
 }
 
 void render_sections(const std::vector<section_info>& sections) {
-  std::cout << "\n=== Sections ===\n";
-  std::cout << std::left << std::setw(24) << "name" << std::setw(18) << "vaddr" << std::setw(12) << "size"
-            << std::setw(12) << "offset" << std::setw(6) << "perm"
-            << "type\n";
-  std::cout << std::string(80, '-') << "\n";
+  print_section_title("sections");
+  if (sections.empty()) {
+    print_line("none");
+    std::cout << "\n";
+    return;
+  }
+  print_line("name vaddr size offset perm type");
   for (const auto& section : sections) {
-    std::cout << std::left << std::setw(24) << format_name_or_placeholder(section.name) << std::setw(18)
+    std::cout << kIndent << std::left << std::setw(24) << format_name_or_placeholder(section.name) << std::setw(18)
               << format_address(section.address) << std::setw(12) << format_bytes(section.size) << std::setw(12)
               << format_address(section.offset) << std::setw(6) << section.perms << section.kind << "\n";
   }
+  std::cout << "\n";
 }
 
 void render_segments(const inspect_report& report) {
+  print_section_title("segments");
   if (!report.summary.segments_supported) {
-    std::cout << "\n=== Segments ===\n";
-    std::cout << "segments not available for this format\n";
+    print_kv("status", "unsupported");
+    std::cout << "\n";
     return;
   }
-  std::cout << "\n=== Segments ===\n";
-  std::cout << std::left << std::setw(18) << "name" << std::setw(18) << "vaddr" << std::setw(12) << "vsize"
-            << std::setw(12) << "offset" << std::setw(12) << "fsize" << std::setw(6) << "perm"
-            << "kind\n";
-  std::cout << std::string(86, '-') << "\n";
+  if (report.segments.empty()) {
+    print_line("none");
+    std::cout << "\n";
+    return;
+  }
+  print_line("name vaddr vsize offset fsize perm kind");
   for (const auto& segment : report.segments) {
-    std::cout << std::left << std::setw(18) << format_name_or_placeholder(segment.name) << std::setw(18)
+    std::cout << kIndent << std::left << std::setw(18) << format_name_or_placeholder(segment.name) << std::setw(18)
               << format_address(segment.address) << std::setw(12) << format_bytes(segment.vsize) << std::setw(12)
               << format_address(segment.offset) << std::setw(12) << format_bytes(segment.fsize) << std::setw(6)
               << segment.perms << segment.kind << "\n";
   }
+  std::cout << "\n";
 }
 
 void render_libraries(const std::vector<std::string>& libraries) {
-  std::cout << "\n=== Imported Libraries ===\n";
-  for (const auto& lib : libraries) {
-    std::cout << "- " << lib << "\n";
+  print_section_title("libraries");
+  if (libraries.empty()) {
+    print_line("none");
+    std::cout << "\n";
+    return;
   }
+  for (const auto& lib : libraries) {
+    print_line(lib);
+  }
+  std::cout << "\n";
 }
 
 void render_functions(const std::vector<function_info>& functions, const std::string& title) {
-  std::cout << "\n=== " << title << " ===\n";
-  std::cout << std::left << std::setw(18) << "address" << "name\n";
-  std::cout << std::string(56, '-') << "\n";
-  for (const auto& func : functions) {
-    std::cout << std::left << std::setw(18) << format_address(func.address) << format_name_or_placeholder(func.name)
-              << "\n";
+  print_section_title(title);
+  if (functions.empty()) {
+    print_line("none");
+    std::cout << "\n";
+    return;
   }
+  print_line("address name");
+  for (const auto& func : functions) {
+    std::cout << kIndent << std::left << std::setw(18) << format_address(func.address)
+              << format_name_or_placeholder(func.name) << "\n";
+  }
+  std::cout << "\n";
 }
 
 void render_symbols(const std::vector<symbol_info>& symbols) {
-  std::cout << "\n=== Symbols ===\n";
-  std::cout << std::left << std::setw(18) << "address" << std::setw(12) << "size"
-            << "name\n";
-  std::cout << std::string(66, '-') << "\n";
+  print_section_title("symbols");
+  if (symbols.empty()) {
+    print_line("none");
+    std::cout << "\n";
+    return;
+  }
+  print_line("address size name");
   for (const auto& symbol : symbols) {
-    std::cout << std::left << std::setw(18) << format_address(symbol.address) << std::setw(12)
+    std::cout << kIndent << std::left << std::setw(18) << format_address(symbol.address) << std::setw(12)
               << format_bytes(symbol.size) << format_name_or_placeholder(symbol.name) << "\n";
   }
+  std::cout << "\n";
 }
 
 void render_relocations(const std::vector<relocation_info>& relocations) {
-  std::cout << "\n=== Relocations ===\n";
-  std::cout << std::left << std::setw(18) << "address" << std::setw(8) << "size" << std::setw(18) << "type"
-            << std::setw(24) << "symbol"
-            << "origin\n";
-  std::cout << std::string(88, '-') << "\n";
+  print_section_title("relocations");
+  if (relocations.empty()) {
+    print_line("none");
+    std::cout << "\n";
+    return;
+  }
+  print_line("address size type symbol origin");
   for (const auto& reloc : relocations) {
-    std::cout << std::left << std::setw(18) << format_address(reloc.address) << std::setw(8) << reloc.size
+    std::cout << kIndent << std::left << std::setw(18) << format_address(reloc.address) << std::setw(8) << reloc.size
               << std::setw(18) << reloc.type << std::setw(24) << format_name_or_placeholder(reloc.symbol)
               << reloc.origin << "\n";
   }
+  std::cout << "\n";
 }
 
 void render_text(const inspect_report& report, const inspect_request& request) {
@@ -799,10 +846,10 @@ void render_text(const inspect_report& report, const inspect_request& request) {
     render_libraries(report.libraries);
   }
   if (request.show_imports) {
-    render_functions(report.imports, "Imported Functions");
+    render_functions(report.imports, "imports");
   }
   if (request.show_exports) {
-    render_functions(report.exports, "Exported Functions");
+    render_functions(report.exports, "exports");
   }
   if (request.show_symbols) {
     render_symbols(report.symbols);
@@ -842,16 +889,11 @@ nlohmann::json render_json(const inspect_report& report, const inspect_request& 
     if (report.elf_header) {
       const auto& info = *report.elf_header;
       output["headers"]["elf"] = {
-          {"os_abi", info.os_abi},
-          {"abi_version", info.abi_version},
-          {"class", info.class_type},
-          {"data", info.data_encoding},
-          {"machine", info.machine},
-          {"interpreter", info.interpreter},
-          {"soname", info.soname},
-          {"rpath", info.rpath},
-          {"runpath", info.runpath},
-          {"build_id", info.build_id},
+          {"os_abi", info.os_abi},    {"abi_version", info.abi_version},
+          {"class", info.class_type}, {"data", info.data_encoding},
+          {"machine", info.machine},  {"interpreter", info.interpreter},
+          {"soname", info.soname},    {"rpath", info.rpath},
+          {"runpath", info.runpath},  {"build_id", info.build_id},
       };
     } else if (report.pe_header) {
       const auto& info = *report.pe_header;
