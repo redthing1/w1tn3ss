@@ -8,6 +8,8 @@ find_package(Threads REQUIRED)
 add_executable(w1replay
     main.cpp
     asmr_block_decoder.cpp
+    module_image.cpp
+    module_image_lief.cpp
     module_source.cpp
     gdb/adapter.cpp
     gdb/adapter_components.cpp
@@ -36,8 +38,8 @@ target_link_libraries(w1replay PRIVATE
     Threads::Threads
 )
 
-if(TARGET p1ll_asmr)
-    target_link_libraries(w1replay PRIVATE p1ll_asmr)
+if(TARGET w1asmr)
+    target_link_libraries(w1replay PRIVATE w1asmr)
 endif()
 
 apply_common_compile_options(w1replay)

@@ -1,24 +1,24 @@
 # asmrconfig.cmake - capstone/keystone configuration module
-# provides functions for setting up p1ll asmr dependencies
+# provides functions for setting up w1asmr dependencies
 
 include_guard()
 
-option(P1LL_BUILD_ASMR "Build p1ll asmr disassembler/assembler" OFF)
+option(WITNESS_ASMR "Build w1asmr disassembler/assembler" OFF)
 
-set(P1LL_ASMR_CAPSTONE_DIR "${WITNESS_SOURCE_DIR}/src/third_party/capstone" CACHE PATH "capstone source directory")
-set(P1LL_ASMR_KEYSTONE_DIR "${WITNESS_SOURCE_DIR}/src/third_party/keystone" CACHE PATH "keystone source directory")
+set(WITNESS_ASMR_CAPSTONE_DIR "${WITNESS_SOURCE_DIR}/src/third_party/capstone" CACHE PATH "capstone source directory")
+set(WITNESS_ASMR_KEYSTONE_DIR "${WITNESS_SOURCE_DIR}/src/third_party/keystone" CACHE PATH "keystone source directory")
 
 function(validate_asmr_submodules)
-    if(NOT EXISTS "${P1LL_ASMR_CAPSTONE_DIR}/CMakeLists.txt")
-        message(FATAL_ERROR "capstone submodule not found at ${P1LL_ASMR_CAPSTONE_DIR}. run: git submodule update --init --recursive")
+    if(NOT EXISTS "${WITNESS_ASMR_CAPSTONE_DIR}/CMakeLists.txt")
+        message(FATAL_ERROR "capstone submodule not found at ${WITNESS_ASMR_CAPSTONE_DIR}. run: git submodule update --init --recursive")
     endif()
-    if(NOT EXISTS "${P1LL_ASMR_KEYSTONE_DIR}/CMakeLists.txt")
-        message(FATAL_ERROR "keystone submodule not found at ${P1LL_ASMR_KEYSTONE_DIR}. run: git submodule update --init --recursive")
+    if(NOT EXISTS "${WITNESS_ASMR_KEYSTONE_DIR}/CMakeLists.txt")
+        message(FATAL_ERROR "keystone submodule not found at ${WITNESS_ASMR_KEYSTONE_DIR}. run: git submodule update --init --recursive")
     endif()
 endfunction()
 
 function(setup_asmr_environment)
-    if(NOT P1LL_BUILD_ASMR)
+    if(NOT WITNESS_ASMR)
         return()
     endif()
 
@@ -38,7 +38,7 @@ function(setup_asmr_environment)
 endfunction()
 
 function(configure_asmr_targets)
-    if(NOT P1LL_BUILD_ASMR)
+    if(NOT WITNESS_ASMR)
         return()
     endif()
 
@@ -67,7 +67,7 @@ function(configure_asmr_targets)
 endfunction()
 
 function(configure_asmr_dependencies)
-    if(NOT P1LL_BUILD_ASMR)
+    if(NOT WITNESS_ASMR)
         return()
     endif()
 
@@ -92,13 +92,13 @@ function(configure_asmr_dependencies)
     setup_asmr_environment()
     validate_asmr_submodules()
 
-    add_subdirectory("${P1LL_ASMR_CAPSTONE_DIR}" "${CMAKE_BINARY_DIR}/capstone")
+    add_subdirectory("${WITNESS_ASMR_CAPSTONE_DIR}" "${CMAKE_BINARY_DIR}/capstone")
 
     # Keystone pins CMP0051 to OLD, which newer CMake releases reject.
     # Patch the submodule sources in-place to keep the build compatible.
     set(_witness_keystone_policy_files
-        "${P1LL_ASMR_KEYSTONE_DIR}/CMakeLists.txt"
-        "${P1LL_ASMR_KEYSTONE_DIR}/llvm/CMakeLists.txt"
+        "${WITNESS_ASMR_KEYSTONE_DIR}/CMakeLists.txt"
+        "${WITNESS_ASMR_KEYSTONE_DIR}/llvm/CMakeLists.txt"
     )
     foreach(_witness_policy_file IN LISTS _witness_keystone_policy_files)
         if(EXISTS "${_witness_policy_file}")
@@ -116,14 +116,14 @@ function(configure_asmr_dependencies)
     set(_witness_prev_cxx_standard_required "${CMAKE_CXX_STANDARD_REQUIRED}")
     set(CMAKE_CXX_STANDARD 11)
     set(CMAKE_CXX_STANDARD_REQUIRED ON)
-    add_subdirectory("${P1LL_ASMR_KEYSTONE_DIR}" "${CMAKE_BINARY_DIR}/keystone")
+    add_subdirectory("${WITNESS_ASMR_KEYSTONE_DIR}" "${CMAKE_BINARY_DIR}/keystone")
     set(CMAKE_CXX_STANDARD "${_witness_prev_cxx_standard}")
     set(CMAKE_CXX_STANDARD_REQUIRED "${_witness_prev_cxx_standard_required}")
 
     configure_asmr_targets()
 
-    set(P1LL_ASMR_CAPSTONE_INCLUDE_DIR "${P1LL_ASMR_CAPSTONE_DIR}/include" PARENT_SCOPE)
-    set(P1LL_ASMR_KEYSTONE_INCLUDE_DIR "${P1LL_ASMR_KEYSTONE_DIR}/include" PARENT_SCOPE)
+    set(WITNESS_ASMR_CAPSTONE_INCLUDE_DIR "${WITNESS_ASMR_CAPSTONE_DIR}/include" PARENT_SCOPE)
+    set(WITNESS_ASMR_KEYSTONE_INCLUDE_DIR "${WITNESS_ASMR_KEYSTONE_DIR}/include" PARENT_SCOPE)
 
     if(_witness_llvm_targets_was_set)
         set(LLVM_TARGETS_TO_BUILD "${_witness_llvm_targets_prev}" CACHE STRING "restore LLVM_TARGETS_TO_BUILD" FORCE)

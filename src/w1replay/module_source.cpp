@@ -1,8 +1,9 @@
 #include "module_source.hpp"
 
+#include "module_image_lief.hpp"
+
 #include <algorithm>
 #include <filesystem>
-#include <limits>
 #include <unordered_map>
 
 namespace w1replay {
@@ -24,10 +25,6 @@ bool parse_mapping(const std::string& mapping, std::string& name, std::string& p
   name = mapping.substr(0, eq_pos);
   path = mapping.substr(eq_pos + 1);
   return !(name.empty() || path.empty());
-}
-
-bool add_overflows(uint64_t base, uint64_t addend) {
-  return base > std::numeric_limits<uint64_t>::max() - addend;
 }
 
 } // namespace
@@ -85,121 +82,87 @@ void module_source::apply_to_context(w1::rewind::replay_context& context) {
   }
 }
 
-bool module_source::read_module_bytes(
+image_read_result module_source::read_module_image(
     const w1::rewind::module_record& module,
     uint64_t module_offset,
-    uint32_t size,
-    std::vector<std::byte>& out,
-    std::string& error
+    size_t size
 ) {
-  out.clear();
-  error.clear();
+  image_read_result result;
 
   if (size == 0) {
-    error = "module read size is zero";
-    return false;
+    result.error = "module read size is zero";
+    return result;
   }
 
 #if !defined(WITNESS_LIEF_ENABLED)
   (void)module;
   (void)module_offset;
-  error = "module bytes unavailable (build with WITNESS_LIEF=ON)";
-  return false;
+  result.error = "module bytes unavailable (build with WITNESS_LIEF=ON)";
+  return result;
 #else
   if (module.path.empty()) {
-    error = "module path missing";
-    return false;
+    result.error = "module path missing";
+    return result;
   }
 
-  auto cache_it = modules_.find(module.path);
-  if (cache_it == modules_.end() || !cache_it->second.binary || cache_it->second.path != module.path) {
+  auto& entry = modules_[module.path];
+  if (!entry.binary) {
     auto binary = LIEF::Parser::parse(module.path);
     if (!binary) {
-      error = "failed to parse module: " + module.path;
-      return false;
+      result.error = "failed to parse module: " + module.path;
+      return result;
     }
-    module_entry entry{};
-    entry.path = module.path;
     entry.binary = std::move(binary);
-    cache_it = modules_.insert_or_assign(module.path, std::move(entry)).first;
-  }
-
-  const auto& binary = *cache_it->second.binary;
-  uint64_t address = module_offset;
-  auto va_type = LIEF::Binary::VA_TYPES::RVA;
-  switch (binary.format()) {
-  case LIEF::Binary::FORMATS::ELF: {
-    uint64_t imagebase = binary.imagebase();
-    if (add_overflows(imagebase, module_offset)) {
-      error = "module imagebase + offset overflow";
-      return false;
+    std::string layout_error;
+    if (!build_image_layout(*entry.binary, entry.layout, layout_error)) {
+      result.error = "failed to build module layout: " + layout_error;
+      entry.binary.reset();
+      entry.layout = image_layout{};
+      return result;
     }
-    address = imagebase + module_offset;
-    va_type = LIEF::Binary::VA_TYPES::VA;
-    break;
-  }
-  case LIEF::Binary::FORMATS::MACHO: {
-    uint64_t imagebase = binary.imagebase();
-    if (add_overflows(imagebase, module_offset)) {
-      error = "module imagebase + offset overflow";
-      return false;
-    }
-    address = imagebase + module_offset;
-    va_type = LIEF::Binary::VA_TYPES::VA;
-    break;
-  }
-  case LIEF::Binary::FORMATS::PE:
-    address = module_offset;
-    va_type = LIEF::Binary::VA_TYPES::RVA;
-    break;
-  default:
-    error = "unsupported binary format for module bytes";
-    return false;
   }
 
-  auto bytes = binary.get_content_from_virtual_address(address, size, va_type);
-  if (bytes.empty() || bytes.size() < size) {
-    error = "failed to read module bytes";
-    return false;
+  result = read_image_bytes(entry.layout, module_offset, size);
+  if (!result.error.empty()) {
+    result.error = "module image read failed: " + result.error;
   }
-
-  out.resize(size);
-  for (size_t i = 0; i < size; ++i) {
-    out[i] = static_cast<std::byte>(bytes[i]);
-  }
-  return true;
+  return result;
 #endif
 }
 
-bool module_source::read_address_bytes(
+image_read_result module_source::read_address_image(
     const w1::rewind::replay_context& context,
     uint64_t address,
-    std::span<std::byte> out,
-    std::string& error
+    size_t size
 ) {
-  error.clear();
-  if (address_reader_) {
-    return address_reader_(address, out, error);
+  image_read_result result;
+
+  if (size == 0) {
+    result.error = "empty read";
+    return result;
   }
-  if (out.empty()) {
-    error = "empty read";
-    return false;
+
+  if (address_reader_) {
+    result.bytes.assign(size, std::byte{0});
+    result.known.assign(size, 0);
+    std::string reader_error;
+    if (!address_reader_(address, result.bytes, reader_error)) {
+      result.error = reader_error.empty() ? "address reader failed" : reader_error;
+      return result;
+    }
+    std::fill(result.known.begin(), result.known.end(), 1);
+    result.complete = true;
+    return result;
   }
 
   uint64_t module_offset = 0;
-  auto* matched = context.find_module_for_address(address, static_cast<uint64_t>(out.size()), module_offset);
+  auto* matched = context.find_module_for_address(address, static_cast<uint64_t>(size), module_offset);
   if (!matched) {
-    error = "address not in module";
-    return false;
+    result.error = "address not in module";
+    return result;
   }
 
-  std::vector<std::byte> bytes;
-  if (!read_module_bytes(*matched, module_offset, static_cast<uint32_t>(out.size()), bytes, error)) {
-    return false;
-  }
-
-  std::copy(bytes.begin(), bytes.end(), out.begin());
-  return true;
+  return read_module_image(*matched, module_offset, size);
 }
 
 bool module_source::read_by_address(
@@ -208,7 +171,25 @@ bool module_source::read_by_address(
     std::span<std::byte> out,
     std::string& error
 ) {
-  return read_address_bytes(context, address, out, error);
+  if (out.empty()) {
+    return true;
+  }
+
+  auto result = read_address_image(context, address, out.size());
+  if (!result.error.empty()) {
+    error = result.error;
+    return false;
+  }
+  if (!result.complete) {
+    error = "module bytes incomplete";
+    return false;
+  }
+  if (result.bytes.size() < out.size()) {
+    error = "module bytes truncated";
+    return false;
+  }
+  std::copy(result.bytes.begin(), result.bytes.begin() + static_cast<std::ptrdiff_t>(out.size()), out.begin());
+  return true;
 }
 
 } // namespace w1replay

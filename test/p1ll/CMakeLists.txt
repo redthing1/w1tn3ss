@@ -2,6 +2,6 @@ cmake_minimum_required(VERSION 3.16)
 
 add_subdirectory(core)
 
-if(P1LL_BUILD_ASMR)
-    add_subdirectory(asmr)
+if(WITNESS_ASMR)
+    add_subdirectory(heur)
 endif()

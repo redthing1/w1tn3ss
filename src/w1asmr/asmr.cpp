@@ -5,13 +5,11 @@
 #include <capstone/x86.h>
 #include <keystone/keystone.h>
 
-#include <algorithm>
-#include <cctype>
 #include <memory>
 #include <string>
 #include <utility>
 
-namespace p1ll::asmr {
+namespace w1::asmr {
 
 namespace {
 
@@ -25,20 +23,7 @@ struct keystone_config {
   ks_mode mode = KS_MODE_64;
 };
 
-engine::result<arch> parse_arch(const engine::platform::platform_key& platform) {
-  if (platform.arch == "x86") {
-    return engine::ok_result(arch::x86);
-  }
-  if (platform.arch == "x64") {
-    return engine::ok_result(arch::x64);
-  }
-  if (platform.arch == "arm64") {
-    return engine::ok_result(arch::arm64);
-  }
-  return engine::error_result<arch>(engine::error_code::unsupported, "unsupported architecture: " + platform.arch);
-}
-
-engine::result<capstone_config> capstone_config_for(arch arch_value) {
+result<capstone_config> capstone_config_for(arch arch_value) {
   capstone_config cfg;
   switch (arch_value) {
   case arch::x86:
@@ -58,10 +43,10 @@ engine::result<capstone_config> capstone_config_for(arch arch_value) {
     cfg.mode = CS_MODE_LITTLE_ENDIAN;
     break;
   }
-  return engine::ok_result(cfg);
+  return ok_result(cfg);
 }
 
-engine::result<keystone_config> keystone_config_for(arch arch_value) {
+result<keystone_config> keystone_config_for(arch arch_value) {
   keystone_config cfg;
   switch (arch_value) {
   case arch::x86:
@@ -77,7 +62,7 @@ engine::result<keystone_config> keystone_config_for(arch arch_value) {
     cfg.mode = KS_MODE_LITTLE_ENDIAN;
     break;
   }
-  return engine::ok_result(cfg);
+  return ok_result(cfg);
 }
 
 void append_reg_name(csh handle, uint32_t reg_id, std::string& out) {
@@ -205,61 +190,67 @@ context::~context() = default;
 
 context::context(arch arch_value, std::unique_ptr<backend> backend) : backend_(std::move(backend)), arch_(arch_value) {}
 
-engine::result<context> context::for_platform(const engine::platform::platform_key& platform) {
-  auto parsed = parse_arch(platform);
-  if (!parsed.ok()) {
-    return engine::error_result<context>(parsed.status_info.code, parsed.status_info.message);
+result<context> context::for_arch(arch arch_value) {
+  auto capstone_cfg = capstone_config_for(arch_value);
+  if (!capstone_cfg.ok()) {
+    return error_result<context>(capstone_cfg.status_info.code, capstone_cfg.status_info.message);
+  }
+  auto keystone_cfg = keystone_config_for(arch_value);
+  if (!keystone_cfg.ok()) {
+    return error_result<context>(keystone_cfg.status_info.code, keystone_cfg.status_info.message);
   }
 
-  auto capstone_cfg = capstone_config_for(parsed.value);
-  auto keystone_cfg = keystone_config_for(parsed.value);
-
   auto backend = std::make_unique<context::backend>();
-  backend->arch_value = parsed.value;
+  backend->arch_value = arch_value;
 
   cs_err cs_status = cs_open(capstone_cfg.value.arch, capstone_cfg.value.mode, &backend->capstone);
   if (cs_status != CS_ERR_OK) {
-    return engine::error_result<context>(
-        engine::error_code::internal_error, std::string("capstone init failed: ") + cs_strerror(cs_status)
+    return error_result<context>(
+        error_code::internal_error, std::string("capstone init failed: ") + cs_strerror(cs_status)
     );
   }
 
   cs_status = cs_option(backend->capstone, CS_OPT_DETAIL, CS_OPT_ON);
   if (cs_status != CS_ERR_OK) {
-    return engine::error_result<context>(
-        engine::error_code::internal_error, std::string("capstone option failed: ") + cs_strerror(cs_status)
+    return error_result<context>(
+        error_code::internal_error, std::string("capstone option failed: ") + cs_strerror(cs_status)
     );
   }
 
-  if (parsed.value == arch::x86 || parsed.value == arch::x64) {
+  if (arch_value == arch::x86 || arch_value == arch::x64) {
     cs_option(backend->capstone, CS_OPT_SYNTAX, CS_OPT_SYNTAX_INTEL);
   }
 
   ks_err ks_status = ks_open(keystone_cfg.value.arch, keystone_cfg.value.mode, &backend->keystone);
   if (ks_status != KS_ERR_OK) {
-    return engine::error_result<context>(
-        engine::error_code::internal_error, std::string("keystone init failed: ") + ks_strerror(ks_status)
+    return error_result<context>(
+        error_code::internal_error, std::string("keystone init failed: ") + ks_strerror(ks_status)
     );
   }
 
-  if (parsed.value == arch::x86 || parsed.value == arch::x64) {
+  if (arch_value == arch::x86 || arch_value == arch::x64) {
     ks_option(backend->keystone, KS_OPT_SYNTAX, KS_OPT_SYNTAX_INTEL);
   }
 
-  return engine::ok_result(context(parsed.value, std::move(backend)));
+  return ok_result(context(arch_value, std::move(backend)));
 }
 
-engine::result<context> context::for_host() { return for_platform(engine::platform::detect_platform()); }
+result<context> context::for_host() {
+  auto detected = detect_host_arch();
+  if (!detected.ok()) {
+    return error_result<context>(detected.status_info.code, detected.status_info.message);
+  }
+  return for_arch(detected.value);
+}
 
-engine::result<std::vector<uint8_t>> context::assemble(std::string_view text, uint64_t address) const {
+result<std::vector<uint8_t>> context::assemble(std::string_view text, uint64_t address) const {
   if (!backend_ || !backend_->keystone) {
-    return engine::error_result<std::vector<uint8_t>>(
-        engine::error_code::invalid_context, "asmr context not initialized"
+    return error_result<std::vector<uint8_t>>(error_code::invalid_context, "asmr context not initialized"
     );
   }
 
   if (text.empty()) {
-    return engine::error_result<std::vector<uint8_t>>(engine::error_code::invalid_argument, "assembly input is empty");
+    return error_result<std::vector<uint8_t>>(error_code::invalid_argument, "assembly input is empty");
   }
 
   std::string input(text);
@@ -269,9 +260,9 @@ engine::result<std::vector<uint8_t>> context::assemble(std::string_view text, ui
 
   int status = ks_asm(backend_->keystone, input.c_str(), address, &encode, &size, &count);
   if (status != 0) {
-    ks_err error_code = ks_errno(backend_->keystone);
-    return engine::error_result<std::vector<uint8_t>>(
-        engine::error_code::invalid_argument, std::string("keystone assemble failed: ") + ks_strerror(error_code)
+    ks_err ks_error = ks_errno(backend_->keystone);
+    return error_result<std::vector<uint8_t>>(
+        error_code::invalid_argument, std::string("keystone assemble failed: ") + ks_strerror(ks_error)
     );
   }
 
@@ -279,26 +270,23 @@ engine::result<std::vector<uint8_t>> context::assemble(std::string_view text, ui
   output.reserve(size);
   output.insert(output.end(), encode, encode + size);
   ks_free(encode);
-  return engine::ok_result(std::move(output));
+  return ok_result(std::move(output));
 }
 
-engine::result<std::vector<instruction>> context::disassemble(std::span<const uint8_t> bytes, uint64_t address) const {
+result<std::vector<instruction>> context::disassemble(std::span<const uint8_t> bytes, uint64_t address) const {
   if (!backend_ || !backend_->capstone) {
-    return engine::error_result<std::vector<instruction>>(
-        engine::error_code::invalid_context, "asmr context not initialized"
+    return error_result<std::vector<instruction>>(error_code::invalid_context, "asmr context not initialized"
     );
   }
 
   if (bytes.empty()) {
-    return engine::error_result<std::vector<instruction>>(
-        engine::error_code::invalid_argument, "disassembly input is empty"
-    );
+    return error_result<std::vector<instruction>>(error_code::invalid_argument, "disassembly input is empty");
   }
 
   cs_insn* insn = nullptr;
   size_t count = cs_disasm(backend_->capstone, bytes.data(), bytes.size(), address, 0, &insn);
   if (count == 0 || !insn) {
-    return engine::error_result<std::vector<instruction>>(engine::error_code::not_found, "no instructions decoded");
+    return error_result<std::vector<instruction>>(error_code::not_found, "no instructions decoded");
   }
 
   std::vector<instruction> output;
@@ -325,7 +313,7 @@ engine::result<std::vector<instruction>> context::disassemble(std::span<const ui
   }
 
   cs_free(insn, count);
-  return engine::ok_result(std::move(output));
+  return ok_result(std::move(output));
 }
 
-} // namespace p1ll::asmr
+} // namespace w1::asmr

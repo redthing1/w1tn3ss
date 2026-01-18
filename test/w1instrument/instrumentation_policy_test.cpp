@@ -61,7 +61,15 @@ TEST_CASE("instrumentation_policy gates system modules") {
   policy.use_default_excludes = false;
 
   auto system_module = make_module("system_lib", "/usr/lib/system_lib", true);
+#if defined(__APPLE__)
   auto critical_module = make_module("libSystem.B.dylib", "/usr/lib/libSystem.B.dylib", true);
+#elif defined(__linux__)
+  auto critical_module = make_module("libc.so.6", "/usr/lib/libc.so.6", true);
+#elif defined(_WIN32)
+  auto critical_module = make_module("kernel32.dll", "C:\\Windows\\System32\\kernel32.dll", true);
+#else
+  auto critical_module = make_module("critical_system", "/critical/system", true);
+#endif
   CHECK(policy.should_instrument(system_module) == false);
 
   policy.system_policy = w1::core::system_module_policy::include_critical;

@@ -1,4 +1,4 @@
-#ifdef P1LL_HAS_ASMR
+#ifdef WITNESS_ASMR_ENABLED
 #include "commands/asm.hpp"
 #include "commands/disasm.hpp"
 #endif
@@ -16,7 +16,7 @@
 namespace {
 std::string g_executable_path;
 
-#ifdef P1LL_HAS_ASMR
+#ifdef WITNESS_ASMR_ENABLED
 bool parse_address_value(const std::string& value, uint64_t& out) {
   try {
     size_t idx = 0;
@@ -138,9 +138,9 @@ int cmd_sig(
   return p1llx::commands::sig_command(request);
 }
 
-#ifdef P1LL_HAS_ASMR
+#ifdef WITNESS_ASMR_ENABLED
 int cmd_asm(
-    args::Positional<std::string>& assembly_flag, args::ValueFlag<std::string>& platform_flag,
+    args::Positional<std::string>& assembly_flag, args::ValueFlag<std::string>& arch_flag,
     args::ValueFlag<std::string>& address_flag
 ) {
   auto log = redlog::get_logger("p1llx.asm");
@@ -154,8 +154,8 @@ int cmd_asm(
 
   p1llx::commands::asm_request request;
   request.text = args::get(assembly_flag);
-  if (platform_flag) {
-    request.platform = args::get(platform_flag);
+  if (arch_flag) {
+    request.arch = args::get(arch_flag);
   }
   if (address_flag) {
     uint64_t parsed = 0;
@@ -171,7 +171,7 @@ int cmd_asm(
 }
 
 int cmd_disasm(
-    args::Positional<std::string>& bytes_flag, args::ValueFlag<std::string>& platform_flag,
+    args::Positional<std::string>& bytes_flag, args::ValueFlag<std::string>& arch_flag,
     args::ValueFlag<std::string>& address_flag
 ) {
   auto log = redlog::get_logger("p1llx.disasm");
@@ -185,8 +185,8 @@ int cmd_disasm(
 
   p1llx::commands::disasm_request request;
   request.bytes = args::get(bytes_flag);
-  if (platform_flag) {
-    request.platform = args::get(platform_flag);
+  if (arch_flag) {
+    request.arch = args::get(arch_flag);
   }
   if (address_flag) {
     uint64_t parsed = 0;
@@ -327,19 +327,17 @@ int main(int argc, char* argv[]) {
   args::ValueFlag<std::string> sig_input_flag(sig_cmd, "input", "input file path", {'i', "input"});
   args::Flag sig_single_flag(sig_cmd, "single", "require exactly one match", {"single"});
 
-#ifdef P1LL_HAS_ASMR
+#ifdef WITNESS_ASMR_ENABLED
   // asm/disasm commands
   args::Command asm_cmd(parser, "asm", "assemble instruction text");
   args::Positional<std::string> asm_text_flag(asm_cmd, "assembly", "assembly string");
-  args::ValueFlag<std::string> asm_platform_flag(
-      asm_cmd, "platform", "platform override (e.g., linux:x64)", {"platform"}
-  );
+  args::ValueFlag<std::string> asm_arch_flag(asm_cmd, "arch", "architecture (e.g., x86, x64, arm64)", {"arch"});
   args::ValueFlag<std::string> asm_address_flag(asm_cmd, "address", "base address (hex or decimal)", {"address"});
 
   args::Command disasm_cmd(parser, "disasm", "disassemble hex bytes");
   args::Positional<std::string> disasm_bytes_flag(disasm_cmd, "bytes", "hex bytes");
-  args::ValueFlag<std::string> disasm_platform_flag(
-      disasm_cmd, "platform", "platform override (e.g., linux:x64)", {"platform"}
+  args::ValueFlag<std::string> disasm_arch_flag(
+      disasm_cmd, "arch", "architecture (e.g., x86, x64, arm64)", {"arch"}
   );
   args::ValueFlag<std::string> disasm_address_flag(disasm_cmd, "address", "base address (hex or decimal)", {"address"});
 #endif
@@ -369,11 +367,11 @@ int main(int argc, char* argv[]) {
       );
     } else if (sig_cmd) {
       return cmd_sig(sig_pattern_flag, sig_input_flag, sig_single_flag);
-#ifdef P1LL_HAS_ASMR
+#ifdef WITNESS_ASMR_ENABLED
     } else if (asm_cmd) {
-      return cmd_asm(asm_text_flag, asm_platform_flag, asm_address_flag);
+      return cmd_asm(asm_text_flag, asm_arch_flag, asm_address_flag);
     } else if (disasm_cmd) {
-      return cmd_disasm(disasm_bytes_flag, disasm_platform_flag, disasm_address_flag);
+      return cmd_disasm(disasm_bytes_flag, disasm_arch_flag, disasm_address_flag);
 #endif
     } else if (poison_cmd) {
       return cmd_poison(
