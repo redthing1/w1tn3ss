@@ -52,7 +52,7 @@ TEST_CASE("scanner respects single match option") {
 
   auto results = scan.scan(parsed.value, options);
   CHECK_FALSE(results.ok());
-  CHECK(results.status.code == error_code::multiple_matches);
+  CHECK(results.status_info.code == error_code::multiple_matches);
 }
 
 TEST_CASE("scanner returns not found when single match required") {
@@ -68,7 +68,7 @@ TEST_CASE("scanner returns not found when single match required") {
 
   auto results = scan.scan(parsed.value, options);
   CHECK_FALSE(results.ok());
-  CHECK(results.status.code == error_code::not_found);
+  CHECK(results.status_info.code == error_code::not_found);
 }
 
 TEST_CASE("scanner respects max_matches") {

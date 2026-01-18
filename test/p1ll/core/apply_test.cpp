@@ -49,7 +49,7 @@ TEST_CASE("apply returns error for invalid address") {
 
   auto result = apply_plan(space, {entry}, apply_options{});
   CHECK_FALSE(result.ok());
-  CHECK(result.status.code == error_code::not_found);
+  CHECK(result.status_info.code == error_code::not_found);
 }
 
 TEST_CASE("apply reports optional failure without aborting") {

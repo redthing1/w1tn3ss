@@ -45,7 +45,7 @@ void raise_engine_error(const status& st) { throw engine_error(st); }
 
 template <typename T> T unwrap(result<T> res) {
   if (!res.ok()) {
-    throw engine_error(res.status);
+    throw engine_error(res.status_info);
   }
   return std::move(res.value);
 }
@@ -80,7 +80,7 @@ struct py_session {
     if (platform_override.has_value()) {
       auto parsed = p1ll::engine::platform::parse_platform(*platform_override);
       if (!parsed.ok()) {
-        raise_engine_error(parsed.status);
+        raise_engine_error(parsed.status_info);
       }
       wrapper.session_impl = std::make_unique<session>(session::for_buffer(wrapper.buffer, parsed.value));
     } else {
@@ -271,7 +271,7 @@ NB_MODULE(_p1ll, m) {
   platform.def("parse_platform", [](const std::string& key) {
     auto parsed = p1ll::engine::platform::parse_platform(key);
     if (!parsed.ok()) {
-      raise_engine_error(parsed.status);
+      raise_engine_error(parsed.status_info);
     }
     return parsed.value;
   });

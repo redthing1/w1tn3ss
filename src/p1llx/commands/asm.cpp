@@ -21,14 +21,14 @@ int asm_command(const asm_request& request) {
 
   auto platform = resolve_platform(request.platform);
   if (!platform.ok()) {
-    log.err("invalid platform override", redlog::field("error", platform.status.message));
+    log.err("invalid platform override", redlog::field("error", platform.status_info.message));
     std::cerr << "error: invalid platform override" << std::endl;
     return 1;
   }
 
   auto ctx = p1ll::asmr::context::for_platform(platform.value);
   if (!ctx.ok()) {
-    log.err("failed to initialize assembler", redlog::field("error", ctx.status.message));
+    log.err("failed to initialize assembler", redlog::field("error", ctx.status_info.message));
     std::cerr << "error: failed to initialize assembler" << std::endl;
     return 1;
   }
@@ -36,7 +36,7 @@ int asm_command(const asm_request& request) {
   uint64_t address = request.has_address ? request.address : 0;
   auto assembled = ctx.value.assemble(request.text, address);
   if (!assembled.ok()) {
-    log.err("assembly failed", redlog::field("error", assembled.status.message));
+    log.err("assembly failed", redlog::field("error", assembled.status_info.message));
     std::cerr << "error: assembly failed" << std::endl;
     return 1;
   }

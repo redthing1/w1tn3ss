@@ -97,7 +97,7 @@ TEST_CASE("plan builder reports missing required validations") {
   auto sess = session::for_buffer(std::span<uint8_t>(buffer.data(), buffer.size()));
   auto plan = sess.plan(plan_recipe);
   CHECK_FALSE(plan.ok());
-  CHECK(plan.status.code == error_code::not_found);
+  CHECK(plan.status_info.code == error_code::not_found);
 }
 
 TEST_CASE("plan builder enforces platform selectors") {
@@ -117,7 +117,7 @@ TEST_CASE("plan builder enforces platform selectors") {
   auto sess = session::for_buffer(std::span<uint8_t>(buffer.data(), buffer.size()), target);
   auto plan = sess.plan(plan_recipe);
   CHECK_FALSE(plan.ok());
-  CHECK(plan.status.code == error_code::platform_mismatch);
+  CHECK(plan.status_info.code == error_code::platform_mismatch);
 }
 
 TEST_CASE("plan builder detects overlapping patches") {
@@ -143,7 +143,7 @@ TEST_CASE("plan builder detects overlapping patches") {
   auto sess = session::for_buffer(std::span<uint8_t>(buffer.data(), buffer.size()));
   auto plan = sess.plan(plan_recipe);
   CHECK_FALSE(plan.ok());
-  CHECK(plan.status.code == error_code::overlap);
+  CHECK(plan.status_info.code == error_code::overlap);
 }
 
 TEST_CASE("plan builder rejects invalid patch patterns") {
@@ -162,7 +162,7 @@ TEST_CASE("plan builder rejects invalid patch patterns") {
   auto sess = session::for_buffer(std::span<uint8_t>(buffer.data(), buffer.size()));
   auto plan = sess.plan(plan_recipe);
   CHECK_FALSE(plan.ok());
-  CHECK(plan.status.code == error_code::invalid_pattern);
+  CHECK(plan.status_info.code == error_code::invalid_pattern);
 }
 
 TEST_CASE("plan builder detects offset underflow") {
@@ -181,5 +181,5 @@ TEST_CASE("plan builder detects offset underflow") {
   auto sess = session::for_buffer(std::span<uint8_t>(buffer.data(), buffer.size()));
   auto plan = sess.plan(plan_recipe);
   CHECK_FALSE(plan.ok());
-  CHECK(plan.status.code == error_code::invalid_argument);
+  CHECK(plan.status_info.code == error_code::invalid_argument);
 }

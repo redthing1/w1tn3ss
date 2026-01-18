@@ -61,8 +61,8 @@ result<std::vector<scan_result>> scanner::scan(const pattern& signature, const s
 
   auto regions = space_.regions(options.filter);
   if (!regions.ok()) {
-    log.err("failed to enumerate scan regions", redlog::field("error", regions.status.message));
-    return error_result<std::vector<scan_result>>(regions.status.code, regions.status.message);
+    log.err("failed to enumerate scan regions", redlog::field("error", regions.status_info.message));
+    return error_result<std::vector<scan_result>>(regions.status_info.code, regions.status_info.message);
   }
 
   std::vector<scan_result> results;

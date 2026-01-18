@@ -39,8 +39,8 @@ int sig_command(const sig_request& request) {
 
   auto results = session.scan(request.pattern, options);
   if (!results.ok()) {
-    log.err("signature scan failed", redlog::field("error", results.status.message));
-    std::cerr << "error: " << results.status.message << std::endl;
+    log.err("signature scan failed", redlog::field("error", results.status_info.message));
+    std::cerr << "error: " << results.status_info.message << std::endl;
     return 1;
   }
 

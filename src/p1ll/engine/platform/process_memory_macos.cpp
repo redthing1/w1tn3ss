@@ -140,7 +140,7 @@ status set_protection(uint64_t address, size_t size, memory_protection protectio
 
   auto page = page_size();
   if (!page.ok()) {
-    return page.status;
+    return page.status_info;
   }
 
   uint64_t aligned_start = p1ll::utils::align_down(address, page.value);

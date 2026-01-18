@@ -81,8 +81,8 @@ int p01s0n_run() {
       for (const auto& error : result.value.diagnostics) {
         log.err("cure error", redlog::field("message", error.message));
       }
-      if (!result.ok() && !result.status.message.empty()) {
-        log.err("cure error", redlog::field("message", result.status.message));
+      if (!result.ok() && !result.status_info.message.empty()) {
+        log.err("cure error", redlog::field("message", result.status_info.message));
       }
       return 1;
     }

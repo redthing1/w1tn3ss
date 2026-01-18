@@ -184,7 +184,7 @@ int patch_signature(
 
   auto platform = resolve_platform(platform_override);
   if (!platform.ok()) {
-    log.err("invalid platform override", redlog::field("error", platform.status.message));
+    log.err("invalid platform override", redlog::field("error", platform.status_info.message));
     std::cerr << "error: invalid platform override" << std::endl;
     return 1;
   }
@@ -209,15 +209,15 @@ int patch_signature(
 
   auto plan = session.plan(recipe);
   if (!plan.ok()) {
-    log.err("failed to build patch plan", redlog::field("error", plan.status.message));
-    std::cerr << "error: " << plan.status.message << std::endl;
+    log.err("failed to build patch plan", redlog::field("error", plan.status_info.message));
+    std::cerr << "error: " << plan.status_info.message << std::endl;
     return 1;
   }
 
   auto report = session.apply(plan.value);
   if (!report.ok()) {
-    log.err("failed to apply patch plan", redlog::field("error", report.status.message));
-    std::cerr << "error: " << report.status.message << std::endl;
+    log.err("failed to apply patch plan", redlog::field("error", report.status_info.message));
+    std::cerr << "error: " << report.status_info.message << std::endl;
     return 1;
   }
   if (!report.value.success) {

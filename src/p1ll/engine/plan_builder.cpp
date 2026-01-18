@@ -42,7 +42,7 @@ result<bool> plan_builder::platform_allowed(const std::vector<std::string>& sele
     auto parsed = platform::parse_platform(selector);
     if (!parsed.ok()) {
       log.err("invalid platform selector", redlog::field("selector", selector));
-      return error_result<bool>(parsed.status.code, parsed.status.message);
+      return error_result<bool>(parsed.status_info.code, parsed.status_info.message);
     }
     if (platform::platform_matches(parsed.value, platform_)) {
       if (static_cast<int>(redlog::get_level()) >= static_cast<int>(redlog::level::trace)) {
@@ -68,7 +68,7 @@ result<std::vector<plan_entry>> plan_builder::build(const recipe& recipe) {
   );
   auto recipe_ok = platform_allowed(recipe.platforms);
   if (!recipe_ok.ok()) {
-    return error_result<std::vector<plan_entry>>(recipe_ok.status.code, recipe_ok.status.message);
+    return error_result<std::vector<plan_entry>>(recipe_ok.status_info.code, recipe_ok.status_info.message);
   }
   if (!recipe_ok.value) {
     log.inf("recipe not allowed on this platform", redlog::field("platform", platform_.to_string()));
@@ -86,7 +86,7 @@ result<std::vector<plan_entry>> plan_builder::build(const recipe& recipe) {
     }
     auto parsed = parse_signature(pattern_str);
     if (!parsed.ok()) {
-      return error_result<pattern>(parsed.status.code, parsed.status.message);
+      return error_result<pattern>(parsed.status_info.code, parsed.status_info.message);
     }
     signature_cache.emplace(pattern_str, parsed.value);
     return parsed;
@@ -103,7 +103,7 @@ result<std::vector<plan_entry>> plan_builder::build(const recipe& recipe) {
     auto compiled = compile_signature(pattern_str);
     if (!compiled.ok()) {
       result<std::vector<scan_result>> err =
-          error_result<std::vector<scan_result>>(compiled.status.code, compiled.status.message);
+          error_result<std::vector<scan_result>>(compiled.status_info.code, compiled.status_info.message);
       scan_cache.emplace(key, err);
       return err;
     }
@@ -116,7 +116,7 @@ result<std::vector<plan_entry>> plan_builder::build(const recipe& recipe) {
   for (const auto& sig_spec : recipe.validations) {
     auto platform_ok = platform_allowed(sig_spec.platforms);
     if (!platform_ok.ok()) {
-      return error_result<std::vector<plan_entry>>(platform_ok.status.code, platform_ok.status.message);
+      return error_result<std::vector<plan_entry>>(platform_ok.status_info.code, platform_ok.status_info.message);
     }
     if (!platform_ok.value) {
       log.trc("skipping validation for platform mismatch", redlog::field("pattern", sig_spec.pattern));
@@ -128,15 +128,15 @@ result<std::vector<plan_entry>> plan_builder::build(const recipe& recipe) {
       if (sig_spec.required) {
         log.err(
             "validation scan failed", redlog::field("pattern", sig_spec.pattern),
-            redlog::field("error", scan_results.status.message)
+            redlog::field("error", scan_results.status_info.message)
         );
         return error_result<std::vector<plan_entry>>(
-            scan_results.status.code, "validation failed: " + sig_spec.pattern
+            scan_results.status_info.code, "validation failed: " + sig_spec.pattern
         );
       }
       log.wrn(
           "optional validation scan failed", redlog::field("pattern", sig_spec.pattern),
-          redlog::field("error", scan_results.status.message)
+          redlog::field("error", scan_results.status_info.message)
       );
       continue;
     }
@@ -157,7 +157,7 @@ result<std::vector<plan_entry>> plan_builder::build(const recipe& recipe) {
   for (const auto& patch_spec : recipe.patches) {
     auto patch_platform_ok = platform_allowed(patch_spec.platforms);
     if (!patch_platform_ok.ok()) {
-      return error_result<std::vector<plan_entry>>(patch_platform_ok.status.code, patch_platform_ok.status.message);
+      return error_result<std::vector<plan_entry>>(patch_platform_ok.status_info.code, patch_platform_ok.status_info.message);
     }
     if (!patch_platform_ok.value) {
       log.trc("skipping patch for platform mismatch", redlog::field("pattern", patch_spec.signature.pattern));
@@ -166,7 +166,7 @@ result<std::vector<plan_entry>> plan_builder::build(const recipe& recipe) {
 
     auto sig_platform_ok = platform_allowed(patch_spec.signature.platforms);
     if (!sig_platform_ok.ok()) {
-      return error_result<std::vector<plan_entry>>(sig_platform_ok.status.code, sig_platform_ok.status.message);
+      return error_result<std::vector<plan_entry>>(sig_platform_ok.status_info.code, sig_platform_ok.status_info.message);
     }
     if (!sig_platform_ok.value) {
       log.trc("skipping signature for platform mismatch", redlog::field("pattern", patch_spec.signature.pattern));
@@ -178,15 +178,15 @@ result<std::vector<plan_entry>> plan_builder::build(const recipe& recipe) {
       if (patch_spec.required) {
         log.err(
             "patch signature scan failed", redlog::field("pattern", patch_spec.signature.pattern),
-            redlog::field("error", scan_results.status.message)
+            redlog::field("error", scan_results.status_info.message)
         );
         return error_result<std::vector<plan_entry>>(
-            scan_results.status.code, "patch signature failed: " + patch_spec.signature.pattern
+            scan_results.status_info.code, "patch signature failed: " + patch_spec.signature.pattern
         );
       }
       log.wrn(
           "optional patch signature scan failed", redlog::field("pattern", patch_spec.signature.pattern),
-          redlog::field("error", scan_results.status.message)
+          redlog::field("error", scan_results.status_info.message)
       );
       continue;
     }
@@ -211,7 +211,7 @@ result<std::vector<plan_entry>> plan_builder::build(const recipe& recipe) {
       if (patch_spec.required) {
         log.err("patch pattern invalid", redlog::field("pattern", patch_spec.patch));
         return error_result<std::vector<plan_entry>>(
-            parsed_patch.status.code, "patch pattern invalid: " + patch_spec.patch
+            parsed_patch.status_info.code, "patch pattern invalid: " + patch_spec.patch
         );
       }
       log.wrn("optional patch pattern invalid", redlog::field("pattern", patch_spec.patch));

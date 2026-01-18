@@ -77,14 +77,14 @@ int disasm_command(const disasm_request& request) {
 
   auto platform = resolve_platform(request.platform);
   if (!platform.ok()) {
-    log.err("invalid platform override", redlog::field("error", platform.status.message));
+    log.err("invalid platform override", redlog::field("error", platform.status_info.message));
     std::cerr << "error: invalid platform override" << std::endl;
     return 1;
   }
 
   auto ctx = p1ll::asmr::context::for_platform(platform.value);
   if (!ctx.ok()) {
-    log.err("failed to initialize disassembler", redlog::field("error", ctx.status.message));
+    log.err("failed to initialize disassembler", redlog::field("error", ctx.status_info.message));
     std::cerr << "error: failed to initialize disassembler" << std::endl;
     return 1;
   }
@@ -92,7 +92,7 @@ int disasm_command(const disasm_request& request) {
   uint64_t address = request.has_address ? request.address : 0;
   auto disassembled = ctx.value.disassemble(bytes, address);
   if (!disassembled.ok()) {
-    log.err("disassembly failed", redlog::field("error", disassembled.status.message));
+    log.err("disassembly failed", redlog::field("error", disassembled.status_info.message));
     std::cerr << "error: disassembly failed" << std::endl;
     return 1;
   }

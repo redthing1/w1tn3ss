@@ -64,7 +64,7 @@ result<std::vector<uint8_t>> process_address_space::read(uint64_t address, size_
 
   auto region = region_info(address);
   if (!region.ok()) {
-    return error_result<std::vector<uint8_t>>(region.status.code, region.status.message);
+    return error_result<std::vector<uint8_t>>(region.status_info.code, region.status_info.message);
   }
   if (!has_protection(region.value.protection, memory_protection::read)) {
     return error_result<std::vector<uint8_t>>(error_code::protection_error, "memory not readable");
@@ -87,7 +87,7 @@ status process_address_space::write(uint64_t address, std::span<const uint8_t> d
 
   auto region = region_info(address);
   if (!region.ok()) {
-    return region.status;
+    return region.status_info;
   }
   if (!has_protection(region.value.protection, memory_protection::write)) {
     return make_status(error_code::protection_error, "memory not writable");
@@ -114,7 +114,7 @@ status process_address_space::flush_instruction_cache(uint64_t address, size_t s
 result<std::vector<memory_region>> process_address_space::regions(const scan_filter& filter) const {
   auto regions = platform::enumerate_regions();
   if (!regions.ok()) {
-    return error_result<std::vector<memory_region>>(regions.status.code, regions.status.message);
+    return error_result<std::vector<memory_region>>(regions.status_info.code, regions.status_info.message);
   }
 
   if (filter_is_empty(filter)) {
@@ -125,7 +125,7 @@ result<std::vector<memory_region>> process_address_space::regions(const scan_fil
   for (const auto& region : regions.value) {
     auto match = matches_filter(region, filter);
     if (!match.ok()) {
-      return error_result<std::vector<memory_region>>(match.status.code, match.status.message);
+      return error_result<std::vector<memory_region>>(match.status_info.code, match.status_info.message);
     }
     if (match.value) {
       filtered.push_back(region);
@@ -202,7 +202,7 @@ result<std::vector<memory_region>> buffer_address_space::regions(const scan_filt
 
   auto match = matches_filter(region, effective_filter);
   if (!match.ok()) {
-    return error_result<std::vector<memory_region>>(match.status.code, match.status.message);
+    return error_result<std::vector<memory_region>>(match.status_info.code, match.status_info.message);
   }
   if (!match.value) {
     return ok_result(std::vector<memory_region>{});

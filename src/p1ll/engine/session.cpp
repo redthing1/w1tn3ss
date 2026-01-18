@@ -24,7 +24,7 @@ result<std::vector<memory_region>> session::regions(const scan_filter& filter) c
 result<std::vector<scan_result>> session::scan(std::string_view pattern, const scan_options& options) const {
   auto parsed = parse_signature(pattern);
   if (!parsed.ok()) {
-    return error_result<std::vector<scan_result>>(parsed.status.code, parsed.status.message);
+    return error_result<std::vector<scan_result>>(parsed.status_info.code, parsed.status_info.message);
   }
 
   scanner scanner(*space_);

@@ -37,7 +37,7 @@ struct adapter_state {
   bool track_memory = false;
   std::unordered_set<uint64_t> breakpoints;
   std::unique_ptr<w1replay::asmr_block_decoder> decoder;
-  module_source module_source;
+  module_source module_source_state;
 
   run_policy make_run_policy() const {
     run_policy policy{};

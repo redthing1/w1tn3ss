@@ -344,18 +344,18 @@ inline void setup_p1ll_bindings(sol::state& lua, engine::session& session) {
     log.inf("executing auto_cure", redlog::field("name", recipe.name));
     auto plan = session.plan(recipe);
     if (!plan.ok()) {
-      log.err("auto_cure planning failed", redlog::field("error", plan.status.message));
-      report.add_error(plan.status.message.empty() ? "plan failed" : plan.status.message);
+      log.err("auto_cure planning failed", redlog::field("error", plan.status_info.message));
+      report.add_error(plan.status_info.message.empty() ? "plan failed" : plan.status_info.message);
       return report;
     }
 
     auto applied = session.apply(plan.value);
     report = apply_report_wrapper(applied.value);
     if (!applied.ok()) {
-      if (!applied.status.message.empty()) {
-        report.add_error(applied.status.message);
+      if (!applied.status_info.message.empty()) {
+        report.add_error(applied.status_info.message);
       }
-      log.err("auto_cure apply failed", redlog::field("error", applied.status.message));
+      log.err("auto_cure apply failed", redlog::field("error", applied.status_info.message));
     }
     log.inf(
         "auto_cure completed", redlog::field("success", report.success), redlog::field("applied", report.applied),
@@ -374,7 +374,7 @@ inline void setup_p1ll_bindings(sol::state& lua, engine::session& session) {
 
     auto regions = session.regions(engine::scan_filter{});
     if (!regions.ok()) {
-      log.err("get_modules failed", redlog::field("error", regions.status.message));
+      log.err("get_modules failed", redlog::field("error", regions.status_info.message));
       return result;
     }
 
@@ -466,7 +466,7 @@ inline void setup_p1ll_bindings(sol::state& lua, engine::session& session) {
         auto results = session.scan(pattern, options);
         if (!results.ok() || results.value.empty()) {
           if (!results.ok()) {
-            log.err("search failed", redlog::field("pattern", pattern), redlog::field("error", results.status.message));
+            log.err("search failed", redlog::field("pattern", pattern), redlog::field("error", results.status_info.message));
           } else {
             log.dbg("search returned no matches", redlog::field("pattern", pattern));
           }
@@ -499,7 +499,7 @@ inline void setup_p1ll_bindings(sol::state& lua, engine::session& session) {
         }
         auto results = session.scan(pattern, options);
         if (!results.ok()) {
-          log.err("search failed", redlog::field("pattern", pattern), redlog::field("error", results.status.message));
+          log.err("search failed", redlog::field("pattern", pattern), redlog::field("error", results.status_info.message));
           return output;
         }
         for (const auto& result : results.value) {

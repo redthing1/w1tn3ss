@@ -111,13 +111,13 @@ bool asmr_block_decoder::decode_block(
 
   auto ctx = p1ll::asmr::context::for_platform(platform);
   if (!ctx.ok()) {
-    error = ctx.status.message;
+    error = ctx.status_info.message;
     return false;
   }
 
   auto decoded = ctx.value.disassemble(buffer, base_address);
   if (!decoded.ok()) {
-    error = decoded.status.message;
+    error = decoded.status_info.message;
     return false;
   }
 

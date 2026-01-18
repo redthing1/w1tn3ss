@@ -122,7 +122,7 @@ p1ll_session_t p1ll_session_create_buffer_with_platform(uint8_t* buffer, size_t 
     clear_error();
     auto parsed = p1ll::engine::platform::parse_platform(platform_key);
     if (!parsed.ok()) {
-      set_error(parsed.status.message.empty() ? "invalid platform key" : parsed.status.message);
+      set_error(parsed.status_info.message.empty() ? "invalid platform key" : parsed.status_info.message);
       return nullptr;
     }
     auto session = std::make_unique<p1ll::engine::session>(
@@ -155,7 +155,7 @@ int p1ll_scan(
     auto scan_opts = convert_scan_options(options);
     auto result = session->session->scan(pattern, scan_opts);
     if (!result.ok()) {
-      set_error(result.status.message.empty() ? "scan failed" : result.status.message);
+      set_error(result.status_info.message.empty() ? "scan failed" : result.status_info.message);
       return P1LL_ERROR;
     }
 
@@ -211,7 +211,7 @@ int p1ll_plan(p1ll_session_t session, const p1ll_recipe_t* recipe, p1ll_plan_ent
 
     auto plan = session->session->plan(plan_recipe);
     if (!plan.ok()) {
-      set_error(plan.status.message.empty() ? "plan failed" : plan.status.message);
+      set_error(plan.status_info.message.empty() ? "plan failed" : plan.status_info.message);
       return P1LL_ERROR;
     }
 
@@ -293,7 +293,7 @@ int p1ll_apply(
     out_report->failed = applied.value.failed;
 
     if (!applied.ok()) {
-      set_error(applied.status.message.empty() ? "apply failed" : applied.status.message);
+      set_error(applied.status_info.message.empty() ? "apply failed" : applied.status_info.message);
       return P1LL_ERROR;
     }
 

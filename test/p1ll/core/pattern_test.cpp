@@ -26,7 +26,7 @@ TEST_CASE("pattern parsing handles valid signatures") {
 TEST_CASE("pattern parsing rejects invalid signatures") {
   auto parsed = parse_signature("zz 90");
   CHECK_FALSE(parsed.ok());
-  CHECK(parsed.status.code == error_code::invalid_pattern);
+  CHECK(parsed.status_info.code == error_code::invalid_pattern);
 }
 
 TEST_CASE("pattern parsing normalizes whitespace") {

@@ -106,7 +106,7 @@ result<size_t> apply_entry(address_space& space, const plan_entry& entry, const 
 
   auto region = space.region_info(entry.address);
   if (!region.ok()) {
-    return error_result<size_t>(region.status.code, "failed to resolve memory region");
+    return error_result<size_t>(region.status_info.code, "failed to resolve memory region");
   }
 
   if (entry.address > UINT64_MAX - patch_size) {
@@ -119,12 +119,12 @@ result<size_t> apply_entry(address_space& space, const plan_entry& entry, const 
 
   auto original_bytes = space.read(entry.address, patch_size);
   if (!original_bytes.ok()) {
-    return error_result<size_t>(original_bytes.status.code, "failed to read original bytes");
+    return error_result<size_t>(original_bytes.status_info.code, "failed to read original bytes");
   }
 
   auto merged = merge_patch_bytes(entry.patch_bytes, entry.patch_mask, original_bytes.value);
   if (!merged.ok()) {
-    return error_result<size_t>(merged.status.code, merged.status.message);
+    return error_result<size_t>(merged.status_info.code, merged.status_info.message);
   }
 
   std::vector<uint8_t> context_before;
@@ -242,18 +242,18 @@ result<apply_report> apply_plan(
     auto applied = apply_entry(space, entry, options);
     if (!applied.ok()) {
       report.failed++;
-      report.diagnostics.push_back(applied.status);
+      report.diagnostics.push_back(applied.status_info);
       if (entry.spec.required) {
         log.err(
             "required patch failed", redlog::field("address", utils::format_address(entry.address)),
-            redlog::field("signature", entry.spec.signature.pattern), redlog::field("error", applied.status.message)
+            redlog::field("signature", entry.spec.signature.pattern), redlog::field("error", applied.status_info.message)
         );
         report.success = false;
-        return result<apply_report>{report, applied.status};
+        return result<apply_report>{report, applied.status_info};
       }
       log.wrn(
           "optional patch failed", redlog::field("address", utils::format_address(entry.address)),
-          redlog::field("signature", entry.spec.signature.pattern), redlog::field("error", applied.status.message)
+          redlog::field("signature", entry.spec.signature.pattern), redlog::field("error", applied.status_info.message)
       );
       continue;
     }

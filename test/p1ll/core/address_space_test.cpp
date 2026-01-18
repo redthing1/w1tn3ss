@@ -38,7 +38,7 @@ TEST_CASE("buffer address space rejects out-of-bounds") {
 
   auto read = space.read(4, 1);
   CHECK_FALSE(read.ok());
-  CHECK(read.status.code == error_code::invalid_argument);
+  CHECK(read.status_info.code == error_code::invalid_argument);
 
   std::array<uint8_t, 1> bytes = {0xaa};
   auto write_status = space.write(4, bytes);
@@ -52,7 +52,7 @@ TEST_CASE("buffer address space region info handles missing") {
 
   auto region = space.region_info(4);
   CHECK_FALSE(region.ok());
-  CHECK(region.status.code == error_code::not_found);
+  CHECK(region.status_info.code == error_code::not_found);
 }
 
 TEST_CASE("buffer address space allocation is unsupported") {
@@ -61,7 +61,7 @@ TEST_CASE("buffer address space allocation is unsupported") {
 
   auto alloc = space.allocate(16, p1ll::engine::memory_protection::read_write);
   CHECK_FALSE(alloc.ok());
-  CHECK(alloc.status.code == error_code::unsupported);
+  CHECK(alloc.status_info.code == error_code::unsupported);
 }
 
 TEST_CASE("process address space exposes page size") {
@@ -75,7 +75,7 @@ TEST_CASE("process address space region enumeration is best-effort") {
   process_address_space space;
   auto regions = space.regions({});
   if (!regions.ok()) {
-    INFO("region enumeration unavailable: " << regions.status.message);
+    INFO("region enumeration unavailable: " << regions.status_info.message);
     return;
   }
   CHECK_FALSE(regions.value.empty());

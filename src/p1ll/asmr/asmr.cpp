@@ -91,11 +91,11 @@ void append_reg_name(csh handle, uint32_t reg_id, std::string& out) {
 }
 
 void append_x86_operands(csh handle, const cs_x86& detail, instruction& inst) {
-  inst.encoding.imm_offset = detail.encoding.imm_offset;
-  inst.encoding.imm_size = detail.encoding.imm_size;
-  inst.encoding.disp_offset = detail.encoding.disp_offset;
-  inst.encoding.disp_size = detail.encoding.disp_size;
-  inst.encoding.modrm_offset = detail.encoding.modrm_offset;
+  inst.encoding_info.imm_offset = detail.encoding.imm_offset;
+  inst.encoding_info.imm_size = detail.encoding.imm_size;
+  inst.encoding_info.disp_offset = detail.encoding.disp_offset;
+  inst.encoding_info.disp_size = detail.encoding.disp_size;
+  inst.encoding_info.modrm_offset = detail.encoding.modrm_offset;
 
   inst.operand_details.reserve(detail.op_count);
   for (uint8_t i = 0; i < detail.op_count; ++i) {
@@ -208,7 +208,7 @@ context::context(arch arch_value, std::unique_ptr<backend> backend) : backend_(s
 engine::result<context> context::for_platform(const engine::platform::platform_key& platform) {
   auto parsed = parse_arch(platform);
   if (!parsed.ok()) {
-    return engine::error_result<context>(parsed.status.code, parsed.status.message);
+    return engine::error_result<context>(parsed.status_info.code, parsed.status_info.message);
   }
 
   auto capstone_cfg = capstone_config_for(parsed.value);

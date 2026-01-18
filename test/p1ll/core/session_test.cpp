@@ -22,7 +22,7 @@ TEST_CASE("session scan rejects invalid patterns") {
   p1ll::engine::scan_options options;
   auto result = sess.scan("zz", options);
   CHECK_FALSE(result.ok());
-  CHECK(result.status.code == error_code::invalid_pattern);
+  CHECK(result.status_info.code == error_code::invalid_pattern);
 }
 
 TEST_CASE("session scan returns matches for valid patterns") {

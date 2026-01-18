@@ -89,8 +89,8 @@ int cure(
         std::cerr << "  error: " << error.message << std::endl;
         log.err("cure error detail", redlog::field("message", error.message));
       }
-      if (!result.ok() && !result.status.message.empty()) {
-        std::cerr << "  error: " << result.status.message << std::endl;
+      if (!result.ok() && !result.status_info.message.empty()) {
+        std::cerr << "  error: " << result.status_info.message << std::endl;
       }
 
       return 1;

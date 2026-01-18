@@ -119,18 +119,18 @@ std::vector<uint8_t> mask_x86_instruction(const instruction& inst, policy policy
 
   if (policy_value == policy::strict) {
     if (inst.is_branch_relative) {
-      mask_range(mask, inst.encoding.imm_offset, inst.encoding.imm_size);
+      mask_range(mask, inst.encoding_info.imm_offset, inst.encoding_info.imm_size);
     }
     if (rip_relative) {
-      mask_range(mask, inst.encoding.disp_offset, inst.encoding.disp_size);
+      mask_range(mask, inst.encoding_info.disp_offset, inst.encoding_info.disp_size);
     }
   } else {
-    mask_range(mask, inst.encoding.imm_offset, inst.encoding.imm_size);
-    mask_range(mask, inst.encoding.disp_offset, inst.encoding.disp_size);
+    mask_range(mask, inst.encoding_info.imm_offset, inst.encoding_info.imm_size);
+    mask_range(mask, inst.encoding_info.disp_offset, inst.encoding_info.disp_size);
   }
 
-  if (policy_value == policy::durable && only_regs && inst.encoding.modrm_offset > 0) {
-    mask_range(mask, inst.encoding.modrm_offset, 1);
+  if (policy_value == policy::durable && only_regs && inst.encoding_info.modrm_offset > 0) {
+    mask_range(mask, inst.encoding_info.modrm_offset, 1);
   }
 
   return mask;
@@ -230,12 +230,12 @@ engine::result<signature> code_signature(
 
   auto ctx = context::for_platform(platform);
   if (!ctx.ok()) {
-    return engine::error_result<signature>(ctx.status.code, ctx.status.message);
+    return engine::error_result<signature>(ctx.status_info.code, ctx.status_info.message);
   }
 
   auto disassembly = ctx.value.disassemble(bytes, address);
   if (!disassembly.ok()) {
-    return engine::error_result<signature>(disassembly.status.code, disassembly.status.message);
+    return engine::error_result<signature>(disassembly.status_info.code, disassembly.status_info.message);
   }
 
   if (disassembly.value.empty()) {

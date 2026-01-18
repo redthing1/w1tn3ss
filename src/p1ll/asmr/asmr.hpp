@@ -43,7 +43,7 @@ struct instruction {
   std::string operands;
   uint32_t id = 0;
   std::vector<operand> operand_details;
-  encoding encoding;
+  encoding encoding_info;
   bool is_branch_relative = false;
 };
 

@@ -105,7 +105,7 @@ result<std::vector<memory_region>> enumerate_regions() {
 result<memory_region> region_info(uint64_t address) {
   auto regions = enumerate_regions();
   if (!regions.ok()) {
-    return error_result<memory_region>(regions.status.code, regions.status.message);
+    return error_result<memory_region>(regions.status_info.code, regions.status_info.message);
   }
   for (const auto& region : regions.value) {
     if (address >= region.base_address && address < (region.base_address + region.size)) {
@@ -139,7 +139,7 @@ status set_protection(uint64_t address, size_t size, memory_protection protectio
 
   auto page = page_size();
   if (!page.ok()) {
-    return page.status;
+    return page.status_info;
   }
 
   uint64_t aligned_start = p1ll::utils::align_down(address, page.value);

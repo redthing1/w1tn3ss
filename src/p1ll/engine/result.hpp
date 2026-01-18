@@ -37,9 +37,9 @@ inline status make_status(error_code code, std::string message) { return status{
 // result carries a value and a status; value is default-initialized on errors
 template <typename T> struct result {
   T value{};
-  status status{};
+  status status_info{};
 
-  bool ok() const noexcept { return status.ok(); }
+  bool ok() const noexcept { return status_info.ok(); }
 };
 
 template <typename T> inline result<T> ok_result(T value) { return result<T>{std::move(value), ok_status()}; }
