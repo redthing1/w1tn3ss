@@ -45,6 +45,18 @@ void cmd_inspect(args::Subparser& parser) {
       "show memory bytes at addr:size (example: 0x1000:32)",
       {"mem"}
   );
+  args::ValueFlagList<std::string> module_flag(
+      parser,
+      "mapping",
+      "module mapping name=path (repeatable)",
+      {"module"}
+  );
+  args::ValueFlagList<std::string> module_dir_flag(
+      parser,
+      "dir",
+      "module search directory (repeatable)",
+      {"module-dir"}
+  );
   args::ValueFlag<std::string> checkpoint_flag(
       parser,
       "path",
@@ -78,6 +90,12 @@ void cmd_inspect(args::Subparser& parser) {
   options.show_registers = regs_flag;
   options.memory_range = mem_flag ? *mem_flag : "";
   options.checkpoint_path = checkpoint_flag ? *checkpoint_flag : "";
+  if (module_flag) {
+    options.module_mappings = args::get(module_flag);
+  }
+  if (module_dir_flag) {
+    options.module_dirs = args::get(module_dir_flag);
+  }
 
   g_exit_code = w1replay::commands::inspect(options);
 }
@@ -138,6 +156,18 @@ void cmd_server(args::Subparser& parser) {
   args::ValueFlag<uint64_t> thread_flag(parser, "thread", "thread id", {'T', "thread"});
   args::ValueFlag<uint64_t> start_flag(parser, "sequence", "start sequence", {'s', "start"});
   args::Flag inst_flag(parser, "inst", "prefer instruction steps when possible", {"inst"});
+  args::ValueFlagList<std::string> module_flag(
+      parser,
+      "mapping",
+      "module mapping name=path (repeatable)",
+      {"module"}
+  );
+  args::ValueFlagList<std::string> module_dir_flag(
+      parser,
+      "dir",
+      "module search directory (repeatable)",
+      {"module-dir"}
+  );
   parser.Parse();
 
   if (!trace_flag) {
@@ -155,6 +185,12 @@ void cmd_server(args::Subparser& parser) {
   options.thread_id = thread_flag ? *thread_flag : 0;
   options.start_sequence = start_flag ? *start_flag : 0;
   options.instruction_steps = inst_flag;
+  if (module_flag) {
+    options.module_mappings = args::get(module_flag);
+  }
+  if (module_dir_flag) {
+    options.module_dirs = args::get(module_dir_flag);
+  }
 
   g_exit_code = w1replay::commands::server(options);
 }

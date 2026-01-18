@@ -8,6 +8,7 @@
 #include <redlog.hpp>
 
 #include "asmr_block_decoder.hpp"
+#include "module_source.hpp"
 #include "w1tn3ss/runtime/rewind/replay_session.hpp"
 
 namespace w1replay::commands {
@@ -87,6 +88,9 @@ int inspect(const inspect_options& options) {
     return 1;
   }
 
+  module_source source;
+  source.configure(options.module_mappings, options.module_dirs);
+
   w1::rewind::replay_session_config config{};
   config.trace_path = options.trace_path;
   config.index_path = options.index_path;
@@ -96,11 +100,18 @@ int inspect(const inspect_options& options) {
   config.thread_id = options.thread_id;
   config.start_sequence = options.start_sequence;
   config.checkpoint_path = options.checkpoint_path;
+  if (!options.module_mappings.empty() || !options.module_dirs.empty()) {
+    auto* module_source_ptr = &source;
+    config.context_hook = [module_source_ptr](w1::rewind::replay_context& context) {
+      module_source_ptr->apply_to_context(context);
+    };
+  }
 
   std::optional<asmr_block_decoder> decoder;
   if (options.instruction_steps) {
     if (asmr_decoder_available()) {
       decoder.emplace();
+      decoder->set_module_source(&source);
       config.block_decoder = &*decoder;
     }
   }

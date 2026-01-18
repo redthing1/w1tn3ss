@@ -55,8 +55,10 @@ def run_step_session(
     step_count: int,
     timeout: float,
     log_path: str,
+    sample_path: str,
 ) -> Tuple[List[int], int]:
     commands = [
+        f"target create {sample_path}",
         f"log enable -f {log_path} gdb-remote packets",
         f"process connect --plugin gdb-remote connect://{host}:{port}",
         "register read pc",
@@ -67,10 +69,13 @@ def run_step_session(
     commands.append("process plugin packet send bs")
     commands.append("register read pc")
 
+    commands.append("disassemble -c 1 -s $pc")
     result = run_lldb(lldb_path, commands, timeout)
     output = result.stdout + result.stderr
     if result.returncode != 0:
         raise RuntimeError(f"lldb step session failed: {result.returncode}\n{output}")
+    if "disassembly unavailable" in output:
+        raise AssertionError("lldb disassembly unavailable in step session")
     pcs = parse_lldb_pc_values(output)
     if len(pcs) < step_count + 2:
         raise AssertionError(f"expected {step_count + 2} pc reads, got {len(pcs)}")
@@ -167,13 +172,21 @@ def main() -> int:
             raise AssertionError(f"{scenario.name}: need at least 6 inspect steps")
 
         host = "127.0.0.1"
+        module_mapping = f"{os.path.basename(sample_path)}={sample_path}"
         port = next_available_port(host)
-        server = start_server(args.w1replay, trace_path, port, scenario.server_inst, args.timeout)
+        server = start_server(
+            args.w1replay,
+            trace_path,
+            port,
+            scenario.server_inst,
+            args.timeout,
+            module_mappings=[module_mapping],
+        )
         try:
             step_count = 4
             log_path = os.path.join(tempfile.gettempdir(), f"w1replay_flow_{scenario.name}_{port}.log")
             pcs, reverse_pc = run_step_session(
-                lldb_path, host, port, step_count, args.timeout, log_path
+                lldb_path, host, port, step_count, args.timeout, log_path, sample_path
             )
         finally:
             server.terminate(timeout=1.0)
@@ -200,7 +213,14 @@ def main() -> int:
 
         break_target = expected_pcs[align + 3]
         port = next_available_port(host)
-        server = start_server(args.w1replay, trace_path, port, scenario.server_inst, args.timeout)
+        server = start_server(
+            args.w1replay,
+            trace_path,
+            port,
+            scenario.server_inst,
+            args.timeout,
+            module_mappings=[module_mapping],
+        )
         try:
             hit_pc = run_break_session(lldb_path, host, port, break_target, args.timeout)
         finally:

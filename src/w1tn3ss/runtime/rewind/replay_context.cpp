@@ -21,6 +21,33 @@ bool replay_context::resolve_address(uint64_t module_id, uint64_t module_offset,
   return true;
 }
 
+const module_record* replay_context::find_module_for_address(
+    uint64_t address,
+    uint64_t size,
+    uint64_t& module_offset
+) const {
+  if (size == 0) {
+    return nullptr;
+  }
+
+  for (const auto& module : modules) {
+    if (address < module.base) {
+      continue;
+    }
+    uint64_t offset = address - module.base;
+    if (module.size < size) {
+      continue;
+    }
+    if (offset > module.size - size) {
+      continue;
+    }
+    module_offset = offset;
+    return &module;
+  }
+
+  return nullptr;
+}
+
 bool replay_context::has_blocks() const { return (header.flags & trace_flag_blocks) != 0; }
 
 bool replay_context::has_registers() const { return !register_names.empty(); }

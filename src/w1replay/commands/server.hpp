@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 namespace w1replay::commands {
 
@@ -13,6 +14,8 @@ struct server_options {
   uint64_t thread_id = 0;
   uint64_t start_sequence = 0;
   bool instruction_steps = false;
+  std::vector<std::string> module_mappings;
+  std::vector<std::string> module_dirs;
 };
 
 int server(const server_options& options);

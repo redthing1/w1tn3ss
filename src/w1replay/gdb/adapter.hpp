@@ -3,11 +3,13 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "gdbstub/target.hpp"
 
 #include "adapter_components.hpp"
 #include "adapter_state.hpp"
+#include "w1replay/module_source.hpp"
 
 namespace w1replay::gdb {
 
@@ -20,6 +22,9 @@ public:
     uint64_t thread_id = 0;
     uint64_t start_sequence = 0;
     bool prefer_instruction_steps = false;
+    std::vector<std::string> module_mappings;
+    std::vector<std::string> module_dirs;
+    module_address_reader module_reader;
   };
 
   explicit adapter(config config);

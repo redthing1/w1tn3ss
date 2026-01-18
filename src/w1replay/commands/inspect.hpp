@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 namespace w1replay::commands {
 
@@ -17,6 +18,8 @@ struct inspect_options {
   bool show_registers = false;
   std::string memory_range;
   std::string checkpoint_path;
+  std::vector<std::string> module_mappings;
+  std::vector<std::string> module_dirs;
 };
 
 int inspect(const inspect_options& options);

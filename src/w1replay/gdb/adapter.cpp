@@ -25,6 +25,11 @@ bool adapter::open() {
   state_.track_memory = false;
   state_.breakpoints.clear();
   state_.decoder.reset();
+  state_.module_source = module_source{};
+  state_.module_source.configure(config_.module_mappings, config_.module_dirs);
+  if (config_.module_reader) {
+    state_.module_source.set_address_reader(config_.module_reader);
+  }
 
   if (!load_context()) {
     return false;
@@ -81,6 +86,9 @@ bool adapter::load_context() {
   if (!w1::rewind::load_replay_context(config_.trace_path, state_.context, error_)) {
     return false;
   }
+  if (!config_.module_mappings.empty() || !config_.module_dirs.empty()) {
+    state_.module_source.apply_to_context(state_.context);
+  }
   if (state_.context.modules.empty()) {
     error_ = "module table missing";
     return false;
@@ -117,6 +125,7 @@ bool adapter::load_context() {
 bool adapter::open_session() {
   if (asmr_decoder_available()) {
     state_.decoder = std::make_unique<w1replay::asmr_block_decoder>();
+    state_.decoder->set_module_source(&state_.module_source);
     state_.decoder_available = true;
   }
 
@@ -130,6 +139,12 @@ bool adapter::open_session() {
   config.start_sequence = config_.start_sequence;
   config.track_registers = has_registers;
   config.track_memory = state_.track_memory;
+  if (!config_.module_mappings.empty() || !config_.module_dirs.empty()) {
+    auto* module_source = &state_.module_source;
+    config.context_hook = [module_source](w1::rewind::replay_context& context) {
+      module_source->apply_to_context(context);
+    };
+  }
   if (state_.decoder) {
     config.block_decoder = state_.decoder.get();
   }

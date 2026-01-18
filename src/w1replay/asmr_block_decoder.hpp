@@ -1,21 +1,19 @@
 #pragma once
 
 #include <cstdint>
-#include <memory>
 #include <string>
-#include <unordered_map>
 
 #include "w1tn3ss/runtime/rewind/replay_decode.hpp"
 
-#if defined(WITNESS_LIEF_ENABLED)
-#include <LIEF/LIEF.hpp>
-#endif
-
 namespace w1replay {
+
+struct module_source;
 
 class asmr_block_decoder final : public w1::rewind::replay_block_decoder {
 public:
   ~asmr_block_decoder();
+
+  void set_module_source(module_source* module_source) { module_source_ = module_source; }
 
   bool decode_block(
       const w1::rewind::replay_context& context,
@@ -27,14 +25,7 @@ public:
   ) override;
 
 private:
-#if defined(WITNESS_LIEF_ENABLED)
-  struct module_entry {
-    std::string path;
-    std::unique_ptr<LIEF::Binary> binary;
-  };
-
-  std::unordered_map<uint64_t, module_entry> modules_;
-#endif
+  module_source* module_source_ = nullptr;
 };
 
 bool asmr_decoder_available();

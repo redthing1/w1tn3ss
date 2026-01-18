@@ -16,11 +16,15 @@ set(W1REPLAY_TEST_SOURCES
     gdb_run_policy_test.cpp
     gdb_register_info_test.cpp
     gdb_stepper_test.cpp
+    module_source_test.cpp
+    replay_context_test.cpp
     ${WITNESS_SOURCE_DIR}/src/w1replay/asmr_block_decoder.cpp
+    ${WITNESS_SOURCE_DIR}/src/w1replay/module_source.cpp
     ${WITNESS_SOURCE_DIR}/src/w1replay/gdb/adapter.cpp
     ${WITNESS_SOURCE_DIR}/src/w1replay/gdb/adapter_components.cpp
     ${WITNESS_SOURCE_DIR}/src/w1replay/gdb/layout.cpp
     ${WITNESS_SOURCE_DIR}/src/w1replay/gdb/target_xml.cpp
+    ${WITNESS_SOURCE_DIR}/src/w1replay/gdb/memory_merge.cpp
     ${WITNESS_SOURCE_DIR}/src/w1replay/gdb/memory_map.cpp
     ${WITNESS_SOURCE_DIR}/src/w1replay/gdb/value_codec.cpp
     ${WITNESS_SOURCE_DIR}/src/w1replay/gdb/stepper.cpp

@@ -12,6 +12,7 @@
 #include "w1tn3ss/runtime/rewind/replay_context.hpp"
 #include "w1tn3ss/runtime/rewind/replay_session.hpp"
 
+#include "w1replay/module_source.hpp"
 #include "layout.hpp"
 #include "run_policy.hpp"
 
@@ -36,6 +37,7 @@ struct adapter_state {
   bool track_memory = false;
   std::unordered_set<uint64_t> breakpoints;
   std::unique_ptr<w1replay::asmr_block_decoder> decoder;
+  module_source module_source;
 
   run_policy make_run_policy() const {
     run_policy policy{};

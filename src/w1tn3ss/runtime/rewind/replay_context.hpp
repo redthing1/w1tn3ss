@@ -39,6 +39,8 @@ struct replay_context {
   bool has_blocks() const;
   bool has_registers() const;
   trace_features features() const;
+
+  const module_record* find_module_for_address(uint64_t address, uint64_t size, uint64_t& module_offset) const;
 };
 
 bool load_replay_context(const std::string& trace_path, replay_context& out, std::string& error);

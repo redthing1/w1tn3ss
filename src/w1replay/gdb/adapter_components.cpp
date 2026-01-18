@@ -1,6 +1,7 @@
 #include "adapter_components.hpp"
 
 #include "memory_map.hpp"
+#include "memory_merge.hpp"
 #include "stepper.hpp"
 #include "value_codec.hpp"
 
@@ -73,25 +74,26 @@ gdbstub::target_status regs_component::write_reg(int, std::span<const std::byte>
 mem_component::mem_component(adapter_state& state) : state_(state) {}
 
 gdbstub::target_status mem_component::read_mem(uint64_t addr, std::span<std::byte> out) {
-  if (!state_.track_memory) {
-    return gdbstub::target_status::unsupported;
-  }
   if (!state_.session) {
     return gdbstub::target_status::unsupported;
   }
-  auto bytes = state_.session->read_memory(addr, out.size());
-  if (bytes.size() != out.size()) {
-    return gdbstub::target_status::fault;
-  }
-  for (size_t i = 0; i < bytes.size(); ++i) {
-    if (!bytes[i].has_value()) {
-      return gdbstub::target_status::unsupported;
+
+  std::vector<std::optional<uint8_t>> recorded;
+  recorded.resize(out.size());
+  if (state_.track_memory) {
+    recorded = state_.session->read_memory(addr, out.size());
+    if (recorded.size() != out.size()) {
+      return gdbstub::target_status::fault;
     }
   }
-  for (size_t i = 0; i < bytes.size(); ++i) {
-    out[i] = static_cast<std::byte>(*bytes[i]);
-  }
-  return gdbstub::target_status::ok;
+
+  std::vector<std::byte> module_bytes;
+  module_bytes.resize(out.size());
+  std::string module_error;
+  bool module_ok = state_.module_source.read_address_bytes(state_.context, addr, module_bytes, module_error);
+
+  bool complete = merge_memory_bytes(recorded, module_bytes, module_ok, out);
+  return complete ? gdbstub::target_status::ok : gdbstub::target_status::unsupported;
 }
 
 gdbstub::target_status mem_component::write_mem(uint64_t, std::span<const std::byte>) {

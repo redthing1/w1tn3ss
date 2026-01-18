@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <optional>
 #include <string>
 #include <unordered_set>
@@ -22,6 +23,7 @@ struct replay_session_config {
   uint32_t history_size = 1024;
   bool track_registers = true;
   bool track_memory = true;
+  std::function<void(replay_context&)> context_hook;
   bool auto_build_index = true;
   std::string checkpoint_path;
   bool auto_build_checkpoint = false;

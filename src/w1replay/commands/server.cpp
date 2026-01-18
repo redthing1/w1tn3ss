@@ -36,6 +36,8 @@ int server(const server_options& options) {
   config.thread_id = options.thread_id;
   config.start_sequence = options.start_sequence;
   config.prefer_instruction_steps = options.instruction_steps;
+  config.module_mappings = options.module_mappings;
+  config.module_dirs = options.module_dirs;
 
   gdb::adapter adapter(std::move(config));
   if (!adapter.open()) {

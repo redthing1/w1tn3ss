@@ -448,6 +448,10 @@ bool replay_session::load_context() {
     return false;
   }
 
+  if (config_.context_hook) {
+    config_.context_hook(context_);
+  }
+
   if ((config_.track_registers || config_.track_memory) && context_.register_names.empty()) {
     set_error("register table missing");
     return false;

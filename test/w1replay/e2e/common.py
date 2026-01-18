@@ -301,6 +301,8 @@ def start_server(
     timeout: float,
     start: Optional[int] = None,
     thread_id: Optional[int] = None,
+    module_mappings: Optional[Sequence[str]] = None,
+    module_dirs: Optional[Sequence[str]] = None,
 ) -> ProcessResult:
     cmd = [w1replay, "server", "--gdb", f"127.0.0.1:{port}", "--trace", trace_path]
     if inst:
@@ -309,6 +311,12 @@ def start_server(
         cmd.extend(["--start", str(start)])
     if thread_id is not None and thread_id != 0:
         cmd.extend(["--thread", str(thread_id)])
+    if module_mappings:
+        for mapping in module_mappings:
+            cmd.extend(["--module", mapping])
+    if module_dirs:
+        for directory in module_dirs:
+            cmd.extend(["--module-dir", directory])
     result = start_process(cmd)
     line = wait_for_output_line(result, lambda l: "listening" in l, timeout)
     if line is None:

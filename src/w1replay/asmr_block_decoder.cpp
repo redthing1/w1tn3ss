@@ -1,7 +1,9 @@
 #include "asmr_block_decoder.hpp"
 
+#include "module_source.hpp"
+
+#include <cstddef>
 #include <limits>
-#include <memory>
 #include <optional>
 #include <vector>
 
@@ -66,6 +68,11 @@ bool asmr_block_decoder::decode_block(
   error = "asmr decoder unavailable (build with WITNESS_LIEF=ON)";
   return false;
 #else
+  if (!module_source_) {
+    error = "module source missing";
+    return false;
+  }
+
   if (size == 0) {
     error = "block size is zero";
     return false;
@@ -81,50 +88,15 @@ bool asmr_block_decoder::decode_block(
     return false;
   }
 
-  auto cache_it = modules_.find(module_id);
-  if (cache_it == modules_.end() || cache_it->second.path != module_it->second.path || !cache_it->second.binary) {
-    auto binary = LIEF::Parser::parse(module_it->second.path);
-    if (!binary) {
-      error = "failed to parse module: " + module_it->second.path;
-      return false;
-    }
-    module_entry entry{};
-    entry.path = module_it->second.path;
-    entry.binary = std::move(binary);
-    cache_it = modules_.insert_or_assign(module_id, std::move(entry)).first;
-  }
-
-  const auto& binary = *cache_it->second.binary;
-  uint64_t address = module_offset;
-  auto va_type = LIEF::Binary::VA_TYPES::RVA;
-  switch (binary.format()) {
-  case LIEF::Binary::FORMATS::MACHO: {
-    uint64_t imagebase = binary.imagebase();
-    if (imagebase > std::numeric_limits<uint64_t>::max() - module_offset) {
-      error = "module imagebase + offset overflow";
-      return false;
-    }
-    address = imagebase + module_offset;
-    va_type = LIEF::Binary::VA_TYPES::VA;
-    break;
-  }
-  case LIEF::Binary::FORMATS::ELF:
-  case LIEF::Binary::FORMATS::PE:
-    address = module_offset;
-    va_type = LIEF::Binary::VA_TYPES::RVA;
-    break;
-  default:
-    error = "unsupported binary format for block decode";
+  std::vector<std::byte> raw_bytes;
+  if (!module_source_->read_module_bytes(module_it->second, module_offset, size, raw_bytes, error)) {
     return false;
   }
-
-  auto bytes = binary.get_content_from_virtual_address(address, size, va_type);
-  if (bytes.empty() || bytes.size() < size) {
-    error = "failed to read block bytes";
-    return false;
+  std::vector<uint8_t> buffer;
+  buffer.resize(raw_bytes.size());
+  for (size_t i = 0; i < raw_bytes.size(); ++i) {
+    buffer[i] = std::to_integer<uint8_t>(raw_bytes[i]);
   }
-
-  std::vector<uint8_t> buffer(bytes.begin(), bytes.begin() + size);
   uint64_t base_address = module_it->second.base + module_offset;
 
   auto arch_value = trace_arch_to_platform_arch(context.header.architecture);

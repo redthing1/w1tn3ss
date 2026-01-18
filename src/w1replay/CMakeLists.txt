@@ -8,10 +8,12 @@ find_package(Threads REQUIRED)
 add_executable(w1replay
     main.cpp
     asmr_block_decoder.cpp
+    module_source.cpp
     gdb/adapter.cpp
     gdb/adapter_components.cpp
     gdb/layout.cpp
     gdb/target_xml.cpp
+    gdb/memory_merge.cpp
     gdb/memory_map.cpp
     gdb/value_codec.cpp
     gdb/stepper.cpp
