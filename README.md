@@ -6,23 +6,30 @@ fully supports **linux**, **macos**, **windows** for `x86`, `x64`, and `arm64`.
 ## features
 
 + framework for writing dynamic tracers (`w1tn3ss`)
-+ built-in tracers: coverage (`w1cov`), call tracing (`w1xfer`), memory (`w1mem`), instructions (`w1inst`), instruction flow (`w1trace`), scripting (`w1script`), dumps (`w1dump`)
++ built-in tracers: coverage (`w1cov`), call tracing (`w1xfer`), memory (`w1mem`), instructions (`w1inst`), instruction flow (`w1trace`), scripting (`w1script`), dumps (`w1dump`), record/replay (`w1rewind`/`w1replay`)
 + real-time library call interception with argument extraction (`w1xfer`)
 + signature scanning and binary patching (`p1ll`/`p1llx`)
-+ scriptable tracing and patching with [luajit](https://luajit.org/)
++ scriptable tracing/patching with js/lua
 + cross-platform injection library with multiple techniques (`w1nj3ct`)
 + symbol resolution and calling convention modeling for intercepting arguments and return values
 + **scanning**, **patching**, **gadgeting**, control execution, and more
 
 ## build
 
-build for any platform (with script and lief enabled):
+initialize submodules:
+```sh
+git submodule update --init --recursive
+```
+
+build for any platform:
 ```sh
 cmake -G Ninja -B build-release -DCMAKE_BUILD_TYPE=Release -DWITNESS_SCRIPT=ON
 cmake --build build-release --parallel
 ```
 
-to use a specific arch, configure `WITNESS_ARCH` (`x64`, `x86`, `arm64`)
+tips:
+- set `WITNESS_ARCH` (`x64`, `x86`, `arm64`) to force a specific arch
+- set `-DWITNESS_SCRIPT_ENGINE=js` to use the JS scripting backend
 
 ## `w1tool` guide
 
@@ -38,9 +45,9 @@ my other project [covtool](https://github.com/redthing1/covtool) provides a powe
 collect coverage in drcov format using `w1cov`:
 ```sh
 # macos/linux
-./build-release/w1tool cover -s ./build-release/samples/programs/simple_demo
+./build-release/bin/w1tool cover -s ./build-release/bin/samples/programs/simple_demo
 # windows
-.\build-release\w1tool.exe cover -s .\build-release\samples\programs\simple_demo.exe
+.\build-release\bin\w1tool.exe cover -s .\build-release\bin\samples\programs\simple_demo.exe
 ```
 
 output will resemble:
@@ -56,9 +63,9 @@ you can also trace coverage in the same drcov format by passing `--inst` to `cov
 for a more primitive form of tracing which simply records the instruction pointer, use `w1trace`:
 ```sh
 # macos/linux
-./build-release/w1tool tracer -n w1trace -c output=simple_demo_trace.txt -s ./build-release/samples/programs/simple_demo
+./build-release/bin/w1tool tracer -n w1trace -c output=simple_demo_trace.txt -s ./build-release/bin/samples/programs/simple_demo
 # windows
-.\build-release\w1tool.exe tracer -n w1trace -c output=simple_demo_trace.txt -s .\build-release\samples\programs\simple_demo.exe
+.\build-release\bin\w1tool.exe tracer -n w1trace -c output=simple_demo_trace.txt -s .\build-release\bin\samples\programs\simple_demo.exe
 ```
 
 ### real-time api call analysis
@@ -70,9 +77,9 @@ in addition to detecting calls crossing the instrumentation boundary, `w1xfer` r
 trace api calls in real time with `w1xfer`:
 ```sh
 # macos/linux
-./build-release/w1tool -v tracer -n w1xfer -c analyze_apis=true -c output=test_transfers.jsonl -s ./build-release/samples/programs/simple_demo
+./build-release/bin/w1tool -v tracer -n w1xfer -c analyze_apis=true -c output=test_transfers.jsonl -s ./build-release/bin/samples/programs/simple_demo
 # windows
-.\build-release\w1tool.exe -v tracer -n w1xfer -c analyze_apis=true -c output=test_transfers.jsonl -s .\build-release\samples\programs\simple_demo.exe
+.\build-release\bin\w1tool.exe -v tracer -n w1xfer -c analyze_apis=true -c output=test_transfers.jsonl -s .\build-release\bin\samples\programs\simple_demo.exe
 ```
 
 output will resemble:
@@ -125,14 +132,33 @@ return tracer
 run it:
 ```sh
 # macos/linux
-./build-release/w1tool tracer -n w1script -c script=./scripts/w1script/instruction_tracer.lua -s ./build-release/samples/programs/simple_demo
+./build-release/bin/w1tool tracer -n w1script -c script=./scripts/w1script/instruction_tracer.lua -s ./build-release/bin/samples/programs/simple_demo
 # windows
-.\build-release\w1tool.exe tracer -n w1script -c script=./scripts/w1script/instruction_tracer.lua -s .\build-release\samples\programs\simple_demo.exe
+.\build-release\bin\w1tool.exe tracer -n w1script -c script=./scripts/w1script/instruction_tracer.lua -s .\build-release\bin\samples\programs\simple_demo.exe
 ```
 
 this will produce a trace of disassembled instructions as they are executed.
 
 see the [example scripts](./scripts/w1script/), which demonstrate memory tracing, coverage collection, and api interception.
+
+## record and replay
+
+the duo `w1rewind` + `w1replay` provides record/replay functionality.
+traces can be captured with various levels of detail, trading performance/size for fidelity.
+
+record a rewind trace:
+```sh
+./build-release/bin/w1tool tracer -n w1rewind -s -o /tmp/trace.w1r -- ./build-release/bin/samples/programs/simple_demo
+```
+
+inspect:
+```sh
+./build-release/bin/w1replay inspect -t /tmp/trace.w1r --thread 1 --count 10
+```
+
+tips:
+- to increase trace detail, enable `record_instructions`, `record_register_deltas`, `memory`
+- run a gdb rsp server with `w1replay server -t <trace> --gdb 127.0.0.1:5555`
 
 ## `p1ll` guide
 
@@ -143,7 +169,7 @@ patching binaries is an essential part of a reversing or cracking workflow. `p1l
 
 patch a binary on disk:
 ```sh
-./build-release/p1llx -vv cure -c ./patch_script.lua -i ./target_binary -o ./patched_binary
+./build-release/bin/p1llx -vv cure -c ./patch_script.lua -i ./target_binary -o ./patched_binary
 ```
 
 on macos, statically patched binaries require codesigning:
@@ -158,9 +184,9 @@ the `d0ct0r.py` script provides intelligent patch development features; it autom
 patch a running process in memory:
 ```sh
 # spawn new process
-./build-release/p1llx -vv poison -c ./patch_script.lua -s ./target_binary
+./build-release/bin/p1llx -vv poison -c ./patch_script.lua -s ./target_binary
 # attach to existing process
-./build-release/p1llx -vv poison -c ./patch_script.lua -n target_binary
+./build-release/bin/p1llx -vv poison -c ./patch_script.lua -n target_binary
 ```
 
 ### patch scripts
