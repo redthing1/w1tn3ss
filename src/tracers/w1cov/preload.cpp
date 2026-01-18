@@ -1,7 +1,6 @@
 #include <memory>
 #include <utility>
 #include <type_traits>
-#include <variant>
 
 #include "QBDIPreload.h"
 #include <redlog.hpp>
@@ -22,9 +21,8 @@ using basic_tracer = w1cov::coverage_tracer<w1cov::coverage_mode::basic_block>;
 using inst_tracer = w1cov::coverage_tracer<w1cov::coverage_mode::instruction>;
 using basic_session = w1::trace_session<basic_tracer>;
 using inst_session = w1::trace_session<inst_tracer>;
-using session_variant = std::variant<std::monostate, std::unique_ptr<basic_session>, std::unique_ptr<inst_session>>;
-
-session_variant g_session;
+std::unique_ptr<basic_session> g_basic_session;
+std::unique_ptr<inst_session> g_inst_session;
 w1cov::coverage_config g_config;
 
 void configure_logging(int verbose) {
@@ -44,40 +42,24 @@ void configure_logging(int verbose) {
 }
 
 bool run_session(uint64_t start, uint64_t stop) {
-  bool ok = false;
-
-  std::visit(
-      [&](auto& entry) {
-        using entry_t = std::decay_t<decltype(entry)>;
-        if constexpr (std::is_same_v<entry_t, std::unique_ptr<basic_session>> ||
-                      std::is_same_v<entry_t, std::unique_ptr<inst_session>>) {
-          if (entry) {
-            ok = entry->run(start, stop);
-          }
-        }
-      },
-      g_session
-  );
-
-  return ok;
+  if (g_basic_session) {
+    return g_basic_session->run(start, stop);
+  }
+  if (g_inst_session) {
+    return g_inst_session->run(start, stop);
+  }
+  return false;
 }
 
 void shutdown_session() {
-  std::visit(
-      [&](auto& entry) {
-        using entry_t = std::decay_t<decltype(entry)>;
-        if constexpr (std::is_same_v<entry_t, std::unique_ptr<basic_session>> ||
-                      std::is_same_v<entry_t, std::unique_ptr<inst_session>>) {
-          if (entry) {
-            entry->shutdown(false);
-            entry.reset();
-          }
-        }
-      },
-      g_session
-  );
-
-  g_session = std::monostate{};
+  if (g_basic_session) {
+    g_basic_session->shutdown(false);
+    g_basic_session.reset();
+  }
+  if (g_inst_session) {
+    g_inst_session->shutdown(false);
+    g_inst_session.reset();
+  }
 }
 
 } // namespace
@@ -100,10 +82,12 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
   session_config.thread_id = 1;
   session_config.thread_name = "main";
 
+  g_basic_session.reset();
+  g_inst_session.reset();
   if (g_config.inst_trace) {
-    g_session = std::make_unique<inst_session>(session_config, vm, std::in_place, g_config);
+    g_inst_session = std::make_unique<inst_session>(session_config, vm, std::in_place, g_config);
   } else {
-    g_session = std::make_unique<basic_session>(session_config, vm, std::in_place, g_config);
+    g_basic_session = std::make_unique<basic_session>(session_config, vm, std::in_place, g_config);
   }
 
   log.inf(
