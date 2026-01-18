@@ -59,6 +59,8 @@ replay_checkpoint_entry snapshot_entry(
     entry.registers.push_back(delta);
   }
 
+  state.collect_register_bytes(entry.register_bytes_entries, entry.register_bytes);
+
   if (include_memory) {
     const auto& memory = state.memory_map();
     entry.memory.reserve(memory.size());
@@ -197,7 +199,7 @@ bool build_replay_checkpoint(
   }
 
   uint32_t max_register_id = 0;
-  bool have_register_table = !context.register_names.empty();
+  bool have_register_specs = !context.register_specs.empty();
   bool have_registers = false;
 
   std::map<uint64_t, thread_build_state> threads;
@@ -212,10 +214,30 @@ bool build_replay_checkpoint(
         continue;
       }
       auto& state = threads[deltas.thread_id];
+      if (state.state.registers().empty() && !context.register_specs.empty()) {
+        state.state.set_register_specs(context.register_specs);
+      }
       applier.apply_register_deltas(deltas, deltas.thread_id, true, state.state);
       for (const auto& delta : deltas.deltas) {
         max_register_id = std::max(max_register_id, static_cast<uint32_t>(delta.reg_id));
         have_registers = true;
+      }
+      continue;
+    }
+
+    if (std::holds_alternative<register_bytes_record>(record)) {
+      const auto& bytes = std::get<register_bytes_record>(record);
+      if (config.thread_id != 0 && bytes.thread_id != config.thread_id) {
+        continue;
+      }
+      auto& state = threads[bytes.thread_id];
+      if (state.state.registers().empty() && !context.register_specs.empty()) {
+        state.state.set_register_specs(context.register_specs);
+      }
+      applier.apply_register_bytes(bytes, bytes.thread_id, true, state.state);
+      have_registers = true;
+      for (const auto& entry : bytes.entries) {
+        max_register_id = std::max(max_register_id, static_cast<uint32_t>(entry.reg_id));
       }
       continue;
     }
@@ -229,6 +251,9 @@ bool build_replay_checkpoint(
         continue;
       }
       auto& state = threads[access.thread_id];
+      if (state.state.registers().empty() && !context.register_specs.empty()) {
+        state.state.set_register_specs(context.register_specs);
+      }
       applier.apply_memory_access(access, access.thread_id, config.include_memory, state.state);
       continue;
     }
@@ -239,6 +264,9 @@ bool build_replay_checkpoint(
         continue;
       }
       auto& state = threads[snapshot.thread_id];
+      if (state.state.registers().empty() && !context.register_specs.empty()) {
+        state.state.set_register_specs(context.register_specs);
+      }
       applier.apply_snapshot(snapshot, snapshot.thread_id, true, config.include_memory, state.state);
       for (const auto& delta : snapshot.registers) {
         max_register_id = std::max(max_register_id, static_cast<uint32_t>(delta.reg_id));
@@ -276,8 +304,8 @@ bool build_replay_checkpoint(
   index.header.trace_flags = context.header.flags;
   index.header.stride = config.stride;
 
-  if (have_register_table) {
-    index.header.register_count = static_cast<uint32_t>(context.register_names.size());
+  if (have_register_specs) {
+    index.header.register_count = static_cast<uint32_t>(context.register_specs.size());
   } else if (have_registers) {
     index.header.register_count = max_register_id + 1;
   }
@@ -325,8 +353,13 @@ bool build_replay_checkpoint(
     }
 
     uint32_t reg_count = static_cast<uint32_t>(entry.registers.size());
+    uint32_t reg_bytes_count = static_cast<uint32_t>(entry.register_bytes_entries.size());
+    uint32_t reg_bytes_size = static_cast<uint32_t>(entry.register_bytes.size());
     uint32_t mem_count = static_cast<uint32_t>(entry.memory.size());
-    if (!write_stream_u32(out_stream, reg_count) || !write_stream_u32(out_stream, mem_count)) {
+    if (!write_stream_u32(out_stream, reg_count) ||
+        !write_stream_u32(out_stream, reg_bytes_count) ||
+        !write_stream_u32(out_stream, reg_bytes_size) ||
+        !write_stream_u32(out_stream, mem_count)) {
       error = "failed to write checkpoint entry counts";
       return false;
     }
@@ -334,6 +367,22 @@ bool build_replay_checkpoint(
     for (const auto& reg : entry.registers) {
       if (!write_stream_u16(out_stream, reg.reg_id) || !write_stream_u64(out_stream, reg.value)) {
         error = "failed to write checkpoint register entry";
+        return false;
+      }
+    }
+
+    for (const auto& reg : entry.register_bytes_entries) {
+      if (!write_stream_u16(out_stream, reg.reg_id) ||
+          !write_stream_u32(out_stream, reg.offset) ||
+          !write_stream_u16(out_stream, reg.size)) {
+        error = "failed to write checkpoint register bytes entry";
+        return false;
+      }
+    }
+
+    if (!entry.register_bytes.empty()) {
+      if (!write_stream_bytes(out_stream, entry.register_bytes.data(), entry.register_bytes.size())) {
+        error = "failed to write checkpoint register bytes data";
         return false;
       }
     }
@@ -389,11 +438,14 @@ bool load_replay_checkpoint(const std::string& path, replay_checkpoint_index& ou
   for (uint32_t i = 0; i < entry_count; ++i) {
     auto& entry = index.entries[i];
     uint32_t reg_count = 0;
+    uint32_t reg_bytes_count = 0;
+    uint32_t reg_bytes_size = 0;
     uint32_t mem_count = 0;
 
     if (!read_stream_u64(in, entry.thread_id) || !read_stream_u64(in, entry.sequence) ||
         !read_stream_u32(in, entry.location.chunk_index) || !read_stream_u32(in, entry.location.record_offset) ||
-        !read_stream_u32(in, reg_count) || !read_stream_u32(in, mem_count)) {
+        !read_stream_u32(in, reg_count) || !read_stream_u32(in, reg_bytes_count) ||
+        !read_stream_u32(in, reg_bytes_size) || !read_stream_u32(in, mem_count)) {
       error = "failed to read checkpoint entry header";
       return false;
     }
@@ -409,6 +461,24 @@ bool load_replay_checkpoint(const std::string& path, replay_checkpoint_index& ou
       entry.registers[j] = register_delta{reg_id, value};
     }
 
+    entry.register_bytes_entries.resize(reg_bytes_count);
+    for (uint32_t j = 0; j < reg_bytes_count; ++j) {
+      register_bytes_entry reg{};
+      if (!read_stream_u16(in, reg.reg_id) || !read_stream_u32(in, reg.offset) || !read_stream_u16(in, reg.size)) {
+        error = "failed to read checkpoint register bytes entry";
+        return false;
+      }
+      entry.register_bytes_entries[j] = reg;
+    }
+
+    entry.register_bytes.resize(reg_bytes_size);
+    if (reg_bytes_size > 0) {
+      if (!read_stream_bytes(in, entry.register_bytes.data(), entry.register_bytes.size())) {
+        error = "failed to read checkpoint register bytes data";
+        return false;
+      }
+    }
+
     entry.memory.resize(mem_count);
     for (uint32_t j = 0; j < mem_count; ++j) {
       uint64_t address = 0;
@@ -418,6 +488,14 @@ bool load_replay_checkpoint(const std::string& path, replay_checkpoint_index& ou
         return false;
       }
       entry.memory[j] = std::make_pair(address, value);
+    }
+
+    for (const auto& reg : entry.register_bytes_entries) {
+      uint64_t end = static_cast<uint64_t>(reg.offset) + static_cast<uint64_t>(reg.size);
+      if (end > entry.register_bytes.size()) {
+        error = "checkpoint register bytes entry out of range";
+        return false;
+      }
     }
   }
 

@@ -92,7 +92,7 @@ bool replay_flow_cursor::seek(uint64_t thread_id, uint64_t sequence) {
   if (track_registers_ || track_memory_) {
     state_.reset();
     if (track_registers_) {
-      state_.set_register_count(context_->register_names.size());
+      state_.set_register_specs(context_->register_specs);
     }
 
     const trace_index* index = cursor_.index();
@@ -153,8 +153,14 @@ bool replay_flow_cursor::seek_with_checkpoint(const replay_checkpoint_entry& che
   if (track_registers_ || track_memory_) {
     state_.reset();
     if (track_registers_) {
-      state_.set_register_count(context_->register_names.size());
+      state_.set_register_specs(context_->register_specs);
       state_.apply_register_snapshot(checkpoint.registers);
+      if (!checkpoint.register_bytes_entries.empty()) {
+        if (!state_.apply_register_bytes(checkpoint.register_bytes_entries, checkpoint.register_bytes)) {
+          set_error(replay_flow_error_kind::other, "checkpoint register bytes mismatch");
+          return false;
+        }
+      }
     }
     if (track_memory_) {
       std::unordered_map<uint64_t, uint8_t> memory;
@@ -288,8 +294,8 @@ bool replay_flow_cursor::load_context() {
     return false;
   }
 
-  if ((track_registers_ || track_memory_) && context_->register_names.empty()) {
-    set_error(replay_flow_error_kind::other, "register table missing");
+  if ((track_registers_ || track_memory_) && context_->register_specs.empty()) {
+    set_error(replay_flow_error_kind::other, "register specs missing");
     return false;
   }
   if (flow_kind_ == flow_kind::blocks && context_->blocks_by_id.empty()) {
@@ -302,7 +308,7 @@ bool replay_flow_cursor::load_context() {
   }
 
   if (track_registers_) {
-    state_.set_register_count(context_->register_names.size());
+    state_.set_register_specs(context_->register_specs);
   }
 
   return true;
@@ -352,14 +358,6 @@ bool replay_flow_cursor::scan_until_sequence(uint64_t thread_id, uint64_t sequen
   return false;
 }
 
-bool replay_flow_cursor::resolve_address(uint64_t module_id, uint64_t module_offset, uint64_t& address) {
-  if (!context_->resolve_address(module_id, module_offset, address)) {
-    set_error(replay_flow_error_kind::other, "module id not found");
-    return false;
-  }
-  return true;
-}
-
 bool replay_flow_cursor::try_parse_flow(const trace_record& record, flow_step& out, bool& is_flow) {
   is_flow = false;
   if (flow_kind_ == flow_kind::instructions) {
@@ -369,13 +367,9 @@ bool replay_flow_cursor::try_parse_flow(const trace_record& record, flow_step& o
     const auto& inst = std::get<instruction_record>(record);
     out.thread_id = inst.thread_id;
     out.sequence = inst.sequence;
-    out.module_id = inst.module_id;
-    out.module_offset = inst.module_offset;
     out.size = inst.size;
+    out.address = inst.address;
     out.is_block = false;
-    if (!resolve_address(out.module_id, out.module_offset, out.address)) {
-      return false;
-    }
     is_flow = true;
     return true;
   }
@@ -394,13 +388,9 @@ bool replay_flow_cursor::try_parse_flow(const trace_record& record, flow_step& o
   const auto& def = it->second;
   out.thread_id = exec.thread_id;
   out.sequence = exec.sequence;
-  out.module_id = def.module_id;
-  out.module_offset = def.module_offset;
   out.size = def.size;
+  out.address = def.address;
   out.is_block = true;
-  if (!resolve_address(out.module_id, out.module_offset, out.address)) {
-    return false;
-  }
   is_flow = true;
   return true;
 }

@@ -42,6 +42,7 @@ public:
   bool write_block_definition(const block_definition_record& record);
   bool write_block_exec(const block_exec_record& record);
   bool write_register_deltas(const register_delta_record& record);
+  bool write_register_bytes(const register_bytes_record& record);
   bool write_memory_access(const memory_access_record& record);
   bool write_snapshot(const snapshot_record& record);
   bool write_thread_end(const thread_end_record& record);

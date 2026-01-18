@@ -187,7 +187,7 @@ def parse_inspect_output(output: str) -> InspectTrace:
     current: Optional[InspectStep] = None
 
     step_re = re.compile(
-        r"seq=(\d+)\s+addr=(0x[0-9a-fA-F]+)\s+module=(\d+)\s+kind=(\w+)"
+        r"seq=(\d+)\s+addr=(0x[0-9a-fA-F]+)\s+module=(.+?)\s+kind=(\w+)"
     )
     regs_re = re.compile(r"^\s*regs:\s*(.*)$")
     mem_re = re.compile(r"^\s*mem\[(0x[0-9a-fA-F]+):(\d+)\]:\s*(.*)$")

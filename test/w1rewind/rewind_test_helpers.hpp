@@ -203,14 +203,12 @@ inline void write_thread_end(trace_writer& writer, uint64_t thread_id) {
 inline void write_block_def(
     trace_writer& writer,
     uint64_t block_id,
-    uint64_t module_id,
-    uint64_t module_offset,
+    uint64_t address,
     uint32_t size
 ) {
   block_definition_record record{};
   record.block_id = block_id;
-  record.module_id = module_id;
-  record.module_offset = module_offset;
+  record.address = address;
   record.size = size;
   REQUIRE(writer.write_block_definition(record));
 }
@@ -227,14 +225,12 @@ inline void write_instruction(
     trace_writer& writer,
     uint64_t thread_id,
     uint64_t sequence,
-    uint64_t module_id,
-    uint64_t module_offset
+    uint64_t address
 ) {
   instruction_record record{};
   record.sequence = sequence;
   record.thread_id = thread_id;
-  record.module_id = module_id;
-  record.module_offset = module_offset;
+  record.address = address;
   record.size = 4;
   record.flags = 0;
   REQUIRE(writer.write_instruction(record));

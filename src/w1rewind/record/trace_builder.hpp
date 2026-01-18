@@ -25,21 +25,25 @@ public:
 
   bool emit_instruction(
       uint64_t thread_id,
-      uint64_t module_id,
-      uint64_t module_offset,
+      uint64_t address,
       uint32_t size,
       uint32_t flags,
       uint64_t& sequence_out
   );
   bool emit_block(
       uint64_t thread_id,
-      uint64_t module_id,
-      uint64_t module_offset,
+      uint64_t address,
       uint32_t size,
       uint64_t& sequence_out
   );
 
   bool emit_register_deltas(uint64_t thread_id, uint64_t sequence, std::span<const register_delta> deltas);
+  bool emit_register_bytes(
+      uint64_t thread_id,
+      uint64_t sequence,
+      std::span<const register_bytes_entry> entries,
+      std::span<const uint8_t> data
+  );
   bool emit_memory_access(
       uint64_t thread_id,
       uint64_t sequence,
@@ -72,19 +76,17 @@ private:
   };
 
   struct block_key {
-    uint64_t module_id = 0;
-    uint64_t module_offset = 0;
+    uint64_t address = 0;
     uint32_t size = 0;
 
     bool operator==(const block_key& other) const {
-      return module_id == other.module_id && module_offset == other.module_offset && size == other.size;
+      return address == other.address && size == other.size;
     }
   };
 
   struct block_key_hash {
     size_t operator()(const block_key& key) const noexcept {
-      size_t seed = std::hash<uint64_t>{}(key.module_id);
-      seed ^= std::hash<uint64_t>{}(key.module_offset) + 0x9e3779b97f4a7c15ULL + (seed << 6) + (seed >> 2);
+      size_t seed = std::hash<uint64_t>{}(key.address);
       seed ^= std::hash<uint32_t>{}(key.size) + 0x9e3779b97f4a7c15ULL + (seed << 6) + (seed >> 2);
       return seed;
     }

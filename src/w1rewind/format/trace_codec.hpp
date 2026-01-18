@@ -225,29 +225,26 @@ inline bool decode_thread_start(trace_buffer_reader& reader, thread_start_record
 inline bool encode_instruction(const instruction_record& record, trace_buffer_writer& writer) {
   writer.write_u64(record.sequence);
   writer.write_u64(record.thread_id);
-  writer.write_u64(record.module_id);
-  writer.write_u64(record.module_offset);
+  writer.write_u64(record.address);
   writer.write_u32(record.size);
   writer.write_u32(record.flags);
   return true;
 }
 
 inline bool decode_instruction(trace_buffer_reader& reader, instruction_record& out) {
-  return reader.read_u64(out.sequence) && reader.read_u64(out.thread_id) && reader.read_u64(out.module_id) &&
-         reader.read_u64(out.module_offset) && reader.read_u32(out.size) && reader.read_u32(out.flags);
+  return reader.read_u64(out.sequence) && reader.read_u64(out.thread_id) && reader.read_u64(out.address) &&
+         reader.read_u32(out.size) && reader.read_u32(out.flags);
 }
 
 inline bool encode_block_definition(const block_definition_record& record, trace_buffer_writer& writer) {
   writer.write_u64(record.block_id);
-  writer.write_u64(record.module_id);
-  writer.write_u64(record.module_offset);
+  writer.write_u64(record.address);
   writer.write_u32(record.size);
   return true;
 }
 
 inline bool decode_block_definition(trace_buffer_reader& reader, block_definition_record& out) {
-  return reader.read_u64(out.block_id) && reader.read_u64(out.module_id) && reader.read_u64(out.module_offset) &&
-         reader.read_u32(out.size);
+  return reader.read_u64(out.block_id) && reader.read_u64(out.address) && reader.read_u32(out.size);
 }
 
 inline bool encode_block_exec(const block_exec_record& record, trace_buffer_writer& writer) {
@@ -290,6 +287,57 @@ inline bool decode_register_deltas(trace_buffer_reader& reader, register_delta_r
       return false;
     }
     out.deltas.push_back(delta);
+  }
+  return true;
+}
+
+inline bool encode_register_bytes(
+    const register_bytes_record& record, trace_buffer_writer& writer, redlog::logger& log
+) {
+  if (record.entries.size() > std::numeric_limits<uint16_t>::max()) {
+    log.err("register bytes entry list too large", redlog::field("count", record.entries.size()));
+    return false;
+  }
+  if (record.data.size() > std::numeric_limits<uint32_t>::max()) {
+    log.err("register bytes data too large", redlog::field("size", record.data.size()));
+    return false;
+  }
+  writer.write_u64(record.sequence);
+  writer.write_u64(record.thread_id);
+  writer.write_u16(static_cast<uint16_t>(record.entries.size()));
+  for (const auto& entry : record.entries) {
+    writer.write_u16(entry.reg_id);
+    writer.write_u32(entry.offset);
+    writer.write_u16(entry.size);
+  }
+  writer.write_u32(static_cast<uint32_t>(record.data.size()));
+  if (!record.data.empty()) {
+    writer.write_bytes(record.data.data(), record.data.size());
+  }
+  return true;
+}
+
+inline bool decode_register_bytes(trace_buffer_reader& reader, register_bytes_record& out) {
+  uint16_t count = 0;
+  uint32_t data_size = 0;
+  if (!reader.read_u64(out.sequence) || !reader.read_u64(out.thread_id) || !reader.read_u16(count)) {
+    return false;
+  }
+  out.entries.reserve(count);
+  for (uint16_t i = 0; i < count; ++i) {
+    register_bytes_entry entry{};
+    if (!reader.read_u16(entry.reg_id) || !reader.read_u32(entry.offset) || !reader.read_u16(entry.size)) {
+      return false;
+    }
+    out.entries.push_back(entry);
+  }
+  if (!reader.read_u32(data_size)) {
+    return false;
+  }
+  if (data_size > 0) {
+    if (!reader.read_bytes(out.data, data_size)) {
+      return false;
+    }
   }
   return true;
 }

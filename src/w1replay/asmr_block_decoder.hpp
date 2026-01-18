@@ -17,8 +17,7 @@ public:
 
   bool decode_block(
       const w1::rewind::replay_context& context,
-      uint64_t module_id,
-      uint64_t module_offset,
+      uint64_t address,
       uint32_t size,
       w1::rewind::replay_decoded_block& out,
       std::string& error

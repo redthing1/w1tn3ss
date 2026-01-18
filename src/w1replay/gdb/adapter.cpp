@@ -114,6 +114,18 @@ bool adapter::load_context() {
   auto features = state_.context.features();
   state_.trace_is_block = features.has_blocks;
   state_.track_memory = features.track_memory;
+  if (state_.context.target_info.has_value()) {
+    switch (state_.context.target_info->endianness) {
+    case w1::rewind::trace_endianness::big:
+      state_.target_endian = endian::big;
+      break;
+    case w1::rewind::trace_endianness::little:
+    case w1::rewind::trace_endianness::unknown:
+    default:
+      state_.target_endian = endian::little;
+      break;
+    }
+  }
 
   return true;
 }

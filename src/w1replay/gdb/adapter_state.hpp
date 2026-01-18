@@ -15,6 +15,7 @@
 #include "w1replay/module_source.hpp"
 #include "layout.hpp"
 #include "run_policy.hpp"
+#include "value_codec.hpp"
 
 namespace w1replay {
 class asmr_block_decoder;
@@ -31,6 +32,7 @@ struct adapter_state {
   int pc_reg_num = -1;
   uint64_t active_thread_id = 0;
   std::optional<gdbstub::stop_reason> last_stop;
+  endian target_endian = endian::little;
   bool prefer_instruction_steps = false;
   bool trace_is_block = false;
   bool decoder_available = false;

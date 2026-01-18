@@ -18,7 +18,7 @@ std::string make_temp_path() {
   return base.string();
 }
 
-bool write_sample_trace(const std::string& path) {
+bool write_sample_trace(const std::string& path, bool include_modules, bool include_byte_reg) {
   w1::rewind::trace_writer_config writer_config;
   writer_config.path = path;
   writer_config.log = redlog::get_logger("w1rewind.test.trace");
@@ -78,19 +78,32 @@ bool write_sample_trace(const std::string& path) {
       w1::rewind::register_class::gpr,
       w1::rewind::register_value_kind::u64
   });
+  if (include_byte_reg) {
+    regs.push_back(w1::rewind::register_spec{
+        3,
+        "v0",
+        128,
+        0,
+        "v0",
+        w1::rewind::register_class::simd,
+        w1::rewind::register_value_kind::bytes
+    });
+  }
 
   if (!builder.begin_trace(target, regs)) {
     std::cerr << "failed to begin trace: " << builder.error() << "\n";
     return false;
   }
 
-  w1::rewind::module_record module{};
-  module.id = 1;
-  module.base = 0x1000;
-  module.size = 0x2000;
-  module.permissions = w1::rewind::module_perm::read | w1::rewind::module_perm::exec;
-  module.path = "test_module";
-  builder.set_module_table({module});
+  if (include_modules) {
+    w1::rewind::module_record module{};
+    module.id = 1;
+    module.base = 0x1000;
+    module.size = 0x2000;
+    module.permissions = w1::rewind::module_perm::read | w1::rewind::module_perm::exec;
+    module.path = "test_module";
+    builder.set_module_table({module});
+  }
 
   if (!builder.begin_thread(1, "main")) {
     std::cerr << "failed to write thread start: " << builder.error() << "\n";
@@ -98,7 +111,7 @@ bool write_sample_trace(const std::string& path) {
   }
 
   uint64_t sequence = 0;
-  if (!builder.emit_instruction(1, 1, 0x10, 4, 0, sequence)) {
+  if (!builder.emit_instruction(1, 0x1000 + 0x10, 4, 0, sequence)) {
     std::cerr << "failed to emit instruction: " << builder.error() << "\n";
     return false;
   }
@@ -110,6 +123,24 @@ bool write_sample_trace(const std::string& path) {
   if (!builder.emit_register_deltas(1, sequence, std::span<const w1::rewind::register_delta>(deltas))) {
     std::cerr << "failed to emit register deltas: " << builder.error() << "\n";
     return false;
+  }
+
+  if (include_byte_reg) {
+    std::vector<uint8_t> reg_bytes = {
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+        0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+    };
+    std::vector<w1::rewind::register_bytes_entry> entries;
+    entries.push_back(w1::rewind::register_bytes_entry{3, 0, 16});
+    if (!builder.emit_register_bytes(
+            1,
+            sequence,
+            std::span<const w1::rewind::register_bytes_entry>(entries),
+            std::span<const uint8_t>(reg_bytes)
+        )) {
+      std::cerr << "failed to emit register bytes: " << builder.error() << "\n";
+      return false;
+    }
   }
 
   std::vector<uint8_t> bytes = {0x11, 0x22, 0x33, 0x44};
@@ -150,7 +181,7 @@ int run_test() {
   std::error_code ec;
   std::filesystem::remove(path, ec);
 
-  if (!write_sample_trace(path)) {
+  if (!write_sample_trace(path, true, false)) {
     return 1;
   }
 
@@ -208,6 +239,20 @@ int run_test() {
 
 } // namespace
 
-int main() {
+int main(int argc, char** argv) {
+  if (argc > 1) {
+    std::string path = argv[1];
+    bool include_modules = true;
+    bool include_byte_reg = false;
+    for (int i = 2; i < argc; ++i) {
+      std::string arg = argv[i];
+      if (arg == "--moduleless") {
+        include_modules = false;
+      } else if (arg == "--byte-reg") {
+        include_byte_reg = true;
+      }
+    }
+    return write_sample_trace(path, include_modules, include_byte_reg) ? 0 : 1;
+  }
   return run_test();
 }

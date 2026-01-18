@@ -8,8 +8,8 @@
 
 namespace w1::rewind {
 
-constexpr uint16_t k_trace_version = 7;
-constexpr std::array<uint8_t, 8> k_trace_magic = {'W', '1', 'R', 'W', 'N', 'D', '7', '\0'};
+constexpr uint16_t k_trace_version = 8;
+constexpr std::array<uint8_t, 8> k_trace_magic = {'W', '1', 'R', 'W', 'N', 'D', '8', '\0'};
 constexpr uint32_t k_trace_chunk_bytes = 8 * 1024 * 1024;
 constexpr uint64_t k_stack_snapshot_above_cap = 0x200;
 
@@ -104,6 +104,7 @@ enum class record_kind : uint16_t {
   target_info = 11,
   register_spec = 12,
   memory_map = 13,
+  register_bytes = 14,
 };
 
 struct trace_header {
@@ -203,16 +204,14 @@ struct thread_start_record {
 struct instruction_record {
   uint64_t sequence = 0;
   uint64_t thread_id = 0;
-  uint64_t module_id = 0;
-  uint64_t module_offset = 0;
+  uint64_t address = 0;
   uint32_t size = 0;
   uint32_t flags = 0;
 };
 
 struct block_definition_record {
   uint64_t block_id = 0;
-  uint64_t module_id = 0;
-  uint64_t module_offset = 0;
+  uint64_t address = 0;
   uint32_t size = 0;
 };
 
@@ -231,6 +230,19 @@ struct register_delta_record {
   uint64_t sequence = 0;
   uint64_t thread_id = 0;
   std::vector<register_delta> deltas;
+};
+
+struct register_bytes_entry {
+  uint16_t reg_id = 0;
+  uint32_t offset = 0;
+  uint16_t size = 0;
+};
+
+struct register_bytes_record {
+  uint64_t sequence = 0;
+  uint64_t thread_id = 0;
+  std::vector<register_bytes_entry> entries;
+  std::vector<uint8_t> data;
 };
 
 enum class memory_access_kind : uint8_t { read = 1, write = 2 };
@@ -270,6 +282,7 @@ using trace_record = std::variant<
     block_definition_record,
     block_exec_record,
     register_delta_record,
+    register_bytes_record,
     memory_access_record,
     snapshot_record,
     thread_end_record>;

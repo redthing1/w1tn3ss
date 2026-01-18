@@ -13,15 +13,6 @@ class code_source {
 public:
   virtual ~code_source() = default;
 
-  virtual bool read_by_module(
-      const w1::rewind::replay_context& context,
-      uint64_t module_id,
-      uint64_t module_offset,
-      uint32_t size,
-      std::vector<std::byte>& out,
-      std::string& error
-  ) = 0;
-
   virtual bool read_by_address(
       const w1::rewind::replay_context& context,
       uint64_t address,

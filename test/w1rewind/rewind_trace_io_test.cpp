@@ -57,8 +57,7 @@ TEST_CASE("rewind trace writer and reader round trip (instructions)") {
   w1::rewind::instruction_record instruction{};
   instruction.sequence = 1;
   instruction.thread_id = 1;
-  instruction.module_id = 1;
-  instruction.module_offset = 0x10;
+  instruction.address = module.base + 0x10;
   instruction.size = 4;
   REQUIRE(writer->write_instruction(instruction));
 
@@ -173,8 +172,7 @@ TEST_CASE("rewind trace writer and reader round trip (compressed blocks)") {
 
   w1::rewind::block_definition_record block_def{};
   block_def.block_id = 10;
-  block_def.module_id = 1;
-  block_def.module_offset = 0x80;
+  block_def.address = module.base + 0x80;
   block_def.size = 12;
   REQUIRE(writer->write_block_definition(block_def));
 
@@ -257,8 +255,7 @@ TEST_CASE("rewind trace writer and reader round trip (blocks)") {
 
   w1::rewind::block_definition_record block_def{};
   block_def.block_id = 10;
-  block_def.module_id = 1;
-  block_def.module_offset = 0x100;
+  block_def.address = module.base + 0x100;
   block_def.size = 12;
   REQUIRE(writer->write_block_definition(block_def));
 
@@ -312,6 +309,74 @@ TEST_CASE("rewind trace writer and reader round trip (blocks)") {
   CHECK(std::holds_alternative<w1::rewind::snapshot_record>(records[6]));
   CHECK(std::holds_alternative<w1::rewind::thread_end_record>(records[7]));
   CHECK(reader.block_table().size() == 1);
+
+  fs::remove(path);
+}
+
+TEST_CASE("rewind trace writer and reader round trip (register bytes)") {
+  namespace fs = std::filesystem;
+
+  fs::path path = make_temp_path("w1rewind_trace_io_regbytes.trace");
+
+  w1::rewind::trace_writer_config config;
+  config.path = path.string();
+  config.log = redlog::get_logger("test.w1rewind.trace");
+
+  auto writer = w1::rewind::make_trace_writer(config);
+  REQUIRE(writer);
+  REQUIRE(writer->open());
+
+  w1::rewind::trace_header header{};
+  header.architecture = w1::rewind::detect_trace_arch();
+  header.pointer_size = w1::rewind::detect_pointer_size();
+  header.flags = w1::rewind::trace_flag_instructions | w1::rewind::trace_flag_register_deltas;
+  REQUIRE(writer->write_header(header));
+
+  w1::rewind::target_info_record target =
+      w1::rewind::test_helpers::make_target_info(header.architecture, header.pointer_size);
+  REQUIRE(writer->write_target_info(target));
+
+  w1::rewind::register_spec_record specs{};
+  specs.registers = {
+      w1::rewind::register_spec{0, "r0", 64, 0, "r0", w1::rewind::register_class::gpr,
+                                w1::rewind::register_value_kind::u64},
+      w1::rewind::register_spec{1, "v0", 128, 0, "v0", w1::rewind::register_class::simd,
+                                w1::rewind::register_value_kind::bytes},
+  };
+  REQUIRE(writer->write_register_spec(specs));
+
+  w1::rewind::register_bytes_record bytes{};
+  bytes.sequence = 0;
+  bytes.thread_id = 1;
+  bytes.entries = {w1::rewind::register_bytes_entry{1, 0, 16}};
+  bytes.data = {
+      0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+      0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+  };
+  REQUIRE(writer->write_register_bytes(bytes));
+
+  writer->flush();
+  writer->close();
+
+  w1::rewind::trace_reader reader(path.string());
+  REQUIRE(reader.open());
+
+  bool saw_bytes = false;
+  w1::rewind::trace_record record;
+  while (reader.read_next(record)) {
+    if (std::holds_alternative<w1::rewind::register_bytes_record>(record)) {
+      const auto& decoded = std::get<w1::rewind::register_bytes_record>(record);
+      REQUIRE(decoded.entries.size() == 1);
+      CHECK(decoded.entries[0].reg_id == 1);
+      CHECK(decoded.entries[0].size == 16);
+      CHECK(decoded.data.size() == 16);
+      CHECK(decoded.data[0] == 0x00);
+      CHECK(decoded.data[15] == 0x0f);
+      saw_bytes = true;
+    }
+  }
+  CHECK(reader.error().empty());
+  CHECK(saw_bytes);
 
   fs::remove(path);
 }

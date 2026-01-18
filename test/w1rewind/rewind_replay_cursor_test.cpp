@@ -35,9 +35,9 @@ TEST_CASE("w1rewind replay cursor steps through instruction flow") {
   write_thread_start(*writer, 2, "thread2");
 
   for (uint64_t i = 0; i < 4; ++i) {
-    write_instruction(*writer, 1, i, 1, 0x10 + i * 4);
+    write_instruction(*writer, 1, i, 0x1000 + 0x10 + i * 4);
     if (i < 2) {
-      write_instruction(*writer, 2, i, 1, 0x40 + i * 4);
+      write_instruction(*writer, 2, i, 0x1000 + 0x40 + i * 4);
     }
   }
 
@@ -94,8 +94,8 @@ TEST_CASE("w1rewind replay cursor resolves block flow addresses") {
   write_module_table(*writer, 7, 0x2000);
   write_thread_start(*writer, 1, "thread1");
 
-  write_block_def(*writer, 1, 7, 0x10, 4);
-  write_block_def(*writer, 2, 7, 0x20, 4);
+  write_block_def(*writer, 1, 0x2000 + 0x10, 4);
+  write_block_def(*writer, 2, 0x2000 + 0x20, 4);
   write_block_exec(*writer, 1, 0, 1);
   write_block_exec(*writer, 1, 1, 2);
 
@@ -121,4 +121,52 @@ TEST_CASE("w1rewind replay cursor resolves block flow addresses") {
   REQUIRE(cursor.step_forward(step));
   CHECK(step.sequence == 1);
   CHECK(step.address == 0x2000 + 0x20);
+}
+
+TEST_CASE("w1rewind replay cursor handles module-less traces") {
+  namespace fs = std::filesystem;
+  using namespace w1::rewind::test_helpers;
+
+  fs::path trace_path = temp_path("w1rewind_replay_moduleless.trace");
+  fs::path index_path = temp_path("w1rewind_replay_moduleless.trace.idx");
+
+  w1::rewind::trace_writer_config writer_config;
+  writer_config.path = trace_path.string();
+  writer_config.log = redlog::get_logger("test.w1rewind.replay");
+  writer_config.chunk_size = 64;
+
+  auto writer = w1::rewind::make_trace_writer(writer_config);
+  REQUIRE(writer);
+  REQUIRE(writer->open());
+
+  w1::rewind::trace_header header{};
+  header.architecture = w1::rewind::detect_trace_arch();
+  header.pointer_size = w1::rewind::detect_pointer_size();
+  header.flags = w1::rewind::trace_flag_instructions;
+  REQUIRE(writer->write_header(header));
+
+  write_basic_metadata(*writer, header.architecture, header.pointer_size, minimal_registers(header.architecture));
+  write_thread_start(*writer, 1, "thread1");
+  write_instruction(*writer, 1, 0, 0x4000);
+  write_instruction(*writer, 1, 1, 0x4004);
+  write_thread_end(*writer, 1);
+
+  writer->flush();
+  writer->close();
+
+  w1::rewind::trace_index_options index_options;
+  w1::rewind::trace_index index;
+  REQUIRE(w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, &index, writer_config.log));
+
+  w1::rewind::replay_flow_cursor cursor({trace_path.string(), index_path.string(), 4});
+  REQUIRE(cursor.open());
+  REQUIRE(cursor.seek(1, 0));
+
+  w1::rewind::flow_step step{};
+  REQUIRE(cursor.step_forward(step));
+  CHECK(step.sequence == 0);
+  CHECK(step.address == 0x4000);
+  REQUIRE(cursor.step_forward(step));
+  CHECK(step.sequence == 1);
+  CHECK(step.address == 0x4004);
 }

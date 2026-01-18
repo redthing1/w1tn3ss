@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <functional>
 #include <optional>
+#include <span>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -52,7 +53,9 @@ public:
 
   const flow_step& current_step() const { return current_step_; }
   const std::vector<std::string>& register_names() const { return context_.register_names; }
+  const std::vector<register_spec>& register_specs() const { return context_.register_specs; }
   std::vector<std::optional<uint64_t>> read_registers() const;
+  bool read_register_bytes(uint16_t reg_id, std::span<std::byte> out, bool& known) const;
   std::vector<std::optional<uint8_t>> read_memory(uint64_t address, size_t size) const;
   const trace_header& header() const { return context_.header; }
   const std::vector<module_record>& modules() const { return context_.modules; }

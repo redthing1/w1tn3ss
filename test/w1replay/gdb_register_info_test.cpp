@@ -38,7 +38,7 @@ TEST_CASE("gdb adapter exposes register info with pc/sp generics") {
   write_register_specs(*writer, registers, w1::rewind::trace_arch::aarch64, 8);
   write_module_table(*writer, 1, 0x1000);
   write_thread_start(*writer, 1, "thread1");
-  write_instruction(*writer, 1, 0, 1, 0x10);
+  write_instruction(*writer, 1, 0, 0x1000 + 0x10);
   write_thread_end(*writer, 1);
 
   writer->flush();

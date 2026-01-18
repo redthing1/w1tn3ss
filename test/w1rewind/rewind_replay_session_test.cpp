@@ -16,8 +16,7 @@ class test_block_decoder final : public w1::rewind::replay_block_decoder {
 public:
   bool decode_block(
       const w1::rewind::replay_context&,
-      uint64_t module_id,
-      uint64_t module_offset,
+      uint64_t address,
       uint32_t size,
       w1::rewind::replay_decoded_block& out,
       std::string&
@@ -26,8 +25,7 @@ public:
       return false;
     }
 
-    out.module_id = module_id;
-    out.module_offset = module_offset;
+    out.address = address;
     out.size = size;
 
     uint32_t offset = 0;
@@ -73,8 +71,8 @@ TEST_CASE("w1rewind replay session steps through decoded block instructions") {
 
   write_thread_start(*writer, 1, "thread1");
 
-  write_block_def(*writer, 1, 7, 0x20, 4);
-  write_block_def(*writer, 2, 7, 0x40, 4);
+  write_block_def(*writer, 1, 0x2000 + 0x20, 4);
+  write_block_def(*writer, 2, 0x2000 + 0x40, 4);
   write_block_exec(*writer, 1, 0, 1);
   write_block_exec(*writer, 1, 1, 2);
 
@@ -146,7 +144,7 @@ TEST_CASE("w1rewind replay session instruction stepping falls back without decod
 
   write_thread_start(*writer, 1, "thread1");
 
-  write_block_def(*writer, 1, 9, 0x10, 4);
+  write_block_def(*writer, 1, 0x3000 + 0x10, 4);
   write_block_exec(*writer, 1, 0, 1);
 
   write_thread_end(*writer, 1);
@@ -200,7 +198,7 @@ TEST_CASE("w1rewind replay session rebuilds stale index when trace changes") {
   write_basic_metadata(*writer, header.architecture, header.pointer_size, minimal_registers(header.architecture));
   write_module_table(*writer, 5, 0x1000);
   write_thread_start(*writer, 1, "thread1");
-  write_block_def(*writer, 1, 5, 0x10, 4);
+  write_block_def(*writer, 1, 0x1000 + 0x10, 4);
   write_block_exec(*writer, 1, 0, 1);
   write_thread_end(*writer, 1);
 
@@ -227,7 +225,7 @@ TEST_CASE("w1rewind replay session rebuilds stale index when trace changes") {
                        minimal_registers(new_header.architecture));
   write_module_table(*new_writer, 5, 0x1000);
   write_thread_start(*new_writer, 1, "thread1");
-  write_block_def(*new_writer, 1, 5, 0x20, 4);
+  write_block_def(*new_writer, 1, 0x1000 + 0x20, 4);
   write_block_exec(*new_writer, 1, 0, 1);
   write_thread_end(*new_writer, 1);
 
@@ -279,7 +277,7 @@ TEST_CASE("w1rewind replay session rebuilds index on mismatch even if trace is o
   write_basic_metadata(*writer, header.architecture, header.pointer_size, minimal_registers(header.architecture));
   write_module_table(*writer, 6, 0x1000);
   write_thread_start(*writer, 1, "thread1");
-  write_block_def(*writer, 1, 6, 0x10, 4);
+  write_block_def(*writer, 1, 0x1000 + 0x10, 4);
   write_block_exec(*writer, 1, 0, 1);
   write_thread_end(*writer, 1);
 
@@ -308,7 +306,7 @@ TEST_CASE("w1rewind replay session rebuilds index on mismatch even if trace is o
                        minimal_registers(new_header.architecture));
   write_module_table(*new_writer, 6, 0x1000);
   write_thread_start(*new_writer, 1, "thread1");
-  write_block_def(*new_writer, 1, 6, 0x20, 4);
+  write_block_def(*new_writer, 1, 0x1000 + 0x20, 4);
   write_block_exec(*new_writer, 1, 0, 1);
   write_thread_end(*new_writer, 1);
 
@@ -361,7 +359,7 @@ TEST_CASE("w1rewind replay session supports reverse instruction stepping on bloc
 
   write_thread_start(*writer, 1, "thread1");
 
-  write_block_def(*writer, 1, 11, 0x20, 4);
+  write_block_def(*writer, 1, 0x5000 + 0x20, 4);
   write_block_exec(*writer, 1, 0, 1);
 
   write_thread_end(*writer, 1);
@@ -426,8 +424,8 @@ TEST_CASE("w1rewind replay session preserves state across intra-block steps") {
 
   write_thread_start(*writer, 1, "thread1");
 
-  write_block_def(*writer, 1, 12, 0x20, 4);
-  write_block_def(*writer, 2, 12, 0x40, 4);
+  write_block_def(*writer, 1, 0x6000 + 0x20, 4);
+  write_block_def(*writer, 2, 0x6000 + 0x40, 4);
   write_block_exec(*writer, 1, 0, 1);
   write_register_delta(*writer, 1, 0, 0, 0x1000);
   write_block_exec(*writer, 1, 1, 2);
@@ -504,7 +502,7 @@ TEST_CASE("w1rewind replay session reverse instruction stepping on instruction t
   write_thread_start(*writer, 1, "thread1");
 
   for (uint64_t seq = 0; seq < 3; ++seq) {
-    write_instruction(*writer, 1, seq, 13, 0x10 + seq * 4);
+    write_instruction(*writer, 1, seq, 0x7000 + 0x10 + seq * 4);
     write_register_delta(*writer, 1, seq, 0, 0x2000 + seq);
   }
 

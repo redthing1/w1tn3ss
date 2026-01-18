@@ -15,8 +15,7 @@ struct replay_decoded_instruction {
 };
 
 struct replay_decoded_block {
-  uint64_t module_id = 0;
-  uint64_t module_offset = 0;
+  uint64_t address = 0;
   uint32_t size = 0;
   std::vector<replay_decoded_instruction> instructions;
 };
@@ -27,8 +26,7 @@ public:
 
   virtual bool decode_block(
       const replay_context& context,
-      uint64_t module_id,
-      uint64_t module_offset,
+      uint64_t address,
       uint32_t size,
       replay_decoded_block& out,
       std::string& error

@@ -16,15 +16,14 @@ namespace {
 class test_block_decoder final : public w1::rewind::replay_block_decoder {
 public:
   bool decode_block(
-      const w1::rewind::replay_context&, uint64_t module_id, uint64_t module_offset, uint32_t size,
+      const w1::rewind::replay_context&, uint64_t address, uint32_t size,
       w1::rewind::replay_decoded_block& out, std::string&
   ) override {
     if (size == 0 || (size % 2) != 0) {
       return false;
     }
 
-    out.module_id = module_id;
-    out.module_offset = module_offset;
+    out.address = address;
     out.size = size;
 
     uint32_t offset = 0;
@@ -68,8 +67,8 @@ std::filesystem::path write_block_trace(const char* name) {
   write_module_table(*writer, 1, 0x1000);
   write_thread_start(*writer, 1, "thread1");
 
-  write_block_def(*writer, 1, 1, 0x10, 4);
-  write_block_def(*writer, 2, 1, 0x20, 4);
+  write_block_def(*writer, 1, 0x1000 + 0x10, 4);
+  write_block_def(*writer, 2, 0x1000 + 0x20, 4);
   write_block_exec(*writer, 1, 0, 1);
   write_block_exec(*writer, 1, 1, 2);
 
@@ -106,8 +105,8 @@ std::filesystem::path write_instruction_trace(const char* name) {
   write_register_specs(*writer, registers, w1::rewind::trace_arch::aarch64, 8);
   write_module_table(*writer, 1, 0x2000);
   write_thread_start(*writer, 1, "thread1");
-  write_instruction(*writer, 1, 0, 1, 0x10);
-  write_instruction(*writer, 1, 1, 1, 0x14);
+  write_instruction(*writer, 1, 0, 0x2000 + 0x10);
+  write_instruction(*writer, 1, 1, 0x2000 + 0x14);
   write_thread_end(*writer, 1);
 
   writer->flush();

@@ -1,8 +1,10 @@
 #include "inspect.hpp"
 
+#include <filesystem>
 #include <iomanip>
 #include <iostream>
 #include <optional>
+#include <span>
 #include <sstream>
 
 #include <redlog.hpp>
@@ -28,6 +30,45 @@ std::string format_byte(std::optional<uint8_t> byte) {
   std::ostringstream out;
   out << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(*byte);
   return out.str();
+}
+
+std::string format_bytes(std::span<const std::byte> bytes) {
+  std::ostringstream out;
+  for (size_t i = 0; i < bytes.size(); ++i) {
+    if (i > 0) {
+      out << " ";
+    }
+    out << std::hex << std::setw(2) << std::setfill('0')
+        << static_cast<int>(std::to_integer<uint8_t>(bytes[i]));
+  }
+  return out.str();
+}
+
+const w1::rewind::module_record* find_module_for_address(
+    const std::vector<w1::rewind::module_record>& modules,
+    uint64_t address,
+    uint64_t size,
+    uint64_t& module_offset
+) {
+  if (size == 0) {
+    return nullptr;
+  }
+
+  for (const auto& module : modules) {
+    if (address < module.base) {
+      continue;
+    }
+    uint64_t offset = address - module.base;
+    if (module.size < size) {
+      continue;
+    }
+    if (offset > module.size - size) {
+      continue;
+    }
+    module_offset = offset;
+    return &module;
+  }
+  return nullptr;
 }
 
 struct memory_query {
@@ -124,12 +165,27 @@ int inspect(const inspect_options& options) {
   }
 
   auto print_step = [&](const w1::rewind::flow_step& step) {
+    uint64_t module_offset = 0;
+    std::string module_label = "?";
+    if (auto* module = find_module_for_address(session.modules(), step.address, step.size, module_offset)) {
+      if (!module->path.empty()) {
+        module_label = std::filesystem::path(module->path).filename().string();
+      } else {
+        module_label = format_address(module->base);
+      }
+      if (module_offset != 0) {
+        std::ostringstream with_offset;
+        with_offset << module_label << "+0x" << std::hex << module_offset;
+        module_label = with_offset.str();
+      }
+    }
+
     std::cout << "seq=" << step.sequence << " addr=" << format_address(step.address)
-              << " module=" << step.module_id << " kind=" << (step.is_block ? "block" : "instruction")
-              << std::endl;
+              << " module=" << module_label << " kind=" << (step.is_block ? "block" : "instruction") << std::endl;
 
     if (options.show_registers) {
       const auto& names = session.register_names();
+      const auto& specs = session.register_specs();
       auto regs = session.read_registers();
       if (names.empty()) {
         std::cout << "  regs: unavailable" << std::endl;
@@ -137,8 +193,21 @@ int inspect(const inspect_options& options) {
         bool wrote_any = false;
         std::ostringstream out;
         out << "  regs:";
-        for (size_t i = 0; i < names.size() && i < regs.size(); ++i) {
-          if (!regs[i].has_value()) {
+        for (size_t i = 0; i < names.size() && i < specs.size(); ++i) {
+          const auto& spec = specs[i];
+          if (spec.value_kind == w1::rewind::register_value_kind::bytes) {
+            size_t size = (spec.bits + 7u) / 8u;
+            std::vector<std::byte> buffer(size);
+            bool known = false;
+            if (!session.read_register_bytes(static_cast<uint16_t>(i), buffer, known) || !known) {
+              continue;
+            }
+            out << " " << names[i] << "=" << format_bytes(buffer);
+            wrote_any = true;
+            continue;
+          }
+
+          if (i >= regs.size() || !regs[i].has_value()) {
             continue;
           }
           out << " " << names[i] << "=" << format_address(*regs[i]);

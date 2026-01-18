@@ -28,8 +28,6 @@ enum class replay_flow_error_kind { none, begin_of_trace, end_of_trace, other };
 struct flow_step {
   uint64_t thread_id = 0;
   uint64_t sequence = 0;
-  uint64_t module_id = 0;
-  uint64_t module_offset = 0;
   uint32_t size = 0;
   uint64_t address = 0;
   bool is_block = false;
@@ -64,7 +62,6 @@ private:
 
   bool load_context();
   bool scan_until_sequence(uint64_t thread_id, uint64_t sequence);
-  bool resolve_address(uint64_t module_id, uint64_t module_offset, uint64_t& address);
   bool try_parse_flow(const trace_record& record, flow_step& out, bool& is_flow);
   bool apply_state_record(const trace_record& record);
   bool read_next_flow(flow_step& out, trace_record_location* location);

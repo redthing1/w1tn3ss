@@ -21,19 +21,6 @@ std::optional<uint16_t> find_register_with_flag(const std::vector<register_spec>
 
 } // namespace
 
-bool replay_context::resolve_address(uint64_t module_id, uint64_t module_offset, uint64_t& address) const {
-  if (module_id == 0) {
-    address = module_offset;
-    return true;
-  }
-  auto it = modules_by_id.find(module_id);
-  if (it == modules_by_id.end()) {
-    return false;
-  }
-  address = it->second.base + module_offset;
-  return true;
-}
-
 const module_record* replay_context::find_module_for_address(
     uint64_t address,
     uint64_t size,

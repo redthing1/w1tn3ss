@@ -16,6 +16,7 @@ struct register_desc {
   std::optional<size_t> trace_index;
   bool is_pc = false;
   bool is_sp = false;
+  w1::rewind::register_value_kind value_kind = w1::rewind::register_value_kind::unknown;
 };
 
 struct register_layout {

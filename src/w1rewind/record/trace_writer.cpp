@@ -215,6 +215,15 @@ bool trace_writer::write_register_deltas(const register_delta_record& record) {
   return write_record(record_kind::register_deltas, 0, payload);
 }
 
+bool trace_writer::write_register_bytes(const register_bytes_record& record) {
+  std::vector<uint8_t> payload;
+  trace_buffer_writer writer(payload);
+  if (!encode_register_bytes(record, writer, config_.log)) {
+    return false;
+  }
+  return write_record(record_kind::register_bytes, 0, payload);
+}
+
 bool trace_writer::write_memory_access(const memory_access_record& record) {
   std::vector<uint8_t> payload;
   trace_buffer_writer writer(payload);

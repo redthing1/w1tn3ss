@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <optional>
+#include <span>
 #include <unordered_map>
 #include <vector>
 
@@ -12,10 +13,14 @@ namespace w1::rewind {
 class replay_state {
 public:
   void reset();
+  void set_register_specs(const std::vector<register_spec>& specs);
   void set_register_count(size_t count);
   void apply_register_snapshot(const std::vector<register_delta>& regs);
   void apply_register_deltas(const std::vector<register_delta>& regs);
+  bool apply_register_bytes(const std::vector<register_bytes_entry>& entries, const std::vector<uint8_t>& data);
+  void collect_register_bytes(std::vector<register_bytes_entry>& entries, std::vector<uint8_t>& data) const;
   std::optional<uint64_t> register_value(uint16_t reg_id) const;
+  bool copy_register_bytes(uint16_t reg_id, std::span<std::byte> out, bool& known) const;
   const std::vector<std::optional<uint64_t>>& registers() const { return registers_; }
   const std::unordered_map<uint64_t, uint8_t>& memory_map() const { return memory_; }
   void set_memory_map(std::unordered_map<uint64_t, uint8_t> memory) { memory_ = std::move(memory); }
@@ -26,8 +31,13 @@ public:
 
 private:
   void ensure_register_capacity(size_t count);
+  void reset_register_bytes();
 
   std::vector<std::optional<uint64_t>> registers_;
+  std::vector<uint32_t> register_byte_offsets_;
+  std::vector<uint16_t> register_byte_sizes_;
+  std::vector<uint8_t> register_bytes_;
+  std::vector<uint8_t> register_bytes_known_;
   std::unordered_map<uint64_t, uint8_t> memory_;
 };
 

@@ -14,14 +14,13 @@ void write_instruction_range(
     uint64_t thread_id,
     uint64_t start_seq,
     uint64_t count,
-    uint64_t module_id
+    uint64_t base_address
 ) {
   for (uint64_t i = 0; i < count; ++i) {
     w1::rewind::instruction_record record{};
     record.sequence = start_seq + i;
     record.thread_id = thread_id;
-    record.module_id = module_id;
-    record.module_offset = 0x100 + i * 4;
+    record.address = base_address + 0x100 + i * 4;
     record.size = 4;
     record.flags = 0;
     REQUIRE(writer.write_instruction(record));
@@ -62,8 +61,8 @@ TEST_CASE("w1rewind trace index builds anchors for instruction flow") {
   start2.name = "thread2";
   REQUIRE(writer->write_thread_start(start2));
 
-  write_instruction_range(*writer, 1, 0, 10, 1);
-  write_instruction_range(*writer, 2, 0, 5, 2);
+  write_instruction_range(*writer, 1, 0, 10, 0x1000);
+  write_instruction_range(*writer, 2, 0, 5, 0x2000);
 
   w1::rewind::thread_end_record end1{};
   end1.thread_id = 1;

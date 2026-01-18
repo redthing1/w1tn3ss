@@ -40,15 +40,6 @@ struct module_source : public code_source {
       std::string& error
   );
 
-  bool read_by_module(
-      const w1::rewind::replay_context& context,
-      uint64_t module_id,
-      uint64_t module_offset,
-      uint32_t size,
-      std::vector<std::byte>& out,
-      std::string& error
-  ) override;
-
   bool read_by_address(
       const w1::rewind::replay_context& context,
       uint64_t address,

@@ -467,6 +467,14 @@ bool trace_reader::parse_record(const record_header& header, const std::vector<u
     record = std::move(out);
     return true;
   }
+  case record_kind::register_bytes: {
+    register_bytes_record out{};
+    if (!decode_register_bytes(reader, out)) {
+      return false;
+    }
+    record = std::move(out);
+    return true;
+  }
   case record_kind::memory_access: {
     memory_access_record out{};
     if (!decode_memory_access(reader, out)) {

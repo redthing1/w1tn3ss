@@ -40,6 +40,7 @@ register_layout build_register_layout(
     desc.trace_index = static_cast<size_t>(spec.reg_id);
     desc.is_pc = (spec.flags & w1::rewind::register_flag_pc) != 0;
     desc.is_sp = (spec.flags & w1::rewind::register_flag_sp) != 0;
+    desc.value_kind = spec.value_kind;
     layout.registers.push_back(std::move(desc));
     if (layout.registers.back().is_pc) {
       layout.pc_reg_num = static_cast<int>(i);

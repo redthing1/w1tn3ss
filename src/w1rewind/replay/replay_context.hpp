@@ -38,7 +38,6 @@ struct replay_context {
     bool track_memory = false;
   };
 
-  bool resolve_address(uint64_t module_id, uint64_t module_offset, uint64_t& address) const;
   bool has_blocks() const;
   bool has_registers() const;
   trace_features features() const;

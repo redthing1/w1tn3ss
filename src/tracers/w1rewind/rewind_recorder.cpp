@@ -184,9 +184,8 @@ void rewind_recorder::on_basic_block_entry(
     return;
   }
 
-  auto [module_id, module_offset] = map_instruction_address(ctx.modules(), address);
   uint64_t sequence = 0;
-  if (!builder_->emit_block(thread.thread_id, module_id, module_offset, size, sequence)) {
+  if (!builder_->emit_block(thread.thread_id, address, size, sequence)) {
     return;
   }
 
@@ -242,12 +241,9 @@ void rewind_recorder::on_instruction_post(
     }
   }
 
-  auto [module_id, module_offset] = map_instruction_address(ctx.modules(), address);
-
   pending_instruction pending{};
   pending.thread_id = state.thread_id;
-  pending.module_id = module_id;
-  pending.module_offset = module_offset;
+  pending.address = address;
   pending.size = size;
   pending.flags = 0;
 
@@ -390,14 +386,7 @@ void rewind_recorder::flush_pending(thread_state& state) {
 
   uint64_t sequence = 0;
   if (instruction_flow_) {
-    if (!builder_->emit_instruction(
-            pending.thread_id,
-            pending.module_id,
-            pending.module_offset,
-            pending.size,
-            pending.flags,
-            sequence
-        )) {
+    if (!builder_->emit_instruction(pending.thread_id, pending.address, pending.size, pending.flags, sequence)) {
       return;
     }
   }
@@ -584,7 +573,6 @@ void rewind_recorder::update_register_table(const w1::util::register_state& regs
 
 void rewind_recorder::update_module_table(const w1::runtime::module_registry& modules) {
   module_table_.clear();
-  module_id_by_base_.clear();
 
   auto list = modules.list_modules();
   module_table_.reserve(list.size());
@@ -597,23 +585,8 @@ void rewind_recorder::update_module_table(const w1::runtime::module_registry& mo
     record.size = module.size;
     record.permissions = module_perm_from_qbdi(module.permissions);
     record.path = module.path.empty() ? module.name : module.path;
-    module_id_by_base_[module.base_address] = record.id;
     module_table_.push_back(std::move(record));
   }
-}
-
-std::pair<uint64_t, uint64_t> rewind_recorder::map_instruction_address(
-    const w1::runtime::module_registry& modules, uint64_t address
-) {
-  const auto* module = modules.find_containing(address);
-  if (!module) {
-    return {0, address};
-  }
-  auto it = module_id_by_base_.find(module->base_address);
-  if (it == module_id_by_base_.end()) {
-    return {0, address};
-  }
-  return {it->second, address - module->base_address};
 }
 
 void rewind_recorder::append_memory_access(

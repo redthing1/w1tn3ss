@@ -58,8 +58,7 @@ private:
 
   struct pending_instruction {
     uint64_t thread_id = 0;
-    uint64_t module_id = 0;
-    uint64_t module_offset = 0;
+    uint64_t address = 0;
     uint32_t size = 0;
     uint32_t flags = 0;
     std::vector<w1::rewind::register_delta> register_deltas;
@@ -90,7 +89,6 @@ private:
   );
   void update_register_table(const w1::util::register_state& regs);
   void update_module_table(const w1::runtime::module_registry& modules);
-  std::pair<uint64_t, uint64_t> map_instruction_address(const w1::runtime::module_registry& modules, uint64_t address);
   void append_memory_access(
       thread_state& state, w1::trace_context& ctx, const w1::memory_event& event, w1::rewind::memory_access_kind kind
   );
@@ -106,7 +104,6 @@ private:
   std::vector<w1::rewind::register_spec> register_specs_;
   std::unordered_map<std::string, uint16_t> register_ids_;
   std::vector<w1::rewind::module_record> module_table_;
-  std::unordered_map<uint64_t, uint64_t> module_id_by_base_;
   std::unordered_map<uint64_t, thread_state> threads_;
 };
 

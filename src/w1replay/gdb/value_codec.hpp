@@ -6,7 +6,7 @@
 
 namespace w1replay::gdb {
 
-enum class endian { little };
+enum class endian { little, big };
 
 bool encode_uint64(uint64_t value, size_t size, std::span<std::byte> out, endian order = endian::little);
 

@@ -9,12 +9,16 @@
 
 namespace {
 
-void write_instruction(w1::rewind::trace_writer& writer, uint64_t thread_id, uint64_t sequence, uint64_t module_id) {
+void write_instruction_local(
+    w1::rewind::trace_writer& writer,
+    uint64_t thread_id,
+    uint64_t sequence,
+    uint64_t address
+) {
   w1::rewind::instruction_record record{};
   record.sequence = sequence;
   record.thread_id = thread_id;
-  record.module_id = module_id;
-  record.module_offset = 0x100 + sequence * 4;
+  record.address = address;
   record.size = 4;
   record.flags = 0;
   REQUIRE(writer.write_instruction(record));
@@ -56,9 +60,9 @@ TEST_CASE("w1rewind trace cursor seeks to a flow sequence") {
   REQUIRE(writer->write_thread_start(start2));
 
   for (uint64_t i = 0; i < 8; ++i) {
-    write_instruction(*writer, 1, i, 1);
+    write_instruction_local(*writer, 1, i, 0x100 + i * 4);
     if (i < 4) {
-      write_instruction(*writer, 2, i, 2);
+      write_instruction_local(*writer, 2, i, 0x200 + i * 4);
     }
   }
 

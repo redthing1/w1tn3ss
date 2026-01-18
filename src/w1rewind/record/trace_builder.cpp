@@ -208,8 +208,7 @@ bool trace_builder::end_thread(uint64_t thread_id) {
 
 bool trace_builder::emit_instruction(
     uint64_t thread_id,
-    uint64_t module_id,
-    uint64_t module_offset,
+    uint64_t address,
     uint32_t size,
     uint32_t flags,
     uint64_t& sequence_out
@@ -229,8 +228,7 @@ bool trace_builder::emit_instruction(
   instruction_record record{};
   record.sequence = state.next_sequence++;
   record.thread_id = thread_id;
-  record.module_id = module_id;
-  record.module_offset = module_offset;
+  record.address = address;
   record.size = size;
   record.flags = flags;
 
@@ -245,8 +243,7 @@ bool trace_builder::emit_instruction(
 
 bool trace_builder::emit_block(
     uint64_t thread_id,
-    uint64_t module_id,
-    uint64_t module_offset,
+    uint64_t address,
     uint32_t size,
     uint64_t& sequence_out
 ) {
@@ -263,8 +260,7 @@ bool trace_builder::emit_block(
   }
 
   block_key key{};
-  key.module_id = module_id;
-  key.module_offset = module_offset;
+  key.address = address;
   key.size = size;
 
   uint64_t block_id = 0;
@@ -274,8 +270,7 @@ bool trace_builder::emit_block(
     block_ids_[key] = block_id;
     block_definition_record def{};
     def.block_id = block_id;
-    def.module_id = module_id;
-    def.module_offset = module_offset;
+    def.address = address;
     def.size = size;
     if (!config_.writer->write_block_definition(def)) {
       error_ = "failed to write block definition";
@@ -317,6 +312,58 @@ bool trace_builder::emit_register_deltas(
 
   if (!config_.writer->write_register_deltas(record)) {
     error_ = "failed to write register deltas";
+    return false;
+  }
+  return true;
+}
+
+bool trace_builder::emit_register_bytes(
+    uint64_t thread_id,
+    uint64_t sequence,
+    std::span<const register_bytes_entry> entries,
+    std::span<const uint8_t> data
+) {
+  if (!config_.options.record_register_deltas || entries.empty()) {
+    return true;
+  }
+  if (!ensure_trace_started()) {
+    return false;
+  }
+  if (data.empty()) {
+    error_ = "register bytes data missing";
+    return false;
+  }
+
+  for (const auto& entry : entries) {
+    if (entry.reg_id >= register_specs_.size()) {
+      error_ = "register bytes reg_id out of range";
+      return false;
+    }
+    const auto& spec = register_specs_[entry.reg_id];
+    if (spec.value_kind != register_value_kind::bytes) {
+      error_ = "register bytes value_kind mismatch";
+      return false;
+    }
+    uint32_t expected = (spec.bits + 7u) / 8u;
+    if (entry.size != expected) {
+      error_ = "register bytes size mismatch";
+      return false;
+    }
+    uint64_t end = static_cast<uint64_t>(entry.offset) + static_cast<uint64_t>(entry.size);
+    if (end > data.size()) {
+      error_ = "register bytes data out of range";
+      return false;
+    }
+  }
+
+  register_bytes_record record{};
+  record.sequence = sequence;
+  record.thread_id = thread_id;
+  record.entries.assign(entries.begin(), entries.end());
+  record.data.assign(data.begin(), data.end());
+
+  if (!config_.writer->write_register_bytes(record)) {
+    error_ = "failed to write register bytes";
     return false;
   }
   return true;

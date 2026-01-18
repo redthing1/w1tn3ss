@@ -44,7 +44,7 @@ std::filesystem::path write_trace(
   write_register_specs(*writer, registers, arch, pointer_size);
   write_module_table(*writer, 1, module_base);
   write_thread_start(*writer, 1, "thread1");
-  write_instruction(*writer, 1, 0, 1, module_offset);
+  write_instruction(*writer, 1, 0, module_base + module_offset);
   write_thread_end(*writer, 1);
 
   writer->flush();

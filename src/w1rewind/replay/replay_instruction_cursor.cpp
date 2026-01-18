@@ -1,5 +1,7 @@
 #include "replay_instruction_cursor.hpp"
 
+#include <limits>
+
 namespace w1::rewind {
 
 namespace {
@@ -198,7 +200,7 @@ bool replay_instruction_cursor::set_instruction_state(
   replay_decoded_block decoded{};
   std::string decode_error;
   if (!decoder_ ||
-      !decoder_->decode_block(flow_.context(), flow.module_id, flow.module_offset, flow.size, decoded, decode_error) ||
+      !decoder_->decode_block(flow_.context(), flow.address, flow.size, decoded, decode_error) ||
       decoded.instructions.empty()) {
     if (set_notice_on_failure) {
       std::string message = decode_error.empty() ? "block decode failed; using flow steps" : decode_error;
@@ -228,11 +230,11 @@ bool replay_instruction_cursor::build_instruction_step(const instruction_state& 
   const auto& inst = state.block.instructions[state.instruction_index];
   flow_step step = state.base_step;
   step.is_block = false;
-  step.module_offset = state.block.module_offset + inst.offset;
   step.size = inst.size;
-  if (!flow_.context().resolve_address(step.module_id, step.module_offset, step.address)) {
+  if (inst.offset > std::numeric_limits<uint64_t>::max() - state.block.address) {
     return false;
   }
+  step.address = state.block.address + inst.offset;
   out = step;
   return true;
 }
