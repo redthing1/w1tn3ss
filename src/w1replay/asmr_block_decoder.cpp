@@ -7,24 +7,23 @@
 #include <optional>
 #include <vector>
 
-#if defined(P1LL_HAS_ASMR)
-#include "p1ll/asmr/asmr.hpp"
-#include "p1ll/engine/platform/platform.hpp"
+#if defined(WITNESS_ASMR_ENABLED)
+#include "w1asmr/asmr.hpp"
 #endif
 
 namespace w1replay {
 
 namespace {
 
-#if defined(P1LL_HAS_ASMR)
-std::optional<std::string> trace_arch_to_platform_arch(w1::rewind::trace_arch arch) {
+#if defined(WITNESS_ASMR_ENABLED)
+std::optional<w1::asmr::arch> trace_arch_to_asmr_arch(w1::rewind::trace_arch arch) {
   switch (arch) {
   case w1::rewind::trace_arch::x86:
-    return std::string("x86");
+    return w1::asmr::arch::x86;
   case w1::rewind::trace_arch::x86_64:
-    return std::string("x64");
+    return w1::asmr::arch::x64;
   case w1::rewind::trace_arch::aarch64:
-    return std::string("arm64");
+    return w1::asmr::arch::arm64;
   default:
     return std::nullopt;
   }
@@ -34,7 +33,7 @@ std::optional<std::string> trace_arch_to_platform_arch(w1::rewind::trace_arch ar
 } // namespace
 
 bool asmr_decoder_available() {
-#if defined(P1LL_HAS_ASMR) && defined(WITNESS_LIEF_ENABLED)
+#if defined(WITNESS_ASMR_ENABLED) && defined(WITNESS_LIEF_ENABLED)
   return true;
 #else
   return false;
@@ -51,13 +50,13 @@ bool asmr_block_decoder::decode_block(
     w1::rewind::replay_decoded_block& out,
     std::string& error
 ) {
-#if !defined(P1LL_HAS_ASMR)
+#if !defined(WITNESS_ASMR_ENABLED)
   (void)context;
   (void)module_id;
   (void)module_offset;
   (void)size;
   (void)out;
-  error = "asmr decoder unavailable (build with P1LL_BUILD_ASMR=ON)";
+  error = "asmr decoder unavailable (build with WITNESS_ASMR=ON)";
   return false;
 #elif !defined(WITNESS_LIEF_ENABLED)
   (void)context;
@@ -99,17 +98,13 @@ bool asmr_block_decoder::decode_block(
   }
   uint64_t base_address = module_it->second.base + module_offset;
 
-  auto arch_value = trace_arch_to_platform_arch(context.header.architecture);
+  auto arch_value = trace_arch_to_asmr_arch(context.header.architecture);
   if (!arch_value.has_value()) {
     error = "unsupported trace architecture for asmr decoder";
     return false;
   }
 
-  p1ll::engine::platform::platform_key platform{};
-  platform.arch = *arch_value;
-  platform.os.clear();
-
-  auto ctx = p1ll::asmr::context::for_platform(platform);
+  auto ctx = w1::asmr::context::for_arch(*arch_value);
   if (!ctx.ok()) {
     error = ctx.status_info.message;
     return false;

@@ -84,31 +84,27 @@ if(P1LL_BUILD_CAPI)
     message(STATUS "p1ll c api enabled")
 endif()
 
-# p1ll_asmr static library (optional)
-option(P1LL_BUILD_ASMR "Build p1ll asmr disassembler/assembler" OFF)
-
-if(P1LL_BUILD_ASMR)
-    set(P1LL_ASMR_SOURCES
-        asmr/asmr.cpp
-        asmr/heur/code_signature.cpp
+# p1ll_heur static library (optional)
+if(WITNESS_ASMR)
+    set(P1LL_HEUR_SOURCES
+        heur/code_signature.cpp
     )
 
-    add_library(p1ll_asmr STATIC ${P1LL_ASMR_SOURCES})
-    target_link_libraries(p1ll_asmr PUBLIC p1ll_core PRIVATE capstone::capstone keystone::keystone)
-    target_include_directories(p1ll_asmr
-        PUBLIC 
+    add_library(p1ll_heur STATIC ${P1LL_HEUR_SOURCES})
+    target_link_libraries(p1ll_heur PUBLIC p1ll_core w1asmr)
+    target_include_directories(p1ll_heur
+        PUBLIC
             ${CMAKE_CURRENT_SOURCE_DIR}
             ${CMAKE_CURRENT_SOURCE_DIR}/..
     )
-    if(DEFINED P1LL_ASMR_CAPSTONE_INCLUDE_DIR)
-        target_include_directories(p1ll_asmr PRIVATE ${P1LL_ASMR_CAPSTONE_INCLUDE_DIR})
+    if(DEFINED WITNESS_ASMR_CAPSTONE_INCLUDE_DIR)
+        target_include_directories(p1ll_heur PRIVATE ${WITNESS_ASMR_CAPSTONE_INCLUDE_DIR})
     endif()
-    if(DEFINED P1LL_ASMR_KEYSTONE_INCLUDE_DIR)
-        target_include_directories(p1ll_asmr PRIVATE ${P1LL_ASMR_KEYSTONE_INCLUDE_DIR})
+    if(DEFINED WITNESS_ASMR_KEYSTONE_INCLUDE_DIR)
+        target_include_directories(p1ll_heur PRIVATE ${WITNESS_ASMR_KEYSTONE_INCLUDE_DIR})
     endif()
-    target_compile_definitions(p1ll_asmr PUBLIC P1LL_HAS_ASMR=1)
 
-    set_target_properties(p1ll_asmr PROPERTIES
+    set_target_properties(p1ll_heur PROPERTIES
         ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
         POSITION_INDEPENDENT_CODE ON
     )

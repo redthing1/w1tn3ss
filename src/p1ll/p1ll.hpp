@@ -28,15 +28,4 @@ inline bool has_scripting_support() {
 #endif
 }
 
-/**
- * @brief check if asmr support is compiled in
- */
-inline bool has_asmr_support() {
-#ifdef P1LL_HAS_ASMR
-  return true;
-#else
-  return false;
-#endif
-}
-
 } // namespace p1ll

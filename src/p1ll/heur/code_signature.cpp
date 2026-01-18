@@ -1,4 +1,4 @@
-#include "asmr/asmr.hpp"
+#include "p1ll/heur/code_signature.hpp"
 
 #include <capstone/arm64.h>
 #include <capstone/x86.h>
@@ -8,11 +8,17 @@
 #include <string>
 #include <vector>
 
+#include "w1asmr/asmr.hpp"
 #include "utils/hex_utils.hpp"
 
-namespace p1ll::asmr::heur {
+namespace p1ll::heur {
 
 namespace {
+
+using w1::asmr::arch;
+using w1::asmr::context;
+using w1::asmr::instruction;
+using w1::asmr::operand_kind;
 
 struct policy_params {
   size_t min_fixed_bytes = 0;
@@ -29,6 +35,24 @@ policy_params params_for(policy policy_value) {
     return policy_params{16, 20};
   }
   return policy_params{12, 20};
+}
+
+p1ll::engine::error_code map_error_code(w1::asmr::error_code code) {
+  switch (code) {
+  case w1::asmr::error_code::ok:
+    return p1ll::engine::error_code::ok;
+  case w1::asmr::error_code::invalid_argument:
+    return p1ll::engine::error_code::invalid_argument;
+  case w1::asmr::error_code::not_found:
+    return p1ll::engine::error_code::not_found;
+  case w1::asmr::error_code::unsupported:
+    return p1ll::engine::error_code::unsupported;
+  case w1::asmr::error_code::invalid_context:
+    return p1ll::engine::error_code::invalid_context;
+  case w1::asmr::error_code::internal_error:
+    return p1ll::engine::error_code::internal_error;
+  }
+  return p1ll::engine::error_code::internal_error;
 }
 
 void mask_range(std::vector<uint8_t>& mask, size_t offset, size_t size) {
@@ -228,14 +252,27 @@ engine::result<signature> code_signature(
     return engine::error_result<signature>(engine::error_code::invalid_argument, "signature input is empty");
   }
 
-  auto ctx = context::for_platform(platform);
+  if (platform.arch.empty() || platform.arch == "*") {
+    return engine::error_result<signature>(
+        engine::error_code::invalid_argument, "platform arch must be specified for signature generation"
+    );
+  }
+
+  auto arch_value = w1::asmr::parse_arch(platform.arch);
+  if (!arch_value.ok()) {
+    return engine::error_result<signature>(map_error_code(arch_value.status_info.code), arch_value.status_info.message);
+  }
+
+  auto ctx = context::for_arch(arch_value.value);
   if (!ctx.ok()) {
-    return engine::error_result<signature>(ctx.status_info.code, ctx.status_info.message);
+    return engine::error_result<signature>(map_error_code(ctx.status_info.code), ctx.status_info.message);
   }
 
   auto disassembly = ctx.value.disassemble(bytes, address);
   if (!disassembly.ok()) {
-    return engine::error_result<signature>(disassembly.status_info.code, disassembly.status_info.message);
+    return engine::error_result<signature>(
+        map_error_code(disassembly.status_info.code), disassembly.status_info.message
+    );
   }
 
   if (disassembly.value.empty()) {
@@ -284,4 +321,4 @@ engine::result<signature> code_signature(
   return engine::ok_result(output);
 }
 
-} // namespace p1ll::asmr::heur
+} // namespace p1ll::heur

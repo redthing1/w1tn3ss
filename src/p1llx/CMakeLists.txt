@@ -13,7 +13,7 @@ if(WITNESS_SCRIPT)
         commands/sig.cpp
     )
 
-    if(P1LL_BUILD_ASMR)
+    if(WITNESS_ASMR)
         list(APPEND P1LLX_SOURCES
             commands/asm.cpp
             commands/disasm.cpp
@@ -35,8 +35,8 @@ if(WITNESS_SCRIPT)
         w1nj3ct
     )
 
-    if(P1LL_BUILD_ASMR)
-        target_link_libraries(p1llx PRIVATE p1ll_asmr)
+    if(WITNESS_ASMR)
+        target_link_libraries(p1llx PRIVATE w1asmr)
     endif()
     
     # include directories

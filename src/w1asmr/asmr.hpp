@@ -8,12 +8,10 @@
 #include <string_view>
 #include <vector>
 
-#include "engine/platform/platform.hpp"
-#include "engine/result.hpp"
+#include "w1asmr/arch.hpp"
+#include "w1asmr/result.hpp"
 
-namespace p1ll::asmr {
-
-enum class arch { x86, x64, arm64 };
+namespace w1::asmr {
 
 enum class operand_kind { reg, imm, mem };
 
@@ -56,11 +54,11 @@ public:
   context(const context&) = delete;
   context& operator=(const context&) = delete;
 
-  static engine::result<context> for_platform(const engine::platform::platform_key& platform);
-  static engine::result<context> for_host();
+  static result<context> for_arch(arch arch_value);
+  static result<context> for_host();
 
-  engine::result<std::vector<uint8_t>> assemble(std::string_view text, uint64_t address) const;
-  engine::result<std::vector<instruction>> disassemble(std::span<const uint8_t> bytes, uint64_t address) const;
+  result<std::vector<uint8_t>> assemble(std::string_view text, uint64_t address) const;
+  result<std::vector<instruction>> disassemble(std::span<const uint8_t> bytes, uint64_t address) const;
 
   arch architecture() const noexcept { return arch_; }
 
@@ -73,22 +71,4 @@ private:
   arch arch_ = arch::x64;
 };
 
-namespace heur {
-
-enum class policy { strict, balanced, durable };
-
-struct signature {
-  std::string pattern;
-  std::string pretty;
-  size_t instruction_count = 0;
-  size_t fixed_bytes = 0;
-};
-
-engine::result<signature> code_signature(
-    std::span<const uint8_t> bytes, uint64_t address, const engine::platform::platform_key& platform,
-    policy policy_value = policy::balanced
-);
-
-} // namespace heur
-
-} // namespace p1ll::asmr
+} // namespace w1::asmr

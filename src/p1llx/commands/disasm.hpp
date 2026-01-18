@@ -7,7 +7,7 @@ namespace p1llx::commands {
 
 struct disasm_request {
   std::string bytes;
-  std::string platform;
+  std::string arch;
   bool has_address = false;
   uint64_t address = 0;
 };

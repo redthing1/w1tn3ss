@@ -7,7 +7,7 @@ namespace p1llx::commands {
 
 struct asm_request {
   std::string text;
-  std::string platform;
+  std::string arch;
   bool has_address = false;
   uint64_t address = 0;
 };

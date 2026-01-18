@@ -36,8 +36,8 @@ target_link_libraries(w1replay PRIVATE
     Threads::Threads
 )
 
-if(TARGET p1ll_asmr)
-    target_link_libraries(w1replay PRIVATE p1ll_asmr)
+if(TARGET w1asmr)
+    target_link_libraries(w1replay PRIVATE w1asmr)
 endif()
 
 apply_common_compile_options(w1replay)
