@@ -128,6 +128,16 @@ bool module_source::read_module_bytes(
   uint64_t address = module_offset;
   auto va_type = LIEF::Binary::VA_TYPES::RVA;
   switch (binary.format()) {
+  case LIEF::Binary::FORMATS::ELF: {
+    uint64_t imagebase = binary.imagebase();
+    if (add_overflows(imagebase, module_offset)) {
+      error = "module imagebase + offset overflow";
+      return false;
+    }
+    address = imagebase + module_offset;
+    va_type = LIEF::Binary::VA_TYPES::VA;
+    break;
+  }
   case LIEF::Binary::FORMATS::MACHO: {
     uint64_t imagebase = binary.imagebase();
     if (add_overflows(imagebase, module_offset)) {
@@ -138,7 +148,6 @@ bool module_source::read_module_bytes(
     va_type = LIEF::Binary::VA_TYPES::VA;
     break;
   }
-  case LIEF::Binary::FORMATS::ELF:
   case LIEF::Binary::FORMATS::PE:
     address = module_offset;
     va_type = LIEF::Binary::VA_TYPES::RVA;
