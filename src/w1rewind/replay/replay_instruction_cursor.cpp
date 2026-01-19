@@ -33,6 +33,70 @@ void replay_instruction_cursor::sync_with_flow_step(const flow_step& step) {
   error_.clear();
 }
 
+bool replay_instruction_cursor::set_position(const flow_step& step) {
+  instruction_state_ = instruction_state{};
+  current_step_ = step;
+  has_position_ = true;
+  notice_.reset();
+  error_.clear();
+
+  if (!is_block_trace()) {
+    return true;
+  }
+  if (decoder_ == nullptr) {
+    notice_ = make_notice(replay_notice_kind::decode_unavailable, "block decoder unavailable; using flow steps");
+    return true;
+  }
+  if (step.block_id == 0) {
+    return true;
+  }
+
+  auto it = flow_.context().blocks_by_id.find(step.block_id);
+  if (it == flow_.context().blocks_by_id.end()) {
+    notice_ = make_notice(replay_notice_kind::decode_failed, "block id not found");
+    return true;
+  }
+
+  flow_step base = step;
+  base.is_block = true;
+  base.address = it->second.address;
+  base.size = it->second.size;
+
+  if (!set_instruction_state(base, 0, true)) {
+    return true;
+  }
+
+  size_t index = 0;
+  if (!step.is_block) {
+    if (step.address < instruction_state_.block.address) {
+      notice_ = make_notice(replay_notice_kind::decode_failed, "instruction address before block base");
+      instruction_state_ = instruction_state{};
+      return true;
+    }
+    uint64_t offset = step.address - instruction_state_.block.address;
+    bool found = false;
+    for (size_t i = 0; i < instruction_state_.block.instructions.size(); ++i) {
+      if (instruction_state_.block.instructions[i].offset == offset) {
+        index = i;
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      notice_ = make_notice(replay_notice_kind::decode_failed, "instruction offset not found in block");
+      instruction_state_ = instruction_state{};
+      return true;
+    }
+  }
+
+  instruction_state_.instruction_index = index;
+  flow_step inst_step{};
+  if (build_instruction_step(instruction_state_, inst_step)) {
+    current_step_ = inst_step;
+  }
+  return true;
+}
+
 bool replay_instruction_cursor::step_forward(flow_step& out) {
   error_.clear();
 

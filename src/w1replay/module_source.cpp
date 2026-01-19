@@ -14,7 +14,16 @@ std::string basename_for_path(const std::string& path) {
   if (path.empty()) {
     return {};
   }
-  return std::filesystem::path(path).filename().string();
+  // handle windows paths on non-windows hosts
+  size_t end = path.find_last_not_of("/\\");
+  if (end == std::string::npos) {
+    return {};
+  }
+  size_t start = path.find_last_of("/\\", end);
+  if (start == std::string::npos) {
+    return path.substr(0, end + 1);
+  }
+  return path.substr(start + 1, end - start);
 }
 
 bool parse_mapping(const std::string& mapping, std::string& name, std::string& path) {
