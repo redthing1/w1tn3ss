@@ -1,3 +1,5 @@
+include_guard()
+
 # detect homebrew llvm on macos
 if(APPLE)
     execute_process(
@@ -15,12 +17,83 @@ if(NOT DEFINED W1_SOURCE_DIR)
     set(W1_SOURCE_DIR "${PROJECT_SOURCE_DIR}")
 endif()
 
+if(NOT DEFINED W1_ENABLE_CLANG_TIDY)
+    option(W1_ENABLE_CLANG_TIDY "Enable clang-tidy for w1 targets" ON)
+endif()
+
 find_program(CLANG_TIDY_EXECUTABLE
     NAMES clang-tidy clang-tidy-18 clang-tidy-17 clang-tidy-16 clang-tidy-15
     PATHS ${CLANG_TIDY_SEARCH_PATHS}
 )
 
 if(CLANG_TIDY_EXECUTABLE)
+    if(NOT DEFINED W1_CLANG_TIDY_COMMAND)
+        set(W1_CLANG_TIDY_COMMAND "${CLANG_TIDY_EXECUTABLE};--format-style=file")
+    endif()
+
+    if(NOT DEFINED W1_CLANG_TIDY_EXCLUDE_DIRS)
+        set(_w1_default_tidy_excludes "${W1_SOURCE_DIR}/src/third_party")
+        if(EXISTS "${_w1_default_tidy_excludes}")
+            set(W1_CLANG_TIDY_EXCLUDE_DIRS "${_w1_default_tidy_excludes}")
+        else()
+            set(W1_CLANG_TIDY_EXCLUDE_DIRS "")
+        endif()
+    endif()
+
+    if(NOT COMMAND w1_apply_clang_tidy)
+        function(w1_apply_clang_tidy TARGET_NAME)
+            if(NOT W1_ENABLE_CLANG_TIDY)
+                return()
+            endif()
+
+            if(NOT W1_CLANG_TIDY_COMMAND)
+                return()
+            endif()
+
+            get_target_property(_w1_aliased ${TARGET_NAME} ALIASED_TARGET)
+            if(_w1_aliased)
+                return()
+            endif()
+
+            get_target_property(_w1_imported ${TARGET_NAME} IMPORTED)
+            if(_w1_imported)
+                return()
+            endif()
+
+            get_target_property(_w1_target_type ${TARGET_NAME} TYPE)
+            if(_w1_target_type STREQUAL "INTERFACE_LIBRARY" OR _w1_target_type STREQUAL "UTILITY")
+                return()
+            endif()
+
+            get_target_property(_w1_skip_tidy ${TARGET_NAME} W1_CLANG_TIDY_SKIP)
+            if(_w1_skip_tidy)
+                return()
+            endif()
+
+            get_target_property(_w1_target_source_dir ${TARGET_NAME} SOURCE_DIR)
+            if(_w1_target_source_dir AND W1_CLANG_TIDY_EXCLUDE_DIRS)
+                file(TO_CMAKE_PATH "${_w1_target_source_dir}" _w1_target_source_dir_norm)
+                foreach(_w1_exclude_dir IN LISTS W1_CLANG_TIDY_EXCLUDE_DIRS)
+                    if(NOT _w1_exclude_dir)
+                        continue()
+                    endif()
+                    file(TO_CMAKE_PATH "${_w1_exclude_dir}" _w1_exclude_dir_norm)
+                    set(_w1_exclude_dir_norm "${_w1_exclude_dir_norm}/")
+                    set(_w1_target_source_dir_check "${_w1_target_source_dir_norm}/")
+                    string(FIND "${_w1_target_source_dir_check}" "${_w1_exclude_dir_norm}" _w1_exclude_idx)
+                    if(_w1_exclude_idx EQUAL 0)
+                        return()
+                    endif()
+                endforeach()
+            endif()
+
+            set_target_properties(${TARGET_NAME} PROPERTIES
+                C_CLANG_TIDY "${W1_CLANG_TIDY_COMMAND}"
+                CXX_CLANG_TIDY "${W1_CLANG_TIDY_COMMAND}"
+            )
+        endfunction()
+    endif()
+
     # enable compile commands database for better analysis
     set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
     
@@ -76,4 +149,9 @@ if(CLANG_TIDY_EXECUTABLE)
             VERBATIM
         )
     endif()
+
+    get_property(_w1_all_targets GLOBAL PROPERTY TARGETS)
+    foreach(_w1_target IN LISTS _w1_all_targets)
+        w1_apply_clang_tidy(${_w1_target})
+    endforeach()
 endif()
