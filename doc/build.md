@@ -34,7 +34,7 @@ python .\tools\windows\run_cmd.py --arch x64 -- cmake --build build-release --pa
 ## windows (x86)
 
 ```powershell
-python .\tools\windows\run_cmd.py --arch x86 --host-arch amd64 -- cmake -G Ninja -B build-win32 -DCMAKE_BUILD_TYPE=Release -DWITNESS_SCRIPT=ON -DWITNESS_ARCH=x86
+python .\tools\windows\run_cmd.py --arch x86 --host-arch amd64 -- cmake -G Ninja -B build-win32 -DCMAKE_BUILD_TYPE=Release -DWITNESS_ARCH=x86 -DWITNESS_SCRIPT=ON
 python .\tools\windows\run_cmd.py --arch x86 --host-arch amd64 -- cmake --build build-win32 --parallel
 ```
 
