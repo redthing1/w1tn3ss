@@ -4,6 +4,10 @@ param(
   [object[]]$ProgramArgs = @(),
   [string]$VsPath = "",
   [string]$DevCmdArgs = "-arch=amd64",
+  [string[]]$Env = @(),
+  [string[]]$PrependPath = @(),
+  [string[]]$AppendPath = @(),
+  [string]$WorkingDirectory = "",
   [switch]$UseCmd  # when set, run through cmd /c (default); otherwise Invoke-Expression in PowerShell
 )
 
@@ -30,6 +34,45 @@ function Resolve-VsPath {
   return $path.Trim()
 }
 
+function Apply-EnvPairs {
+  param([string[]]$Pairs)
+  foreach ($pair in $Pairs) {
+    if ($pair -match '^(?<key>[^=]+)=(?<value>.*)$') {
+      $key = $Matches['key']
+      $value = $Matches['value']
+      Set-Item -Path ("env:" + $key) -Value $value
+    } else {
+      Write-Error "Invalid env pair (expected KEY=VALUE): $pair"
+      exit 1
+    }
+  }
+}
+
+function Update-Path {
+  param(
+    [string[]]$Prepend,
+    [string[]]$Append
+  )
+  $prefix = @()
+  foreach ($entry in $Prepend) {
+    if ($entry -and $entry.Trim() -ne "") {
+      $prefix += $entry
+    }
+  }
+  $suffix = @()
+  foreach ($entry in $Append) {
+    if ($entry -and $entry.Trim() -ne "") {
+      $suffix += $entry
+    }
+  }
+  if ($prefix.Count -gt 0) {
+    $env:PATH = ($prefix -join ";") + ";" + $env:PATH
+  }
+  if ($suffix.Count -gt 0) {
+    $env:PATH = $env:PATH + ";" + ($suffix -join ";")
+  }
+}
+
 $vsRoot = Resolve-VsPath -Override $VsPath
 $devShellDll = Join-Path $vsRoot "Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
 if (-not (Test-Path $devShellDll)) {
@@ -39,6 +82,16 @@ if (-not (Test-Path $devShellDll)) {
 
 Import-Module $devShellDll
 Enter-VsDevShell -VsInstallPath $vsRoot -SkipAutomaticLocation -DevCmdArguments $DevCmdArgs
+
+if ($Env.Count -gt 0) {
+  Apply-EnvPairs -Pairs $Env
+}
+if ($PrependPath.Count -gt 0 -or $AppendPath.Count -gt 0) {
+  Update-Path -Prepend $PrependPath -Append $AppendPath
+}
+if ($WorkingDirectory -and $WorkingDirectory.Trim() -ne "") {
+  Set-Location -Path $WorkingDirectory
+}
 
 if ($Command -and $Command.Trim() -ne "") {
   if ($UseCmd.IsPresent) {
