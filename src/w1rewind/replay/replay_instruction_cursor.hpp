@@ -22,6 +22,7 @@ public:
   void set_decoder(replay_block_decoder* decoder) { decoder_ = decoder; }
   void reset();
   void sync_with_flow_step(const flow_step& step);
+  bool set_position(const flow_step& step);
 
   bool step_forward(flow_step& out);
   bool step_backward(flow_step& out);

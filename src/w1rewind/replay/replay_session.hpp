@@ -52,6 +52,8 @@ public:
   void clear_breakpoints();
 
   const flow_step& current_step() const { return current_step_; }
+  const replay_context& context() const { return context_; }
+  const std::string& resolved_index_path() const { return resolved_index_path_; }
   const std::vector<std::string>& register_names() const { return context_.register_names; }
   const std::vector<register_spec>& register_specs() const { return context_.register_specs; }
   std::vector<std::optional<uint64_t>> read_registers() const;
