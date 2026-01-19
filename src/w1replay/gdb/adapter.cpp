@@ -216,7 +216,11 @@ bool adapter::build_target_xml() {
 bool adapter::build_arch_spec() {
   state_.arch_spec = gdbstub::arch_spec{};
   state_.arch_spec.target_xml = state_.target_xml;
-  state_.arch_spec.xml_arch_name = "target.xml";
+  if (!state_.layout.feature_name.empty()) {
+    state_.arch_spec.xml_arch_name = state_.layout.feature_name;
+  } else {
+    state_.arch_spec.xml_arch_name = "org.w1tn3ss.rewind";
+  }
   state_.arch_spec.osabi.clear();
   state_.arch_spec.reg_count = static_cast<int>(state_.layout.registers.size());
   state_.arch_spec.pc_reg_num = state_.pc_reg_num;

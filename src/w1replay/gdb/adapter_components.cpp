@@ -241,13 +241,33 @@ std::optional<gdbstub::register_info> register_info_component::get_register_info
   gdbstub::register_info info{};
   info.name = reg.name;
   info.bitsize = static_cast<int>(reg.bits);
-  info.encoding = "uint";
-  info.format = "hex";
-  info.set = "general";
+  switch (reg.reg_class) {
+  case w1::rewind::register_class::fpr:
+    info.encoding = "ieee754";
+    info.format = "float";
+    info.set = "float";
+    break;
+  case w1::rewind::register_class::simd:
+    info.encoding = "vector";
+    info.format = "vector-uint8";
+    info.set = "vector";
+    break;
+  case w1::rewind::register_class::gpr:
+  case w1::rewind::register_class::flags:
+  case w1::rewind::register_class::system:
+  case w1::rewind::register_class::unknown:
+  default:
+    info.encoding = "uint";
+    info.format = "hex";
+    info.set = "general";
+    break;
+  }
   if (reg.is_pc) {
     info.generic = "pc";
   } else if (reg.is_sp) {
     info.generic = "sp";
+  } else if (reg.is_flags) {
+    info.generic = "flags";
   }
   return info;
 }
