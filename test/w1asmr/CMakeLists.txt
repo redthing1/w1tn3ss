@@ -14,5 +14,5 @@ w1_add_doctest_suite(w1asmr_tests
         ${W1_SOURCE_DIR}/src
         ${W1_SOURCE_DIR}/src/third_party
     LIBS w1asmr
-    OUTPUT_SUBDIR test/w1asmr
+    OUTPUT_SUBDIR w1asmr
 )

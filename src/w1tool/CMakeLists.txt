@@ -14,9 +14,6 @@ w1_add_executable(w1tool
     tracer_discovery.cpp
 )
 
-
-set_target_properties(w1tool PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-
 target_link_libraries(w1tool PRIVATE
     w1base
     w1dump

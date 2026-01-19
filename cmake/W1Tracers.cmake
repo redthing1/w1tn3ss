@@ -35,6 +35,11 @@ function(w1_configure_tracer_target TARGET_NAME)
     w1_target_defaults(${TARGET_NAME})
 
     set_target_properties(${TARGET_NAME} PROPERTIES PREFIX "")
+    set_target_properties(${TARGET_NAME} PROPERTIES
+        ARCHIVE_OUTPUT_DIRECTORY ${W1_OUTPUT_LIB_DIR}
+        LIBRARY_OUTPUT_DIRECTORY ${W1_OUTPUT_LIB_DIR}
+        RUNTIME_OUTPUT_DIRECTORY ${W1_OUTPUT_LIB_DIR}
+    )
     if(APPLE)
         set_target_properties(${TARGET_NAME} PROPERTIES MACOSX_RPATH TRUE)
     endif()

@@ -33,9 +33,6 @@ if(WITNESS_SCRIPT)
         target_link_libraries(p1llx PRIVATE w1asmr)
     endif()
     
-    # set output directory to root like w1tool
-    set_target_properties(p1llx PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-    
     message(STATUS "p1llx static patcher tool configured")
     
 else()

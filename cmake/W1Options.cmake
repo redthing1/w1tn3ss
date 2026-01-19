@@ -44,6 +44,11 @@ if(W1_EXPORT_COMPILE_COMMANDS)
     set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 endif()
 
+w1_set_cache_default(W1_OUTPUT_BIN_DIR PATH "${CMAKE_BINARY_DIR}/bin" "Output directory for executables")
+w1_set_cache_default(W1_OUTPUT_LIB_DIR PATH "${CMAKE_BINARY_DIR}/lib" "Output directory for libraries")
+w1_set_cache_default(W1_OUTPUT_TEST_DIR PATH "${CMAKE_BINARY_DIR}/test" "Output directory for test binaries")
+w1_set_cache_default(W1_OUTPUT_SAMPLE_DIR PATH "${CMAKE_BINARY_DIR}/bin/samples" "Output directory for sample binaries")
+
 add_library(w1_config INTERFACE)
 add_library(w1::config ALIAS w1_config)
 

@@ -36,5 +36,5 @@ w1_add_doctest_suite(w1rewind_unit_tests
         ${W1_SOURCE_DIR}/test
     LIBS
         ${W1REWIND_TEST_LIBS}
-    OUTPUT_SUBDIR test/w1rewind
+    OUTPUT_SUBDIR w1rewind
 )

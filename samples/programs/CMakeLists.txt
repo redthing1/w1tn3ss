@@ -2,7 +2,7 @@
 
 include(${W1_SOURCE_DIR}/cmake/SampleConfig.cmake)
 
-set(samples_output_dir ${CMAKE_BINARY_DIR}/bin/samples/programs)
+set(samples_output_dir ${W1_OUTPUT_SAMPLE_DIR}/programs)
 
 add_subdirectory(instraware)
 

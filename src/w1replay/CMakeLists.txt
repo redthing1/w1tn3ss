@@ -23,8 +23,6 @@ w1_add_executable(w1replay
     commands/threads.cpp
 )
 
-set_target_properties(w1replay PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-
 target_link_libraries(w1replay PRIVATE
     w1base
     w1rewind_replay

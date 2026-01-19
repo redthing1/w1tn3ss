@@ -4,7 +4,7 @@ w1_add_harness_test(test_standalone_tracers
     SOURCES test_standalone_tracers.cpp
     INCLUDE_DIRS ${W1_SOURCE_DIR}/src
     LIBS w1cov_static w1xfer_static
-    OUTPUT_SUBDIR test/harness
+    OUTPUT_SUBDIR harness
     ARGS all
 )
 
@@ -21,14 +21,14 @@ w1_add_harness_test(test_gadget_executor
     SOURCES test_gadget_executor.cpp
     INCLUDE_DIRS ${W1_SOURCE_DIR}/src
     LIBS w1gadget
-    OUTPUT_SUBDIR test/harness
+    OUTPUT_SUBDIR harness
 )
 
 w1_add_harness_test(test_rewind_format
     SOURCES test_rewind_format.cpp
     INCLUDE_DIRS ${W1_SOURCE_DIR}/src
     LIBS w1rewind_record w1rewind_replay
-    OUTPUT_SUBDIR test/harness
+    OUTPUT_SUBDIR harness
 )
 
 set_tests_properties(test_gadget_executor PROPERTIES

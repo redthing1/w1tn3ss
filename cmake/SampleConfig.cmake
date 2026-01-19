@@ -18,11 +18,14 @@ function(w1_add_sample_program target)
     add_executable(${target} ${W1_SOURCES})
     w1_target_defaults(${target})
 
+    set(sample_output_dir "${W1_OUTPUT_SAMPLE_DIR}")
     if(W1_OUTPUT_DIR)
-        set_target_properties(${target} PROPERTIES
-            RUNTIME_OUTPUT_DIRECTORY ${W1_OUTPUT_DIR}
-        )
+        set(sample_output_dir "${W1_OUTPUT_DIR}")
     endif()
+
+    set_target_properties(${target} PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY ${sample_output_dir}
+    )
 endfunction()
 
 function(w1_apply_debug_sanitizers target)

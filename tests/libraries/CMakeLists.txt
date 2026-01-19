@@ -2,7 +2,7 @@
 
 include(${W1_SOURCE_DIR}/cmake/TestConfig.cmake)
 
-set(TEST_LIBRARY_OUTPUT_SUBDIR test/libraries)
+set(TEST_LIBRARY_OUTPUT_SUBDIR libraries)
 
 function(w1_add_test_library target source)
     add_library(${target} SHARED ${source})

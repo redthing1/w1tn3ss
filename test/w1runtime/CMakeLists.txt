@@ -15,5 +15,5 @@ w1_add_doctest_suite(w1runtime_unit_tests
         ${W1_SOURCE_DIR}/src/third_party
     LIBS
         w1runtime
-    OUTPUT_SUBDIR test/w1runtime
+    OUTPUT_SUBDIR w1runtime
 )

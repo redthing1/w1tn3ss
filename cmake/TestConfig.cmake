@@ -5,15 +5,25 @@ if(NOT COMMAND w1_target_defaults)
     include("${CMAKE_CURRENT_LIST_DIR}/W1Init.cmake")
 endif()
 
-function(w1_set_test_output_dirs target output_subdir)
-    if(NOT output_subdir)
-        return()
+function(w1_resolve_test_output_dir out_var output_subdir)
+    set(output_dir "${W1_OUTPUT_TEST_DIR}")
+    if(output_subdir)
+        if(IS_ABSOLUTE "${output_subdir}")
+            set(output_dir "${output_subdir}")
+        else()
+            set(output_dir "${W1_OUTPUT_TEST_DIR}/${output_subdir}")
+        endif()
     endif()
+    set(${out_var} "${output_dir}" PARENT_SCOPE)
+endfunction()
+
+function(w1_set_test_output_dirs target output_subdir)
+    w1_resolve_test_output_dir(output_dir "${output_subdir}")
 
     set_target_properties(${target} PROPERTIES
-        LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${output_subdir}
-        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${output_subdir}
-        ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${output_subdir}
+        LIBRARY_OUTPUT_DIRECTORY ${output_dir}
+        RUNTIME_OUTPUT_DIRECTORY ${output_dir}
+        ARCHIVE_OUTPUT_DIRECTORY ${output_dir}
     )
 endfunction()
 
@@ -42,18 +52,16 @@ function(w1_add_doctest_suite target)
         target_link_libraries(${target} PRIVATE ${W1_LIBS})
     endif()
 
-    w1_target_defaults(${target})
+    w1_apply_test_defaults(${target})
+    w1_set_test_output_dirs(${target} "${W1_OUTPUT_SUBDIR}")
 
-    if(W1_OUTPUT_SUBDIR)
-        w1_set_test_output_dirs(${target} ${W1_OUTPUT_SUBDIR})
-        add_test(
-            NAME ${target}
-            COMMAND ${target}
-            WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/${W1_OUTPUT_SUBDIR}
-        )
-    else()
-        add_test(NAME ${target} COMMAND ${target})
-    endif()
+    w1_resolve_test_output_dir(_w1_working_dir "${W1_OUTPUT_SUBDIR}")
+
+    add_test(
+        NAME ${target}
+        COMMAND ${target}
+        WORKING_DIRECTORY ${_w1_working_dir}
+    )
 endfunction()
 
 function(w1_add_harness_test target)
@@ -74,14 +82,10 @@ function(w1_add_harness_test target)
         target_link_libraries(${target} PRIVATE ${W1_LIBS})
     endif()
 
-    w1_target_defaults(${target})
+    w1_apply_test_defaults(${target})
+    w1_set_test_output_dirs(${target} "${W1_OUTPUT_SUBDIR}")
 
-    if(W1_OUTPUT_SUBDIR)
-        w1_set_test_output_dirs(${target} ${W1_OUTPUT_SUBDIR})
-        set(_w1_working_dir ${CMAKE_BINARY_DIR}/${W1_OUTPUT_SUBDIR})
-    else()
-        set(_w1_working_dir ${CMAKE_CURRENT_BINARY_DIR})
-    endif()
+    w1_resolve_test_output_dir(_w1_working_dir "${W1_OUTPUT_SUBDIR}")
 
     if(W1_ARGS)
         add_test(

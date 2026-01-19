@@ -16,5 +16,5 @@ w1_add_doctest_suite(w1instrument_unit_tests
         ${W1_SOURCE_DIR}/src/third_party
     LIBS
         w1instrument
-    OUTPUT_SUBDIR test/w1instrument
+    OUTPUT_SUBDIR w1instrument
 )

@@ -18,9 +18,9 @@ function(w1_apply_component_defaults TARGET_NAME)
     )
 
     set_target_properties(${TARGET_NAME} PROPERTIES
-        ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
-        LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
-        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
+        ARCHIVE_OUTPUT_DIRECTORY ${W1_OUTPUT_LIB_DIR}
+        LIBRARY_OUTPUT_DIRECTORY ${W1_OUTPUT_LIB_DIR}
+        RUNTIME_OUTPUT_DIRECTORY ${W1_OUTPUT_LIB_DIR}
         POSITION_INDEPENDENT_CODE ON
     )
 endfunction()
@@ -30,6 +30,10 @@ function(w1_apply_executable_defaults TARGET_NAME)
 
     target_include_directories(${TARGET_NAME}
         PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
+    )
+
+    set_target_properties(${TARGET_NAME} PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY ${W1_OUTPUT_BIN_DIR}
     )
 endfunction()
 
@@ -46,4 +50,16 @@ endfunction()
 function(w1_add_executable TARGET_NAME)
     add_executable(${TARGET_NAME} ${ARGN})
     w1_apply_executable_defaults(${TARGET_NAME})
+endfunction()
+
+function(w1_apply_test_defaults TARGET_NAME)
+    w1_apply_executable_defaults(${TARGET_NAME})
+    set_target_properties(${TARGET_NAME} PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY ${W1_OUTPUT_TEST_DIR}
+    )
+endfunction()
+
+function(w1_add_test_executable TARGET_NAME)
+    add_executable(${TARGET_NAME} ${ARGN})
+    w1_apply_test_defaults(${TARGET_NAME})
 endfunction()

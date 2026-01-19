@@ -45,16 +45,16 @@ w1_add_doctest_suite(w1replay_unit_tests
         w1rewind_replay
         gdbstub::gdbstub
         Threads::Threads
-    OUTPUT_SUBDIR test/w1replay
+    OUTPUT_SUBDIR w1replay
 )
 
 add_test(
     NAME w1replay_trace_e2e
     COMMAND ${Python3_EXECUTABLE}
         ${CMAKE_CURRENT_LIST_DIR}/e2e/trace_e2e_test.py
-        --w1tool ${CMAKE_BINARY_DIR}/bin/w1tool
-        --w1replay ${CMAKE_BINARY_DIR}/bin/w1replay
-        --samples-dir ${CMAKE_BINARY_DIR}/bin/samples/programs
+        --w1tool ${W1_OUTPUT_BIN_DIR}/w1tool
+        --w1replay ${W1_OUTPUT_BIN_DIR}/w1replay
+        --samples-dir ${W1_OUTPUT_SAMPLE_DIR}/programs
 )
 set_tests_properties(w1replay_trace_e2e PROPERTIES
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
@@ -66,9 +66,9 @@ if(WITNESS_LIEF)
         NAME w1replay_lldb_flow_e2e
         COMMAND ${Python3_EXECUTABLE}
             ${CMAKE_CURRENT_LIST_DIR}/e2e/lldb_flow_e2e_test.py
-            --w1tool ${CMAKE_BINARY_DIR}/bin/w1tool
-            --w1replay ${CMAKE_BINARY_DIR}/bin/w1replay
-            --samples-dir ${CMAKE_BINARY_DIR}/bin/samples/programs
+            --w1tool ${W1_OUTPUT_BIN_DIR}/w1tool
+            --w1replay ${W1_OUTPUT_BIN_DIR}/w1replay
+            --samples-dir ${W1_OUTPUT_SAMPLE_DIR}/programs
     )
     set_tests_properties(w1replay_lldb_flow_e2e PROPERTIES
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
@@ -80,9 +80,9 @@ add_test(
     NAME w1replay_lldb_state_e2e
     COMMAND ${Python3_EXECUTABLE}
         ${CMAKE_CURRENT_LIST_DIR}/e2e/lldb_state_e2e_test.py
-        --w1tool ${CMAKE_BINARY_DIR}/bin/w1tool
-        --w1replay ${CMAKE_BINARY_DIR}/bin/w1replay
-        --samples-dir ${CMAKE_BINARY_DIR}/bin/samples/programs
+        --w1tool ${W1_OUTPUT_BIN_DIR}/w1tool
+        --w1replay ${W1_OUTPUT_BIN_DIR}/w1replay
+        --samples-dir ${W1_OUTPUT_SAMPLE_DIR}/programs
 )
 set_tests_properties(w1replay_lldb_state_e2e PROPERTIES
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}

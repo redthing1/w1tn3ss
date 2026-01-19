@@ -14,5 +14,5 @@ w1_add_doctest_suite(w1formats_unit_tests
         ${W1_SOURCE_DIR}/src/third_party
     LIBS
         w1formats
-    OUTPUT_SUBDIR test/w1formats
+    OUTPUT_SUBDIR w1formats
 )

@@ -21,5 +21,5 @@ w1_add_doctest_suite(p1ll_unit_tests
         ${W1_SOURCE_DIR}/src
         ${W1_SOURCE_DIR}/src/third_party
     LIBS p1ll_core
-    OUTPUT_SUBDIR test/p1ll/core
+    OUTPUT_SUBDIR p1ll/core
 )
