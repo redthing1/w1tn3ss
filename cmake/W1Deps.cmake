@@ -184,6 +184,7 @@ function(w1_dep_qbdi)
     w1_set_cache_default(QBDI_CCACHE BOOL ON "Enable QBDI ccache")
     w1_set_cache_default(QBDI_DISABLE_AVX BOOL OFF "Disable AVX in QBDI")
     w1_set_cache_default(QBDI_ASAN BOOL OFF "Enable QBDI ASAN")
+    w1_set_cache_default(QBDI_INCLUDE_DOCS BOOL OFF "Enable QBDI docs")
 
     FetchContent_Declare(qbdi SOURCE_DIR "${W1_SOURCE_DIR}/src/third_party/qbdi")
     FetchContent_MakeAvailable(qbdi)
