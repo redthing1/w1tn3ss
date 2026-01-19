@@ -6,11 +6,24 @@ namespace {
 
 constexpr int k_sigtrap = 5;
 
+gdbstub::stop_reason make_stop_reason(
+    gdbstub::stop_kind kind,
+    int signal,
+    uint64_t addr,
+    uint64_t thread_id
+) {
+  gdbstub::stop_reason stop{};
+  stop.kind = kind;
+  stop.signal = signal;
+  stop.addr = addr;
+  stop.thread_id = thread_id;
+  return stop;
+}
+
 stepper_result make_signal_result(uint64_t thread_id) {
   stepper_result out{};
   out.resume.state = gdbstub::resume_result::state::stopped;
-  out.resume.stop = gdbstub::stop_reason{gdbstub::stop_kind::signal, k_sigtrap};
-  out.resume.stop.thread_id = thread_id;
+  out.resume.stop = make_stop_reason(gdbstub::stop_kind::signal, k_sigtrap, 0, thread_id);
   out.last_stop = out.resume.stop;
   return out;
 }
@@ -25,9 +38,7 @@ stepper_result make_replay_log_result(gdbstub::replay_log_boundary boundary, uin
 stepper_result make_break_result(uint64_t address, uint64_t thread_id) {
   stepper_result out{};
   out.resume.state = gdbstub::resume_result::state::stopped;
-  out.resume.stop = gdbstub::stop_reason{gdbstub::stop_kind::sw_break, k_sigtrap};
-  out.resume.stop.addr = address;
-  out.resume.stop.thread_id = thread_id;
+  out.resume.stop = make_stop_reason(gdbstub::stop_kind::sw_break, k_sigtrap, address, thread_id);
   out.last_stop = out.resume.stop;
   return out;
 }
