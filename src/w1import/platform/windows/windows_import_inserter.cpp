@@ -97,15 +97,16 @@ result insert_library_import(const config& cfg) {
     // add library import
     if (!already_imported) {
       log.trc("adding dll import", redlog::field("dll", cfg.library_path));
-      pe->add_library(cfg.library_path);
+      pe->add_import(cfg.library_path);
 
       log.dbg("dll import added successfully", redlog::field("dll", cfg.library_path));
     }
 
     // write modified binary
     log.trc("writing modified pe binary", redlog::field("output", final_binary_path));
-    LIEF::PE::Builder builder(*pe);
-    builder.write(final_binary_path);
+    LIEF::PE::Builder::config_t builder_config{};
+    builder_config.imports = true;
+    pe->write(final_binary_path, builder_config);
 
     log.inf(
         "successfully added dll import", redlog::field("dll", cfg.library_path),
@@ -114,11 +115,6 @@ result insert_library_import(const config& cfg) {
 
     return result{.code = error_code::success, .error_message = "library import inserted successfully"};
 
-  } catch (const LIEF::exception& e) {
-    log.error("lief error processing pe binary", redlog::field("error", e.what()));
-    return result{
-        .code = error_code::invalid_binary_format, .error_message = std::string("LIEF PE processing error: ") + e.what()
-    };
   } catch (const std::exception& e) {
     log.error("error processing pe binary", redlog::field("error", e.what()));
     return result{
