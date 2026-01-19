@@ -168,14 +168,20 @@ bool trace_reader::read_header() {
   }
 
   uint16_t version = 0;
-  uint16_t arch = 0;
-  uint32_t pointer_size = 0;
+  uint16_t arch_family = 0;
+  uint16_t arch_mode = 0;
+  uint8_t arch_order = 0;
+  uint8_t reserved = 0;
+  uint32_t arch_pointer_bits = 0;
+  uint32_t arch_flags = 0;
   uint64_t flags = 0;
   uint32_t compression = 0;
   uint32_t chunk_size = 0;
 
-  if (!read_stream_u16(stream_, version) || !read_stream_u16(stream_, arch) ||
-      !read_stream_u32(stream_, pointer_size) || !read_stream_u64(stream_, flags) ||
+  if (!read_stream_u16(stream_, version) || !read_stream_u16(stream_, arch_family) ||
+      !read_stream_u16(stream_, arch_mode) || !read_stream_bytes(&arch_order, sizeof(arch_order)) ||
+      !read_stream_bytes(&reserved, sizeof(reserved)) || !read_stream_u32(stream_, arch_pointer_bits) ||
+      !read_stream_u32(stream_, arch_flags) || !read_stream_u64(stream_, flags) ||
       !read_stream_u32(stream_, compression) || !read_stream_u32(stream_, chunk_size)) {
     error_ = "truncated trace header fields";
     return false;
@@ -187,8 +193,11 @@ bool trace_reader::read_header() {
   }
 
   header_.version = version;
-  header_.architecture = static_cast<trace_arch>(arch);
-  header_.pointer_size = pointer_size;
+  header_.arch.arch_family = static_cast<w1::arch::family>(arch_family);
+  header_.arch.arch_mode = static_cast<w1::arch::mode>(arch_mode);
+  header_.arch.arch_byte_order = static_cast<w1::arch::byte_order>(arch_order);
+  header_.arch.pointer_bits = arch_pointer_bits;
+  header_.arch.flags = arch_flags;
   header_.flags = flags;
   header_.compression = static_cast<trace_compression>(compression);
   header_.chunk_size = chunk_size;

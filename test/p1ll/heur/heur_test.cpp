@@ -6,11 +6,13 @@
 using p1ll::engine::platform::platform_key;
 using p1ll::heur::code_signature;
 using p1ll::heur::policy;
-using w1::asmr::arch;
-using w1::asmr::context;
+using w1::asmr::asm_context;
+using w1::asmr::parse_arch_spec;
 
 TEST_CASE("p1ll heuristic signature masks x64 immediates") {
-  auto ctx = context::for_arch(arch::x64);
+  auto spec = parse_arch_spec("x64");
+  REQUIRE(spec.ok());
+  auto ctx = asm_context::for_arch(spec.value);
   REQUIRE(ctx.ok());
 
   auto bytes = ctx.value.assemble("mov eax, 0x11223344; ret", 0x4000);
@@ -24,7 +26,9 @@ TEST_CASE("p1ll heuristic signature masks x64 immediates") {
 }
 
 TEST_CASE("p1ll heuristic strict policy keeps x64 immediates") {
-  auto ctx = context::for_arch(arch::x64);
+  auto spec = parse_arch_spec("x64");
+  REQUIRE(spec.ok());
+  auto ctx = asm_context::for_arch(spec.value);
   REQUIRE(ctx.ok());
 
   auto bytes = ctx.value.assemble("mov eax, 0x11223344; ret", 0x5000);
@@ -37,7 +41,9 @@ TEST_CASE("p1ll heuristic strict policy keeps x64 immediates") {
 }
 
 TEST_CASE("p1ll heuristic signature masks arm64 immediates") {
-  auto ctx = context::for_arch(arch::arm64);
+  auto spec = parse_arch_spec("arm64");
+  REQUIRE(spec.ok());
+  auto ctx = asm_context::for_arch(spec.value);
   REQUIRE(ctx.ok());
 
   auto bytes = ctx.value.assemble("mov x0, #0x1234; ret", 0x6000);

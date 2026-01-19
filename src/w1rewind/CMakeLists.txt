@@ -16,7 +16,7 @@ w1_add_static_library(w1rewind_record
 add_library(w1rewind::record ALIAS w1rewind_record)
 add_library(w1::rewind::record ALIAS w1rewind_record)
 
-target_link_libraries(w1rewind_record PUBLIC w1rewind_format redlog::redlog w1::zstd)
+target_link_libraries(w1rewind_record PUBLIC w1base w1rewind_format redlog::redlog w1::zstd)
 
 w1_add_static_library(w1rewind_replay
     replay/trace_reader.cpp
@@ -33,4 +33,4 @@ w1_add_static_library(w1rewind_replay
 add_library(w1rewind::replay ALIAS w1rewind_replay)
 add_library(w1::rewind::replay ALIAS w1rewind_replay)
 
-target_link_libraries(w1rewind_replay PUBLIC w1rewind_format redlog::redlog w1::zstd)
+target_link_libraries(w1rewind_replay PUBLIC w1base w1rewind_format redlog::redlog w1::zstd)

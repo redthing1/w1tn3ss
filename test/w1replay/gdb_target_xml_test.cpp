@@ -22,9 +22,9 @@ bool xml_has_reg(const std::string& xml, const std::string& name, size_t regnum)
 
 TEST_CASE("gdb target xml encodes architecture and regnums") {
   std::vector<std::string> regs = {"x0", "x1", "lr", "sp", "pc", "nzcv"};
-  auto target = w1::rewind::test_helpers::make_target_info(w1::rewind::trace_arch::aarch64, 8);
-  auto specs = w1::rewind::test_helpers::make_register_specs(regs, w1::rewind::trace_arch::aarch64, 8);
-  auto layout = w1replay::gdb::build_register_layout(target, specs);
+  auto arch = w1::rewind::test_helpers::parse_arch_or_fail("arm64");
+  auto specs = w1::rewind::test_helpers::make_register_specs(regs, arch);
+  auto layout = w1replay::gdb::build_register_layout(arch, specs);
 
   auto xml = w1replay::gdb::build_target_xml(layout);
   CHECK(xml.find("<architecture>aarch64</architecture>") != std::string::npos);

@@ -27,16 +27,15 @@ TEST_CASE("gdb adapter reads recorded memory bytes") {
   REQUIRE(writer);
   REQUIRE(writer->open());
 
+  auto arch = parse_arch_or_fail("arm64");
   w1::rewind::trace_header header{};
-  header.architecture = w1::rewind::trace_arch::aarch64;
-  header.pointer_size = 8;
+  header.arch = arch;
   header.flags = w1::rewind::trace_flag_instructions | w1::rewind::trace_flag_memory_access |
                  w1::rewind::trace_flag_memory_values;
   REQUIRE(writer->write_header(header));
 
   std::vector<std::string> registers = {"pc", "sp"};
-  write_target_info(*writer, w1::rewind::trace_arch::aarch64, 8);
-  write_register_specs(*writer, registers, w1::rewind::trace_arch::aarch64, 8);
+  write_basic_metadata(*writer, arch, registers);
   write_module_table(*writer, 1, 0x1000);
   write_thread_start(*writer, 1, "thread1");
   write_instruction(*writer, 1, 0, 0x1000 + 0x10);
@@ -88,15 +87,14 @@ TEST_CASE("gdb adapter reads module bytes when memory missing") {
   REQUIRE(writer);
   REQUIRE(writer->open());
 
+  auto arch = parse_arch_or_fail("arm64");
   w1::rewind::trace_header header{};
-  header.architecture = w1::rewind::trace_arch::aarch64;
-  header.pointer_size = 8;
+  header.arch = arch;
   header.flags = w1::rewind::trace_flag_instructions;
   REQUIRE(writer->write_header(header));
 
   std::vector<std::string> registers = {"pc"};
-  write_target_info(*writer, w1::rewind::trace_arch::aarch64, 8);
-  write_register_specs(*writer, registers, w1::rewind::trace_arch::aarch64, 8);
+  write_basic_metadata(*writer, arch, registers);
   write_module_table(*writer, 1, 0x1000);
   write_thread_start(*writer, 1, "thread1");
   write_instruction(*writer, 1, 0, 0x1000 + 0x10);
@@ -140,16 +138,15 @@ TEST_CASE("gdb adapter prefers recorded memory over module bytes") {
   REQUIRE(writer);
   REQUIRE(writer->open());
 
+  auto arch = parse_arch_or_fail("arm64");
   w1::rewind::trace_header header{};
-  header.architecture = w1::rewind::trace_arch::aarch64;
-  header.pointer_size = 8;
+  header.arch = arch;
   header.flags = w1::rewind::trace_flag_instructions | w1::rewind::trace_flag_memory_access |
                  w1::rewind::trace_flag_memory_values;
   REQUIRE(writer->write_header(header));
 
   std::vector<std::string> registers = {"pc", "sp"};
-  write_target_info(*writer, w1::rewind::trace_arch::aarch64, 8);
-  write_register_specs(*writer, registers, w1::rewind::trace_arch::aarch64, 8);
+  write_basic_metadata(*writer, arch, registers);
   write_module_table(*writer, 1, 0x1000);
   write_thread_start(*writer, 1, "thread1");
   write_instruction(*writer, 1, 0, 0x1000 + 0x10);

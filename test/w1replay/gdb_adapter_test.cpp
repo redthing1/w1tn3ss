@@ -15,8 +15,7 @@ namespace {
 
 std::filesystem::path write_trace(
     const char* name,
-    w1::rewind::trace_arch arch,
-    uint32_t pointer_size,
+    const w1::arch::arch_spec& arch,
     std::vector<std::string> registers,
     uint64_t module_offset,
     uint64_t module_base = 0x1000
@@ -35,13 +34,11 @@ std::filesystem::path write_trace(
   REQUIRE(writer->open());
 
   w1::rewind::trace_header header{};
-  header.architecture = arch;
-  header.pointer_size = pointer_size;
+  header.arch = arch;
   header.flags = w1::rewind::trace_flag_instructions;
   REQUIRE(writer->write_header(header));
 
-  write_target_info(*writer, arch, pointer_size);
-  write_register_specs(*writer, registers, arch, pointer_size);
+  write_basic_metadata(*writer, arch, registers);
   write_module_table(*writer, 1, module_base);
   write_thread_start(*writer, 1, "thread1");
   write_instruction(*writer, 1, 0, module_base + module_offset);
@@ -62,8 +59,7 @@ bool has_reg_bitsize(const std::string& xml, const std::string& name, uint32_t b
 TEST_CASE("w1replay gdb adapter builds x86_64 target xml and pc") {
   auto trace_path = write_trace(
       "w1replay_gdb_x86_64.trace",
-      w1::rewind::trace_arch::x86_64,
-      8,
+      w1::rewind::test_helpers::parse_arch_or_fail("x86_64"),
       {"rax", "rflags", "fs", "gs", "rip", "rsp"},
       0x1234
   );
@@ -88,8 +84,7 @@ TEST_CASE("w1replay gdb adapter builds x86_64 target xml and pc") {
 TEST_CASE("w1replay gdb adapter encodes arm64 register sizes") {
   auto trace_path = write_trace(
       "w1replay_gdb_arm64.trace",
-      w1::rewind::trace_arch::aarch64,
-      8,
+      w1::rewind::test_helpers::parse_arch_or_fail("arm64"),
       {"x0", "sp", "pc", "nzcv"},
       0x2000
   );

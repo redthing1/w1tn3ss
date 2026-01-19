@@ -45,12 +45,11 @@ TEST_CASE("w1rewind trace index builds anchors for instruction flow") {
   REQUIRE(writer->open());
 
   w1::rewind::trace_header header{};
-  header.architecture = w1::rewind::detect_trace_arch();
-  header.pointer_size = w1::rewind::detect_pointer_size();
+  header.arch = w1::arch::detect_host_arch_spec();
   header.flags = w1::rewind::trace_flag_instructions;
   REQUIRE(writer->write_header(header));
 
-  write_basic_metadata(*writer, header.architecture, header.pointer_size, minimal_registers(header.architecture));
+  write_basic_metadata(*writer, header.arch, minimal_registers(header.arch));
   w1::rewind::thread_start_record start1{};
   start1.thread_id = 1;
   start1.name = "thread1";

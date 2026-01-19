@@ -23,13 +23,13 @@ TEST_CASE("w1rewind replay cursor steps through instruction flow") {
   REQUIRE(writer);
   REQUIRE(writer->open());
 
+  auto arch = parse_arch_or_fail("x86_64");
   w1::rewind::trace_header header{};
-  header.architecture = w1::rewind::detect_trace_arch();
-  header.pointer_size = w1::rewind::detect_pointer_size();
+  header.arch = arch;
   header.flags = w1::rewind::trace_flag_instructions;
   REQUIRE(writer->write_header(header));
 
-  write_basic_metadata(*writer, header.architecture, header.pointer_size, minimal_registers(header.architecture));
+  write_basic_metadata(*writer, header.arch, minimal_registers(header.arch));
   write_module_table(*writer, 1, 0x1000);
   write_thread_start(*writer, 1, "thread1");
   write_thread_start(*writer, 2, "thread2");
@@ -84,13 +84,13 @@ TEST_CASE("w1rewind replay cursor resolves block flow addresses") {
   REQUIRE(writer);
   REQUIRE(writer->open());
 
+  auto arch = parse_arch_or_fail("x86_64");
   w1::rewind::trace_header header{};
-  header.architecture = w1::rewind::detect_trace_arch();
-  header.pointer_size = w1::rewind::detect_pointer_size();
+  header.arch = arch;
   header.flags = w1::rewind::trace_flag_blocks;
   REQUIRE(writer->write_header(header));
 
-  write_basic_metadata(*writer, header.architecture, header.pointer_size, minimal_registers(header.architecture));
+  write_basic_metadata(*writer, header.arch, minimal_registers(header.arch));
   write_module_table(*writer, 7, 0x2000);
   write_thread_start(*writer, 1, "thread1");
 
@@ -139,13 +139,13 @@ TEST_CASE("w1rewind replay cursor handles module-less traces") {
   REQUIRE(writer);
   REQUIRE(writer->open());
 
+  auto arch = parse_arch_or_fail("x86_64");
   w1::rewind::trace_header header{};
-  header.architecture = w1::rewind::detect_trace_arch();
-  header.pointer_size = w1::rewind::detect_pointer_size();
+  header.arch = arch;
   header.flags = w1::rewind::trace_flag_instructions;
   REQUIRE(writer->write_header(header));
 
-  write_basic_metadata(*writer, header.architecture, header.pointer_size, minimal_registers(header.architecture));
+  write_basic_metadata(*writer, header.arch, minimal_registers(header.arch));
   write_thread_start(*writer, 1, "thread1");
   write_instruction(*writer, 1, 0, 0x4000);
   write_instruction(*writer, 1, 1, 0x4004);

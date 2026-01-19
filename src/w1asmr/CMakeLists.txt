@@ -9,5 +9,12 @@ else()
     )
     add_library(w1::asmr ALIAS w1asmr)
 
-    target_link_libraries(w1asmr PUBLIC w1::asmr_deps)
+    target_link_libraries(w1asmr PUBLIC w1base w1::asmr_deps)
+
+    if(DEFINED WITNESS_ASMR_CAPSTONE_INCLUDE_DIR)
+        target_include_directories(w1asmr PRIVATE ${WITNESS_ASMR_CAPSTONE_INCLUDE_DIR})
+    endif()
+    if(DEFINED WITNESS_ASMR_KEYSTONE_INCLUDE_DIR)
+        target_include_directories(w1asmr PRIVATE ${WITNESS_ASMR_KEYSTONE_INCLUDE_DIR})
+    endif()
 endif()

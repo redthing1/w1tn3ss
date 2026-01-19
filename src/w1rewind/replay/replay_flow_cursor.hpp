@@ -30,6 +30,8 @@ struct flow_step {
   uint64_t sequence = 0;
   uint32_t size = 0;
   uint64_t address = 0;
+  uint64_t block_id = 0;
+  uint32_t flags = 0;
   bool is_block = false;
 };
 

@@ -11,14 +11,13 @@
 
 namespace w1::rewind {
 
-constexpr uint16_t k_replay_checkpoint_version = 2;
-constexpr std::array<uint8_t, 8> k_replay_checkpoint_magic = {'W', '1', 'R', 'C', 'H', 'K', '2', '\0'};
+constexpr uint16_t k_replay_checkpoint_version = 3;
+constexpr std::array<uint8_t, 8> k_replay_checkpoint_magic = {'W', '1', 'R', 'C', 'H', 'K', '3', '\0'};
 
 struct replay_checkpoint_header {
   uint16_t version = k_replay_checkpoint_version;
   uint16_t trace_version = 0;
-  trace_arch architecture = trace_arch::unknown;
-  uint32_t pointer_size = 0;
+  w1::arch::arch_spec arch{};
   uint64_t trace_flags = 0;
   uint32_t register_count = 0;
   uint32_t stride = 0;

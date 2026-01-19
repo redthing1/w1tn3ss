@@ -29,17 +29,16 @@ TEST_CASE("w1rewind replay checkpoint restores register state") {
   REQUIRE(writer->open());
 
   w1::rewind::trace_header header{};
-  header.architecture = w1::rewind::detect_trace_arch();
-  header.pointer_size = w1::rewind::detect_pointer_size();
+  header.arch = parse_arch_or_fail("x86_64");
   header.flags = w1::rewind::trace_flag_instructions | w1::rewind::trace_flag_register_deltas;
   REQUIRE(writer->write_header(header));
 
-  write_target_info(*writer, header.architecture, header.pointer_size);
+  write_target_info(*writer);
   w1::rewind::register_spec_record specs{};
   w1::rewind::register_spec gpr{};
   gpr.reg_id = 0;
   gpr.name = "r0";
-  gpr.bits = static_cast<uint16_t>(header.pointer_size * 8);
+  gpr.bits = static_cast<uint16_t>(header.arch.pointer_bits);
   gpr.gdb_name = "r0";
   gpr.reg_class = w1::rewind::register_class::gpr;
   gpr.value_kind = w1::rewind::register_value_kind::u64;

@@ -40,15 +40,17 @@ bool write_sample_trace(const std::string& path, bool include_modules, bool incl
 
   w1::rewind::trace_builder builder(std::move(builder_config));
 
+  w1::arch::arch_spec arch{};
+  std::string arch_error;
+  if (!w1::arch::parse_arch_spec("x86_64", arch, arch_error)) {
+    std::cerr << "failed to parse arch spec: " << arch_error << "\n";
+    return false;
+  }
+
   w1::rewind::target_info_record target{};
-  target.arch_id = "x86_64";
-  target.pointer_bits = 64;
-  target.endianness = w1::rewind::trace_endianness::little;
   target.os = "test";
   target.abi = "test";
   target.cpu = "test";
-  target.gdb_arch = "i386:x86-64";
-  target.gdb_feature = "org.gnu.gdb.i386.core";
 
   std::vector<w1::rewind::register_spec> regs;
   regs.push_back(w1::rewind::register_spec{
@@ -90,7 +92,7 @@ bool write_sample_trace(const std::string& path, bool include_modules, bool incl
     });
   }
 
-  if (!builder.begin_trace(target, regs)) {
+  if (!builder.begin_trace(arch, target, regs)) {
     std::cerr << "failed to begin trace: " << builder.error() << "\n";
     return false;
   }
@@ -201,8 +203,7 @@ int run_test() {
   while (reader.read_next(record)) {
     if (std::holds_alternative<w1::rewind::target_info_record>(record)) {
       const auto& info = std::get<w1::rewind::target_info_record>(record);
-      if (info.arch_id != "x86_64" || info.pointer_bits != 64 ||
-          info.endianness != w1::rewind::trace_endianness::little) {
+      if (info.os != "test" || info.abi != "test" || info.cpu != "test") {
         std::cerr << "target info mismatch\n";
         return 1;
       }
@@ -225,6 +226,13 @@ int run_test() {
 
   if (!reader.error().empty()) {
     std::cerr << "trace reader error: " << reader.error() << "\n";
+    return 1;
+  }
+
+  const auto& header = reader.header();
+  if (header.arch.arch_mode != w1::arch::mode::x86_64 || header.arch.pointer_bits != 64 ||
+      header.arch.arch_byte_order != w1::arch::byte_order::little) {
+    std::cerr << "trace header arch mismatch\n";
     return 1;
   }
 

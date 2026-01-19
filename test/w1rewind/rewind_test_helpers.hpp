@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "doctest/doctest.hpp"
@@ -16,51 +17,11 @@ inline std::filesystem::path temp_path(const char* name) {
   return std::filesystem::temp_directory_path() / name;
 }
 
-inline std::string arch_id_for_trace(trace_arch arch) {
-  switch (arch) {
-  case trace_arch::x86_64:
-    return "x86_64";
-  case trace_arch::x86:
-    return "x86";
-  case trace_arch::aarch64:
-    return "aarch64";
-  case trace_arch::arm:
-    return "arm";
-  default:
-    break;
-  }
-  return "unknown";
-}
-
-inline std::string gdb_arch_for_trace(trace_arch arch) {
-  switch (arch) {
-  case trace_arch::x86_64:
-    return "i386:x86-64";
-  case trace_arch::x86:
-    return "i386";
-  case trace_arch::aarch64:
-    return "aarch64";
-  case trace_arch::arm:
-    return "arm";
-  default:
-    break;
-  }
-  return {};
-}
-
-inline std::string gdb_feature_for_trace(trace_arch arch) {
-  switch (arch) {
-  case trace_arch::x86_64:
-  case trace_arch::x86:
-    return "org.gnu.gdb.i386.core";
-  case trace_arch::aarch64:
-    return "org.gnu.gdb.aarch64.core";
-  case trace_arch::arm:
-    return "org.gnu.gdb.arm.core";
-  default:
-    break;
-  }
-  return "org.w1tn3ss.rewind";
+inline w1::arch::arch_spec parse_arch_or_fail(std::string_view text) {
+  w1::arch::arch_spec spec{};
+  std::string error;
+  REQUIRE(w1::arch::parse_arch_spec(text, spec, error));
+  return spec;
 }
 
 inline bool is_pc_name(const std::string& name) {
@@ -85,24 +46,19 @@ inline std::string gdb_name_for_register(const std::string& name) {
   return name;
 }
 
-inline target_info_record make_target_info(trace_arch arch, uint32_t pointer_size) {
+inline target_info_record make_target_info() {
   target_info_record target{};
-  target.arch_id = arch_id_for_trace(arch);
-  target.pointer_bits = pointer_size * 8;
-  target.endianness = trace_endianness::little;
   target.os = "test";
   target.abi = "test";
   target.cpu = "test";
-  target.gdb_arch = gdb_arch_for_trace(arch);
-  target.gdb_feature = gdb_feature_for_trace(arch);
   return target;
 }
 
 inline std::vector<register_spec> make_register_specs(
     const std::vector<std::string>& names,
-    trace_arch arch,
-    uint32_t pointer_size
+    const w1::arch::arch_spec& arch
 ) {
+  uint32_t pointer_size = arch.pointer_bits == 0 ? 0 : arch.pointer_bits / 8;
   std::vector<register_spec> specs;
   specs.reserve(names.size());
   for (size_t i = 0; i < names.size(); ++i) {
@@ -128,14 +84,15 @@ inline std::vector<register_spec> make_register_specs(
   return specs;
 }
 
-inline std::vector<std::string> minimal_registers(trace_arch arch) {
-  switch (arch) {
-  case trace_arch::x86_64:
+inline std::vector<std::string> minimal_registers(const w1::arch::arch_spec& arch) {
+  switch (arch.arch_mode) {
+  case w1::arch::mode::x86_64:
     return {"rip"};
-  case trace_arch::x86:
+  case w1::arch::mode::x86_32:
     return {"eip"};
-  case trace_arch::aarch64:
-  case trace_arch::arm:
+  case w1::arch::mode::aarch64:
+  case w1::arch::mode::arm:
+  case w1::arch::mode::thumb:
     return {"pc"};
   default:
     break;
@@ -143,30 +100,28 @@ inline std::vector<std::string> minimal_registers(trace_arch arch) {
   return {"pc"};
 }
 
-inline void write_target_info(trace_writer& writer, trace_arch arch, uint32_t pointer_size) {
-  auto target = make_target_info(arch, pointer_size);
+inline void write_target_info(trace_writer& writer) {
+  auto target = make_target_info();
   REQUIRE(writer.write_target_info(target));
 }
 
 inline void write_register_specs(
     trace_writer& writer,
     const std::vector<std::string>& names,
-    trace_arch arch,
-    uint32_t pointer_size
+    const w1::arch::arch_spec& arch
 ) {
   register_spec_record record{};
-  record.registers = make_register_specs(names, arch, pointer_size);
+  record.registers = make_register_specs(names, arch);
   REQUIRE(writer.write_register_spec(record));
 }
 
 inline void write_basic_metadata(
     trace_writer& writer,
-    trace_arch arch,
-    uint32_t pointer_size,
+    const w1::arch::arch_spec& arch,
     const std::vector<std::string>& names
 ) {
-  write_target_info(writer, arch, pointer_size);
-  write_register_specs(writer, names, arch, pointer_size);
+  write_target_info(writer);
+  write_register_specs(writer, names, arch);
 }
 
 inline void write_module_table(
@@ -204,12 +159,14 @@ inline void write_block_def(
     trace_writer& writer,
     uint64_t block_id,
     uint64_t address,
-    uint32_t size
+    uint32_t size,
+    uint32_t flags = 0
 ) {
   block_definition_record record{};
   record.block_id = block_id;
   record.address = address;
   record.size = size;
+  record.flags = flags;
   REQUIRE(writer.write_block_definition(record));
 }
 
@@ -225,14 +182,15 @@ inline void write_instruction(
     trace_writer& writer,
     uint64_t thread_id,
     uint64_t sequence,
-    uint64_t address
+    uint64_t address,
+    uint32_t flags = 0
 ) {
   instruction_record record{};
   record.sequence = sequence;
   record.thread_id = thread_id;
   record.address = address;
   record.size = 4;
-  record.flags = 0;
+  record.flags = flags;
   REQUIRE(writer.write_instruction(record));
 }
 

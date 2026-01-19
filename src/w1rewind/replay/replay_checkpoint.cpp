@@ -86,11 +86,17 @@ bool write_checkpoint_header(
   if (!write_stream_bytes(out, k_replay_checkpoint_magic.data(), k_replay_checkpoint_magic.size())) {
     return false;
   }
+  uint8_t arch_order = static_cast<uint8_t>(header.arch.arch_byte_order);
+  uint8_t reserved = 0;
   return write_stream_u16(out, header.version) && write_stream_u16(out, header.trace_version) &&
-         write_stream_u16(out, static_cast<uint16_t>(header.architecture)) &&
-         write_stream_u32(out, header.pointer_size) && write_stream_u64(out, header.trace_flags) &&
-         write_stream_u32(out, header.register_count) && write_stream_u32(out, header.stride) &&
-         write_stream_u32(out, thread_count) && write_stream_u32(out, entry_count);
+         write_stream_u16(out, static_cast<uint16_t>(header.arch.arch_family)) &&
+         write_stream_u16(out, static_cast<uint16_t>(header.arch.arch_mode)) &&
+         write_stream_bytes(out, &arch_order, sizeof(arch_order)) &&
+         write_stream_bytes(out, &reserved, sizeof(reserved)) &&
+         write_stream_u32(out, header.arch.pointer_bits) && write_stream_u32(out, header.arch.flags) &&
+         write_stream_u64(out, header.trace_flags) && write_stream_u32(out, header.register_count) &&
+         write_stream_u32(out, header.stride) && write_stream_u32(out, thread_count) &&
+         write_stream_u32(out, entry_count);
 }
 
 bool read_checkpoint_header(
@@ -107,15 +113,23 @@ bool read_checkpoint_header(
     return false;
   }
 
-  uint16_t arch = 0;
-  if (!read_stream_u16(in, header.version) || !read_stream_u16(in, header.trace_version) || !read_stream_u16(in, arch) ||
-      !read_stream_u32(in, header.pointer_size) || !read_stream_u64(in, header.trace_flags) ||
+  uint16_t arch_family = 0;
+  uint16_t arch_mode = 0;
+  uint8_t arch_order = 0;
+  uint8_t reserved = 0;
+  if (!read_stream_u16(in, header.version) || !read_stream_u16(in, header.trace_version) ||
+      !read_stream_u16(in, arch_family) || !read_stream_u16(in, arch_mode) ||
+      !read_stream_bytes(in, &arch_order, sizeof(arch_order)) ||
+      !read_stream_bytes(in, &reserved, sizeof(reserved)) || !read_stream_u32(in, header.arch.pointer_bits) ||
+      !read_stream_u32(in, header.arch.flags) || !read_stream_u64(in, header.trace_flags) ||
       !read_stream_u32(in, header.register_count) || !read_stream_u32(in, header.stride) ||
       !read_stream_u32(in, thread_count) || !read_stream_u32(in, entry_count)) {
     return false;
   }
 
-  header.architecture = static_cast<trace_arch>(arch);
+  header.arch.arch_family = static_cast<w1::arch::family>(arch_family);
+  header.arch.arch_mode = static_cast<w1::arch::mode>(arch_mode);
+  header.arch.arch_byte_order = static_cast<w1::arch::byte_order>(arch_order);
   return true;
 }
 
@@ -299,8 +313,7 @@ bool build_replay_checkpoint(
 
   replay_checkpoint_index index;
   index.header.trace_version = context.header.version;
-  index.header.architecture = context.header.architecture;
-  index.header.pointer_size = context.header.pointer_size;
+  index.header.arch = context.header.arch;
   index.header.trace_flags = context.header.flags;
   index.header.stride = config.stride;
 

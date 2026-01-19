@@ -199,8 +199,7 @@ bool replay_instruction_cursor::set_instruction_state(
   }
   replay_decoded_block decoded{};
   std::string decode_error;
-  if (!decoder_ ||
-      !decoder_->decode_block(flow_.context(), flow.address, flow.size, decoded, decode_error) ||
+  if (!decoder_ || !decoder_->decode_block(flow_.context(), flow, decoded, decode_error) ||
       decoded.instructions.empty()) {
     if (set_notice_on_failure) {
       std::string message = decode_error.empty() ? "block decode failed; using flow steps" : decode_error;

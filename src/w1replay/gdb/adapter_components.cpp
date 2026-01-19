@@ -7,6 +7,30 @@
 
 namespace w1replay::gdb {
 
+namespace {
+bool has_any_known_byte(
+    const std::vector<std::optional<uint8_t>>& recorded,
+    const std::vector<std::byte>& module_bytes,
+    std::span<const uint8_t> module_known,
+    size_t size
+) {
+  for (size_t i = 0; i < size && i < recorded.size(); ++i) {
+    if (recorded[i].has_value()) {
+      return true;
+    }
+  }
+  if (module_bytes.size() < size || module_known.size() < size) {
+    return false;
+  }
+  for (size_t i = 0; i < size; ++i) {
+    if (module_known[i]) {
+      return true;
+    }
+  }
+  return false;
+}
+} // namespace
+
 regs_component::regs_component(adapter_state& state) : state_(state) {}
 
 size_t regs_component::reg_size(int regno) const {
@@ -101,7 +125,14 @@ gdbstub::target_status mem_component::read_mem(uint64_t addr, std::span<std::byt
   auto module_read = state_.module_source_state.read_address_image(state_.context, addr, out.size());
 
   bool complete = merge_memory_bytes(recorded, module_read.bytes, module_read.known, out);
-  return complete ? gdbstub::target_status::ok : gdbstub::target_status::unsupported;
+  const bool any_known = has_any_known_byte(recorded, module_read.bytes, module_read.known, out.size());
+  if (complete || any_known) {
+    // lldb issues aligned reads that can extend beyond recorded snapshot windows
+    // return best-effort data when any bytes are known so the debugger keeps the
+    // valid portion instead of treating the whole read as unavailable
+    return gdbstub::target_status::ok;
+  }
+  return gdbstub::target_status::unsupported;
 }
 
 gdbstub::target_status mem_component::write_mem(uint64_t, std::span<const std::byte>) {
@@ -121,7 +152,13 @@ gdbstub::resume_result run_component::resume(const gdbstub::resume_request& requ
   if (!state_.session) {
     gdbstub::resume_result result{};
     result.state = gdbstub::resume_result::state::exited;
-    result.stop = gdbstub::stop_reason{gdbstub::stop_kind::exited, 0};
+    gdbstub::stop_reason stop{};
+    stop.kind = gdbstub::stop_kind::exited;
+    stop.exit_code = 0;
+    if (state_.active_thread_id != 0) {
+      stop.thread_id = state_.active_thread_id;
+    }
+    result.stop = stop;
     result.exit_code = 0;
     return result;
   }

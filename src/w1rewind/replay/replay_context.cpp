@@ -117,25 +117,17 @@ bool load_replay_context(const std::string& trace_path, replay_context& out, std
     error = "target info missing";
     return false;
   }
-  if (context.target_info->arch_id.empty()) {
-    error = "target arch_id missing";
+  if (context.header.arch.arch_family == w1::arch::family::unknown ||
+      context.header.arch.arch_mode == w1::arch::mode::unknown) {
+    error = "trace arch spec missing";
     return false;
   }
-  if (context.target_info->pointer_bits == 0) {
-    error = "target pointer_bits missing";
+  if (context.header.arch.pointer_bits == 0 || (context.header.arch.pointer_bits % 8) != 0) {
+    error = "trace pointer bits invalid";
     return false;
   }
-  if ((context.target_info->pointer_bits % 8) != 0) {
-    error = "target pointer_bits must be byte-aligned";
-    return false;
-  }
-  uint32_t pointer_size = context.target_info->pointer_bits / 8;
-  if (context.header.pointer_size != 0 && context.header.pointer_size != pointer_size) {
-    error = "pointer size mismatch";
-    return false;
-  }
-  if (context.target_info->endianness == trace_endianness::unknown) {
-    error = "target endianness missing";
+  if (context.header.arch.arch_byte_order == w1::arch::byte_order::unknown) {
+    error = "trace byte order missing";
     return false;
   }
   if (context.register_specs.empty()) {
@@ -205,7 +197,7 @@ bool load_replay_context(const std::string& trace_path, replay_context& out, std
   if (!context.register_names.empty()) {
     context.sp_reg_id = find_register_with_flag(context.register_specs, register_flag_sp);
     if (!context.sp_reg_id.has_value()) {
-      context.sp_reg_id = resolve_stack_reg_id(reader.header().architecture, context.register_names);
+      context.sp_reg_id = resolve_stack_reg_id(reader.header().arch, context.register_names);
     }
   }
 

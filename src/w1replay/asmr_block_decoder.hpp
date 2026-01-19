@@ -17,8 +17,7 @@ public:
 
   bool decode_block(
       const w1::rewind::replay_context& context,
-      uint64_t address,
-      uint32_t size,
+      const w1::rewind::flow_step& flow,
       w1::rewind::replay_decoded_block& out,
       std::string& error
   ) override;

@@ -99,6 +99,7 @@ private:
   redlog::logger log_ = redlog::get_logger("w1rewind.recorder");
   bool builder_ready_ = false;
   bool instruction_flow_ = false;
+  w1::arch::arch_spec arch_spec_{};
 
   std::vector<std::string> register_table_;
   std::vector<w1::rewind::register_spec> register_specs_;

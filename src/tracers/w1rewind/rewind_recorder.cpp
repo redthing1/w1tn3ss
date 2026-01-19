@@ -19,53 +19,6 @@ w1::rewind::module_perm module_perm_from_qbdi(uint32_t perms) {
   return out;
 }
 
-std::string arch_id_for_trace(w1::rewind::trace_arch arch) {
-  switch (arch) {
-  case w1::rewind::trace_arch::x86_64:
-    return "x86_64";
-  case w1::rewind::trace_arch::x86:
-    return "x86";
-  case w1::rewind::trace_arch::aarch64:
-    return "aarch64";
-  case w1::rewind::trace_arch::arm:
-    return "arm";
-  default:
-    break;
-  }
-  return "unknown";
-}
-
-std::string gdb_arch_for_trace(w1::rewind::trace_arch arch) {
-  switch (arch) {
-  case w1::rewind::trace_arch::x86_64:
-    return "i386:x86-64";
-  case w1::rewind::trace_arch::x86:
-    return "i386";
-  case w1::rewind::trace_arch::aarch64:
-    return "aarch64";
-  case w1::rewind::trace_arch::arm:
-    return "arm";
-  default:
-    break;
-  }
-  return {};
-}
-
-std::string gdb_feature_for_trace(w1::rewind::trace_arch arch) {
-  switch (arch) {
-  case w1::rewind::trace_arch::x86_64:
-  case w1::rewind::trace_arch::x86:
-    return "org.gnu.gdb.i386.core";
-  case w1::rewind::trace_arch::aarch64:
-    return "org.gnu.gdb.aarch64.core";
-  case w1::rewind::trace_arch::arm:
-    return "org.gnu.gdb.arm.core";
-  default:
-    break;
-  }
-  return "org.w1tn3ss.rewind";
-}
-
 std::string detect_os_id() {
 #if defined(_WIN32)
   return "windows";
@@ -97,9 +50,13 @@ w1::rewind::register_class register_class_for_name(const std::string& name) {
   return w1::rewind::register_class::gpr;
 }
 
-uint32_t register_bitsize_for_name(w1::rewind::trace_arch arch, const std::string& name, uint32_t pointer_size_bytes) {
+uint32_t register_bitsize_for_name(
+    const w1::arch::arch_spec& arch,
+    const std::string& name,
+    uint32_t pointer_size_bytes
+) {
   uint32_t pointer_bits = pointer_size_bytes * 8;
-  if (arch == w1::rewind::trace_arch::x86_64 || arch == w1::rewind::trace_arch::x86) {
+  if (arch.arch_mode == w1::arch::mode::x86_64 || arch.arch_mode == w1::arch::mode::x86_32) {
     if (name == "eflags" || name == "rflags") {
       return 32;
     }
@@ -107,12 +64,12 @@ uint32_t register_bitsize_for_name(w1::rewind::trace_arch arch, const std::strin
       return 16;
     }
   }
-  if (arch == w1::rewind::trace_arch::aarch64) {
+  if (arch.arch_mode == w1::arch::mode::aarch64) {
     if (name == "nzcv") {
       return 32;
     }
   }
-  if (arch == w1::rewind::trace_arch::arm) {
+  if (arch.arch_mode == w1::arch::mode::arm || arch.arch_mode == w1::arch::mode::thumb) {
     if (name == "cpsr") {
       return 32;
     }
@@ -120,8 +77,8 @@ uint32_t register_bitsize_for_name(w1::rewind::trace_arch arch, const std::strin
   return pointer_bits;
 }
 
-std::string gdb_name_for_register(const std::string& name, w1::rewind::trace_arch arch) {
-  if (arch == w1::rewind::trace_arch::aarch64 && name == "nzcv") {
+std::string gdb_name_for_register(const std::string& name, const w1::arch::arch_spec& arch) {
+  if (arch.arch_mode == w1::arch::mode::aarch64 && name == "nzcv") {
     return "cpsr";
   }
   return name;
@@ -184,8 +141,20 @@ void rewind_recorder::on_basic_block_entry(
     return;
   }
 
+  uint32_t flags = 0;
+#if defined(QBDI_ARCH_ARM)
+  if (arch_spec_.arch_family == w1::arch::family::arm &&
+      (arch_spec_.arch_mode == w1::arch::mode::arm || arch_spec_.arch_mode == w1::arch::mode::thumb) && gpr) {
+    bool thumb = ((gpr->cpsr >> 5) & 1U) != 0;
+    flags |= w1::rewind::trace_block_flag_mode_valid;
+    if (thumb) {
+      flags |= w1::rewind::trace_block_flag_thumb;
+    }
+  }
+#endif
+
   uint64_t sequence = 0;
-  if (!builder_->emit_block(thread.thread_id, address, size, sequence)) {
+  if (!builder_->emit_block(thread.thread_id, address, size, flags, sequence)) {
     return;
   }
 
@@ -246,6 +215,16 @@ void rewind_recorder::on_instruction_post(
   pending.address = address;
   pending.size = size;
   pending.flags = 0;
+#if defined(QBDI_ARCH_ARM)
+  if (arch_spec_.arch_family == w1::arch::family::arm &&
+      (arch_spec_.arch_mode == w1::arch::mode::arm || arch_spec_.arch_mode == w1::arch::mode::thumb) && gpr) {
+    bool thumb = ((gpr->cpsr >> 5) & 1U) != 0;
+    pending.flags |= w1::rewind::trace_inst_flag_mode_valid;
+    if (thumb) {
+      pending.flags |= w1::rewind::trace_inst_flag_thumb;
+    }
+  }
+#endif
 
   bool need_registers = config_.record_register_deltas || config_.snapshot_interval > 0 || config_.stack_snapshot_bytes > 0;
   w1::util::register_state regs;
@@ -337,6 +316,12 @@ bool rewind_recorder::ensure_builder_ready(w1::trace_context& ctx, const QBDI::G
     return false;
   }
 
+  arch_spec_ = w1::arch::detect_host_arch_spec();
+  if (arch_spec_.arch_family == w1::arch::family::unknown || arch_spec_.arch_mode == w1::arch::mode::unknown) {
+    log_.err("unsupported host architecture");
+    return false;
+  }
+
   w1::util::register_state regs = w1::util::register_capturer::capture(gpr);
   update_register_table(regs);
   if (register_specs_.empty()) {
@@ -346,17 +331,11 @@ bool rewind_recorder::ensure_builder_ready(w1::trace_context& ctx, const QBDI::G
   ctx.modules().refresh();
   update_module_table(ctx.modules());
 
-  const auto arch = w1::rewind::detect_trace_arch();
   w1::rewind::target_info_record target{};
-  target.arch_id = arch_id_for_trace(arch);
-  target.pointer_bits = w1::rewind::detect_pointer_size() * 8;
-  target.endianness = w1::rewind::detect_trace_endianness();
   target.os = detect_os_id();
   target.abi.clear();
   target.cpu.clear();
-  target.gdb_arch = gdb_arch_for_trace(arch);
-  target.gdb_feature = gdb_feature_for_trace(arch);
-  if (!builder_->begin_trace(target, register_specs_)) {
+  if (!builder_->begin_trace(arch_spec_, target, register_specs_)) {
     log_.err("failed to begin trace", redlog::field("error", builder_->error()));
     return false;
   }
@@ -543,8 +522,8 @@ void rewind_recorder::update_register_table(const w1::util::register_state& regs
   register_ids_.clear();
   register_specs_.clear();
   register_specs_.reserve(register_table_.size());
-  const auto arch = w1::rewind::detect_trace_arch();
-  const uint32_t pointer_size = w1::rewind::detect_pointer_size();
+  const auto& arch = arch_spec_;
+  const uint32_t pointer_size = arch.pointer_bits == 0 ? static_cast<uint32_t>(sizeof(void*)) : arch.pointer_bits / 8;
   for (size_t i = 0; i < register_table_.size(); ++i) {
     const auto& name = register_table_[i];
     auto reg_id = static_cast<uint16_t>(i);

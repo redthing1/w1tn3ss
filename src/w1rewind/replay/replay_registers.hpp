@@ -18,14 +18,18 @@ inline std::optional<uint16_t> find_register_id(const std::vector<std::string>& 
   return std::nullopt;
 }
 
-inline std::optional<uint16_t> resolve_stack_reg_id(trace_arch arch, const std::vector<std::string>& names) {
-  switch (arch) {
-  case trace_arch::x86_64:
+inline std::optional<uint16_t> resolve_stack_reg_id(
+    const w1::arch::arch_spec& arch,
+    const std::vector<std::string>& names
+) {
+  switch (arch.arch_mode) {
+  case w1::arch::mode::x86_64:
     return find_register_id(names, "rsp");
-  case trace_arch::x86:
+  case w1::arch::mode::x86_32:
     return find_register_id(names, "esp");
-  case trace_arch::aarch64:
-  case trace_arch::arm:
+  case w1::arch::mode::aarch64:
+  case w1::arch::mode::arm:
+  case w1::arch::mode::thumb:
     return find_register_id(names, "sp");
   default:
     break;
@@ -41,14 +45,18 @@ inline std::optional<uint16_t> resolve_stack_reg_id(trace_arch arch, const std::
   return find_register_id(names, "esp");
 }
 
-inline std::optional<uint16_t> resolve_pc_reg_id(trace_arch arch, const std::vector<std::string>& names) {
-  switch (arch) {
-  case trace_arch::x86_64:
+inline std::optional<uint16_t> resolve_pc_reg_id(
+    const w1::arch::arch_spec& arch,
+    const std::vector<std::string>& names
+) {
+  switch (arch.arch_mode) {
+  case w1::arch::mode::x86_64:
     return find_register_id(names, "rip");
-  case trace_arch::x86:
+  case w1::arch::mode::x86_32:
     return find_register_id(names, "eip");
-  case trace_arch::aarch64:
-  case trace_arch::arm:
+  case w1::arch::mode::aarch64:
+  case w1::arch::mode::arm:
+  case w1::arch::mode::thumb:
     return find_register_id(names, "pc");
   default:
     break;
@@ -64,9 +72,13 @@ inline std::optional<uint16_t> resolve_pc_reg_id(trace_arch arch, const std::vec
   return find_register_id(names, "eip");
 }
 
-inline uint32_t register_bitsize(trace_arch arch, const std::string& name, uint32_t pointer_size_bytes) {
+inline uint32_t register_bitsize(
+    const w1::arch::arch_spec& arch,
+    const std::string& name,
+    uint32_t pointer_size_bytes
+) {
   uint32_t pointer_bits = pointer_size_bytes * 8;
-  if (arch == trace_arch::x86_64 || arch == trace_arch::x86) {
+  if (arch.arch_mode == w1::arch::mode::x86_64 || arch.arch_mode == w1::arch::mode::x86_32) {
     if (name == "eflags" || name == "rflags") {
       return 32;
     }
@@ -74,12 +86,12 @@ inline uint32_t register_bitsize(trace_arch arch, const std::string& name, uint3
       return 16;
     }
   }
-  if (arch == trace_arch::aarch64) {
+  if (arch.arch_mode == w1::arch::mode::aarch64) {
     if (name == "nzcv") {
       return 32;
     }
   }
-  if (arch == trace_arch::arm) {
+  if (arch.arch_mode == w1::arch::mode::arm || arch.arch_mode == w1::arch::mode::thumb) {
     if (name == "cpsr") {
       return 32;
     }
