@@ -139,6 +139,26 @@ after_fault:
 
 } // namespace
 
+#if defined(_WIN32)
+void run_fault_probe() {
+  EXCEPTION_POINTERS* info = nullptr;
+  __try {
+    trigger_fault();
+  } __except ((info = GetExceptionInformation()), EXCEPTION_EXECUTE_HANDLER) {
+#if defined(_M_X64)
+    if (info && info->ContextRecord) {
+      g_observed_pc = static_cast<uintptr_t>(info->ContextRecord->Rip);
+    }
+#elif defined(_M_ARM64)
+    if (info && info->ContextRecord) {
+      g_observed_pc = static_cast<uintptr_t>(info->ContextRecord->Pc);
+    }
+#endif
+    g_faulted = true;
+  }
+}
+#endif
+
 int main(int argc, char** argv) {
   instraware::args args = instraware::parse_args(argc, argv);
   instraware::result result;
@@ -150,17 +170,7 @@ int main(int argc, char** argv) {
 
 #if defined(_WIN32)
   bool have_expected = false;
-  __try {
-    trigger_fault();
-  } __except (EXCEPTION_EXECUTE_HANDLER) {
-    auto* info = GetExceptionInformation();
-#if defined(_M_X64)
-    g_observed_pc = static_cast<uintptr_t>(info->ContextRecord->Rip);
-#elif defined(_M_ARM64)
-    g_observed_pc = static_cast<uintptr_t>(info->ContextRecord->Pc);
-#endif
-    g_faulted = true;
-  }
+  run_fault_probe();
 
   result.iterations = 0;
   result.anomalies = 0;
