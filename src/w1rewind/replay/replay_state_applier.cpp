@@ -3,58 +3,30 @@
 namespace w1::rewind {
 
 bool replay_state_applier::apply_record(
-    const trace_record& record,
-    uint64_t active_thread_id,
-    bool track_registers,
-    bool track_memory,
-    replay_state& state
+    const trace_record& record, uint64_t active_thread_id, bool track_registers, bool track_memory, replay_state& state
 ) const {
   if (!(track_registers || track_memory) || active_thread_id == 0) {
     return true;
   }
 
   if (std::holds_alternative<register_delta_record>(record)) {
-    return apply_register_deltas(
-        std::get<register_delta_record>(record),
-        active_thread_id,
-        track_registers,
-        state
-    );
+    return apply_register_deltas(std::get<register_delta_record>(record), active_thread_id, track_registers, state);
   }
   if (std::holds_alternative<register_bytes_record>(record)) {
-    return apply_register_bytes(
-        std::get<register_bytes_record>(record),
-        active_thread_id,
-        track_registers,
-        state
-    );
+    return apply_register_bytes(std::get<register_bytes_record>(record), active_thread_id, track_registers, state);
   }
   if (std::holds_alternative<memory_access_record>(record)) {
-    return apply_memory_access(
-        std::get<memory_access_record>(record),
-        active_thread_id,
-        track_memory,
-        state
-    );
+    return apply_memory_access(std::get<memory_access_record>(record), active_thread_id, track_memory, state);
   }
   if (std::holds_alternative<snapshot_record>(record)) {
-    return apply_snapshot(
-        std::get<snapshot_record>(record),
-        active_thread_id,
-        track_registers,
-        track_memory,
-        state
-    );
+    return apply_snapshot(std::get<snapshot_record>(record), active_thread_id, track_registers, track_memory, state);
   }
 
   return true;
 }
 
 bool replay_state_applier::apply_register_deltas(
-    const register_delta_record& record,
-    uint64_t active_thread_id,
-    bool track_registers,
-    replay_state& state
+    const register_delta_record& record, uint64_t active_thread_id, bool track_registers, replay_state& state
 ) const {
   if (!track_registers) {
     return true;
@@ -67,10 +39,7 @@ bool replay_state_applier::apply_register_deltas(
 }
 
 bool replay_state_applier::apply_register_bytes(
-    const register_bytes_record& record,
-    uint64_t active_thread_id,
-    bool track_registers,
-    replay_state& state
+    const register_bytes_record& record, uint64_t active_thread_id, bool track_registers, replay_state& state
 ) const {
   if (!track_registers) {
     return true;
@@ -82,10 +51,7 @@ bool replay_state_applier::apply_register_bytes(
 }
 
 bool replay_state_applier::apply_memory_access(
-    const memory_access_record& record,
-    uint64_t active_thread_id,
-    bool track_memory,
-    replay_state& state
+    const memory_access_record& record, uint64_t active_thread_id, bool track_memory, replay_state& state
 ) const {
   if (!track_memory) {
     return true;
@@ -104,10 +70,7 @@ bool replay_state_applier::apply_memory_access(
 }
 
 bool replay_state_applier::apply_snapshot(
-    const snapshot_record& record,
-    uint64_t active_thread_id,
-    bool track_registers,
-    bool track_memory,
+    const snapshot_record& record, uint64_t active_thread_id, bool track_registers, bool track_memory,
     replay_state& state
 ) const {
   if (record.thread_id != active_thread_id) {

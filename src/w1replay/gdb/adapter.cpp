@@ -64,14 +64,8 @@ bool adapter::open() {
 
 gdbstub::target adapter::make_target() {
   return gdbstub::make_target(
-      *regs_component_,
-      *mem_component_,
-      *run_component_,
-      *breakpoints_component_,
-      *threads_component_,
-      *memory_layout_component_,
-      *offsets_component_,
-      *register_info_component_
+      *regs_component_, *mem_component_, *run_component_, *breakpoints_component_, *threads_component_,
+      *memory_layout_component_, *offsets_component_, *register_info_component_
   );
 }
 

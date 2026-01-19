@@ -42,9 +42,7 @@ inline bool decode_register_table(trace_buffer_reader& reader, register_table_re
   return true;
 }
 
-inline bool encode_target_info(
-    const target_info_record& record, trace_buffer_writer& writer, redlog::logger& log
-) {
+inline bool encode_target_info(const target_info_record& record, trace_buffer_writer& writer, redlog::logger& log) {
   if (!writer.write_string(record.os)) {
     log.err("trace string too long", redlog::field("length", record.os.size()));
     return false;
@@ -67,9 +65,7 @@ inline bool decode_target_info(trace_buffer_reader& reader, target_info_record& 
   return true;
 }
 
-inline bool encode_register_spec(
-    const register_spec_record& record, trace_buffer_writer& writer, redlog::logger& log
-) {
+inline bool encode_register_spec(const register_spec_record& record, trace_buffer_writer& writer, redlog::logger& log) {
   if (record.registers.size() > std::numeric_limits<uint16_t>::max()) {
     log.err("register spec list too large", redlog::field("count", record.registers.size()));
     return false;
@@ -326,9 +322,7 @@ inline bool decode_register_bytes(trace_buffer_reader& reader, register_bytes_re
   return true;
 }
 
-inline bool encode_memory_access(
-    const memory_access_record& record, trace_buffer_writer& writer, redlog::logger& log
-) {
+inline bool encode_memory_access(const memory_access_record& record, trace_buffer_writer& writer, redlog::logger& log) {
   if (record.data.size() > std::numeric_limits<uint32_t>::max()) {
     log.err("memory record data too large", redlog::field("size", record.data.size()));
     return false;
@@ -362,7 +356,7 @@ inline bool decode_memory_access(trace_buffer_reader& reader, memory_access_reco
   out.kind = static_cast<memory_access_kind>(kind);
   out.value_known = value_known != 0;
   out.value_truncated = value_truncated != 0;
-  (void)reserved;
+  (void) reserved;
   if (data_size > 0) {
     if (!reader.read_bytes(out.data, data_size)) {
       return false;

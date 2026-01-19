@@ -38,8 +38,8 @@ int threads(const threads_options& options) {
     } else {
       std::cout << " name=unknown";
     }
-    std::cout << " started=" << (info.started ? "true" : "false")
-              << " ended=" << (info.ended ? "true" : "false") << std::endl;
+    std::cout << " started=" << (info.started ? "true" : "false") << " ended=" << (info.ended ? "true" : "false")
+              << std::endl;
   }
 
   return 0;

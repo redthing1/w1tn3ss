@@ -11,8 +11,7 @@ namespace w1replay::gdb {
 
 std::vector<gdbstub::memory_region> build_memory_map(
     const std::vector<w1::rewind::module_record>& modules,
-    const std::vector<w1::rewind::memory_region_record>& memory_map,
-    const w1::rewind::replay_state* state
+    const std::vector<w1::rewind::memory_region_record>& memory_map, const w1::rewind::replay_state* state
 );
 
 } // namespace w1replay::gdb

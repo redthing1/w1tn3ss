@@ -466,7 +466,9 @@ inline void setup_p1ll_bindings(sol::state& lua, engine::session& session) {
         auto results = session.scan(pattern, options);
         if (!results.ok() || results.value.empty()) {
           if (!results.ok()) {
-            log.err("search failed", redlog::field("pattern", pattern), redlog::field("error", results.status_info.message));
+            log.err(
+                "search failed", redlog::field("pattern", pattern), redlog::field("error", results.status_info.message)
+            );
           } else {
             log.dbg("search returned no matches", redlog::field("pattern", pattern));
           }
@@ -499,7 +501,9 @@ inline void setup_p1ll_bindings(sol::state& lua, engine::session& session) {
         }
         auto results = session.scan(pattern, options);
         if (!results.ok()) {
-          log.err("search failed", redlog::field("pattern", pattern), redlog::field("error", results.status_info.message));
+          log.err(
+              "search failed", redlog::field("pattern", pattern), redlog::field("error", results.status_info.message)
+          );
           return output;
         }
         for (const auto& result : results.value) {

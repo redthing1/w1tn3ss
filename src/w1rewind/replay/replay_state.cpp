@@ -67,7 +67,9 @@ void replay_state::apply_register_deltas(const std::vector<register_delta>& regs
   }
 }
 
-bool replay_state::apply_register_bytes(const std::vector<register_bytes_entry>& entries, const std::vector<uint8_t>& data) {
+bool replay_state::apply_register_bytes(
+    const std::vector<register_bytes_entry>& entries, const std::vector<uint8_t>& data
+) {
   if (entries.empty()) {
     return true;
   }
@@ -99,8 +101,7 @@ bool replay_state::apply_register_bytes(const std::vector<register_bytes_entry>&
 }
 
 void replay_state::collect_register_bytes(
-    std::vector<register_bytes_entry>& entries,
-    std::vector<uint8_t>& data
+    std::vector<register_bytes_entry>& entries, std::vector<uint8_t>& data
 ) const {
   entries.clear();
   data.clear();
@@ -139,8 +140,7 @@ void replay_state::collect_register_bytes(
 
     uint32_t offset = register_byte_offsets_[i];
     data.insert(
-        data.end(),
-        register_bytes_.begin() + static_cast<std::ptrdiff_t>(offset),
+        data.end(), register_bytes_.begin() + static_cast<std::ptrdiff_t>(offset),
         register_bytes_.begin() + static_cast<std::ptrdiff_t>(offset + size)
     );
 

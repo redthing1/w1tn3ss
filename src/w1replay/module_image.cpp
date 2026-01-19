@@ -7,9 +7,7 @@ namespace w1replay {
 
 namespace {
 
-bool add_overflows(uint64_t base, uint64_t addend) {
-  return base > std::numeric_limits<uint64_t>::max() - addend;
-}
+bool add_overflows(uint64_t base, uint64_t addend) { return base > std::numeric_limits<uint64_t>::max() - addend; }
 
 } // namespace
 
@@ -64,8 +62,7 @@ image_read_result read_image_bytes(const image_layout& layout, uint64_t module_o
     if (overlap_size64 == 0) {
       continue;
     }
-    if (overlap_size64 > std::numeric_limits<size_t>::max() ||
-        output_offset64 > std::numeric_limits<size_t>::max() ||
+    if (overlap_size64 > std::numeric_limits<size_t>::max() || output_offset64 > std::numeric_limits<size_t>::max() ||
         range_offset64 > std::numeric_limits<size_t>::max()) {
       result.error = "read size exceeds host limits";
       return result;
@@ -85,23 +82,23 @@ image_read_result read_image_bytes(const image_layout& layout, uint64_t module_o
       const std::byte* src = range.file_bytes.data() + range_offset;
       std::byte* dest = result.bytes.data() + output_offset;
       std::copy(src, src + file_available, dest);
-      std::fill(result.known.begin() + static_cast<std::vector<uint8_t>::difference_type>(output_offset),
-                result.known.begin() + static_cast<std::vector<uint8_t>::difference_type>(output_offset + file_available),
-                1);
+      std::fill(
+          result.known.begin() + static_cast<std::vector<uint8_t>::difference_type>(output_offset),
+          result.known.begin() + static_cast<std::vector<uint8_t>::difference_type>(output_offset + file_available), 1
+      );
     }
 
     const size_t bss_size = overlap_size - file_available;
     if (bss_size > 0) {
       const size_t bss_offset = output_offset + file_available;
-      std::fill(result.known.begin() + static_cast<std::vector<uint8_t>::difference_type>(bss_offset),
-                result.known.begin() + static_cast<std::vector<uint8_t>::difference_type>(bss_offset + bss_size),
-                1);
+      std::fill(
+          result.known.begin() + static_cast<std::vector<uint8_t>::difference_type>(bss_offset),
+          result.known.begin() + static_cast<std::vector<uint8_t>::difference_type>(bss_offset + bss_size), 1
+      );
     }
   }
 
-  result.complete = std::all_of(result.known.begin(), result.known.end(), [](uint8_t value) {
-    return value != 0;
-  });
+  result.complete = std::all_of(result.known.begin(), result.known.end(), [](uint8_t value) { return value != 0; });
 
   return result;
 }

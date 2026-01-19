@@ -30,8 +30,7 @@ struct register_layout {
 };
 
 register_layout build_register_layout(
-    const w1::arch::arch_spec& arch,
-    const std::vector<w1::rewind::register_spec>& register_specs
+    const w1::arch::arch_spec& arch, const std::vector<w1::rewind::register_spec>& register_specs
 );
 
 } // namespace w1replay::gdb

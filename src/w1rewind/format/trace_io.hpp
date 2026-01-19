@@ -135,8 +135,8 @@ inline bool read_stream_u32(std::istream& in, uint32_t& value) {
   if (!read_stream_bytes(in, buf.data(), buf.size())) {
     return false;
   }
-  value = static_cast<uint32_t>(buf[0]) | (static_cast<uint32_t>(buf[1]) << 8) |
-          (static_cast<uint32_t>(buf[2]) << 16) | (static_cast<uint32_t>(buf[3]) << 24);
+  value = static_cast<uint32_t>(buf[0]) | (static_cast<uint32_t>(buf[1]) << 8) | (static_cast<uint32_t>(buf[2]) << 16) |
+          (static_cast<uint32_t>(buf[3]) << 24);
   return true;
 }
 

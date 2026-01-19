@@ -23,9 +23,7 @@ args::Group arguments("arguments");
 args::HelpFlag help_flag(arguments, "help", "help", {'h', "help"});
 args::CounterFlag verbosity_flag(arguments, "verbosity", "verbosity level", {'v'});
 
-void apply_verbosity() {
-  w1::cli::apply_verbosity(args::get(verbosity_flag));
-}
+void apply_verbosity() { w1::cli::apply_verbosity(args::get(verbosity_flag)); }
 } // namespace cli
 
 namespace {
@@ -240,7 +238,6 @@ void cmd_debug(args::Subparser& parser) {
 
   w1tool::commands::debug(pid, spawn, interactive, suspended, args);
 }
-
 
 int main(int argc, char* argv[]) {
   // store executable path for library auto-discovery

@@ -52,9 +52,7 @@ bool validate_register_specs(const std::vector<register_spec>& specs, std::strin
 trace_builder::trace_builder(trace_builder_config config) : config_(std::move(config)) {}
 
 bool trace_builder::begin_trace(
-    const w1::arch::arch_spec& arch,
-    const target_info_record& target,
-    const std::vector<register_spec>& register_specs
+    const w1::arch::arch_spec& arch, const target_info_record& target, const std::vector<register_spec>& register_specs
 ) {
   if (started_) {
     error_ = "trace already started";
@@ -194,11 +192,7 @@ bool trace_builder::end_thread(uint64_t thread_id) {
 }
 
 bool trace_builder::emit_instruction(
-    uint64_t thread_id,
-    uint64_t address,
-    uint32_t size,
-    uint32_t flags,
-    uint64_t& sequence_out
+    uint64_t thread_id, uint64_t address, uint32_t size, uint32_t flags, uint64_t& sequence_out
 ) {
   if (!ensure_trace_started()) {
     return false;
@@ -229,11 +223,7 @@ bool trace_builder::emit_instruction(
 }
 
 bool trace_builder::emit_block(
-    uint64_t thread_id,
-    uint64_t address,
-    uint32_t size,
-    uint32_t flags,
-    uint64_t& sequence_out
+    uint64_t thread_id, uint64_t address, uint32_t size, uint32_t flags, uint64_t& sequence_out
 ) {
   if (!ensure_trace_started()) {
     return false;
@@ -284,9 +274,7 @@ bool trace_builder::emit_block(
 }
 
 bool trace_builder::emit_register_deltas(
-    uint64_t thread_id,
-    uint64_t sequence,
-    std::span<const register_delta> deltas
+    uint64_t thread_id, uint64_t sequence, std::span<const register_delta> deltas
 ) {
   if (!config_.options.record_register_deltas || deltas.empty()) {
     return true;
@@ -308,10 +296,7 @@ bool trace_builder::emit_register_deltas(
 }
 
 bool trace_builder::emit_register_bytes(
-    uint64_t thread_id,
-    uint64_t sequence,
-    std::span<const register_bytes_entry> entries,
-    std::span<const uint8_t> data
+    uint64_t thread_id, uint64_t sequence, std::span<const register_bytes_entry> entries, std::span<const uint8_t> data
 ) {
   if (!config_.options.record_register_deltas || entries.empty()) {
     return true;
@@ -360,14 +345,8 @@ bool trace_builder::emit_register_bytes(
 }
 
 bool trace_builder::emit_memory_access(
-    uint64_t thread_id,
-    uint64_t sequence,
-    memory_access_kind kind,
-    uint64_t address,
-    uint32_t size,
-    bool value_known,
-    bool value_truncated,
-    std::span<const uint8_t> data
+    uint64_t thread_id, uint64_t sequence, memory_access_kind kind, uint64_t address, uint32_t size, bool value_known,
+    bool value_truncated, std::span<const uint8_t> data
 ) {
   if (!config_.options.record_memory_access) {
     return true;
@@ -400,12 +379,8 @@ bool trace_builder::emit_memory_access(
 }
 
 bool trace_builder::emit_snapshot(
-    uint64_t thread_id,
-    uint64_t sequence,
-    uint64_t snapshot_id,
-    std::span<const register_delta> registers,
-    std::span<const uint8_t> stack_snapshot,
-    std::string reason
+    uint64_t thread_id, uint64_t sequence, uint64_t snapshot_id, std::span<const register_delta> registers,
+    std::span<const uint8_t> stack_snapshot, std::string reason
 ) {
   if (!config_.options.record_snapshots && !config_.options.record_stack_snapshot) {
     return true;

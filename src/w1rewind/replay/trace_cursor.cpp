@@ -24,8 +24,7 @@ bool record_is_flow(const trace_record& record, bool use_blocks, uint64_t& seque
 
 } // namespace
 
-trace_cursor::trace_cursor(trace_cursor_config config)
-    : config_(std::move(config)), reader_(config_.trace_path) {}
+trace_cursor::trace_cursor(trace_cursor_config config) : config_(std::move(config)), reader_(config_.trace_path) {}
 
 bool trace_cursor::open() {
   close();
@@ -128,9 +127,7 @@ bool trace_cursor::seek_to_location(const trace_record_location& location) {
   return true;
 }
 
-bool trace_cursor::read_next(trace_record& record) {
-  return read_next(record, nullptr);
-}
+bool trace_cursor::read_next(trace_record& record) { return read_next(record, nullptr); }
 
 bool trace_cursor::read_next(trace_record& record, trace_record_location* location) {
   if (!error_.empty()) {

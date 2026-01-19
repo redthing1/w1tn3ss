@@ -36,10 +36,7 @@ bool record_is_flow(const trace_record& record, bool use_blocks, uint64_t& seque
 }
 
 replay_checkpoint_entry snapshot_entry(
-    uint64_t thread_id,
-    uint64_t sequence,
-    const trace_record_location& location,
-    const replay_state& state,
+    uint64_t thread_id, uint64_t sequence, const trace_record_location& location, const replay_state& state,
     bool include_memory
 ) {
   replay_checkpoint_entry entry{};
@@ -75,13 +72,8 @@ replay_checkpoint_entry snapshot_entry(
   return entry;
 }
 
- 
-
 bool write_checkpoint_header(
-    std::ostream& out,
-    const replay_checkpoint_header& header,
-    uint32_t thread_count,
-    uint32_t entry_count
+    std::ostream& out, const replay_checkpoint_header& header, uint32_t thread_count, uint32_t entry_count
 ) {
   if (!write_stream_bytes(out, k_replay_checkpoint_magic.data(), k_replay_checkpoint_magic.size())) {
     return false;
@@ -92,18 +84,14 @@ bool write_checkpoint_header(
          write_stream_u16(out, static_cast<uint16_t>(header.arch.arch_family)) &&
          write_stream_u16(out, static_cast<uint16_t>(header.arch.arch_mode)) &&
          write_stream_bytes(out, &arch_order, sizeof(arch_order)) &&
-         write_stream_bytes(out, &reserved, sizeof(reserved)) &&
-         write_stream_u32(out, header.arch.pointer_bits) && write_stream_u32(out, header.arch.flags) &&
-         write_stream_u64(out, header.trace_flags) && write_stream_u32(out, header.register_count) &&
-         write_stream_u32(out, header.stride) && write_stream_u32(out, thread_count) &&
-         write_stream_u32(out, entry_count);
+         write_stream_bytes(out, &reserved, sizeof(reserved)) && write_stream_u32(out, header.arch.pointer_bits) &&
+         write_stream_u32(out, header.arch.flags) && write_stream_u64(out, header.trace_flags) &&
+         write_stream_u32(out, header.register_count) && write_stream_u32(out, header.stride) &&
+         write_stream_u32(out, thread_count) && write_stream_u32(out, entry_count);
 }
 
 bool read_checkpoint_header(
-    std::istream& in,
-    replay_checkpoint_header& header,
-    uint32_t& thread_count,
-    uint32_t& entry_count
+    std::istream& in, replay_checkpoint_header& header, uint32_t& thread_count, uint32_t& entry_count
 ) {
   std::array<uint8_t, 8> magic{};
   if (!read_stream_bytes(in, magic.data(), magic.size())) {
@@ -119,11 +107,10 @@ bool read_checkpoint_header(
   uint8_t reserved = 0;
   if (!read_stream_u16(in, header.version) || !read_stream_u16(in, header.trace_version) ||
       !read_stream_u16(in, arch_family) || !read_stream_u16(in, arch_mode) ||
-      !read_stream_bytes(in, &arch_order, sizeof(arch_order)) ||
-      !read_stream_bytes(in, &reserved, sizeof(reserved)) || !read_stream_u32(in, header.arch.pointer_bits) ||
-      !read_stream_u32(in, header.arch.flags) || !read_stream_u64(in, header.trace_flags) ||
-      !read_stream_u32(in, header.register_count) || !read_stream_u32(in, header.stride) ||
-      !read_stream_u32(in, thread_count) || !read_stream_u32(in, entry_count)) {
+      !read_stream_bytes(in, &arch_order, sizeof(arch_order)) || !read_stream_bytes(in, &reserved, sizeof(reserved)) ||
+      !read_stream_u32(in, header.arch.pointer_bits) || !read_stream_u32(in, header.arch.flags) ||
+      !read_stream_u64(in, header.trace_flags) || !read_stream_u32(in, header.register_count) ||
+      !read_stream_u32(in, header.stride) || !read_stream_u32(in, thread_count) || !read_stream_u32(in, entry_count)) {
     return false;
   }
 
@@ -147,12 +134,12 @@ const replay_checkpoint_entry* replay_checkpoint_index::find_checkpoint(uint64_t
     return nullptr;
   }
 
-  auto begin = entries.begin() + static_cast<std::vector<replay_checkpoint_entry>::difference_type>(thread_it->entry_start);
+  auto begin =
+      entries.begin() + static_cast<std::vector<replay_checkpoint_entry>::difference_type>(thread_it->entry_start);
   auto end = begin + static_cast<std::vector<replay_checkpoint_entry>::difference_type>(thread_it->entry_count);
-  auto it = std::lower_bound(
-      begin, end, sequence,
-      [](const replay_checkpoint_entry& entry, uint64_t value) { return entry.sequence < value; }
-  );
+  auto it = std::lower_bound(begin, end, sequence, [](const replay_checkpoint_entry& entry, uint64_t value) {
+    return entry.sequence < value;
+  });
   if (it == begin) {
     if (it->sequence > sequence) {
       return nullptr;
@@ -168,15 +155,9 @@ const replay_checkpoint_entry* replay_checkpoint_index::find_checkpoint(uint64_t
   return &(*(it - 1));
 }
 
-std::string default_replay_checkpoint_path(const std::string& trace_path) {
-  return trace_path + ".w1rchk";
-}
+std::string default_replay_checkpoint_path(const std::string& trace_path) { return trace_path + ".w1rchk"; }
 
-bool build_replay_checkpoint(
-    const replay_checkpoint_config& config,
-    replay_checkpoint_index* out,
-    std::string& error
-) {
+bool build_replay_checkpoint(const replay_checkpoint_config& config, replay_checkpoint_index* out, std::string& error) {
   error.clear();
   if (!out) {
     error = "checkpoint output required";
@@ -191,8 +172,8 @@ bool build_replay_checkpoint(
     return false;
   }
 
-  std::string output_path = config.output_path.empty() ? default_replay_checkpoint_path(config.trace_path)
-                                                       : config.output_path;
+  std::string output_path =
+      config.output_path.empty() ? default_replay_checkpoint_path(config.trace_path) : config.output_path;
 
   trace_reader reader(config.trace_path);
   if (!reader.open()) {
@@ -339,9 +320,7 @@ bool build_replay_checkpoint(
   }
 
   if (!write_checkpoint_header(
-          out_stream,
-          index.header,
-          static_cast<uint32_t>(index.threads.size()),
+          out_stream, index.header, static_cast<uint32_t>(index.threads.size()),
           static_cast<uint32_t>(index.entries.size())
       )) {
     error = "failed to write checkpoint header";
@@ -349,8 +328,7 @@ bool build_replay_checkpoint(
   }
 
   for (const auto& thread : index.threads) {
-    if (!write_stream_u64(out_stream, thread.thread_id) ||
-        !write_stream_u32(out_stream, thread.entry_start) ||
+    if (!write_stream_u64(out_stream, thread.thread_id) || !write_stream_u32(out_stream, thread.entry_start) ||
         !write_stream_u32(out_stream, thread.entry_count)) {
       error = "failed to write checkpoint thread index";
       return false;
@@ -369,10 +347,8 @@ bool build_replay_checkpoint(
     uint32_t reg_bytes_count = static_cast<uint32_t>(entry.register_bytes_entries.size());
     uint32_t reg_bytes_size = static_cast<uint32_t>(entry.register_bytes.size());
     uint32_t mem_count = static_cast<uint32_t>(entry.memory.size());
-    if (!write_stream_u32(out_stream, reg_count) ||
-        !write_stream_u32(out_stream, reg_bytes_count) ||
-        !write_stream_u32(out_stream, reg_bytes_size) ||
-        !write_stream_u32(out_stream, mem_count)) {
+    if (!write_stream_u32(out_stream, reg_count) || !write_stream_u32(out_stream, reg_bytes_count) ||
+        !write_stream_u32(out_stream, reg_bytes_size) || !write_stream_u32(out_stream, mem_count)) {
       error = "failed to write checkpoint entry counts";
       return false;
     }
@@ -385,8 +361,7 @@ bool build_replay_checkpoint(
     }
 
     for (const auto& reg : entry.register_bytes_entries) {
-      if (!write_stream_u16(out_stream, reg.reg_id) ||
-          !write_stream_u32(out_stream, reg.offset) ||
+      if (!write_stream_u16(out_stream, reg.reg_id) || !write_stream_u32(out_stream, reg.offset) ||
           !write_stream_u16(out_stream, reg.size)) {
         error = "failed to write checkpoint register bytes entry";
         return false;

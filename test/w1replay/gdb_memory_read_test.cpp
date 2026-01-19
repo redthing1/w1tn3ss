@@ -30,8 +30,8 @@ TEST_CASE("gdb adapter reads recorded memory bytes") {
   auto arch = parse_arch_or_fail("arm64");
   w1::rewind::trace_header header{};
   header.arch = arch;
-  header.flags = w1::rewind::trace_flag_instructions | w1::rewind::trace_flag_memory_access |
-                 w1::rewind::trace_flag_memory_values;
+  header.flags =
+      w1::rewind::trace_flag_instructions | w1::rewind::trace_flag_memory_access | w1::rewind::trace_flag_memory_values;
   REQUIRE(writer->write_header(header));
 
   std::vector<std::string> registers = {"pc", "sp"};
@@ -141,8 +141,8 @@ TEST_CASE("gdb adapter prefers recorded memory over module bytes") {
   auto arch = parse_arch_or_fail("arm64");
   w1::rewind::trace_header header{};
   header.arch = arch;
-  header.flags = w1::rewind::trace_flag_instructions | w1::rewind::trace_flag_memory_access |
-                 w1::rewind::trace_flag_memory_values;
+  header.flags =
+      w1::rewind::trace_flag_instructions | w1::rewind::trace_flag_memory_access | w1::rewind::trace_flag_memory_values;
   REQUIRE(writer->write_header(header));
 
   std::vector<std::string> registers = {"pc", "sp"};

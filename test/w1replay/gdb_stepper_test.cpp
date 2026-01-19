@@ -16,9 +16,7 @@ namespace {
 class test_block_decoder final : public w1::rewind::replay_block_decoder {
 public:
   bool decode_block(
-      const w1::rewind::replay_context&,
-      const w1::rewind::flow_step& flow,
-      w1::rewind::replay_decoded_block& out,
+      const w1::rewind::replay_context&, const w1::rewind::flow_step& flow, w1::rewind::replay_decoded_block& out,
       std::string&
   ) override {
     uint64_t address = flow.address;
@@ -136,13 +134,7 @@ TEST_CASE("gdb stepper uses instruction stepping when block decoder is available
   policy.trace_is_block = true;
   policy.decoder_available = true;
 
-  auto result = w1replay::gdb::resume_step(
-      session,
-      policy,
-      {},
-      1,
-      gdbstub::resume_direction::forward
-  );
+  auto result = w1replay::gdb::resume_step(session, policy, {}, 1, gdbstub::resume_direction::forward);
   CHECK(result.resume.state == gdbstub::resume_result::state::stopped);
   CHECK(session.current_step().address == 0x1010);
   CHECK(!session.current_step().is_block);
@@ -167,13 +159,7 @@ TEST_CASE("gdb stepper continues until breakpoint using instruction stepping") {
   policy.decoder_available = true;
 
   std::unordered_set<uint64_t> breakpoints{0x1020};
-  auto result = w1replay::gdb::resume_continue(
-      session,
-      policy,
-      breakpoints,
-      1,
-      gdbstub::resume_direction::forward
-  );
+  auto result = w1replay::gdb::resume_continue(session, policy, breakpoints, 1, gdbstub::resume_direction::forward);
   CHECK(result.resume.stop.kind == gdbstub::stop_kind::sw_break);
   CHECK(result.resume.stop.addr == 0x1020);
   CHECK(session.current_step().address == 0x1020);
@@ -195,13 +181,7 @@ TEST_CASE("gdb stepper falls back to flow stepping without decoder") {
   policy.trace_is_block = true;
   policy.decoder_available = false;
 
-  auto result = w1replay::gdb::resume_step(
-      session,
-      policy,
-      {},
-      1,
-      gdbstub::resume_direction::forward
-  );
+  auto result = w1replay::gdb::resume_step(session, policy, {}, 1, gdbstub::resume_direction::forward);
   CHECK(result.resume.state == gdbstub::resume_result::state::stopped);
   CHECK(session.current_step().address == 0x1010);
   CHECK(session.current_step().is_block);
@@ -223,13 +203,7 @@ TEST_CASE("gdb stepper uses flow stepping for instruction traces") {
   policy.trace_is_block = false;
   policy.decoder_available = false;
 
-  auto result = w1replay::gdb::resume_step(
-      session,
-      policy,
-      {},
-      1,
-      gdbstub::resume_direction::forward
-  );
+  auto result = w1replay::gdb::resume_step(session, policy, {}, 1, gdbstub::resume_direction::forward);
   CHECK(result.resume.state == gdbstub::resume_result::state::stopped);
   CHECK(session.current_step().address == 0x2010);
   CHECK(!session.current_step().is_block);
@@ -251,13 +225,7 @@ TEST_CASE("gdb stepper reports replay-log end at forward trace boundary") {
   policy.trace_is_block = false;
   policy.decoder_available = false;
 
-  auto result = w1replay::gdb::resume_continue(
-      session,
-      policy,
-      {},
-      1,
-      gdbstub::resume_direction::forward
-  );
+  auto result = w1replay::gdb::resume_continue(session, policy, {}, 1, gdbstub::resume_direction::forward);
 
   CHECK(result.resume.state == gdbstub::resume_result::state::stopped);
   REQUIRE(result.resume.stop.replay_log.has_value());
@@ -287,13 +255,7 @@ TEST_CASE("gdb stepper supports reverse instruction stepping") {
   policy.trace_is_block = true;
   policy.decoder_available = true;
 
-  auto result = w1replay::gdb::resume_step(
-      session,
-      policy,
-      {},
-      1,
-      gdbstub::resume_direction::reverse
-  );
+  auto result = w1replay::gdb::resume_step(session, policy, {}, 1, gdbstub::resume_direction::reverse);
 
   CHECK(result.resume.state == gdbstub::resume_result::state::stopped);
   CHECK(session.current_step().address == 0x1010);
@@ -320,13 +282,7 @@ TEST_CASE("gdb stepper reports replay-log begin when reversing past start") {
   policy.trace_is_block = true;
   policy.decoder_available = true;
 
-  auto result = w1replay::gdb::resume_step(
-      session,
-      policy,
-      {},
-      1,
-      gdbstub::resume_direction::reverse
-  );
+  auto result = w1replay::gdb::resume_step(session, policy, {}, 1, gdbstub::resume_direction::reverse);
 
   CHECK(result.resume.state == gdbstub::resume_result::state::stopped);
   REQUIRE(result.resume.stop.replay_log.has_value());
@@ -356,13 +312,7 @@ TEST_CASE("gdb stepper reverse-continues to breakpoint") {
   policy.decoder_available = true;
 
   std::unordered_set<uint64_t> breakpoints{0x1010};
-  auto result = w1replay::gdb::resume_continue(
-      session,
-      policy,
-      breakpoints,
-      1,
-      gdbstub::resume_direction::reverse
-  );
+  auto result = w1replay::gdb::resume_continue(session, policy, breakpoints, 1, gdbstub::resume_direction::reverse);
 
   CHECK(result.resume.stop.kind == gdbstub::stop_kind::sw_break);
   CHECK(result.resume.stop.addr == 0x1010);

@@ -41,8 +41,7 @@ bool replay_instruction_cursor::step_forward(flow_step& out) {
   }
   if (decoder_ == nullptr) {
     return fallback_to_flow_forward(
-        out,
-        make_notice(replay_notice_kind::decode_unavailable, "block decoder unavailable; using flow steps")
+        out, make_notice(replay_notice_kind::decode_unavailable, "block decoder unavailable; using flow steps")
     );
   }
 
@@ -109,8 +108,7 @@ bool replay_instruction_cursor::step_backward(flow_step& out) {
   }
   if (decoder_ == nullptr) {
     return fallback_to_flow_backward(
-        out,
-        make_notice(replay_notice_kind::decode_unavailable, "block decoder unavailable; using flow steps")
+        out, make_notice(replay_notice_kind::decode_unavailable, "block decoder unavailable; using flow steps")
     );
   }
 
@@ -190,9 +188,7 @@ std::optional<replay_notice> replay_instruction_cursor::take_notice() {
 bool replay_instruction_cursor::is_block_trace() const { return flow_.context().has_blocks(); }
 
 bool replay_instruction_cursor::set_instruction_state(
-    const flow_step& flow,
-    size_t instruction_index,
-    bool set_notice_on_failure
+    const flow_step& flow, size_t instruction_index, bool set_notice_on_failure
 ) {
   if (!flow.is_block) {
     return false;

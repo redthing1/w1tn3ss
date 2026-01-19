@@ -6,19 +6,14 @@ namespace w1replay::gdb {
 
 namespace {
 
-bool is_pc_name(const std::string& name) {
-  return name == "pc" || name == "rip" || name == "eip";
-}
+bool is_pc_name(const std::string& name) { return name == "pc" || name == "rip" || name == "eip"; }
 
-bool is_sp_name(const std::string& name) {
-  return name == "sp" || name == "rsp" || name == "esp";
-}
+bool is_sp_name(const std::string& name) { return name == "sp" || name == "rsp" || name == "esp"; }
 
 } // namespace
 
 register_layout build_register_layout(
-    const w1::arch::arch_spec& arch,
-    const std::vector<w1::rewind::register_spec>& register_specs
+    const w1::arch::arch_spec& arch, const std::vector<w1::rewind::register_spec>& register_specs
 ) {
   register_layout layout{};
   layout.architecture = std::string(w1::arch::gdb_arch_name(arch));

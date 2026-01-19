@@ -37,9 +37,8 @@ int checkpoint(const checkpoint_options& options) {
     return 1;
   }
 
-  std::string output = options.output_path.empty()
-                           ? w1::rewind::default_replay_checkpoint_path(options.trace_path)
-                           : options.output_path;
+  std::string output = options.output_path.empty() ? w1::rewind::default_replay_checkpoint_path(options.trace_path)
+                                                   : options.output_path;
 
   log.inf("checkpoint written", redlog::field("path", output));
   std::cout << "wrote checkpoint: " << output << std::endl;

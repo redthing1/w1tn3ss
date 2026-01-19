@@ -278,7 +278,9 @@ engine::result<signature> code_signature(
   if (arch_value.value.arch_mode == w1::arch::mode::aarch64) {
     auto asm_result = asm_context::for_arch(arch_value.value);
     if (!asm_result.ok()) {
-      return engine::error_result<signature>(map_error_code(asm_result.status_info.code), asm_result.status_info.message);
+      return engine::error_result<signature>(
+          map_error_code(asm_result.status_info.code), asm_result.status_info.message
+      );
     }
     asm_ctx = std::move(asm_result.value);
   }

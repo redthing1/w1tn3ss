@@ -157,7 +157,9 @@ result<std::vector<plan_entry>> plan_builder::build(const recipe& recipe) {
   for (const auto& patch_spec : recipe.patches) {
     auto patch_platform_ok = platform_allowed(patch_spec.platforms);
     if (!patch_platform_ok.ok()) {
-      return error_result<std::vector<plan_entry>>(patch_platform_ok.status_info.code, patch_platform_ok.status_info.message);
+      return error_result<std::vector<plan_entry>>(
+          patch_platform_ok.status_info.code, patch_platform_ok.status_info.message
+      );
     }
     if (!patch_platform_ok.value) {
       log.trc("skipping patch for platform mismatch", redlog::field("pattern", patch_spec.signature.pattern));
@@ -166,7 +168,9 @@ result<std::vector<plan_entry>> plan_builder::build(const recipe& recipe) {
 
     auto sig_platform_ok = platform_allowed(patch_spec.signature.platforms);
     if (!sig_platform_ok.ok()) {
-      return error_result<std::vector<plan_entry>>(sig_platform_ok.status_info.code, sig_platform_ok.status_info.message);
+      return error_result<std::vector<plan_entry>>(
+          sig_platform_ok.status_info.code, sig_platform_ok.status_info.message
+      );
     }
     if (!sig_platform_ok.value) {
       log.trc("skipping signature for platform mismatch", redlog::field("pattern", patch_spec.signature.pattern));

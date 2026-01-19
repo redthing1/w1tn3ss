@@ -329,9 +329,8 @@ bool trace_writer::flush_chunk_locked() {
     return false;
   }
   chunk_encoded_.resize(bound);
-  size_t compressed_size = ZSTD_compress(
-      chunk_encoded_.data(), bound, chunk_buffer_.data(), chunk_buffer_.size(), k_zstd_level
-  );
+  size_t compressed_size =
+      ZSTD_compress(chunk_encoded_.data(), bound, chunk_buffer_.data(), chunk_buffer_.size(), k_zstd_level);
   if (ZSTD_isError(compressed_size)) {
     config_.log.err("zstd compression failed", redlog::field("error", ZSTD_getErrorName(compressed_size)));
     mark_failure();
@@ -390,9 +389,7 @@ void trace_writer::write_bytes(const void* data, size_t size) {
   }
 }
 
-void trace_writer::mark_failure() {
-  good_ = false;
-}
+void trace_writer::mark_failure() { good_ = false; }
 
 std::string trace_writer::make_default_path() const {
   std::filesystem::path base = std::filesystem::current_path();

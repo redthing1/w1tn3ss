@@ -13,9 +13,7 @@
 
 namespace w1::rewind::test_helpers {
 
-inline std::filesystem::path temp_path(const char* name) {
-  return std::filesystem::temp_directory_path() / name;
-}
+inline std::filesystem::path temp_path(const char* name) { return std::filesystem::temp_directory_path() / name; }
 
 inline w1::arch::arch_spec parse_arch_or_fail(std::string_view text) {
   w1::arch::arch_spec spec{};
@@ -24,13 +22,9 @@ inline w1::arch::arch_spec parse_arch_or_fail(std::string_view text) {
   return spec;
 }
 
-inline bool is_pc_name(const std::string& name) {
-  return name == "pc" || name == "rip" || name == "eip";
-}
+inline bool is_pc_name(const std::string& name) { return name == "pc" || name == "rip" || name == "eip"; }
 
-inline bool is_sp_name(const std::string& name) {
-  return name == "sp" || name == "rsp" || name == "esp";
-}
+inline bool is_sp_name(const std::string& name) { return name == "sp" || name == "rsp" || name == "esp"; }
 
 inline bool is_flags_name(const std::string& name) {
   return name == "eflags" || name == "rflags" || name == "nzcv" || name == "cpsr";
@@ -55,8 +49,7 @@ inline target_info_record make_target_info() {
 }
 
 inline std::vector<register_spec> make_register_specs(
-    const std::vector<std::string>& names,
-    const w1::arch::arch_spec& arch
+    const std::vector<std::string>& names, const w1::arch::arch_spec& arch
 ) {
   uint32_t pointer_size = arch.pointer_bits == 0 ? 0 : arch.pointer_bits / 8;
   std::vector<register_spec> specs;
@@ -106,9 +99,7 @@ inline void write_target_info(trace_writer& writer) {
 }
 
 inline void write_register_specs(
-    trace_writer& writer,
-    const std::vector<std::string>& names,
-    const w1::arch::arch_spec& arch
+    trace_writer& writer, const std::vector<std::string>& names, const w1::arch::arch_spec& arch
 ) {
   register_spec_record record{};
   record.registers = make_register_specs(names, arch);
@@ -116,19 +107,14 @@ inline void write_register_specs(
 }
 
 inline void write_basic_metadata(
-    trace_writer& writer,
-    const w1::arch::arch_spec& arch,
-    const std::vector<std::string>& names
+    trace_writer& writer, const w1::arch::arch_spec& arch, const std::vector<std::string>& names
 ) {
   write_target_info(writer);
   write_register_specs(writer, names, arch);
 }
 
 inline void write_module_table(
-    trace_writer& writer,
-    uint64_t module_id,
-    uint64_t base,
-    const std::string& path = "test_module"
+    trace_writer& writer, uint64_t module_id, uint64_t base, const std::string& path = "test_module"
 ) {
   module_record module{};
   module.id = module_id;
@@ -156,11 +142,7 @@ inline void write_thread_end(trace_writer& writer, uint64_t thread_id) {
 }
 
 inline void write_block_def(
-    trace_writer& writer,
-    uint64_t block_id,
-    uint64_t address,
-    uint32_t size,
-    uint32_t flags = 0
+    trace_writer& writer, uint64_t block_id, uint64_t address, uint32_t size, uint32_t flags = 0
 ) {
   block_definition_record record{};
   record.block_id = block_id;
@@ -179,11 +161,7 @@ inline void write_block_exec(trace_writer& writer, uint64_t thread_id, uint64_t 
 }
 
 inline void write_instruction(
-    trace_writer& writer,
-    uint64_t thread_id,
-    uint64_t sequence,
-    uint64_t address,
-    uint32_t flags = 0
+    trace_writer& writer, uint64_t thread_id, uint64_t sequence, uint64_t address, uint32_t flags = 0
 ) {
   instruction_record record{};
   record.sequence = sequence;
@@ -201,11 +179,7 @@ inline void write_register_table(trace_writer& writer, std::vector<std::string> 
 }
 
 inline void write_register_delta(
-    trace_writer& writer,
-    uint64_t thread_id,
-    uint64_t sequence,
-    uint16_t reg_id,
-    uint64_t value
+    trace_writer& writer, uint64_t thread_id, uint64_t sequence, uint16_t reg_id, uint64_t value
 ) {
   register_delta_record deltas{};
   deltas.sequence = sequence;

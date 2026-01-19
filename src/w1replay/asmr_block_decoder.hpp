@@ -16,10 +16,8 @@ public:
   void set_code_source(code_source* source) { source_ = source; }
 
   bool decode_block(
-      const w1::rewind::replay_context& context,
-      const w1::rewind::flow_step& flow,
-      w1::rewind::replay_decoded_block& out,
-      std::string& error
+      const w1::rewind::replay_context& context, const w1::rewind::flow_step& flow,
+      w1::rewind::replay_decoded_block& out, std::string& error
   ) override;
 
 private:

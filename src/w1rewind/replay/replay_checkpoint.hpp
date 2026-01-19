@@ -57,11 +57,7 @@ struct replay_checkpoint_config {
 
 std::string default_replay_checkpoint_path(const std::string& trace_path);
 
-bool build_replay_checkpoint(
-    const replay_checkpoint_config& config,
-    replay_checkpoint_index* out,
-    std::string& error
-);
+bool build_replay_checkpoint(const replay_checkpoint_config& config, replay_checkpoint_index* out, std::string& error);
 
 bool load_replay_checkpoint(const std::string& path, replay_checkpoint_index& out, std::string& error);
 

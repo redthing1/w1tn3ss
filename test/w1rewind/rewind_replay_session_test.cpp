@@ -15,9 +15,7 @@ namespace {
 class test_block_decoder final : public w1::rewind::replay_block_decoder {
 public:
   bool decode_block(
-      const w1::rewind::replay_context&,
-      const w1::rewind::flow_step& flow,
-      w1::rewind::replay_decoded_block& out,
+      const w1::rewind::replay_context&, const w1::rewind::flow_step& flow, w1::rewind::replay_decoded_block& out,
       std::string&
   ) override {
     if (flow.size == 0 || (flow.size % 2) != 0) {
@@ -82,7 +80,9 @@ TEST_CASE("w1rewind replay session steps through decoded block instructions") {
 
   w1::rewind::trace_index_options index_options;
   w1::rewind::trace_index index;
-  REQUIRE(w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, &index, writer_config.log));
+  REQUIRE(
+      w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, &index, writer_config.log)
+  );
 
   test_block_decoder decoder;
   w1::rewind::replay_session_config config{};
@@ -153,7 +153,9 @@ TEST_CASE("w1rewind replay session instruction stepping falls back without decod
 
   w1::rewind::trace_index_options index_options;
   w1::rewind::trace_index index;
-  REQUIRE(w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, &index, writer_config.log));
+  REQUIRE(
+      w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, &index, writer_config.log)
+  );
 
   w1::rewind::replay_session_config config{};
   config.trace_path = trace_path.string();
@@ -206,7 +208,9 @@ TEST_CASE("w1rewind replay session rebuilds stale index when trace changes") {
 
   w1::rewind::trace_index_options index_options;
   w1::rewind::trace_index index;
-  REQUIRE(w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, &index, writer_config.log));
+  REQUIRE(
+      w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, &index, writer_config.log)
+  );
 
   w1::rewind::trace_writer_config new_writer_config = writer_config;
   new_writer_config.chunk_size = 128;
@@ -283,7 +287,9 @@ TEST_CASE("w1rewind replay session rebuilds index on mismatch even if trace is o
 
   w1::rewind::trace_index_options index_options;
   w1::rewind::trace_index index;
-  REQUIRE(w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, &index, writer_config.log));
+  REQUIRE(
+      w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, &index, writer_config.log)
+  );
 
   auto index_time = fs::last_write_time(index_path);
 
@@ -364,7 +370,9 @@ TEST_CASE("w1rewind replay session supports reverse instruction stepping on bloc
 
   w1::rewind::trace_index_options index_options;
   w1::rewind::trace_index index;
-  REQUIRE(w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, &index, writer_config.log));
+  REQUIRE(
+      w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, &index, writer_config.log)
+  );
 
   test_block_decoder decoder;
   w1::rewind::replay_session_config config{};
@@ -433,7 +441,9 @@ TEST_CASE("w1rewind replay session preserves state across intra-block steps") {
 
   w1::rewind::trace_index_options index_options;
   w1::rewind::trace_index index;
-  REQUIRE(w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, &index, writer_config.log));
+  REQUIRE(
+      w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, &index, writer_config.log)
+  );
 
   test_block_decoder decoder;
   w1::rewind::replay_session_config config{};
@@ -508,7 +518,9 @@ TEST_CASE("w1rewind replay session reverse instruction stepping on instruction t
 
   w1::rewind::trace_index_options index_options;
   w1::rewind::trace_index index;
-  REQUIRE(w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, &index, writer_config.log));
+  REQUIRE(
+      w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, &index, writer_config.log)
+  );
 
   w1::rewind::replay_session_config config{};
   config.trace_path = trace_path.string();

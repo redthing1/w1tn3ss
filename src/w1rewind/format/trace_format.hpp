@@ -265,19 +265,8 @@ struct thread_end_record {
 };
 
 using trace_record = std::variant<
-    register_table_record,
-    target_info_record,
-    register_spec_record,
-    module_table_record,
-    memory_map_record,
-    thread_start_record,
-    instruction_record,
-    block_definition_record,
-    block_exec_record,
-    register_delta_record,
-    register_bytes_record,
-    memory_access_record,
-    snapshot_record,
-    thread_end_record>;
+    register_table_record, target_info_record, register_spec_record, module_table_record, memory_map_record,
+    thread_start_record, instruction_record, block_definition_record, block_exec_record, register_delta_record,
+    register_bytes_record, memory_access_record, snapshot_record, thread_end_record>;
 
 } // namespace w1::rewind

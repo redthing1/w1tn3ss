@@ -34,9 +34,7 @@ void module_source::configure(std::vector<std::string> module_mappings, std::vec
   module_dirs_ = std::move(module_dirs);
 }
 
-void module_source::set_address_reader(module_address_reader reader) {
-  address_reader_ = std::move(reader);
-}
+void module_source::set_address_reader(module_address_reader reader) { address_reader_ = std::move(reader); }
 
 void module_source::apply_to_context(w1::rewind::replay_context& context) {
   std::unordered_map<std::string, std::string> overrides;
@@ -83,9 +81,7 @@ void module_source::apply_to_context(w1::rewind::replay_context& context) {
 }
 
 image_read_result module_source::read_module_image(
-    const w1::rewind::module_record& module,
-    uint64_t module_offset,
-    size_t size
+    const w1::rewind::module_record& module, uint64_t module_offset, size_t size
 ) {
   image_read_result result;
 
@@ -95,8 +91,8 @@ image_read_result module_source::read_module_image(
   }
 
 #if !defined(WITNESS_LIEF_ENABLED)
-  (void)module;
-  (void)module_offset;
+  (void) module;
+  (void) module_offset;
   result.error = "module bytes unavailable (build with WITNESS_LIEF=ON)";
   return result;
 #else
@@ -116,9 +112,7 @@ image_read_result module_source::read_module_image(
 }
 
 image_read_result module_source::read_address_image(
-    const w1::rewind::replay_context& context,
-    uint64_t address,
-    size_t size
+    const w1::rewind::replay_context& context, uint64_t address, size_t size
 ) {
   image_read_result result;
 
@@ -153,7 +147,7 @@ image_read_result module_source::read_address_image(
 const image_layout* module_source::get_module_layout(const w1::rewind::module_record& module, std::string& error) {
   error.clear();
 #if !defined(WITNESS_LIEF_ENABLED)
-  (void)module;
+  (void) module;
   error = "module bytes unavailable (build with WITNESS_LIEF=ON)";
   return nullptr;
 #else
@@ -183,10 +177,7 @@ const image_layout* module_source::get_module_layout(const w1::rewind::module_re
 }
 
 bool module_source::read_by_address(
-    const w1::rewind::replay_context& context,
-    uint64_t address,
-    std::span<std::byte> out,
-    std::string& error
+    const w1::rewind::replay_context& context, uint64_t address, std::span<std::byte> out, std::string& error
 ) {
   if (out.empty()) {
     return true;

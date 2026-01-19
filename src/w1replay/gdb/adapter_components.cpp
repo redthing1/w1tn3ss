@@ -9,10 +9,8 @@ namespace w1replay::gdb {
 
 namespace {
 bool has_any_known_byte(
-    const std::vector<std::optional<uint8_t>>& recorded,
-    const std::vector<std::byte>& module_bytes,
-    std::span<const uint8_t> module_known,
-    size_t size
+    const std::vector<std::optional<uint8_t>>& recorded, const std::vector<std::byte>& module_bytes,
+    std::span<const uint8_t> module_known, size_t size
 ) {
   for (size_t i = 0; i < size && i < recorded.size(); ++i) {
     if (recorded[i].has_value()) {
@@ -50,9 +48,7 @@ gdbstub::target_status regs_component::read_reg(int regno, std::span<std::byte> 
     return gdbstub::target_status::invalid;
   }
 
-  auto fill_unknown = [&](std::span<std::byte> buffer) {
-    std::fill(buffer.begin(), buffer.end(), std::byte{0xcc});
-  };
+  auto fill_unknown = [&](std::span<std::byte> buffer) { std::fill(buffer.begin(), buffer.end(), std::byte{0xcc}); };
 
   const auto& reg = state_.layout.registers[static_cast<size_t>(regno)];
   if (reg.is_pc) {
@@ -207,9 +203,7 @@ std::vector<uint64_t> threads_component::thread_ids() const { return {state_.act
 
 uint64_t threads_component::current_thread() const { return state_.active_thread_id; }
 
-gdbstub::target_status threads_component::set_current_thread(uint64_t) {
-  return gdbstub::target_status::unsupported;
-}
+gdbstub::target_status threads_component::set_current_thread(uint64_t) { return gdbstub::target_status::unsupported; }
 
 std::optional<uint64_t> threads_component::thread_pc(uint64_t tid) const {
   if (tid != state_.active_thread_id) {

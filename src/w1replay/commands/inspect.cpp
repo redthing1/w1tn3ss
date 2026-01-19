@@ -38,17 +38,13 @@ std::string format_bytes(std::span<const std::byte> bytes) {
     if (i > 0) {
       out << " ";
     }
-    out << std::hex << std::setw(2) << std::setfill('0')
-        << static_cast<int>(std::to_integer<uint8_t>(bytes[i]));
+    out << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(std::to_integer<uint8_t>(bytes[i]));
   }
   return out.str();
 }
 
 const w1::rewind::module_record* find_module_for_address(
-    const std::vector<w1::rewind::module_record>& modules,
-    uint64_t address,
-    uint64_t size,
-    uint64_t& module_offset
+    const std::vector<w1::rewind::module_record>& modules, uint64_t address, uint64_t size, uint64_t& module_offset
 ) {
   if (size == 0) {
     return nullptr;
@@ -180,8 +176,8 @@ int inspect(const inspect_options& options) {
       }
     }
 
-    std::cout << "seq=" << step.sequence << " addr=" << format_address(step.address)
-              << " module=" << module_label << " kind=" << (step.is_block ? "block" : "instruction") << std::endl;
+    std::cout << "seq=" << step.sequence << " addr=" << format_address(step.address) << " module=" << module_label
+              << " kind=" << (step.is_block ? "block" : "instruction") << std::endl;
 
     if (options.show_registers) {
       const auto& names = session.register_names();

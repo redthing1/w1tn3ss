@@ -8,9 +8,7 @@
 
 namespace {
 
-std::filesystem::path make_temp_path(const char* name) {
-  return std::filesystem::temp_directory_path() / name;
-}
+std::filesystem::path make_temp_path(const char* name) { return std::filesystem::temp_directory_path() / name; }
 
 } // namespace
 
@@ -337,10 +335,12 @@ TEST_CASE("rewind trace writer and reader round trip (register bytes)") {
 
   w1::rewind::register_spec_record specs{};
   specs.registers = {
-      w1::rewind::register_spec{0, "r0", 64, 0, "r0", w1::rewind::register_class::gpr,
-                                w1::rewind::register_value_kind::u64},
-      w1::rewind::register_spec{1, "v0", 128, 0, "v0", w1::rewind::register_class::simd,
-                                w1::rewind::register_value_kind::bytes},
+      w1::rewind::register_spec{
+          0, "r0", 64, 0, "r0", w1::rewind::register_class::gpr, w1::rewind::register_value_kind::u64
+      },
+      w1::rewind::register_spec{
+          1, "v0", 128, 0, "v0", w1::rewind::register_class::simd, w1::rewind::register_value_kind::bytes
+      },
   };
   REQUIRE(writer->write_register_spec(specs));
 
@@ -349,8 +349,7 @@ TEST_CASE("rewind trace writer and reader round trip (register bytes)") {
   bytes.thread_id = 1;
   bytes.entries = {w1::rewind::register_bytes_entry{1, 0, 16}};
   bytes.data = {
-      0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-      0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+      0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
   };
   REQUIRE(writer->write_register_bytes(bytes));
 

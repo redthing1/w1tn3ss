@@ -32,9 +32,7 @@ std::vector<std::optional<uint8_t>> build_unknown_memory(size_t count) {
   return std::vector<std::optional<uint8_t>>(count, std::nullopt);
 }
 
-bool is_index_error(const std::string& error) {
-  return error.find("trace index") != std::string::npos;
-}
+bool is_index_error(const std::string& error) { return error.find("trace index") != std::string::npos; }
 
 replay_session::replay_error_kind map_flow_error_kind(replay_flow_error_kind kind) {
   switch (kind) {

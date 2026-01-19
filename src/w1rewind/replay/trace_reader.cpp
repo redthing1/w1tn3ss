@@ -67,9 +67,7 @@ void trace_reader::reset() {
   read_header();
 }
 
-bool trace_reader::read_next(trace_record& record) {
-  return read_next(record, nullptr);
-}
+bool trace_reader::read_next(trace_record& record) { return read_next(record, nullptr); }
 
 bool trace_reader::read_next(trace_record& record, trace_record_location* location) {
   if (!error_.empty()) {
@@ -317,9 +315,7 @@ bool trace_reader::read_chunk_at(uint64_t file_offset, uint32_t chunk_index, con
 
 #if defined(W1_REWIND_HAVE_ZSTD)
   chunk_buffer_.assign(uncompressed_size, 0);
-  size_t result = ZSTD_decompress(
-      chunk_buffer_.data(), chunk_buffer_.size(), compressed.data(), compressed.size()
-  );
+  size_t result = ZSTD_decompress(chunk_buffer_.data(), chunk_buffer_.size(), compressed.data(), compressed.size());
   if (ZSTD_isError(result)) {
     error_ = std::string("zstd decompression failed: ") + ZSTD_getErrorName(result);
     return false;
@@ -386,7 +382,9 @@ bool trace_reader::read_record_header(record_header& header) {
   return true;
 }
 
-bool trace_reader::parse_record(const record_header& header, const std::vector<uint8_t>& payload, trace_record& record) {
+bool trace_reader::parse_record(
+    const record_header& header, const std::vector<uint8_t>& payload, trace_record& record
+) {
   trace_buffer_reader reader(std::span<const uint8_t>(payload.data(), payload.size()));
 
   switch (header.kind) {

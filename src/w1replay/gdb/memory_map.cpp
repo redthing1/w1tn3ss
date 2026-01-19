@@ -54,12 +54,9 @@ std::vector<range> build_memory_ranges(const std::vector<w1::rewind::memory_regi
 }
 
 bool address_in_ranges(uint64_t address, const std::vector<range>& ranges) {
-  auto it = std::upper_bound(
-      ranges.begin(),
-      ranges.end(),
-      address,
-      [](uint64_t addr, const range& r) { return addr < r.start; }
-  );
+  auto it = std::upper_bound(ranges.begin(), ranges.end(), address, [](uint64_t addr, const range& r) {
+    return addr < r.start;
+  });
   if (it == ranges.begin()) {
     return false;
   }
@@ -68,8 +65,7 @@ bool address_in_ranges(uint64_t address, const std::vector<range>& ranges) {
 }
 
 std::vector<gdbstub::memory_region> build_recorded_regions(
-    const w1::rewind::replay_state* state,
-    const std::vector<range>& module_ranges
+    const w1::rewind::replay_state* state, const std::vector<range>& module_ranges
 ) {
   if (!state) {
     return {};
@@ -125,8 +121,7 @@ std::vector<gdbstub::memory_region> build_recorded_regions(
 
 std::vector<gdbstub::memory_region> build_memory_map(
     const std::vector<w1::rewind::module_record>& modules,
-    const std::vector<w1::rewind::memory_region_record>& memory_map,
-    const w1::rewind::replay_state* state
+    const std::vector<w1::rewind::memory_region_record>& memory_map, const w1::rewind::replay_state* state
 ) {
   std::vector<gdbstub::memory_region> regions;
   if (!modules.empty()) {

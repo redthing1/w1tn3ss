@@ -53,43 +53,29 @@ bool write_sample_trace(const std::string& path, bool include_modules, bool incl
   target.cpu = "test";
 
   std::vector<w1::rewind::register_spec> regs;
-  regs.push_back(w1::rewind::register_spec{
-      0,
-      "rax",
-      64,
-      0,
-      "rax",
-      w1::rewind::register_class::gpr,
-      w1::rewind::register_value_kind::u64
-  });
-  regs.push_back(w1::rewind::register_spec{
-      1,
-      "rsp",
-      64,
-      w1::rewind::register_flag_sp,
-      "rsp",
-      w1::rewind::register_class::gpr,
-      w1::rewind::register_value_kind::u64
-  });
-  regs.push_back(w1::rewind::register_spec{
-      2,
-      "rip",
-      64,
-      w1::rewind::register_flag_pc,
-      "rip",
-      w1::rewind::register_class::gpr,
-      w1::rewind::register_value_kind::u64
-  });
+  regs.push_back(
+      w1::rewind::register_spec{
+          0, "rax", 64, 0, "rax", w1::rewind::register_class::gpr, w1::rewind::register_value_kind::u64
+      }
+  );
+  regs.push_back(
+      w1::rewind::register_spec{
+          1, "rsp", 64, w1::rewind::register_flag_sp, "rsp", w1::rewind::register_class::gpr,
+          w1::rewind::register_value_kind::u64
+      }
+  );
+  regs.push_back(
+      w1::rewind::register_spec{
+          2, "rip", 64, w1::rewind::register_flag_pc, "rip", w1::rewind::register_class::gpr,
+          w1::rewind::register_value_kind::u64
+      }
+  );
   if (include_byte_reg) {
-    regs.push_back(w1::rewind::register_spec{
-        3,
-        "v0",
-        128,
-        0,
-        "v0",
-        w1::rewind::register_class::simd,
-        w1::rewind::register_value_kind::bytes
-    });
+    regs.push_back(
+        w1::rewind::register_spec{
+            3, "v0", 128, 0, "v0", w1::rewind::register_class::simd, w1::rewind::register_value_kind::bytes
+        }
+    );
   }
 
   if (!builder.begin_trace(arch, target, regs)) {
@@ -129,16 +115,12 @@ bool write_sample_trace(const std::string& path, bool include_modules, bool incl
 
   if (include_byte_reg) {
     std::vector<uint8_t> reg_bytes = {
-        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-        0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
     };
     std::vector<w1::rewind::register_bytes_entry> entries;
     entries.push_back(w1::rewind::register_bytes_entry{3, 0, 16});
     if (!builder.emit_register_bytes(
-            1,
-            sequence,
-            std::span<const w1::rewind::register_bytes_entry>(entries),
-            std::span<const uint8_t>(reg_bytes)
+            1, sequence, std::span<const w1::rewind::register_bytes_entry>(entries), std::span<const uint8_t>(reg_bytes)
         )) {
       std::cerr << "failed to emit register bytes: " << builder.error() << "\n";
       return false;
@@ -147,14 +129,7 @@ bool write_sample_trace(const std::string& path, bool include_modules, bool incl
 
   std::vector<uint8_t> bytes = {0x11, 0x22, 0x33, 0x44};
   if (!builder.emit_memory_access(
-          1,
-          sequence,
-          w1::rewind::memory_access_kind::write,
-          0x2000,
-          4,
-          true,
-          false,
-          std::span<const uint8_t>(bytes)
+          1, sequence, w1::rewind::memory_access_kind::write, 0x2000, 4, true, false, std::span<const uint8_t>(bytes)
       )) {
     std::cerr << "failed to emit memory access: " << builder.error() << "\n";
     return false;
@@ -162,12 +137,7 @@ bool write_sample_trace(const std::string& path, bool include_modules, bool incl
 
   std::vector<uint8_t> stack = {0xaa, 0xbb, 0xcc, 0xdd};
   if (!builder.emit_snapshot(
-          1,
-          sequence,
-          0,
-          std::span<const w1::rewind::register_delta>(deltas),
-          std::span<const uint8_t>(stack),
-          "test"
+          1, sequence, 0, std::span<const w1::rewind::register_delta>(deltas), std::span<const uint8_t>(stack), "test"
       )) {
     std::cerr << "failed to emit snapshot: " << builder.error() << "\n";
     return false;

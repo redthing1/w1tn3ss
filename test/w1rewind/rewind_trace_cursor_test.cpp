@@ -10,10 +10,7 @@
 namespace {
 
 void write_instruction_local(
-    w1::rewind::trace_writer& writer,
-    uint64_t thread_id,
-    uint64_t sequence,
-    uint64_t address
+    w1::rewind::trace_writer& writer, uint64_t thread_id, uint64_t sequence, uint64_t address
 ) {
   w1::rewind::instruction_record record{};
   record.sequence = sequence;

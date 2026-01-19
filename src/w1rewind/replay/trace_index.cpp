@@ -20,12 +20,8 @@ struct thread_build_state {
 };
 
 bool write_index_header(
-    std::ostream& out,
-    const trace_index_header& header,
-    uint32_t chunk_count,
-    uint32_t thread_count,
-    uint32_t anchor_count,
-    uint32_t snapshot_count
+    std::ostream& out, const trace_index_header& header, uint32_t chunk_count, uint32_t thread_count,
+    uint32_t anchor_count, uint32_t snapshot_count
 ) {
   if (!write_stream_bytes(out, k_trace_index_magic.data(), k_trace_index_magic.size())) {
     return false;
@@ -38,11 +34,7 @@ bool write_index_header(
 }
 
 bool read_index_header(
-    std::istream& in,
-    trace_index_header& header,
-    uint32_t& chunk_count,
-    uint32_t& thread_count,
-    uint32_t& anchor_count,
+    std::istream& in, trace_index_header& header, uint32_t& chunk_count, uint32_t& thread_count, uint32_t& anchor_count,
     uint32_t& snapshot_count
 ) {
   std::array<uint8_t, 8> magic{};
@@ -55,24 +47,20 @@ bool read_index_header(
   return read_stream_u16(in, header.version) && read_stream_u16(in, header.trace_version) &&
          read_stream_u32(in, header.chunk_size) && read_stream_u64(in, header.trace_flags) &&
          read_stream_u32(in, header.anchor_stride) && read_stream_u32(in, chunk_count) &&
-         read_stream_u32(in, thread_count) && read_stream_u32(in, anchor_count) &&
-         read_stream_u32(in, snapshot_count);
+         read_stream_u32(in, thread_count) && read_stream_u32(in, anchor_count) && read_stream_u32(in, snapshot_count);
 }
 
 std::optional<trace_anchor> find_anchor_in_span(
-    const std::vector<trace_anchor>& anchors,
-    uint32_t start,
-    uint32_t count,
-    uint64_t sequence
+    const std::vector<trace_anchor>& anchors, uint32_t start, uint32_t count, uint64_t sequence
 ) {
   if (count == 0) {
     return std::nullopt;
   }
   auto begin = anchors.begin() + static_cast<std::vector<trace_anchor>::difference_type>(start);
   auto end = begin + static_cast<std::vector<trace_anchor>::difference_type>(count);
-  auto it = std::lower_bound(
-      begin, end, sequence, [](const trace_anchor& anchor, uint64_t value) { return anchor.sequence < value; }
-  );
+  auto it = std::lower_bound(begin, end, sequence, [](const trace_anchor& anchor, uint64_t value) {
+    return anchor.sequence < value;
+  });
   if (it == begin) {
     if (it->sequence > sequence) {
       return std::nullopt;
@@ -91,10 +79,10 @@ std::optional<trace_anchor> find_anchor_in_span(
 } // namespace
 
 const trace_thread_index* trace_index::find_thread(uint64_t thread_id) const {
-  auto it = std::lower_bound(
-      threads.begin(), threads.end(), thread_id,
-      [](const trace_thread_index& entry, uint64_t value) { return entry.thread_id < value; }
-  );
+  auto it =
+      std::lower_bound(threads.begin(), threads.end(), thread_id, [](const trace_thread_index& entry, uint64_t value) {
+        return entry.thread_id < value;
+      });
   if (it == threads.end() || it->thread_id != thread_id) {
     return nullptr;
   }
@@ -120,10 +108,7 @@ std::optional<trace_anchor> trace_index::find_snapshot(uint64_t thread_id, uint6
 std::string default_trace_index_path(const std::string& trace_path) { return trace_path + ".idx"; }
 
 bool build_trace_index(
-    const std::string& trace_path,
-    const std::string& index_path,
-    const trace_index_options& options,
-    trace_index* out,
+    const std::string& trace_path, const std::string& index_path, const trace_index_options& options, trace_index* out,
     redlog::logger log
 ) {
   if (options.anchor_stride == 0) {
@@ -133,7 +118,9 @@ bool build_trace_index(
 
   trace_reader reader(trace_path);
   if (!reader.open()) {
-    log.err("failed to open trace for indexing", redlog::field("path", trace_path), redlog::field("error", reader.error()));
+    log.err(
+        "failed to open trace for indexing", redlog::field("path", trace_path), redlog::field("error", reader.error())
+    );
     return false;
   }
 
@@ -220,11 +207,8 @@ bool build_trace_index(
   }
 
   if (!write_index_header(
-          out_stream,
-          index.header,
-          static_cast<uint32_t>(index.chunks.size()),
-          static_cast<uint32_t>(index.threads.size()),
-          static_cast<uint32_t>(index.anchors.size()),
+          out_stream, index.header, static_cast<uint32_t>(index.chunks.size()),
+          static_cast<uint32_t>(index.threads.size()), static_cast<uint32_t>(index.anchors.size()),
           static_cast<uint32_t>(index.snapshots.size())
       )) {
     log.err("failed to write trace index header", redlog::field("path", index_path));

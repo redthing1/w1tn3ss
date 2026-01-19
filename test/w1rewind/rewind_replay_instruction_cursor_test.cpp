@@ -12,9 +12,7 @@ namespace {
 class test_block_decoder final : public w1::rewind::replay_block_decoder {
 public:
   bool decode_block(
-      const w1::rewind::replay_context&,
-      const w1::rewind::flow_step& flow,
-      w1::rewind::replay_decoded_block& out,
+      const w1::rewind::replay_context&, const w1::rewind::flow_step& flow, w1::rewind::replay_decoded_block& out,
       std::string&
   ) override {
     uint64_t address = flow.address;
@@ -76,7 +74,9 @@ TEST_CASE("w1rewind replay instruction cursor decodes blocks and steps backward"
 
   w1::rewind::trace_index_options index_options;
   w1::rewind::trace_index index;
-  REQUIRE(w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, &index, writer_config.log));
+  REQUIRE(
+      w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, &index, writer_config.log)
+  );
 
   w1::rewind::replay_flow_cursor_config replay_config{};
   replay_config.trace_path = trace_path.string();
@@ -138,7 +138,9 @@ TEST_CASE("w1rewind replay instruction cursor reports missing decoder") {
 
   w1::rewind::trace_index_options index_options;
   w1::rewind::trace_index index;
-  REQUIRE(w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, &index, writer_config.log));
+  REQUIRE(
+      w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, &index, writer_config.log)
+  );
 
   w1::rewind::replay_flow_cursor_config replay_config{};
   replay_config.trace_path = trace_path.string();

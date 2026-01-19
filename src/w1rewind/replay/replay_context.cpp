@@ -22,9 +22,7 @@ std::optional<uint16_t> find_register_with_flag(const std::vector<register_spec>
 } // namespace
 
 const module_record* replay_context::find_module_for_address(
-    uint64_t address,
-    uint64_t size,
-    uint64_t& module_offset
+    uint64_t address, uint64_t size, uint64_t& module_offset
 ) const {
   if (size == 0) {
     return nullptr;
@@ -189,8 +187,7 @@ bool load_replay_context(const std::string& trace_path, replay_context& out, std
     context.threads.push_back(info);
   }
   std::sort(
-      context.threads.begin(),
-      context.threads.end(),
+      context.threads.begin(), context.threads.end(),
       [](const replay_thread_info& lhs, const replay_thread_info& rhs) { return lhs.thread_id < rhs.thread_id; }
   );
 

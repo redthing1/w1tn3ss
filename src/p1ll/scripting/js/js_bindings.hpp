@@ -485,7 +485,9 @@ struct p1ll_api {
     auto results = session->scan(pattern, scan_opts);
     if (!results.ok() || results.value.empty()) {
       if (!results.ok()) {
-        log.err("search failed", redlog::field("pattern", pattern), redlog::field("error", results.status_info.message));
+        log.err(
+            "search failed", redlog::field("pattern", pattern), redlog::field("error", results.status_info.message)
+        );
       } else {
         log.dbg("search returned no matches", redlog::field("pattern", pattern));
       }

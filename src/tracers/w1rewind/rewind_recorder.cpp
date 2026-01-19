@@ -31,13 +31,9 @@ std::string detect_os_id() {
 #endif
 }
 
-bool is_pc_name(const std::string& name) {
-  return name == "pc" || name == "rip" || name == "eip";
-}
+bool is_pc_name(const std::string& name) { return name == "pc" || name == "rip" || name == "eip"; }
 
-bool is_sp_name(const std::string& name) {
-  return name == "sp" || name == "rsp" || name == "esp";
-}
+bool is_sp_name(const std::string& name) { return name == "sp" || name == "rsp" || name == "esp"; }
 
 bool is_flags_name(const std::string& name) {
   return name == "eflags" || name == "rflags" || name == "nzcv" || name == "cpsr";
@@ -51,9 +47,7 @@ w1::rewind::register_class register_class_for_name(const std::string& name) {
 }
 
 uint32_t register_bitsize_for_name(
-    const w1::arch::arch_spec& arch,
-    const std::string& name,
-    uint32_t pointer_size_bytes
+    const w1::arch::arch_spec& arch, const std::string& name, uint32_t pointer_size_bytes
 ) {
   uint32_t pointer_bits = pointer_size_bytes * 8;
   if (arch.arch_mode == w1::arch::mode::x86_64 || arch.arch_mode == w1::arch::mode::x86_32) {
@@ -165,11 +159,7 @@ void rewind_recorder::on_basic_block_entry(
     auto snapshot = maybe_capture_snapshot(ctx, thread, regs);
     if (snapshot.has_value()) {
       builder_->emit_snapshot(
-          thread.thread_id,
-          sequence,
-          snapshot->snapshot_id,
-          snapshot->registers,
-          snapshot->stack_snapshot,
+          thread.thread_id, sequence, snapshot->snapshot_id, snapshot->registers, snapshot->stack_snapshot,
           std::move(snapshot->reason)
       );
     }
@@ -226,7 +216,8 @@ void rewind_recorder::on_instruction_post(
   }
 #endif
 
-  bool need_registers = config_.record_register_deltas || config_.snapshot_interval > 0 || config_.stack_snapshot_bytes > 0;
+  bool need_registers =
+      config_.record_register_deltas || config_.snapshot_interval > 0 || config_.stack_snapshot_bytes > 0;
   w1::util::register_state regs;
   if (need_registers) {
     regs = w1::util::register_capturer::capture(gpr);
@@ -379,14 +370,8 @@ void rewind_recorder::flush_pending(thread_state& state) {
   if (config_.memory.enabled) {
     for (const auto& access : pending.memory_accesses) {
       if (!builder_->emit_memory_access(
-              pending.thread_id,
-              sequence,
-              access.kind,
-              access.address,
-              access.size,
-              access.value_known,
-              access.value_truncated,
-              access.data
+              pending.thread_id, sequence, access.kind, access.address, access.size, access.value_known,
+              access.value_truncated, access.data
           )) {
         return;
       }
@@ -395,12 +380,8 @@ void rewind_recorder::flush_pending(thread_state& state) {
 
   if (pending.snapshot.has_value() && config_.snapshot_interval > 0) {
     builder_->emit_snapshot(
-        pending.thread_id,
-        sequence,
-        pending.snapshot->snapshot_id,
-        pending.snapshot->registers,
-        pending.snapshot->stack_snapshot,
-        std::move(pending.snapshot->reason)
+        pending.thread_id, sequence, pending.snapshot->snapshot_id, pending.snapshot->registers,
+        pending.snapshot->stack_snapshot, std::move(pending.snapshot->reason)
     );
   }
 }

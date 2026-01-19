@@ -154,8 +154,8 @@ bool parse_arch_spec(std::string_view text, arch_spec& out, std::string& error) 
   }
 
   arch_spec spec{};
-  if (value == "x86" || value == "i386" || value == "i486" || value == "i586" || value == "i686" ||
-      value == "x86_32" || value == "x86-32") {
+  if (value == "x86" || value == "i386" || value == "i486" || value == "i586" || value == "i686" || value == "x86_32" ||
+      value == "x86-32") {
     spec.arch_family = family::x86;
     spec.arch_mode = mode::x86_32;
   } else if (value == "x64" || value == "x86_64" || value == "x86-64" || value == "amd64") {

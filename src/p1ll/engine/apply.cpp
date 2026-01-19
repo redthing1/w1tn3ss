@@ -246,7 +246,8 @@ result<apply_report> apply_plan(
       if (entry.spec.required) {
         log.err(
             "required patch failed", redlog::field("address", utils::format_address(entry.address)),
-            redlog::field("signature", entry.spec.signature.pattern), redlog::field("error", applied.status_info.message)
+            redlog::field("signature", entry.spec.signature.pattern),
+            redlog::field("error", applied.status_info.message)
         );
         report.success = false;
         return result<apply_report>{report, applied.status_info};

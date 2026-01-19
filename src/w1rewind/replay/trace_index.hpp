@@ -57,10 +57,7 @@ struct trace_index {
 std::string default_trace_index_path(const std::string& trace_path);
 
 bool build_trace_index(
-    const std::string& trace_path,
-    const std::string& index_path,
-    const trace_index_options& options,
-    trace_index* out,
+    const std::string& trace_path, const std::string& index_path, const trace_index_options& options, trace_index* out,
     redlog::logger log
 );
 

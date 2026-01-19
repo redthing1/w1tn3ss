@@ -13,40 +13,25 @@ public:
   explicit replay_state_applier(const replay_context& context) : context_(context) {}
 
   bool apply_record(
-      const trace_record& record,
-      uint64_t active_thread_id,
-      bool track_registers,
-      bool track_memory,
+      const trace_record& record, uint64_t active_thread_id, bool track_registers, bool track_memory,
       replay_state& state
   ) const;
 
   bool apply_snapshot(
-      const snapshot_record& record,
-      uint64_t active_thread_id,
-      bool track_registers,
-      bool track_memory,
+      const snapshot_record& record, uint64_t active_thread_id, bool track_registers, bool track_memory,
       replay_state& state
   ) const;
 
   bool apply_register_deltas(
-      const register_delta_record& record,
-      uint64_t active_thread_id,
-      bool track_registers,
-      replay_state& state
+      const register_delta_record& record, uint64_t active_thread_id, bool track_registers, replay_state& state
   ) const;
 
   bool apply_register_bytes(
-      const register_bytes_record& record,
-      uint64_t active_thread_id,
-      bool track_registers,
-      replay_state& state
+      const register_bytes_record& record, uint64_t active_thread_id, bool track_registers, replay_state& state
   ) const;
 
   bool apply_memory_access(
-      const memory_access_record& record,
-      uint64_t active_thread_id,
-      bool track_memory,
-      replay_state& state
+      const memory_access_record& record, uint64_t active_thread_id, bool track_memory, replay_state& state
   ) const;
 
 private:

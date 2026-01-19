@@ -20,9 +20,7 @@ struct signature {
 };
 
 engine::result<signature> code_signature(
-    std::span<const uint8_t> bytes,
-    uint64_t address,
-    const engine::platform::platform_key& platform,
+    std::span<const uint8_t> bytes, uint64_t address, const engine::platform::platform_key& platform,
     policy policy_value = policy::balanced
 );
 

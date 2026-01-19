@@ -49,7 +49,9 @@ TEST_CASE("w1rewind replay cursor steps through instruction flow") {
 
   w1::rewind::trace_index_options index_options;
   w1::rewind::trace_index index;
-  REQUIRE(w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, &index, writer_config.log));
+  REQUIRE(
+      w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, &index, writer_config.log)
+  );
 
   w1::rewind::replay_flow_cursor cursor({trace_path.string(), index_path.string(), 4});
   REQUIRE(cursor.open());
@@ -106,7 +108,9 @@ TEST_CASE("w1rewind replay cursor resolves block flow addresses") {
 
   w1::rewind::trace_index_options index_options;
   w1::rewind::trace_index index;
-  REQUIRE(w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, &index, writer_config.log));
+  REQUIRE(
+      w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, &index, writer_config.log)
+  );
 
   w1::rewind::replay_flow_cursor cursor({trace_path.string(), index_path.string(), 4});
   REQUIRE(cursor.open());
@@ -156,7 +160,9 @@ TEST_CASE("w1rewind replay cursor handles module-less traces") {
 
   w1::rewind::trace_index_options index_options;
   w1::rewind::trace_index index;
-  REQUIRE(w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, &index, writer_config.log));
+  REQUIRE(
+      w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, &index, writer_config.log)
+  );
 
   w1::rewind::replay_flow_cursor cursor({trace_path.string(), index_path.string(), 4});
   REQUIRE(cursor.open());

@@ -14,10 +14,7 @@ public:
   virtual ~code_source() = default;
 
   virtual bool read_by_address(
-      const w1::rewind::replay_context& context,
-      uint64_t address,
-      std::span<std::byte> out,
-      std::string& error
+      const w1::rewind::replay_context& context, uint64_t address, std::span<std::byte> out, std::string& error
   ) = 0;
 };
 

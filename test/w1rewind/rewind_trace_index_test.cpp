@@ -10,11 +10,7 @@
 namespace {
 
 void write_instruction_range(
-    w1::rewind::trace_writer& writer,
-    uint64_t thread_id,
-    uint64_t start_seq,
-    uint64_t count,
-    uint64_t base_address
+    w1::rewind::trace_writer& writer, uint64_t thread_id, uint64_t start_seq, uint64_t count, uint64_t base_address
 ) {
   for (uint64_t i = 0; i < count; ++i) {
     w1::rewind::instruction_record record{};

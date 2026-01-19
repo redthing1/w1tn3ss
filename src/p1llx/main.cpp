@@ -39,9 +39,7 @@ args::Group arguments("arguments");
 args::HelpFlag help_flag(arguments, "help", "help", {'h', "help"});
 args::CounterFlag verbosity_flag(arguments, "verbosity", "verbosity level", {'v'});
 
-void apply_verbosity() {
-  w1::cli::apply_verbosity(args::get(verbosity_flag));
-}
+void apply_verbosity() { w1::cli::apply_verbosity(args::get(verbosity_flag)); }
 } // namespace cli
 
 // command functions following w1tool pattern
@@ -336,9 +334,7 @@ int main(int argc, char* argv[]) {
 
   args::Command disasm_cmd(parser, "disasm", "disassemble hex bytes");
   args::Positional<std::string> disasm_bytes_flag(disasm_cmd, "bytes", "hex bytes");
-  args::ValueFlag<std::string> disasm_arch_flag(
-      disasm_cmd, "arch", "architecture (e.g., x86, x64, arm64)", {"arch"}
-  );
+  args::ValueFlag<std::string> disasm_arch_flag(disasm_cmd, "arch", "architecture (e.g., x86, x64, arm64)", {"arch"});
   args::ValueFlag<std::string> disasm_address_flag(disasm_cmd, "address", "base address (hex or decimal)", {"address"});
 #endif
 

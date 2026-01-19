@@ -14,9 +14,7 @@
 
 namespace w1replay {
 
-namespace {
-
-} // namespace
+namespace {} // namespace
 
 bool asmr_decoder_available() {
 #if defined(WITNESS_ASMR_ENABLED) && defined(WITNESS_LIEF_ENABLED)
@@ -29,21 +27,19 @@ bool asmr_decoder_available() {
 asmr_block_decoder::~asmr_block_decoder() = default;
 
 bool asmr_block_decoder::decode_block(
-    const w1::rewind::replay_context& context,
-    const w1::rewind::flow_step& flow,
-    w1::rewind::replay_decoded_block& out,
+    const w1::rewind::replay_context& context, const w1::rewind::flow_step& flow, w1::rewind::replay_decoded_block& out,
     std::string& error
 ) {
 #if !defined(WITNESS_ASMR_ENABLED)
-  (void)context;
-  (void)flow;
-  (void)out;
+  (void) context;
+  (void) flow;
+  (void) out;
   error = "asmr decoder unavailable (build with WITNESS_ASMR=ON)";
   return false;
 #elif !defined(WITNESS_LIEF_ENABLED)
-  (void)context;
-  (void)flow;
-  (void)out;
+  (void) context;
+  (void) flow;
+  (void) out;
   error = "asmr decoder unavailable (build with WITNESS_LIEF=ON)";
   return false;
 #else

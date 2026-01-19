@@ -40,8 +40,7 @@ struct arch_spec {
 
 inline constexpr bool operator==(const arch_spec& lhs, const arch_spec& rhs) noexcept {
   return lhs.arch_family == rhs.arch_family && lhs.arch_mode == rhs.arch_mode &&
-         lhs.arch_byte_order == rhs.arch_byte_order &&
-         lhs.pointer_bits == rhs.pointer_bits && lhs.flags == rhs.flags;
+         lhs.arch_byte_order == rhs.arch_byte_order && lhs.pointer_bits == rhs.pointer_bits && lhs.flags == rhs.flags;
 }
 
 inline constexpr bool operator!=(const arch_spec& lhs, const arch_spec& rhs) noexcept { return !(lhs == rhs); }

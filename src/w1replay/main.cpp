@@ -17,9 +17,7 @@ args::Group arguments("arguments");
 args::HelpFlag help_flag(arguments, "help", "help", {'h', "help"});
 args::CounterFlag verbosity_flag(arguments, "verbosity", "verbosity level", {'v'});
 
-void apply_verbosity() {
-  w1::cli::apply_verbosity(args::get(verbosity_flag));
-}
+void apply_verbosity() { w1::cli::apply_verbosity(args::get(verbosity_flag)); }
 } // namespace cli
 
 namespace {
@@ -40,29 +38,13 @@ void cmd_inspect(args::Subparser& parser) {
   args::Flag inst_flag(parser, "inst", "step instructions (decode block traces)", {"inst"});
   args::Flag regs_flag(parser, "regs", "show register state", {"regs"});
   args::ValueFlag<std::string> mem_flag(
-      parser,
-      "range",
-      "show memory bytes at addr:size (example: 0x1000:32)",
-      {"mem"}
+      parser, "range", "show memory bytes at addr:size (example: 0x1000:32)", {"mem"}
   );
-  args::ValueFlagList<std::string> module_flag(
-      parser,
-      "mapping",
-      "module mapping name=path (repeatable)",
-      {"module"}
-  );
+  args::ValueFlagList<std::string> module_flag(parser, "mapping", "module mapping name=path (repeatable)", {"module"});
   args::ValueFlagList<std::string> module_dir_flag(
-      parser,
-      "dir",
-      "module search directory (repeatable)",
-      {"module-dir"}
+      parser, "dir", "module search directory (repeatable)", {"module-dir"}
   );
-  args::ValueFlag<std::string> checkpoint_flag(
-      parser,
-      "path",
-      "path to replay checkpoint file",
-      {"checkpoint"}
-  );
+  args::ValueFlag<std::string> checkpoint_flag(parser, "path", "path to replay checkpoint file", {"checkpoint"});
   parser.Parse();
 
   if (!trace_flag) {
@@ -156,17 +138,9 @@ void cmd_server(args::Subparser& parser) {
   args::ValueFlag<uint64_t> thread_flag(parser, "thread", "thread id", {'T', "thread"});
   args::ValueFlag<uint64_t> start_flag(parser, "sequence", "start sequence", {'s', "start"});
   args::Flag inst_flag(parser, "inst", "prefer instruction steps when possible", {"inst"});
-  args::ValueFlagList<std::string> module_flag(
-      parser,
-      "mapping",
-      "module mapping name=path (repeatable)",
-      {"module"}
-  );
+  args::ValueFlagList<std::string> module_flag(parser, "mapping", "module mapping name=path (repeatable)", {"module"});
   args::ValueFlagList<std::string> module_dir_flag(
-      parser,
-      "dir",
-      "module search directory (repeatable)",
-      {"module-dir"}
+      parser, "dir", "module search directory (repeatable)", {"module-dir"}
   );
   parser.Parse();
 

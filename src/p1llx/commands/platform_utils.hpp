@@ -17,15 +17,13 @@ inline p1ll::engine::result<p1ll::engine::platform::platform_key> resolve_platfo
   auto parsed = p1ll::engine::platform::parse_platform(platform_override);
   if (!parsed.ok()) {
     return p1ll::engine::error_result<p1ll::engine::platform::platform_key>(
-        parsed.status_info.code,
-        parsed.status_info.message
+        parsed.status_info.code, parsed.status_info.message
     );
   }
 
   if (require_arch && (parsed.value.arch.empty() || parsed.value.arch == "*")) {
     return p1ll::engine::error_result<p1ll::engine::platform::platform_key>(
-        p1ll::engine::error_code::invalid_argument,
-        "platform override must include a concrete arch"
+        p1ll::engine::error_code::invalid_argument, "platform override must include a concrete arch"
     );
   }
 

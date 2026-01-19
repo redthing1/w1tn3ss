@@ -3,8 +3,8 @@
 #include "w1asmr/asmr.hpp"
 
 using w1::asmr::asm_context;
-using w1::asmr::disasm_context;
 using w1::asmr::detect_host_arch_spec;
+using w1::asmr::disasm_context;
 using w1::asmr::parse_arch_spec;
 
 TEST_CASE("w1asmr assembles and disassembles x64") {

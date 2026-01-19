@@ -9,10 +9,13 @@
 TEST_CASE("w1rewind replay state applier applies snapshot state and stack snapshot") {
   w1::rewind::replay_context context{};
   context.register_specs = {
-      w1::rewind::register_spec{0, "r0", 64, 0, "", w1::rewind::register_class::gpr,
-                                w1::rewind::register_value_kind::u64},
-      w1::rewind::register_spec{1, "sp", 64, w1::rewind::register_flag_sp, "", w1::rewind::register_class::gpr,
-                                w1::rewind::register_value_kind::u64},
+      w1::rewind::register_spec{
+          0, "r0", 64, 0, "", w1::rewind::register_class::gpr, w1::rewind::register_value_kind::u64
+      },
+      w1::rewind::register_spec{
+          1, "sp", 64, w1::rewind::register_flag_sp, "", w1::rewind::register_class::gpr,
+          w1::rewind::register_value_kind::u64
+      },
   };
   context.register_names = {"r0", "sp"};
   context.sp_reg_id = 1;
@@ -46,10 +49,13 @@ TEST_CASE("w1rewind replay state applier applies snapshot state and stack snapsh
 TEST_CASE("w1rewind replay state applier ignores non-active thread and read accesses") {
   w1::rewind::replay_context context{};
   context.register_specs = {
-      w1::rewind::register_spec{0, "r0", 64, 0, "", w1::rewind::register_class::gpr,
-                                w1::rewind::register_value_kind::u64},
-      w1::rewind::register_spec{1, "sp", 64, w1::rewind::register_flag_sp, "", w1::rewind::register_class::gpr,
-                                w1::rewind::register_value_kind::u64},
+      w1::rewind::register_spec{
+          0, "r0", 64, 0, "", w1::rewind::register_class::gpr, w1::rewind::register_value_kind::u64
+      },
+      w1::rewind::register_spec{
+          1, "sp", 64, w1::rewind::register_flag_sp, "", w1::rewind::register_class::gpr,
+          w1::rewind::register_value_kind::u64
+      },
   };
   context.register_names = {"r0", "sp"};
   context.sp_reg_id = 1;
@@ -82,10 +88,12 @@ TEST_CASE("w1rewind replay state applier ignores non-active thread and read acce
 TEST_CASE("w1rewind replay state applier applies register byte values") {
   w1::rewind::replay_context context{};
   context.register_specs = {
-      w1::rewind::register_spec{0, "r0", 64, 0, "", w1::rewind::register_class::gpr,
-                                w1::rewind::register_value_kind::u64},
-      w1::rewind::register_spec{1, "v0", 128, 0, "", w1::rewind::register_class::simd,
-                                w1::rewind::register_value_kind::bytes},
+      w1::rewind::register_spec{
+          0, "r0", 64, 0, "", w1::rewind::register_class::gpr, w1::rewind::register_value_kind::u64
+      },
+      w1::rewind::register_spec{
+          1, "v0", 128, 0, "", w1::rewind::register_class::simd, w1::rewind::register_value_kind::bytes
+      },
   };
   context.register_names = {"r0", "v0"};
 
@@ -97,8 +105,7 @@ TEST_CASE("w1rewind replay state applier applies register byte values") {
   bytes.sequence = 0;
   bytes.entries = {w1::rewind::register_bytes_entry{1, 0, 16}};
   bytes.data = {
-      0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-      0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+      0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
   };
 
   w1::rewind::replay_state_applier applier(context);

@@ -6,12 +6,7 @@ namespace {
 
 constexpr int k_sigtrap = 5;
 
-gdbstub::stop_reason make_stop_reason(
-    gdbstub::stop_kind kind,
-    int signal,
-    uint64_t addr,
-    uint64_t thread_id
-) {
+gdbstub::stop_reason make_stop_reason(gdbstub::stop_kind kind, int signal, uint64_t addr, uint64_t thread_id) {
   gdbstub::stop_reason stop{};
   stop.kind = kind;
   stop.signal = signal;
@@ -59,14 +54,11 @@ bool step_once(w1::rewind::replay_session& session, bool instruction, gdbstub::r
 } // namespace
 
 stepper_result resume_step(
-    w1::rewind::replay_session& session,
-    const run_policy& policy,
-    const std::unordered_set<uint64_t>& breakpoints,
-    uint64_t thread_id,
-    gdbstub::resume_direction direction
+    w1::rewind::replay_session& session, const run_policy& policy, const std::unordered_set<uint64_t>& breakpoints,
+    uint64_t thread_id, gdbstub::resume_direction direction
 ) {
-  bool instruction = policy.choose_step_mode(gdbstub::resume_action::step, !breakpoints.empty()) ==
-      step_mode::instruction;
+  bool instruction =
+      policy.choose_step_mode(gdbstub::resume_action::step, !breakpoints.empty()) == step_mode::instruction;
   if (!step_once(session, instruction, direction)) {
     auto kind = session.error_kind();
     if (kind == w1::rewind::replay_session::replay_error_kind::begin_of_trace) {
@@ -86,14 +78,11 @@ stepper_result resume_step(
 }
 
 stepper_result resume_continue(
-    w1::rewind::replay_session& session,
-    const run_policy& policy,
-    const std::unordered_set<uint64_t>& breakpoints,
-    uint64_t thread_id,
-    gdbstub::resume_direction direction
+    w1::rewind::replay_session& session, const run_policy& policy, const std::unordered_set<uint64_t>& breakpoints,
+    uint64_t thread_id, gdbstub::resume_direction direction
 ) {
-  bool instruction = policy.choose_step_mode(gdbstub::resume_action::cont, !breakpoints.empty()) ==
-      step_mode::instruction;
+  bool instruction =
+      policy.choose_step_mode(gdbstub::resume_action::cont, !breakpoints.empty()) == step_mode::instruction;
 
   for (;;) {
     if (!step_once(session, instruction, direction)) {

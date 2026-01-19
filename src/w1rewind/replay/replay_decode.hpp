@@ -27,10 +27,7 @@ public:
   virtual ~replay_block_decoder() = default;
 
   virtual bool decode_block(
-      const replay_context& context,
-      const flow_step& flow,
-      replay_decoded_block& out,
-      std::string& error
+      const replay_context& context, const flow_step& flow, replay_decoded_block& out, std::string& error
   ) = 0;
 };
 
