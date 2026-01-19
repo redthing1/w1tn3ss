@@ -8,7 +8,6 @@ STATUS.md
 /*.drcov
 /*.json
 /*.jsonl
-/*.txt
 /*.bin
 /*.w1dump
 /*.dmp
