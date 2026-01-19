@@ -16,6 +16,7 @@ from common import (
     parse_inspect_output,
     parse_lldb_pc_values,
     record_trace,
+    resolve_executable_path,
     resolve_lldb_path,
     run_inspect,
     run_lldb,
@@ -154,7 +155,7 @@ def main() -> int:
 
     for scenario in scenarios:
         trace_path = make_temp_trace_path(f"flow_{scenario.name}")
-        sample_path = os.path.join(args.samples_dir, scenario.sample)
+        sample_path = resolve_executable_path(os.path.join(args.samples_dir, scenario.sample))
         record_trace(args.w1tool, trace_path, scenario.configs, sample_path, args.timeout)
         thread_id = select_thread_id(args.w1replay, trace_path, args.timeout)
 

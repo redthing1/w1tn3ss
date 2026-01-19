@@ -18,6 +18,7 @@ from common import (
     parse_lldb_register_values,
     pick_known_registers,
     record_trace,
+    resolve_executable_path,
     resolve_lldb_path,
     run_inspect,
     run_lldb,
@@ -126,7 +127,7 @@ def main() -> int:
             "record_register_deltas=true",
             "memory=false",
         ],
-        os.path.join(args.samples_dir, "rewind_demo_calls"),
+        resolve_executable_path(os.path.join(args.samples_dir, "rewind_demo_calls")),
         args.timeout,
     )
     thread_id = select_thread_id(args.w1replay, reg_trace, args.timeout)
@@ -189,7 +190,7 @@ def main() -> int:
             "stack_snapshot=4096",
             "snapshot_interval=1",
         ],
-        os.path.join(args.samples_dir, "rewind_demo_memops"),
+        resolve_executable_path(os.path.join(args.samples_dir, "rewind_demo_memops")),
         args.timeout,
     )
     thread_id = select_thread_id(args.w1replay, mem_trace, args.timeout)

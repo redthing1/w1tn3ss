@@ -124,6 +124,7 @@ TEST_CASE("rewind trace writer and reader round trip (instructions)") {
   CHECK(std::holds_alternative<w1::rewind::snapshot_record>(records[7]));
   CHECK(std::holds_alternative<w1::rewind::thread_end_record>(records[8]));
 
+  reader.close();
   fs::remove(path);
 }
 
@@ -208,6 +209,7 @@ TEST_CASE("rewind trace writer and reader round trip (compressed blocks)") {
   CHECK(std::holds_alternative<w1::rewind::block_exec_record>(records[5]));
   CHECK(std::holds_alternative<w1::rewind::thread_end_record>(records[6]));
 
+  reader.close();
   fs::remove(path);
 }
 #endif
@@ -307,6 +309,7 @@ TEST_CASE("rewind trace writer and reader round trip (blocks)") {
   CHECK(std::holds_alternative<w1::rewind::thread_end_record>(records[7]));
   CHECK(reader.block_table().size() == 1);
 
+  reader.close();
   fs::remove(path);
 }
 
@@ -376,5 +379,6 @@ TEST_CASE("rewind trace writer and reader round trip (register bytes)") {
   CHECK(reader.error().empty());
   CHECK(saw_bytes);
 
+  reader.close();
   fs::remove(path);
 }

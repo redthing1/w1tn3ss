@@ -21,7 +21,7 @@
 	url = https://github.com/nlohmann/json
 [submodule "src/third_party/jnjs"]
 	path = src/third_party/jnjs
-	url = https://github.com/notjuliee/jnjs.git
+	url = https://github.com/redthing1/jnjs
 [submodule "src/third_party/funchook"]
 	path = src/third_party/funchook
 	url = https://github.com/redthing1/funchook

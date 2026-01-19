@@ -23,9 +23,15 @@ TEST_CASE("abi_dispatcher extracts register arguments") {
 
   auto args = dispatcher.extract_arguments(memory, &gpr, 3);
   REQUIRE(args.size() == 3);
+#if defined(_WIN32)
+  CHECK(args[0].raw_value == 44);
+  CHECK(args[1].raw_value == 33);
+  CHECK(args[2].raw_value == 55);
+#else
   CHECK(args[0].raw_value == 11);
   CHECK(args[1].raw_value == 22);
   CHECK(args[2].raw_value == 33);
+#endif
 #elif defined(QBDI_ARCH_AARCH64)
   gpr.x0 = 11;
   gpr.x1 = 22;

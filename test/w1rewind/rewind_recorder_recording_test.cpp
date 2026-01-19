@@ -147,5 +147,6 @@ TEST_CASE("w1rewind records instruction flow, memory, and snapshots") {
   CHECK(saw_truncated);
   CHECK(snapshot_count == instruction_count / config.snapshot_interval);
 
+  reader.close();
   fs::remove(path);
 }
