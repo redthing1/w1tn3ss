@@ -273,6 +273,13 @@ function(w1_dep_asmr)
         add_library(w1::asmr_deps ALIAS w1_asmr_deps)
         target_link_libraries(w1_asmr_deps INTERFACE capstone::capstone keystone::keystone)
         target_compile_definitions(w1_asmr_deps INTERFACE WITNESS_ASMR_ENABLED=1)
+
+        if(DEFINED WITNESS_ASMR_CAPSTONE_DIR)
+            target_include_directories(w1_asmr_deps INTERFACE "${WITNESS_ASMR_CAPSTONE_DIR}/include")
+        endif()
+        if(DEFINED WITNESS_ASMR_KEYSTONE_DIR)
+            target_include_directories(w1_asmr_deps INTERFACE "${WITNESS_ASMR_KEYSTONE_DIR}/include")
+        endif()
     endif()
 endfunction()
 
