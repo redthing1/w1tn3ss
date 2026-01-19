@@ -132,5 +132,6 @@ TEST_CASE("w1rewind records block flow and snapshots") {
   CHECK(thread_end_count == 1);
   CHECK(snapshot_count == block_exec_count / config.snapshot_interval);
 
+  reader.close();
   fs::remove(path);
 }

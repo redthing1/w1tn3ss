@@ -52,8 +52,8 @@ add_test(
     NAME w1replay_trace_e2e
     COMMAND ${Python3_EXECUTABLE}
         ${CMAKE_CURRENT_LIST_DIR}/e2e/trace_e2e_test.py
-        --w1tool ${W1_OUTPUT_BIN_DIR}/w1tool
-        --w1replay ${W1_OUTPUT_BIN_DIR}/w1replay
+        --w1tool ${W1_OUTPUT_BIN_DIR}/w1tool${CMAKE_EXECUTABLE_SUFFIX}
+        --w1replay ${W1_OUTPUT_BIN_DIR}/w1replay${CMAKE_EXECUTABLE_SUFFIX}
         --samples-dir ${W1_OUTPUT_SAMPLE_DIR}/programs
 )
 set_tests_properties(w1replay_trace_e2e PROPERTIES
@@ -66,8 +66,8 @@ if(WITNESS_LIEF)
         NAME w1replay_lldb_flow_e2e
         COMMAND ${Python3_EXECUTABLE}
             ${CMAKE_CURRENT_LIST_DIR}/e2e/lldb_flow_e2e_test.py
-            --w1tool ${W1_OUTPUT_BIN_DIR}/w1tool
-            --w1replay ${W1_OUTPUT_BIN_DIR}/w1replay
+            --w1tool ${W1_OUTPUT_BIN_DIR}/w1tool${CMAKE_EXECUTABLE_SUFFIX}
+            --w1replay ${W1_OUTPUT_BIN_DIR}/w1replay${CMAKE_EXECUTABLE_SUFFIX}
             --samples-dir ${W1_OUTPUT_SAMPLE_DIR}/programs
     )
     set_tests_properties(w1replay_lldb_flow_e2e PROPERTIES
@@ -80,8 +80,8 @@ add_test(
     NAME w1replay_lldb_state_e2e
     COMMAND ${Python3_EXECUTABLE}
         ${CMAKE_CURRENT_LIST_DIR}/e2e/lldb_state_e2e_test.py
-        --w1tool ${W1_OUTPUT_BIN_DIR}/w1tool
-        --w1replay ${W1_OUTPUT_BIN_DIR}/w1replay
+        --w1tool ${W1_OUTPUT_BIN_DIR}/w1tool${CMAKE_EXECUTABLE_SUFFIX}
+        --w1replay ${W1_OUTPUT_BIN_DIR}/w1replay${CMAKE_EXECUTABLE_SUFFIX}
         --samples-dir ${W1_OUTPUT_SAMPLE_DIR}/programs
 )
 set_tests_properties(w1replay_lldb_state_e2e PROPERTIES

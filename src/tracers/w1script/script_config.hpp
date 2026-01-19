@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdlib>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -11,9 +12,7 @@
 #include "w1instrument/core/instrumentation_policy.hpp"
 #include "w1base/env_config.hpp"
 
-#if defined(_WIN32)
-extern "C" char** _environ;
-#else
+#if !defined(_WIN32)
 extern "C" char** environ;
 #endif
 
@@ -63,9 +62,9 @@ struct script_config {
     auto env_vars = []() -> std::vector<std::string_view> {
       std::vector<std::string_view> values;
 #if defined(_WIN32)
-      char** env = ::_environ;
+      char** env = _environ;
 #else
-      char** env = ::environ;
+      char** env = environ;
 #endif
       if (!env) {
         return values;

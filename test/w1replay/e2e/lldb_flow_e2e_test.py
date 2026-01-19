@@ -16,12 +16,14 @@ from common import (
     parse_inspect_output,
     parse_lldb_pc_values,
     record_trace,
+    resolve_executable_path,
     resolve_lldb_path,
     run_inspect,
     run_lldb,
     select_thread_id,
     start_server,
     next_available_port,
+    lldb_connect_commands,
 )
 
 
@@ -90,17 +92,20 @@ def run_step_session(
 
 def run_break_session(
     lldb_path: str,
+    sample_path: str,
     host: str,
     port: int,
     break_addr: int,
     timeout: float,
 ) -> int:
-    commands = [
-        f"process connect --plugin gdb-remote connect://{host}:{port}",
-        f"breakpoint set -a 0x{break_addr:x}",
-        "process continue",
-        "register read pc",
-    ]
+    commands = lldb_connect_commands(sample_path, host, port)
+    commands.extend(
+        [
+            f"breakpoint set -a 0x{break_addr:x}",
+            "process continue",
+            "register read pc",
+        ]
+    )
     result = run_lldb(lldb_path, commands, timeout)
     output = result.stdout + result.stderr
     if result.returncode != 0:
@@ -154,7 +159,7 @@ def main() -> int:
 
     for scenario in scenarios:
         trace_path = make_temp_trace_path(f"flow_{scenario.name}")
-        sample_path = os.path.join(args.samples_dir, scenario.sample)
+        sample_path = resolve_executable_path(os.path.join(args.samples_dir, scenario.sample))
         record_trace(args.w1tool, trace_path, scenario.configs, sample_path, args.timeout)
         thread_id = select_thread_id(args.w1replay, trace_path, args.timeout)
 
@@ -222,7 +227,9 @@ def main() -> int:
             module_mappings=[module_mapping],
         )
         try:
-            hit_pc = run_break_session(lldb_path, host, port, break_target, args.timeout)
+            hit_pc = run_break_session(
+                lldb_path, sample_path, host, port, break_target, args.timeout
+            )
         finally:
             server.terminate(timeout=1.0)
         if hit_pc != break_target:

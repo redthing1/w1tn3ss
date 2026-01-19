@@ -136,6 +136,7 @@ TEST_CASE("w1rewind replay cursor applies register and memory state") {
   REQUIRE(unknown.size() == 1);
   CHECK(!unknown[0].has_value());
 
+  cursor.close();
   fs::remove(trace_path);
   fs::remove(index_path);
 }

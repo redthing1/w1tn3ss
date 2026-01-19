@@ -117,6 +117,7 @@ def record_trace(
     sample_path: str,
     timeout: float,
 ) -> None:
+    sample_path = resolve_executable_path(sample_path)
     cmd = [w1tool, "tracer", "-n", "w1rewind", "-s", "-o", trace_path]
     for cfg in configs:
         cmd.extend(["-c", cfg])
@@ -291,6 +292,25 @@ def run_lldb(
 
 def resolve_lldb_path(lldb_arg: str) -> Optional[str]:
     return shutil.which(lldb_arg)
+
+
+def lldb_connect_commands(sample_path: str, host: str, port: int) -> List[str]:
+    return [
+        f"target create {sample_path}",
+        f"process connect --plugin gdb-remote connect://{host}:{port}",
+    ]
+
+
+def resolve_executable_path(path: str) -> str:
+    if os.name != "nt":
+        return path
+    root, ext = os.path.splitext(path)
+    if ext:
+        return path
+    candidate = path + ".exe"
+    if os.path.exists(candidate):
+        return candidate
+    return path
 
 
 def start_server(

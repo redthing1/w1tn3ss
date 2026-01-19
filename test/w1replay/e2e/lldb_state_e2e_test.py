@@ -18,20 +18,22 @@ from common import (
     parse_lldb_register_values,
     pick_known_registers,
     record_trace,
+    resolve_executable_path,
     resolve_lldb_path,
     run_inspect,
     run_lldb,
     select_thread_id,
     start_server,
     next_available_port,
+    lldb_connect_commands,
 )
 
 
-def read_initial_pc(lldb_path: str, host: str, port: int, timeout: float) -> int:
-    commands = [
-        f"process connect --plugin gdb-remote connect://{host}:{port}",
-        "register read pc",
-    ]
+def read_initial_pc(
+    lldb_path: str, sample_path: str, host: str, port: int, timeout: float
+) -> int:
+    commands = lldb_connect_commands(sample_path, host, port)
+    commands.append("register read pc")
     result = run_lldb(lldb_path, commands, timeout)
     output = result.stdout + result.stderr
     if result.returncode != 0:
@@ -44,13 +46,14 @@ def read_initial_pc(lldb_path: str, host: str, port: int, timeout: float) -> int
 
 def step_and_read_registers(
     lldb_path: str,
+    sample_path: str,
     host: str,
     port: int,
     steps: int,
     reg_names: List[str],
     timeout: float,
 ) -> Dict[str, int]:
-    commands = [f"process connect --plugin gdb-remote connect://{host}:{port}"]
+    commands = lldb_connect_commands(sample_path, host, port)
     for _ in range(steps):
         commands.append("thread step-inst -c 1")
     commands.append("register read " + " ".join(reg_names))
@@ -63,6 +66,7 @@ def step_and_read_registers(
 
 def step_and_read_memory(
     lldb_path: str,
+    sample_path: str,
     host: str,
     port: int,
     steps: int,
@@ -70,7 +74,7 @@ def step_and_read_memory(
     count: int,
     timeout: float,
 ) -> List[int]:
-    commands = [f"process connect --plugin gdb-remote connect://{host}:{port}"]
+    commands = lldb_connect_commands(sample_path, host, port)
     for _ in range(steps):
         commands.append("thread step-inst -c 1")
     commands.append(f"memory read 0x{address:x} -c {count}")
@@ -118,6 +122,7 @@ def main() -> int:
 
     # Register trace scenario
     reg_trace = make_temp_trace_path("state_regs")
+    reg_sample = resolve_executable_path(os.path.join(args.samples_dir, "rewind_demo_calls"))
     record_trace(
         args.w1tool,
         reg_trace,
@@ -126,7 +131,7 @@ def main() -> int:
             "record_register_deltas=true",
             "memory=false",
         ],
-        os.path.join(args.samples_dir, "rewind_demo_calls"),
+        reg_sample,
         args.timeout,
     )
     thread_id = select_thread_id(args.w1replay, reg_trace, args.timeout)
@@ -144,7 +149,7 @@ def main() -> int:
     port = next_available_port(host)
     server = start_server(args.w1replay, reg_trace, port, inst=False, timeout=args.timeout)
     try:
-        initial_pc = read_initial_pc(lldb_path, host, port, args.timeout)
+        initial_pc = read_initial_pc(lldb_path, reg_sample, host, port, args.timeout)
     finally:
         server.terminate(timeout=1.0)
     align = find_first_matching_index(expected_pcs, initial_pc)
@@ -161,7 +166,7 @@ def main() -> int:
     server = start_server(args.w1replay, reg_trace, port, inst=False, timeout=args.timeout)
     try:
         actual_regs = step_and_read_registers(
-            lldb_path, host, port, delta, reg_names, args.timeout
+            lldb_path, reg_sample, host, port, delta, reg_names, args.timeout
         )
     finally:
         server.terminate(timeout=1.0)
@@ -177,6 +182,7 @@ def main() -> int:
 
     # Memory trace scenario
     mem_trace = make_temp_trace_path("state_mem")
+    mem_sample = resolve_executable_path(os.path.join(args.samples_dir, "rewind_demo_memops"))
     record_trace(
         args.w1tool,
         mem_trace,
@@ -189,7 +195,7 @@ def main() -> int:
             "stack_snapshot=4096",
             "snapshot_interval=1",
         ],
-        os.path.join(args.samples_dir, "rewind_demo_memops"),
+        mem_sample,
         args.timeout,
     )
     thread_id = select_thread_id(args.w1replay, mem_trace, args.timeout)
@@ -207,7 +213,7 @@ def main() -> int:
     port = next_available_port(host)
     server = start_server(args.w1replay, mem_trace, port, inst=False, timeout=args.timeout)
     try:
-        initial_pc = read_initial_pc(lldb_path, host, port, args.timeout)
+        initial_pc = read_initial_pc(lldb_path, mem_sample, host, port, args.timeout)
     finally:
         server.terminate(timeout=1.0)
     align = find_first_matching_index(expected_pcs, initial_pc)
@@ -236,7 +242,7 @@ def main() -> int:
     server = start_server(args.w1replay, mem_trace, port, inst=False, timeout=args.timeout)
     try:
         actual_bytes = step_and_read_memory(
-            lldb_path, host, port, delta, sp_value, len(expected_bytes), args.timeout
+            lldb_path, mem_sample, host, port, delta, sp_value, len(expected_bytes), args.timeout
         )
     finally:
         server.terminate(timeout=1.0)
