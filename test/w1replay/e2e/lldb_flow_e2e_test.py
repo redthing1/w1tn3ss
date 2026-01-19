@@ -23,6 +23,7 @@ from common import (
     select_thread_id,
     start_server,
     next_available_port,
+    lldb_connect_commands,
 )
 
 
@@ -91,17 +92,20 @@ def run_step_session(
 
 def run_break_session(
     lldb_path: str,
+    sample_path: str,
     host: str,
     port: int,
     break_addr: int,
     timeout: float,
 ) -> int:
-    commands = [
-        f"process connect --plugin gdb-remote connect://{host}:{port}",
-        f"breakpoint set -a 0x{break_addr:x}",
-        "process continue",
-        "register read pc",
-    ]
+    commands = lldb_connect_commands(sample_path, host, port)
+    commands.extend(
+        [
+            f"breakpoint set -a 0x{break_addr:x}",
+            "process continue",
+            "register read pc",
+        ]
+    )
     result = run_lldb(lldb_path, commands, timeout)
     output = result.stdout + result.stderr
     if result.returncode != 0:
@@ -223,7 +227,9 @@ def main() -> int:
             module_mappings=[module_mapping],
         )
         try:
-            hit_pc = run_break_session(lldb_path, host, port, break_target, args.timeout)
+            hit_pc = run_break_session(
+                lldb_path, sample_path, host, port, break_target, args.timeout
+            )
         finally:
             server.terminate(timeout=1.0)
         if hit_pc != break_target:
