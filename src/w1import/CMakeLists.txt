@@ -1,37 +1,27 @@
-cmake_minimum_required(VERSION 3.16)
+w1_dep_redlog()
+w1_dep_lief()
 
-include(${WITNESS_SOURCE_DIR}/cmake/CommonConfig.cmake)
-include(${WITNESS_SOURCE_DIR}/cmake/LIEFConfig.cmake)
-
-add_library(w1import STATIC
+set(W1IMPORT_SOURCES
     import_insertion.cpp
 )
 
 if(APPLE)
-    target_sources(w1import PRIVATE
+    list(APPEND W1IMPORT_SOURCES
         platform/macos/macos_import_inserter.cpp
         backend/macos/macho_processor.cpp
     )
 elseif(WIN32)
-    target_sources(w1import PRIVATE
+    list(APPEND W1IMPORT_SOURCES
         platform/windows/windows_import_inserter.cpp
     )
 else()
-    target_sources(w1import PRIVATE
+    list(APPEND W1IMPORT_SOURCES
         platform/linux/linux_import_inserter.cpp
     )
 endif()
 
-target_include_directories(w1import
-    PUBLIC $<BUILD_INTERFACE:${WITNESS_SOURCE_DIR}/src>
-    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
-)
+w1_add_static_library(w1import ${W1IMPORT_SOURCES})
+add_library(w1::import ALIAS w1import)
 
+target_link_libraries(w1import PUBLIC w1::lief)
 target_link_libraries(w1import PRIVATE redlog::redlog)
-
-apply_common_compile_options(w1import)
-apply_windows_definitions(w1import)
-set_standard_output_dirs(w1import)
-configure_target_with_lief(w1import)
-
-set_target_properties(w1import PROPERTIES POSITION_INDEPENDENT_CODE ON)

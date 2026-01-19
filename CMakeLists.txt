@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 3.16)
 
 project(w1tn3ss
     VERSION 0.1.0
@@ -6,166 +6,119 @@ project(w1tn3ss
     LANGUAGES C CXX ASM
 )
 
-# Set witness source directory for both standalone and subdirectory builds
-if(NOT DEFINED WITNESS_SOURCE_DIR)
-    set(WITNESS_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
-endif()
+include(cmake/W1Init.cmake)
+include(cmake/WindowsSymbolConfig.cmake)
 
-# build options
-option(WITNESS_BUILD_STATIC "Build static libraries" ON)
-option(WITNESS_BUILD_SHARED "Build shared libraries" ON)
-option(WITNESS_QBDI_EXTRAS "Build QBDI with examples, tests and additional tools" OFF)
+function(w1_component_option_name NAME OUT_VAR)
+    string(TOUPPER "${NAME}" _upper)
+    string(REPLACE "-" "_" _upper "${_upper}")
+    set(${OUT_VAR} "W1_BUILD_${_upper}" PARENT_SCOPE)
+endfunction()
 
-# load configuration modules
-include(${WITNESS_SOURCE_DIR}/cmake/CommonConfig.cmake)
-include(${WITNESS_SOURCE_DIR}/cmake/PlatformConfig.cmake)
-include(${WITNESS_SOURCE_DIR}/cmake/LuaConfig.cmake)
-include(${WITNESS_SOURCE_DIR}/cmake/JavaScriptConfig.cmake)
-include(${WITNESS_SOURCE_DIR}/cmake/AsmrConfig.cmake)
-include(${WITNESS_SOURCE_DIR}/cmake/LIEFConfig.cmake)
-include(${WITNESS_SOURCE_DIR}/cmake/WindowsSymbolConfig.cmake)
+set(W1_COMPONENTS
+    w1base
+    w1formats
+    w1runtime
+    w1instrument
+    w1analysis
+    w1import
+    w1dump
+    w1gadget
+    w1rewind
+    tracers
+    w1asmr
+    p1ll
+    p1llx
+    w1nj3ct
+    w1debugger
+    w1tool
+    w1replay
+    p01s0n
+)
 
-# configure platform and architecture
-detect_qbdi_platform()
-detect_architecture()
-configure_qbdi_options()
+set(W1_COMPONENT_DIR_w1base "src/w1base")
+set(W1_COMPONENT_DIR_w1formats "src/w1formats")
+set(W1_COMPONENT_DIR_w1runtime "src/w1runtime")
+set(W1_COMPONENT_DIR_w1instrument "src/w1instrument")
+set(W1_COMPONENT_DIR_w1analysis "src/w1analysis")
+set(W1_COMPONENT_DIR_w1import "src/w1import")
+set(W1_COMPONENT_DIR_w1dump "src/w1dump")
+set(W1_COMPONENT_DIR_w1gadget "src/w1gadget")
+set(W1_COMPONENT_DIR_w1rewind "src/w1rewind")
+set(W1_COMPONENT_DIR_tracers "src/tracers")
+set(W1_COMPONENT_DIR_w1asmr "src/w1asmr")
+set(W1_COMPONENT_DIR_p1ll "src/p1ll")
+set(W1_COMPONENT_DIR_p1llx "src/p1llx")
+set(W1_COMPONENT_DIR_w1nj3ct "src/w1nj3ct")
+set(W1_COMPONENT_DIR_w1debugger "src/w1debugger")
+set(W1_COMPONENT_DIR_w1tool "src/w1tool")
+set(W1_COMPONENT_DIR_w1replay "src/w1replay")
+set(W1_COMPONENT_DIR_p01s0n "src/p01s0n")
 
-# setup scripting environments once globally
-setup_lua_environment()
+set(W1_COMPONENT_DEPS_w1base "")
+set(W1_COMPONENT_DEPS_w1formats "")
+set(W1_COMPONENT_DEPS_w1runtime "")
+set(W1_COMPONENT_DEPS_w1instrument "w1runtime;w1base")
+set(W1_COMPONENT_DEPS_w1analysis "w1runtime")
+set(W1_COMPONENT_DEPS_w1import "")
+set(W1_COMPONENT_DEPS_w1dump "w1formats;w1runtime")
+set(W1_COMPONENT_DEPS_w1gadget "")
+set(W1_COMPONENT_DEPS_w1rewind "")
+set(W1_COMPONENT_DEPS_tracers "w1instrument;w1formats;w1analysis;w1rewind;w1dump;w1gadget")
+set(W1_COMPONENT_DEPS_w1asmr "")
+set(W1_COMPONENT_DEPS_p1ll "w1asmr")
+set(W1_COMPONENT_DEPS_p1llx "p1ll;w1base;w1nj3ct")
+set(W1_COMPONENT_DEPS_w1nj3ct "")
+set(W1_COMPONENT_DEPS_w1debugger "")
+set(W1_COMPONENT_DEPS_w1tool "w1base;w1dump;w1formats;w1import;w1nj3ct;w1debugger")
+set(W1_COMPONENT_DEPS_w1replay "w1base;w1rewind")
+set(W1_COMPONENT_DEPS_p01s0n "p1ll")
 
-# setup lief environment once globally
-setup_lief_environment()
+foreach(component IN LISTS W1_COMPONENTS)
+    w1_component_option_name("${component}" _opt)
+    w1_set_cache_default(${_opt} BOOL ${W1_BUILD_ALL} "Build component ${component}")
+endforeach()
 
-# setup asmr environment once globally
-setup_asmr_environment()
+function(w1_enable_component NAME)
+    get_property(_already_set GLOBAL PROPERTY "W1_COMPONENT_ENABLED_${NAME}")
+    if(_already_set)
+        return()
+    endif()
+    set_property(GLOBAL PROPERTY "W1_COMPONENT_ENABLED_${NAME}" TRUE)
 
-# print witness configuration block
-message(STATUS "")
-message(STATUS "== WITNESS Config ==")
-message(STATUS "Platform:              ${QBDI_PLATFORM}")
-message(STATUS "Architecture:          ${WITNESS_ARCH}")
-message(STATUS "Build Type:            ${CMAKE_BUILD_TYPE}")
-message(STATUS "Static Libraries:      ${WITNESS_BUILD_STATIC}")
-message(STATUS "Shared Libraries:      ${WITNESS_BUILD_SHARED}")
-message(STATUS "Scripting Support:     ${WITNESS_SCRIPT}")
-if(WITNESS_SCRIPT)
-    message(STATUS "Script Engine:         ${WITNESS_SCRIPT_ENGINE}")
-endif()
-message(STATUS "ASMR Support:          ${WITNESS_ASMR}")
-message(STATUS "LIEF Support:          ${WITNESS_LIEF}")
-message(STATUS "Tests:                 ${BUILD_TESTS}")
-message(STATUS "")
+    foreach(dep IN LISTS W1_COMPONENT_DEPS_${NAME})
+        if(dep)
+            w1_enable_component("${dep}")
+        endif()
+    endforeach()
 
-# configure qbdi to build as static-only (no shared library)
-set(QBDI_SHARED_LIBRARY OFF CACHE BOOL "build qbdi shared library" FORCE)
-set(QBDI_STATIC_LIBRARY ON CACHE BOOL "build qbdi static library" FORCE)
-set(QBDI_EXAMPLES OFF CACHE BOOL "compile qbdi examples" FORCE)
-set(QBDI_TEST OFF CACHE BOOL "compile qbdi tests" FORCE)
-set(QBDI_BENCHMARK OFF CACHE BOOL "compile qbdi benchmark" FORCE)
-message(STATUS "forcing qbdi static-only build")
+    w1_component_option_name("${NAME}" _opt)
+    if(DEFINED ${_opt} AND NOT ${_opt})
+        message(STATUS "Enabling ${NAME} because it is required")
+    endif()
+    set(${_opt} ON CACHE BOOL "Build component ${NAME}" FORCE)
 
-# add third-party libraries
-set(CMAKE_WARN_DEPRECATED OFF)
-add_subdirectory(src/third_party/qbdi)
-set(CMAKE_WARN_DEPRECATED ON)
+    set(_dir "${W1_COMPONENT_DIR_${NAME}}")
+    if(NOT _dir)
+        message(FATAL_ERROR "Unknown component directory for ${NAME}")
+    endif()
 
-# force qbdi targets to use c++17 to avoid c++20 compatibility issues
-get_directory_property(QBDI_TARGETS DIRECTORY src/third_party/qbdi BUILDSYSTEM_TARGETS)
-message(STATUS "QBDI targets found: ${QBDI_TARGETS}")
-foreach(target ${QBDI_TARGETS})
-    if(TARGET ${target})
-        set_property(TARGET ${target} PROPERTY CXX_STANDARD 17)
-        set_property(TARGET ${target} PROPERTY CXX_STANDARD_REQUIRED ON)
-        message(STATUS "  - Set ${target} to C++17")
+    add_subdirectory("${_dir}")
+endfunction()
+
+foreach(component IN LISTS W1_COMPONENTS)
+    w1_component_option_name("${component}" _opt)
+    if(${_opt})
+        w1_enable_component("${component}")
     endif()
 endforeach()
 
-# configure redlog
-if(NOT TARGET redlog::redlog)
-    set(REDLOG_BUILD_TESTS OFF)
-    add_subdirectory(src/third_party/redlog_cpp)
+if(W1_IS_TOP_LEVEL)
+    w1_set_cache_default(BUILD_TESTS BOOL ${W1_BUILD_ALL} "Build test programs and libraries")
+else()
+    w1_set_cache_default(BUILD_TESTS BOOL OFF "Build test programs and libraries")
 endif()
 
-# configure jnjs for javascript support
-if(WITNESS_SCRIPT AND WITNESS_SCRIPT_ENGINE STREQUAL "js")
-    if(NOT TARGET jnjs)
-        set(JNJS_ENABLE_TESTING OFF)
-        add_subdirectory(src/third_party/jnjs)
-        message(STATUS "added jnjs javascript engine")
-    endif()
-endif()
-
-# configure nlohmann_json
-if(NOT TARGET nlohmann_json::nlohmann_json)
-    set(JSON_BuildTests OFF)
-    add_subdirectory(src/third_party/nlohmann_json)
-endif()
-
-# configure gdbstub_cpp
-if(NOT TARGET gdbstub::gdbstub)
-    add_subdirectory(src/third_party/gdbstub_cpp EXCLUDE_FROM_ALL)
-endif()
-
-# configure plthook
-if(NOT TARGET plthook::plthook)
-    option(PLTHOOK_BUILD_TESTS "Build plthook tests" OFF)
-    add_subdirectory(src/third_party/plthook)
-endif()
-
-# configure funchook
-if(WIN32 AND NOT TARGET funchook::funchook)
-    set(FUNCHOOK_BUILD_TESTS OFF CACHE BOOL "Build funchook tests" FORCE)
-    set(FUNCHOOK_BUILD_SHARED OFF CACHE BOOL "Build funchook shared library" FORCE)
-    set(FUNCHOOK_BUILD_STATIC ON CACHE BOOL "Build funchook static library" FORCE)
-    add_subdirectory(src/third_party/funchook)
-    if(TARGET funchook-static)
-        add_library(funchook::funchook ALIAS funchook-static)
-    elseif(TARGET funchook-shared)
-        add_library(funchook::funchook ALIAS funchook-shared)
-    endif()
-endif()
-
-# add lief if enabled
-if(WITNESS_LIEF)
-    add_subdirectory(src/third_party/lief)
-    
-    # force lief targets to use c++17 as well
-    get_directory_property(LIEF_TARGETS DIRECTORY src/third_party/lief BUILDSYSTEM_TARGETS)
-    message(STATUS "LIEF targets found: ${LIEF_TARGETS}")
-    foreach(target ${LIEF_TARGETS})
-        if(TARGET ${target})
-            set_property(TARGET ${target} PROPERTY CXX_STANDARD 17)
-            set_property(TARGET ${target} PROPERTY CXX_STANDARD_REQUIRED ON)
-            message(STATUS "  - Set ${target} to C++17")
-        endif()
-    endforeach()
-endif()
-
-# add capstone/keystone if enabled
-configure_asmr_dependencies()
-
-# add project subdirectories
-add_subdirectory(src/w1base)
-add_subdirectory(src/w1formats)
-add_subdirectory(src/w1runtime)
-add_subdirectory(src/w1instrument)
-add_subdirectory(src/w1analysis)
-add_subdirectory(src/w1import)
-add_subdirectory(src/w1dump)
-add_subdirectory(src/w1gadget)
-add_subdirectory(src/w1rewind)
-add_subdirectory(src/tracers)
-add_subdirectory(src/w1asmr)
-add_subdirectory(src/p1ll)
-add_subdirectory(src/p1llx)
-add_subdirectory(src/w1nj3ct)
-add_subdirectory(src/w1debugger)
-add_subdirectory(src/w1tool)
-add_subdirectory(src/w1replay)
-add_subdirectory(src/p01s0n)
-
-# add tests (optional)
-option(BUILD_TESTS "Build test programs and libraries" ON)
 if(BUILD_TESTS)
     enable_testing()
     add_subdirectory(test)
@@ -173,11 +126,11 @@ if(BUILD_TESTS)
     add_subdirectory(tests)
 endif()
 
-# apply windows-specific symbol resolution for duplicate symbol conflicts
 if(WIN32 AND MSVC)
     apply_windows_symbol_resolution_to_all()
 endif()
 
-# code formatting and analysis
-include(cmake/FormattingConfig.cmake)
-include(cmake/TidyConfig.cmake)
+if(W1_ENABLE_DEV_TOOLS)
+    include(cmake/FormattingConfig.cmake)
+    include(cmake/TidyConfig.cmake)
+endif()

@@ -1,6 +1,6 @@
 # test injection libraries
 
-include(${WITNESS_SOURCE_DIR}/cmake/TestConfig.cmake)
+include(${W1_SOURCE_DIR}/cmake/TestConfig.cmake)
 
 set(TEST_LIBRARY_OUTPUT_SUBDIR test/libraries)
 

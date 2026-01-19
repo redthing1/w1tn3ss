@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-include(${WITNESS_SOURCE_DIR}/cmake/TestConfig.cmake)
+include(${W1_SOURCE_DIR}/cmake/TestConfig.cmake)
 
 find_package(Threads REQUIRED)
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
@@ -20,26 +20,26 @@ set(W1REPLAY_TEST_SOURCES
     module_image_test.cpp
     module_source_test.cpp
     replay_context_test.cpp
-    ${WITNESS_SOURCE_DIR}/src/w1replay/module_image.cpp
-    ${WITNESS_SOURCE_DIR}/src/w1replay/module_image_lief.cpp
-    ${WITNESS_SOURCE_DIR}/src/w1replay/asmr_block_decoder.cpp
-    ${WITNESS_SOURCE_DIR}/src/w1replay/module_source.cpp
-    ${WITNESS_SOURCE_DIR}/src/w1replay/gdb/adapter.cpp
-    ${WITNESS_SOURCE_DIR}/src/w1replay/gdb/adapter_components.cpp
-    ${WITNESS_SOURCE_DIR}/src/w1replay/gdb/layout.cpp
-    ${WITNESS_SOURCE_DIR}/src/w1replay/gdb/target_xml.cpp
-    ${WITNESS_SOURCE_DIR}/src/w1replay/gdb/memory_merge.cpp
-    ${WITNESS_SOURCE_DIR}/src/w1replay/gdb/memory_map.cpp
-    ${WITNESS_SOURCE_DIR}/src/w1replay/gdb/value_codec.cpp
-    ${WITNESS_SOURCE_DIR}/src/w1replay/gdb/stepper.cpp
+    ${W1_SOURCE_DIR}/src/w1replay/module_image.cpp
+    ${W1_SOURCE_DIR}/src/w1replay/module_image_lief.cpp
+    ${W1_SOURCE_DIR}/src/w1replay/asmr_block_decoder.cpp
+    ${W1_SOURCE_DIR}/src/w1replay/module_source.cpp
+    ${W1_SOURCE_DIR}/src/w1replay/gdb/adapter.cpp
+    ${W1_SOURCE_DIR}/src/w1replay/gdb/adapter_components.cpp
+    ${W1_SOURCE_DIR}/src/w1replay/gdb/layout.cpp
+    ${W1_SOURCE_DIR}/src/w1replay/gdb/target_xml.cpp
+    ${W1_SOURCE_DIR}/src/w1replay/gdb/memory_merge.cpp
+    ${W1_SOURCE_DIR}/src/w1replay/gdb/memory_map.cpp
+    ${W1_SOURCE_DIR}/src/w1replay/gdb/value_codec.cpp
+    ${W1_SOURCE_DIR}/src/w1replay/gdb/stepper.cpp
 )
 
 w1_add_doctest_suite(w1replay_unit_tests
     SOURCES ${W1REPLAY_TEST_SOURCES}
     INCLUDE_DIRS
-        ${WITNESS_SOURCE_DIR}/src
-        ${WITNESS_SOURCE_DIR}/src/third_party
-        ${WITNESS_SOURCE_DIR}/test
+        ${W1_SOURCE_DIR}/src
+        ${W1_SOURCE_DIR}/src/third_party
+        ${W1_SOURCE_DIR}/test
     LIBS
         w1rewind_record
         w1rewind_replay

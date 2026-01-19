@@ -1,11 +1,9 @@
-cmake_minimum_required(VERSION 3.16)
-
-include(${WITNESS_SOURCE_DIR}/cmake/CommonConfig.cmake)
-include(${WITNESS_SOURCE_DIR}/cmake/LIEFConfig.cmake)
+w1_dep_lief()
+w1_dep_gdbstub()
 
 find_package(Threads REQUIRED)
 
-add_executable(w1replay
+w1_add_executable(w1replay
     main.cpp
     asmr_block_decoder.cpp
     module_image.cpp
@@ -27,23 +25,16 @@ add_executable(w1replay
 
 set_target_properties(w1replay PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-target_include_directories(w1replay PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}
-)
-
 target_link_libraries(w1replay PRIVATE
     w1base
     w1rewind_replay
     gdbstub::gdbstub
     Threads::Threads
+    w1::lief
 )
 
 if(TARGET w1asmr)
     target_link_libraries(w1replay PRIVATE w1asmr)
 endif()
-
-apply_common_compile_options(w1replay)
-apply_windows_definitions(w1replay)
-configure_target_with_lief(w1replay)
 
 install(TARGETS w1replay RUNTIME DESTINATION bin)

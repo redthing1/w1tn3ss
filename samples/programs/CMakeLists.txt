@@ -1,6 +1,6 @@
 # sample programs for tracer demos and instrumentation targets
 
-include(${WITNESS_SOURCE_DIR}/cmake/SampleConfig.cmake)
+include(${W1_SOURCE_DIR}/cmake/SampleConfig.cmake)
 
 set(samples_output_dir ${CMAKE_BINARY_DIR}/bin/samples/programs)
 

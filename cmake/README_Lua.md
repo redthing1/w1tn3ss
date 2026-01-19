@@ -11,21 +11,19 @@ This directory contains a clean, cross-platform Lua/sol2 integration for WITNESS
 
 ## Files
 
-- `LuaConfig.cmake` - Main configuration module with easy-to-use functions
-- `LuaJITBuild.cmake` - LuaJIT build system using luajit-cmake wrapper
+- `LuaJITBuild.cmake` - LuaJIT build system using luajit-cmake wrapper (used internally by w1tn3ss)
 
 ## Usage
 
-### For new projects:
+### For new projects (inside w1tn3ss)
+
+Enable scripting and link to the Lua interface target:
 
 ```cmake
-include(${CMAKE_SOURCE_DIR}/cmake/LuaConfig.cmake)
+set(WITNESS_SCRIPT ON CACHE BOOL "" FORCE)
+add_subdirectory(path/to/w1tn3ss w1tn3ss_build)
 
-# Setup the Lua environment (only if WITNESS_SCRIPT=ON)
-setup_lua_environment()
-
-# Configure your target with Lua dependencies
-configure_target_with_lua(my_target)
+target_link_libraries(my_target PRIVATE w1::lua)
 ```
 
 ### Configuration options:

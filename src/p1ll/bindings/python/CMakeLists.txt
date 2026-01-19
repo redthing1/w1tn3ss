@@ -9,12 +9,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 include(FetchContent)
 
 get_filename_component(P1LL_SOURCE_DIR "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLUTE)
-get_filename_component(WITNESS_THIRD_PARTY_DIR "${P1LL_SOURCE_DIR}/../third_party" ABSOLUTE)
-
-if(NOT TARGET redlog::redlog)
-    set(REDLOG_BUILD_TESTS OFF CACHE BOOL "disable redlog tests" FORCE)
-    add_subdirectory("${WITNESS_THIRD_PARTY_DIR}/redlog_cpp" "${CMAKE_BINARY_DIR}/redlog_cpp")
-endif()
+get_filename_component(W1TN3SS_ROOT "${P1LL_SOURCE_DIR}/../.." ABSOLUTE)
 
 find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
 
@@ -28,10 +23,12 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(nanobind)
 
+set(W1_BUILD_ALL OFF CACHE BOOL "disable full w1tn3ss build" FORCE)
+set(W1_BUILD_P1LL ON CACHE BOOL "build p1ll component" FORCE)
 set(WITNESS_SCRIPT OFF CACHE BOOL "disable scripting for standalone p1ll python build" FORCE)
 set(P1LL_BUILD_CAPI OFF CACHE BOOL "disable p1ll c api for python build" FORCE)
 
-add_subdirectory("${P1LL_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/p1ll_core")
+add_subdirectory("${W1TN3SS_ROOT}" "${CMAKE_BINARY_DIR}/w1tn3ss")
 
 nanobind_add_module(_p1ll
     "${CMAKE_CURRENT_LIST_DIR}/p1ll_python.cpp"

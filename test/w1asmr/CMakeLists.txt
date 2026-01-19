@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-include(${WITNESS_SOURCE_DIR}/cmake/TestConfig.cmake)
+include(${W1_SOURCE_DIR}/cmake/TestConfig.cmake)
 
 set(W1ASMR_TEST_SOURCES
     test_main.cpp
@@ -11,8 +11,8 @@ w1_add_doctest_suite(w1asmr_tests
     SOURCES ${W1ASMR_TEST_SOURCES}
     INCLUDE_DIRS
         ${CMAKE_CURRENT_SOURCE_DIR}
-        ${WITNESS_SOURCE_DIR}/src
-        ${WITNESS_SOURCE_DIR}/src/third_party
+        ${W1_SOURCE_DIR}/src
+        ${W1_SOURCE_DIR}/src/third_party
     LIBS w1asmr
     OUTPUT_SUBDIR test/w1asmr
 )

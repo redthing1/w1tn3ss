@@ -1,6 +1,4 @@
-cmake_minimum_required(VERSION 3.16)
-
-include(${WITNESS_SOURCE_DIR}/cmake/CommonConfig.cmake)
+w1_dep_redlog()
 
 # platform-specific source files
 set(COMMON_SOURCES w1nj3ct.cpp error.cpp)
@@ -28,25 +26,18 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     )
 endif()
 
-add_library(w1nj3ct STATIC ${COMMON_SOURCES} ${PLATFORM_SOURCES})
-
-target_include_directories(w1nj3ct
-    PUBLIC $<BUILD_INTERFACE:${WITNESS_SOURCE_DIR}/src>
-    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
-)
+w1_add_static_library(w1nj3ct ${COMMON_SOURCES} ${PLATFORM_SOURCES})
+add_library(w1::nj3ct ALIAS w1nj3ct)
 
 target_link_libraries(w1nj3ct PUBLIC redlog::redlog)
 
 # platform-specific libraries
 if(WIN32)
-    target_link_libraries(w1nj3ct PRIVATE psapi kernel32 user32 advapi32 ntdll)
+    target_link_libraries(w1nj3ct PRIVATE advapi32 ntdll)
 elseif(UNIX AND NOT APPLE)
-    target_link_libraries(w1nj3ct PRIVATE dl pthread)
+    find_package(Threads REQUIRED)
+    target_link_libraries(w1nj3ct PRIVATE Threads::Threads)
 endif()
-
-apply_common_compile_options(w1nj3ct)
-apply_windows_definitions(w1nj3ct)
-set_standard_output_dirs(w1nj3ct)
 
 install(TARGETS w1nj3ct
     EXPORT w1nj3ctTargets

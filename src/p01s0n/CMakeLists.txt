@@ -1,22 +1,16 @@
 # p01s0n - preload injection library for dynamic patching
 # this library gets injected into target processes and applies patches at runtime
 
-cmake_minimum_required(VERSION 3.18)
-
-# check if lua scripting is enabled (required for p01s0n)
-include(${WITNESS_SOURCE_DIR}/cmake/LuaConfig.cmake)
+w1_dep_lua()
+w1_dep_redlog()
 
 if(WITNESS_SCRIPT)
-    include(${WITNESS_SOURCE_DIR}/cmake/CommonConfig.cmake)
-
     # build as shared library for injection
-    add_library(p01s0n SHARED
+    w1_add_shared_library(p01s0n
         p01s0n.cpp
         p01s0n.hpp
     )
-
-    # configure lua integration like p1ll
-    configure_target_with_lua(p01s0n)
+    add_library(w1::p01s0n ALIAS p01s0n)
 
     # link p1ll as static library
     target_link_libraries(p01s0n PRIVATE
@@ -24,26 +18,13 @@ if(WITNESS_SCRIPT)
         redlog::redlog
     )
 
-    # include directories
-    target_include_directories(p01s0n PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}
-    )
-
-    # apply common configuration like other w1 libraries
-    apply_common_compile_options(p01s0n)
-    apply_windows_definitions(p01s0n)
-    set_standard_output_dirs(p01s0n)
-
     # remove lib prefix and set platform-specific properties like tracers
     set_target_properties(p01s0n PROPERTIES 
         PREFIX ""  # no lib prefix
-        POSITION_INDEPENDENT_CODE ON
     )
 
     if(APPLE)
         set_target_properties(p01s0n PROPERTIES MACOSX_RPATH TRUE)
-    elseif(UNIX)
-        target_link_libraries(p01s0n PRIVATE dl)
     endif()
 
     # export symbols for dynamic loading

@@ -1,63 +1,24 @@
-cmake_minimum_required(VERSION 3.16)
-
-include(${WITNESS_SOURCE_DIR}/cmake/CommonConfig.cmake)
+w1_dep_redlog()
+w1_dep_zstd()
 
 add_library(w1rewind_format INTERFACE)
+add_library(w1rewind::format ALIAS w1rewind_format)
+add_library(w1::rewind::format ALIAS w1rewind_format)
+
 target_include_directories(w1rewind_format
-    INTERFACE $<BUILD_INTERFACE:${WITNESS_SOURCE_DIR}/src>
+    INTERFACE $<BUILD_INTERFACE:${W1_SOURCE_DIR}/src>
 )
 
-find_package(ZSTD QUIET)
-set(W1_REWIND_ZSTD_TARGET "")
-set(W1_REWIND_ZSTD_LIBRARIES "")
-set(W1_REWIND_ZSTD_INCLUDE_DIRS "")
-if(ZSTD_FOUND)
-    if(TARGET ZSTD::ZSTD)
-        set(W1_REWIND_ZSTD_TARGET ZSTD::ZSTD)
-    elseif(TARGET zstd::libzstd)
-        set(W1_REWIND_ZSTD_TARGET zstd::libzstd)
-    elseif(TARGET zstd::libzstd_static)
-        set(W1_REWIND_ZSTD_TARGET zstd::libzstd_static)
-    elseif(TARGET zstd::libzstd_shared)
-        set(W1_REWIND_ZSTD_TARGET zstd::libzstd_shared)
-    elseif(ZSTD_LIBRARIES AND ZSTD_INCLUDE_DIRS)
-        set(W1_REWIND_ZSTD_LIBRARIES ${ZSTD_LIBRARIES})
-        set(W1_REWIND_ZSTD_INCLUDE_DIRS ${ZSTD_INCLUDE_DIRS})
-    endif()
-endif()
-
-function(w1rewind_enable_zstd target)
-    if(W1_REWIND_ZSTD_TARGET)
-        target_link_libraries(${target} PRIVATE ${W1_REWIND_ZSTD_TARGET})
-        target_compile_definitions(${target} PUBLIC W1_REWIND_HAVE_ZSTD=1)
-    elseif(W1_REWIND_ZSTD_LIBRARIES)
-        target_link_libraries(${target} PRIVATE ${W1_REWIND_ZSTD_LIBRARIES})
-        target_include_directories(${target} PRIVATE ${W1_REWIND_ZSTD_INCLUDE_DIRS})
-        target_compile_definitions(${target} PUBLIC W1_REWIND_HAVE_ZSTD=1)
-    endif()
-endfunction()
-
-add_library(w1rewind_record STATIC
+w1_add_static_library(w1rewind_record
     record/trace_writer.cpp
     record/trace_builder.cpp
 )
+add_library(w1rewind::record ALIAS w1rewind_record)
+add_library(w1::rewind::record ALIAS w1rewind_record)
 
-target_include_directories(w1rewind_record
-    PUBLIC $<BUILD_INTERFACE:${WITNESS_SOURCE_DIR}/src>
-    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
-)
+target_link_libraries(w1rewind_record PUBLIC w1rewind_format redlog::redlog w1::zstd)
 
-target_link_libraries(w1rewind_record PUBLIC w1rewind_format redlog::redlog)
-
-apply_common_compile_options(w1rewind_record)
-apply_windows_definitions(w1rewind_record)
-set_standard_output_dirs(w1rewind_record)
-
-set_target_properties(w1rewind_record PROPERTIES POSITION_INDEPENDENT_CODE ON)
-
-w1rewind_enable_zstd(w1rewind_record)
-
-add_library(w1rewind_replay STATIC
+w1_add_static_library(w1rewind_replay
     replay/trace_reader.cpp
     replay/trace_index.cpp
     replay/trace_cursor.cpp
@@ -69,18 +30,7 @@ add_library(w1rewind_replay STATIC
     replay/replay_instruction_cursor.cpp
     replay/replay_session.cpp
 )
+add_library(w1rewind::replay ALIAS w1rewind_replay)
+add_library(w1::rewind::replay ALIAS w1rewind_replay)
 
-target_include_directories(w1rewind_replay
-    PUBLIC $<BUILD_INTERFACE:${WITNESS_SOURCE_DIR}/src>
-    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
-)
-
-target_link_libraries(w1rewind_replay PUBLIC w1rewind_format redlog::redlog)
-
-apply_common_compile_options(w1rewind_replay)
-apply_windows_definitions(w1rewind_replay)
-set_standard_output_dirs(w1rewind_replay)
-
-set_target_properties(w1rewind_replay PROPERTIES POSITION_INDEPENDENT_CODE ON)
-
-w1rewind_enable_zstd(w1rewind_replay)
+target_link_libraries(w1rewind_replay PUBLIC w1rewind_format redlog::redlog w1::zstd)

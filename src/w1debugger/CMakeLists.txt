@@ -1,7 +1,3 @@
-cmake_minimum_required(VERSION 3.16)
-
-include(${WITNESS_SOURCE_DIR}/cmake/CommonConfig.cmake)
-
 # common source files
 set(COMMON_SOURCES 
     w1debugger.cpp 
@@ -29,14 +25,8 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     )
 endif()
 
-add_library(w1debugger STATIC ${COMMON_SOURCES} ${PLATFORM_SOURCES})
-
-target_include_directories(w1debugger
-    PUBLIC 
-        $<BUILD_INTERFACE:${WITNESS_SOURCE_DIR}/src>
-    PRIVATE 
-        ${CMAKE_CURRENT_SOURCE_DIR}
-)
+w1_add_static_library(w1debugger ${COMMON_SOURCES} ${PLATFORM_SOURCES})
+add_library(w1::debugger ALIAS w1debugger)
 
 # platform-specific libraries
 if(APPLE)
@@ -46,16 +36,9 @@ if(APPLE)
 elseif(WIN32)
     target_link_libraries(w1debugger PRIVATE psapi kernel32 advapi32)
 elseif(UNIX)
-    target_link_libraries(w1debugger PRIVATE pthread)
+    find_package(Threads REQUIRED)
+    target_link_libraries(w1debugger PRIVATE Threads::Threads)
 endif()
-
-# c++20 for std::expected
-set_property(TARGET w1debugger PROPERTY CXX_STANDARD 20)
-set_property(TARGET w1debugger PROPERTY CXX_STANDARD_REQUIRED ON)
-
-apply_common_compile_options(w1debugger)
-apply_windows_definitions(w1debugger)
-set_standard_output_dirs(w1debugger)
 
 install(TARGETS w1debugger
     EXPORT w1debuggerTargets

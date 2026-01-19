@@ -1,8 +1,5 @@
 # p1llx static binary patcher tool
 
-# check if lua scripting is enabled (required for p1ll)
-include(${WITNESS_SOURCE_DIR}/cmake/LuaConfig.cmake)
-
 if(WITNESS_SCRIPT)
     # p1llx executable sources
     set(P1LLX_SOURCES
@@ -21,10 +18,7 @@ if(WITNESS_SCRIPT)
     endif()
     
     # create executable
-    add_executable(p1llx ${P1LLX_SOURCES})
-    
-    # configure lua integration
-    configure_target_with_lua(p1llx)
+    w1_add_executable(p1llx ${P1LLX_SOURCES})
     
     # link with p1ll library and dependencies
     target_link_libraries(p1llx 
@@ -38,12 +32,6 @@ if(WITNESS_SCRIPT)
     if(WITNESS_ASMR)
         target_link_libraries(p1llx PRIVATE w1asmr)
     endif()
-    
-    # include directories
-    target_include_directories(p1llx 
-        PRIVATE 
-        ${CMAKE_CURRENT_SOURCE_DIR}
-    )
     
     # set output directory to root like w1tool
     set_target_properties(p1llx PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)

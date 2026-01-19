@@ -5,7 +5,8 @@ set(P1LL_CAPI_SOURCES
 )
 
 # p1ll_c static library
-add_library(p1ll_c STATIC ${P1LL_CAPI_SOURCES})
+w1_add_static_library(p1ll_c ${P1LL_CAPI_SOURCES})
+add_library(p1ll::capi ALIAS p1ll_c)
 
 # link against p1ll_core
 target_link_libraries(p1ll_c PUBLIC p1ll_core)
@@ -14,14 +15,6 @@ target_link_libraries(p1ll_c PUBLIC p1ll_core)
 target_include_directories(p1ll_c
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..
-)
-
-# ensure c++ standard for implementation
-set_target_properties(p1ll_c PROPERTIES
-    CXX_STANDARD 20
-    CXX_STANDARD_REQUIRED ON
-    ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
-    POSITION_INDEPENDENT_CODE ON
 )
 
 # export header for installation

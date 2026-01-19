@@ -1,7 +1,9 @@
 # shared helpers for test targets
 include_guard()
 
-include(${WITNESS_SOURCE_DIR}/cmake/CommonConfig.cmake)
+if(NOT COMMAND w1_target_defaults)
+    include("${CMAKE_CURRENT_LIST_DIR}/W1Init.cmake")
+endif()
 
 function(w1_set_test_output_dirs target output_subdir)
     if(NOT output_subdir)
@@ -40,8 +42,7 @@ function(w1_add_doctest_suite target)
         target_link_libraries(${target} PRIVATE ${W1_LIBS})
     endif()
 
-    apply_common_compile_options(${target})
-    apply_windows_definitions(${target})
+    w1_target_defaults(${target})
 
     if(W1_OUTPUT_SUBDIR)
         w1_set_test_output_dirs(${target} ${W1_OUTPUT_SUBDIR})
@@ -73,8 +74,7 @@ function(w1_add_harness_test target)
         target_link_libraries(${target} PRIVATE ${W1_LIBS})
     endif()
 
-    apply_common_compile_options(${target})
-    apply_windows_definitions(${target})
+    w1_target_defaults(${target})
 
     if(W1_OUTPUT_SUBDIR)
         w1_set_test_output_dirs(${target} ${W1_OUTPUT_SUBDIR})

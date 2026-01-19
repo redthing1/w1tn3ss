@@ -4,8 +4,7 @@ set(INSTRAWARE_COMMON_SOURCES
 
 function(add_instraware_target target_name source_file)
     add_executable(${target_name} ${source_file} ${INSTRAWARE_COMMON_SOURCES})
-    apply_common_compile_options(${target_name})
-    apply_windows_definitions(${target_name})
+    w1_target_defaults(${target_name})
     target_include_directories(${target_name} PRIVATE ${CMAKE_CURRENT_LIST_DIR})
     set_target_properties(${target_name} PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY ${samples_output_dir}

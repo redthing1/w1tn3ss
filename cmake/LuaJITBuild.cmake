@@ -1,23 +1,18 @@
 # luajitbuild.cmake - builds luajit from source using luajit-cmake wrapper
 # provides cross-platform luajit static library build
 
-# configuration options
-option(WITNESS_LUAJIT_DISABLE_FFI "disable luajit ffi support" OFF)
-option(WITNESS_LUAJIT_DISABLE_JIT "disable jit compilation (interpreter only)" OFF)
-option(WITNESS_LUAJIT_ENABLE_LUA52COMPAT "enable lua 5.2 compatibility features" OFF)
-
 # main function to build luajit static library
 function(build_luajit_from_source)
-    if(NOT EXISTS "${WITNESS_SOURCE_DIR}/src/third_party/luajit_cmake/CMakeLists.txt")
+    if(NOT EXISTS "${W1_SOURCE_DIR}/src/third_party/luajit_cmake/CMakeLists.txt")
         message(FATAL_ERROR "luajit-cmake submodule not found. run: git submodule update --init --recursive")
     endif()
-    
-    if(NOT EXISTS "${WITNESS_SOURCE_DIR}/src/third_party/luajit/src/lua.h")
+
+    if(NOT EXISTS "${W1_SOURCE_DIR}/src/third_party/luajit/src/lua.h")
         message(FATAL_ERROR "luajit submodule not found. run: git submodule update --init --recursive")
     endif()
     
     # set luajit source directory for luajit-cmake wrapper
-    set(LUAJIT_DIR "${WITNESS_SOURCE_DIR}/src/third_party/luajit" CACHE PATH "path to luajit source")
+    set(LUAJIT_DIR "${W1_SOURCE_DIR}/src/third_party/luajit" CACHE PATH "path to luajit source")
     
     # configure luajit build options
     set(LUAJIT_DISABLE_FFI ${WITNESS_LUAJIT_DISABLE_FFI} CACHE BOOL "disable luajit ffi")
@@ -38,7 +33,7 @@ function(build_luajit_from_source)
     endif()
     
     # add luajit-cmake subdirectory with unique binary directory
-    add_subdirectory(${WITNESS_SOURCE_DIR}/src/third_party/luajit_cmake ${CMAKE_BINARY_DIR}/witness_luajit)
+    add_subdirectory(${W1_SOURCE_DIR}/src/third_party/luajit_cmake ${CMAKE_BINARY_DIR}/witness_luajit)
     
     # ensure generated headers are available (luajit.h, etc.)
     if(TARGET luajit-header)

@@ -1,5 +1,7 @@
 # p1ll binary patching library
 
+w1_dep_redlog()
+
 # core library sources
 set(P1LL_CORE_SOURCES
     engine/address_space.cpp
@@ -20,20 +22,21 @@ set(P1LL_CORE_SOURCES
 )
 
 # p1ll_core static library (always available)
-add_library(p1ll_core STATIC ${P1LL_CORE_SOURCES})
+w1_add_static_library(p1ll_core ${P1LL_CORE_SOURCES})
+add_library(p1ll::core ALIAS p1ll_core)
 target_link_libraries(p1ll_core PUBLIC redlog::redlog)
-target_include_directories(p1ll_core 
-    PUBLIC 
+target_include_directories(p1ll_core
+    PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/..
-)
-set_target_properties(p1ll_core PROPERTIES 
-    ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
-    POSITION_INDEPENDENT_CODE ON
 )
 
 # p1ll_script static library (optional)
 if(WITNESS_SCRIPT)
+    w1_dep_lua()
+    if(WITNESS_SCRIPT_ENGINE STREQUAL "js")
+        w1_dep_jnjs()
+    endif()
     # scripting sources
     set(P1LL_SCRIPT_SOURCES
         scripting/script_engine_factory.cpp
@@ -46,10 +49,11 @@ if(WITNESS_SCRIPT)
         list(APPEND P1LL_SCRIPT_SOURCES scripting/js/js_engine.cpp)
     endif()
     
-    add_library(p1ll_script STATIC ${P1LL_SCRIPT_SOURCES})
+    w1_add_static_library(p1ll_script ${P1LL_SCRIPT_SOURCES})
+    add_library(p1ll::script ALIAS p1ll_script)
     target_link_libraries(p1ll_script PUBLIC p1ll_core PRIVATE redlog::redlog)
-    target_include_directories(p1ll_script 
-        PUBLIC 
+    target_include_directories(p1ll_script
+        PUBLIC
             ${CMAKE_CURRENT_SOURCE_DIR}
             ${CMAKE_CURRENT_SOURCE_DIR}/..
     )
@@ -57,21 +61,16 @@ if(WITNESS_SCRIPT)
     
     # configure engine-specific integration
     if(WITNESS_SCRIPT_ENGINE STREQUAL "lua")
-        configure_target_with_lua(p1ll_script)
+        target_link_libraries(p1ll_script PUBLIC w1::lua)
         message(STATUS "p1ll_script configured with lua support")
     elseif(WITNESS_SCRIPT_ENGINE STREQUAL "js")
-        configure_target_with_jnjs(p1ll_script)
+        target_link_libraries(p1ll_script PUBLIC w1::jnjs)
         target_compile_definitions(p1ll_script PRIVATE
             PILL_SCRIPT_ENGINE_JS=1
             PILL_HAS_JAVASCRIPT_SUPPORT=1
         )
         message(STATUS "p1ll_script configured with javascript support")
     endif()
-    
-    set_target_properties(p1ll_script PROPERTIES 
-        ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
-        POSITION_INDEPENDENT_CODE ON
-    )
 else()
     message(STATUS "p1ll_core available (scripting disabled)")
 endif()
@@ -86,26 +85,17 @@ endif()
 
 # p1ll_heur static library (optional)
 if(WITNESS_ASMR)
+    w1_dep_asmr()
     set(P1LL_HEUR_SOURCES
         heur/code_signature.cpp
     )
 
-    add_library(p1ll_heur STATIC ${P1LL_HEUR_SOURCES})
+    w1_add_static_library(p1ll_heur ${P1LL_HEUR_SOURCES})
+    add_library(p1ll::heur ALIAS p1ll_heur)
     target_link_libraries(p1ll_heur PUBLIC p1ll_core w1asmr)
     target_include_directories(p1ll_heur
         PUBLIC
             ${CMAKE_CURRENT_SOURCE_DIR}
             ${CMAKE_CURRENT_SOURCE_DIR}/..
-    )
-    if(DEFINED WITNESS_ASMR_CAPSTONE_INCLUDE_DIR)
-        target_include_directories(p1ll_heur PRIVATE ${WITNESS_ASMR_CAPSTONE_INCLUDE_DIR})
-    endif()
-    if(DEFINED WITNESS_ASMR_KEYSTONE_INCLUDE_DIR)
-        target_include_directories(p1ll_heur PRIVATE ${WITNESS_ASMR_KEYSTONE_INCLUDE_DIR})
-    endif()
-
-    set_target_properties(p1ll_heur PROPERTIES
-        ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
-        POSITION_INDEPENDENT_CODE ON
     )
 endif()

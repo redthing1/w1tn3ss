@@ -1,5 +1,7 @@
 # Tracers - w1 framework tracers
-cmake_minimum_required(VERSION 3.16)
+
+include("${W1_CMAKE_DIR}/W1Tracers.cmake")
+w1_dep_qbdi()
 
 # Add tracer subdirectories
 add_subdirectory(w1cov)

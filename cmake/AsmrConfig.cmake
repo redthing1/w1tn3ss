@@ -3,10 +3,8 @@
 
 include_guard()
 
-option(WITNESS_ASMR "Build w1asmr disassembler/assembler" OFF)
-
-set(WITNESS_ASMR_CAPSTONE_DIR "${WITNESS_SOURCE_DIR}/src/third_party/capstone" CACHE PATH "capstone source directory")
-set(WITNESS_ASMR_KEYSTONE_DIR "${WITNESS_SOURCE_DIR}/src/third_party/keystone" CACHE PATH "keystone source directory")
+set(WITNESS_ASMR_CAPSTONE_DIR "${W1_SOURCE_DIR}/src/third_party/capstone" CACHE PATH "capstone source directory")
+set(WITNESS_ASMR_KEYSTONE_DIR "${W1_SOURCE_DIR}/src/third_party/keystone" CACHE PATH "keystone source directory")
 
 function(validate_asmr_submodules)
     if(NOT EXISTS "${WITNESS_ASMR_CAPSTONE_DIR}/CMakeLists.txt")

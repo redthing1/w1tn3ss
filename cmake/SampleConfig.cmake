@@ -1,7 +1,9 @@
 # shared helpers for sample programs
 include_guard()
 
-include(${WITNESS_SOURCE_DIR}/cmake/CommonConfig.cmake)
+if(NOT COMMAND w1_target_defaults)
+    include("${CMAKE_CURRENT_LIST_DIR}/W1Init.cmake")
+endif()
 
 function(w1_add_sample_program target)
     set(options)
@@ -14,8 +16,7 @@ function(w1_add_sample_program target)
     endif()
 
     add_executable(${target} ${W1_SOURCES})
-    apply_common_compile_options(${target})
-    apply_windows_definitions(${target})
+    w1_target_defaults(${target})
 
     if(W1_OUTPUT_DIR)
         set_target_properties(${target} PROPERTIES

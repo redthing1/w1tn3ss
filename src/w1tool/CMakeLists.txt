@@ -1,8 +1,6 @@
-cmake_minimum_required(VERSION 3.16)
+w1_dep_lief()
 
-include(${WITNESS_SOURCE_DIR}/cmake/CommonConfig.cmake)
-
-add_executable(w1tool
+w1_add_executable(w1tool
     main.cpp
     commands/debug.cpp
     commands/inject.cpp
@@ -19,10 +17,6 @@ add_executable(w1tool
 
 set_target_properties(w1tool PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-target_include_directories(w1tool PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}
-)
-
 target_link_libraries(w1tool PRIVATE
     w1base
     w1dump
@@ -30,11 +24,7 @@ target_link_libraries(w1tool PRIVATE
     w1import
     w1nj3ct
     w1debugger
+    w1::lief
 )
-
-
-apply_common_compile_options(w1tool)
-apply_windows_definitions(w1tool)
-configure_target_with_lief(w1tool)
 
 install(TARGETS w1tool RUNTIME DESTINATION bin)
