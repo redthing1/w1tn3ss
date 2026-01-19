@@ -45,30 +45,54 @@ struct instruction {
   bool is_branch_relative = false;
 };
 
-class context {
+class disasm_context {
 public:
-  context() = default;
-  ~context();
-  context(context&&) noexcept = default;
-  context& operator=(context&&) noexcept = default;
-  context(const context&) = delete;
-  context& operator=(const context&) = delete;
+  disasm_context() = default;
+  ~disasm_context();
+  disasm_context(disasm_context&&) noexcept;
+  disasm_context& operator=(disasm_context&&) noexcept;
+  disasm_context(const disasm_context&) = delete;
+  disasm_context& operator=(const disasm_context&) = delete;
 
-  static result<context> for_arch(arch arch_value);
-  static result<context> for_host();
+  static result<disasm_context> for_arch(const arch_spec& spec);
+  static result<disasm_context> for_host();
 
-  result<std::vector<uint8_t>> assemble(std::string_view text, uint64_t address) const;
   result<std::vector<instruction>> disassemble(std::span<const uint8_t> bytes, uint64_t address) const;
 
-  arch architecture() const noexcept { return arch_; }
+  const arch_spec& architecture() const noexcept { return arch_; }
 
 private:
   struct backend;
 
-  explicit context(arch arch_value, std::unique_ptr<backend> backend);
+  explicit disasm_context(const arch_spec& arch_value, std::unique_ptr<backend> backend);
 
   std::unique_ptr<backend> backend_;
-  arch arch_ = arch::x64;
+  arch_spec arch_{};
+};
+
+class asm_context {
+public:
+  asm_context() = default;
+  ~asm_context();
+  asm_context(asm_context&&) noexcept;
+  asm_context& operator=(asm_context&&) noexcept;
+  asm_context(const asm_context&) = delete;
+  asm_context& operator=(const asm_context&) = delete;
+
+  static result<asm_context> for_arch(const arch_spec& spec);
+  static result<asm_context> for_host();
+
+  result<std::vector<uint8_t>> assemble(std::string_view text, uint64_t address) const;
+
+  const arch_spec& architecture() const noexcept { return arch_; }
+
+private:
+  struct backend;
+
+  explicit asm_context(const arch_spec& arch_value, std::unique_ptr<backend> backend);
+
+  std::unique_ptr<backend> backend_;
+  arch_spec arch_{};
 };
 
 } // namespace w1::asmr

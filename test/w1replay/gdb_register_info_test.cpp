@@ -26,16 +26,15 @@ TEST_CASE("gdb adapter exposes register info with pc/sp generics") {
   REQUIRE(writer);
   REQUIRE(writer->open());
 
+  auto arch = parse_arch_or_fail("arm64");
   w1::rewind::trace_header header{};
-  header.architecture = w1::rewind::trace_arch::aarch64;
-  header.pointer_size = 8;
+  header.arch = arch;
   header.flags = w1::rewind::trace_flag_instructions;
   REQUIRE(writer->write_header(header));
 
   std::vector<std::string> registers = {"x0", "sp", "pc", "nzcv"};
 
-  write_target_info(*writer, w1::rewind::trace_arch::aarch64, 8);
-  write_register_specs(*writer, registers, w1::rewind::trace_arch::aarch64, 8);
+  write_basic_metadata(*writer, arch, registers);
   write_module_table(*writer, 1, 0x1000);
   write_thread_start(*writer, 1, "thread1");
   write_instruction(*writer, 1, 0, 0x1000 + 0x10);
@@ -53,9 +52,8 @@ TEST_CASE("gdb adapter exposes register info with pc/sp generics") {
   auto gdb_target = adapter.make_target();
   REQUIRE(gdb_target.view().reg_info.has_value());
 
-  auto target_info = w1::rewind::test_helpers::make_target_info(w1::rewind::trace_arch::aarch64, 8);
-  auto specs = w1::rewind::test_helpers::make_register_specs(registers, w1::rewind::trace_arch::aarch64, 8);
-  auto layout = w1replay::gdb::build_register_layout(target_info, specs);
+  auto specs = w1::rewind::test_helpers::make_register_specs(registers, arch);
+  auto layout = w1replay::gdb::build_register_layout(arch, specs);
   REQUIRE(layout.pc_reg_num >= 0);
   REQUIRE(layout.sp_reg_num >= 0);
 

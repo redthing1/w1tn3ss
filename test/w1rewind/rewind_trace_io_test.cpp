@@ -28,15 +28,15 @@ TEST_CASE("rewind trace writer and reader round trip (instructions)") {
   REQUIRE(writer);
   REQUIRE(writer->open());
 
+  auto arch = parse_arch_or_fail("x86_64");
   w1::rewind::trace_header header{};
-  header.architecture = w1::rewind::detect_trace_arch();
-  header.pointer_size = w1::rewind::detect_pointer_size();
+  header.arch = arch;
   header.flags = w1::rewind::trace_flag_instructions | w1::rewind::trace_flag_register_deltas |
                  w1::rewind::trace_flag_memory_access | w1::rewind::trace_flag_memory_values |
                  w1::rewind::trace_flag_snapshots | w1::rewind::trace_flag_stack_snapshot;
   REQUIRE(writer->write_header(header));
 
-  write_basic_metadata(*writer, header.architecture, header.pointer_size, {"r0", "r1"});
+  write_basic_metadata(*writer, header.arch, {"r0", "r1"});
 
   w1::rewind::module_record module{};
   module.id = 1;
@@ -102,8 +102,7 @@ TEST_CASE("rewind trace writer and reader round trip (instructions)") {
   w1::rewind::trace_reader reader(path.string());
   REQUIRE(reader.open());
   CHECK(reader.header().version == w1::rewind::k_trace_version);
-  CHECK(reader.header().architecture == w1::rewind::detect_trace_arch());
-  CHECK(reader.header().pointer_size == w1::rewind::detect_pointer_size());
+  CHECK(reader.header().arch == arch);
   CHECK(reader.header().compression == w1::rewind::trace_compression::none);
   CHECK(reader.header().chunk_size == w1::rewind::k_trace_chunk_bytes);
   CHECK((reader.header().flags & w1::rewind::trace_flag_instructions) != 0);
@@ -146,13 +145,13 @@ TEST_CASE("rewind trace writer and reader round trip (compressed blocks)") {
   REQUIRE(writer);
   REQUIRE(writer->open());
 
+  auto arch = parse_arch_or_fail("x86_64");
   w1::rewind::trace_header header{};
-  header.architecture = w1::rewind::detect_trace_arch();
-  header.pointer_size = w1::rewind::detect_pointer_size();
+  header.arch = arch;
   header.flags = w1::rewind::trace_flag_blocks;
   REQUIRE(writer->write_header(header));
 
-  write_basic_metadata(*writer, header.architecture, header.pointer_size, {"r0"});
+  write_basic_metadata(*writer, header.arch, {"r0"});
 
   w1::rewind::module_record module{};
   module.id = 1;
@@ -229,13 +228,13 @@ TEST_CASE("rewind trace writer and reader round trip (blocks)") {
   REQUIRE(writer);
   REQUIRE(writer->open());
 
+  auto arch = parse_arch_or_fail("x86_64");
   w1::rewind::trace_header header{};
-  header.architecture = w1::rewind::detect_trace_arch();
-  header.pointer_size = w1::rewind::detect_pointer_size();
+  header.arch = arch;
   header.flags = w1::rewind::trace_flag_blocks | w1::rewind::trace_flag_snapshots;
   REQUIRE(writer->write_header(header));
 
-  write_basic_metadata(*writer, header.architecture, header.pointer_size, {"r0", "r1"});
+  write_basic_metadata(*writer, header.arch, {"r0", "r1"});
 
   w1::rewind::module_record module{};
   module.id = 1;
@@ -326,14 +325,14 @@ TEST_CASE("rewind trace writer and reader round trip (register bytes)") {
   REQUIRE(writer);
   REQUIRE(writer->open());
 
+  using namespace w1::rewind::test_helpers;
+  auto arch = parse_arch_or_fail("x86_64");
   w1::rewind::trace_header header{};
-  header.architecture = w1::rewind::detect_trace_arch();
-  header.pointer_size = w1::rewind::detect_pointer_size();
+  header.arch = arch;
   header.flags = w1::rewind::trace_flag_instructions | w1::rewind::trace_flag_register_deltas;
   REQUIRE(writer->write_header(header));
 
-  w1::rewind::target_info_record target =
-      w1::rewind::test_helpers::make_target_info(header.architecture, header.pointer_size);
+  auto target = make_target_info();
   REQUIRE(writer->write_target_info(target));
 
   w1::rewind::register_spec_record specs{};

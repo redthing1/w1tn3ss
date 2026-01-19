@@ -1,6 +1,7 @@
 #include "asmr_block_decoder.hpp"
 
 #include "code_source.hpp"
+#include "w1rewind/replay/replay_flow_cursor.hpp"
 
 #include <cstddef>
 #include <limits>
@@ -14,21 +15,6 @@
 namespace w1replay {
 
 namespace {
-
-#if defined(WITNESS_ASMR_ENABLED)
-std::optional<w1::asmr::arch> trace_arch_to_asmr_arch(w1::rewind::trace_arch arch) {
-  switch (arch) {
-  case w1::rewind::trace_arch::x86:
-    return w1::asmr::arch::x86;
-  case w1::rewind::trace_arch::x86_64:
-    return w1::asmr::arch::x64;
-  case w1::rewind::trace_arch::aarch64:
-    return w1::asmr::arch::arm64;
-  default:
-    return std::nullopt;
-  }
-}
-#endif
 
 } // namespace
 
@@ -44,22 +30,19 @@ asmr_block_decoder::~asmr_block_decoder() = default;
 
 bool asmr_block_decoder::decode_block(
     const w1::rewind::replay_context& context,
-    uint64_t address,
-    uint32_t size,
+    const w1::rewind::flow_step& flow,
     w1::rewind::replay_decoded_block& out,
     std::string& error
 ) {
 #if !defined(WITNESS_ASMR_ENABLED)
   (void)context;
-  (void)address;
-  (void)size;
+  (void)flow;
   (void)out;
   error = "asmr decoder unavailable (build with WITNESS_ASMR=ON)";
   return false;
 #elif !defined(WITNESS_LIEF_ENABLED)
   (void)context;
-  (void)address;
-  (void)size;
+  (void)flow;
   (void)out;
   error = "asmr decoder unavailable (build with WITNESS_LIEF=ON)";
   return false;
@@ -69,14 +52,14 @@ bool asmr_block_decoder::decode_block(
     return false;
   }
 
-  if (size == 0) {
+  if (flow.size == 0) {
     error = "block size is zero";
     return false;
   }
 
   std::vector<std::byte> raw_bytes;
-  raw_bytes.resize(size);
-  if (!source_->read_by_address(context, address, std::span<std::byte>(raw_bytes), error)) {
+  raw_bytes.resize(flow.size);
+  if (!source_->read_by_address(context, flow.address, std::span<std::byte>(raw_bytes), error)) {
     return false;
   }
   std::vector<uint8_t> buffer;
@@ -84,15 +67,18 @@ bool asmr_block_decoder::decode_block(
   for (size_t i = 0; i < raw_bytes.size(); ++i) {
     buffer[i] = std::to_integer<uint8_t>(raw_bytes[i]);
   }
-  uint64_t base_address = address;
+  uint64_t base_address = flow.address;
 
-  auto arch_value = trace_arch_to_asmr_arch(context.header.architecture);
-  if (!arch_value.has_value()) {
-    error = "unsupported trace architecture for asmr decoder";
-    return false;
+  w1::arch::arch_spec spec = context.header.arch;
+  if ((flow.flags & w1::rewind::trace_block_flag_mode_valid) != 0) {
+    if ((flow.flags & w1::rewind::trace_block_flag_thumb) != 0) {
+      spec.arch_mode = w1::arch::mode::thumb;
+    } else {
+      spec.arch_mode = w1::arch::mode::arm;
+    }
   }
 
-  auto ctx = w1::asmr::context::for_arch(*arch_value);
+  auto ctx = w1::asmr::disasm_context::for_arch(spec);
   if (!ctx.ok()) {
     error = ctx.status_info.message;
     return false;
@@ -110,8 +96,8 @@ bool asmr_block_decoder::decode_block(
   }
 
   out = w1::rewind::replay_decoded_block{};
-  out.address = address;
-  out.size = size;
+  out.address = flow.address;
+  out.size = flow.size;
   out.instructions.reserve(decoded.value.size());
 
   uint32_t expected_offset = 0;
@@ -140,7 +126,7 @@ bool asmr_block_decoder::decode_block(
       return false;
     }
 
-    if (offset + inst_size > size) {
+    if (offset + inst_size > flow.size) {
       error = "decoded instruction exceeds block size";
       return false;
     }
@@ -154,7 +140,7 @@ bool asmr_block_decoder::decode_block(
     expected_offset = offset + inst_size;
   }
 
-  if (expected_offset != size) {
+  if (expected_offset != flow.size) {
     error = "decoded instructions do not cover block size";
     return false;
   }

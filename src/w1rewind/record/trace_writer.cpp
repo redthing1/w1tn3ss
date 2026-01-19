@@ -116,8 +116,14 @@ bool trace_writer::write_header(const trace_header& header) {
 
   write_bytes(k_trace_magic.data(), k_trace_magic.size());
   write_u16(updated.version);
-  write_u16(static_cast<uint16_t>(updated.architecture));
-  write_u32(updated.pointer_size);
+  write_u16(static_cast<uint16_t>(updated.arch.arch_family));
+  write_u16(static_cast<uint16_t>(updated.arch.arch_mode));
+  uint8_t byte_order = static_cast<uint8_t>(updated.arch.arch_byte_order);
+  write_bytes(&byte_order, sizeof(byte_order));
+  uint8_t reserved = 0;
+  write_bytes(&reserved, sizeof(reserved));
+  write_u32(updated.arch.pointer_bits);
+  write_u32(updated.arch.flags);
   write_u64(updated.flags);
   write_u32(static_cast<uint32_t>(updated.compression));
   write_u32(updated.chunk_size);

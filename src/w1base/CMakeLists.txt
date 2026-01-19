@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.16)
 include(${WITNESS_SOURCE_DIR}/cmake/CommonConfig.cmake)
 
 add_library(w1base STATIC
+    arch_spec.cpp
     env_config.cpp
     module_identity.cpp
     signal_handler.cpp

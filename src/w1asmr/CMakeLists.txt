@@ -15,7 +15,7 @@ else()
         PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
     )
 
-    target_link_libraries(w1asmr PUBLIC capstone::capstone keystone::keystone)
+    target_link_libraries(w1asmr PUBLIC w1base capstone::capstone keystone::keystone)
 
     if(DEFINED WITNESS_ASMR_CAPSTONE_INCLUDE_DIR)
         target_include_directories(w1asmr PRIVATE ${WITNESS_ASMR_CAPSTONE_INCLUDE_DIR})

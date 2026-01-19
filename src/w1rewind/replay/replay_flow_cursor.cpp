@@ -289,7 +289,7 @@ bool replay_flow_cursor::load_context() {
 
   const auto& header = cursor_.reader().header();
   if (context_->header.version != header.version || context_->header.flags != header.flags ||
-      context_->header.architecture != header.architecture || context_->header.pointer_size != header.pointer_size) {
+      context_->header.arch != header.arch) {
     set_error(replay_flow_error_kind::other, "replay context header mismatch");
     return false;
   }
@@ -369,6 +369,8 @@ bool replay_flow_cursor::try_parse_flow(const trace_record& record, flow_step& o
     out.sequence = inst.sequence;
     out.size = inst.size;
     out.address = inst.address;
+    out.block_id = 0;
+    out.flags = inst.flags;
     out.is_block = false;
     is_flow = true;
     return true;
@@ -390,6 +392,8 @@ bool replay_flow_cursor::try_parse_flow(const trace_record& record, flow_step& o
   out.sequence = exec.sequence;
   out.size = def.size;
   out.address = def.address;
+  out.block_id = exec.block_id;
+  out.flags = def.flags;
   out.is_block = true;
   is_flow = true;
   return true;

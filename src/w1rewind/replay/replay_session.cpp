@@ -420,12 +420,8 @@ bool replay_session::validate_checkpoint(const replay_checkpoint_index& index) {
     set_error("checkpoint trace flags mismatch");
     return false;
   }
-  if (index.header.architecture != context_.header.architecture) {
+  if (index.header.arch != context_.header.arch) {
     set_error("checkpoint architecture mismatch");
-    return false;
-  }
-  if (index.header.pointer_size != context_.header.pointer_size) {
-    set_error("checkpoint pointer size mismatch");
     return false;
   }
   if (!context_.register_specs.empty() && index.header.register_count != context_.register_specs.size()) {

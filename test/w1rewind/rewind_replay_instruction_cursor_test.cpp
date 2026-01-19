@@ -13,11 +13,12 @@ class test_block_decoder final : public w1::rewind::replay_block_decoder {
 public:
   bool decode_block(
       const w1::rewind::replay_context&,
-      uint64_t address,
-      uint32_t size,
+      const w1::rewind::flow_step& flow,
       w1::rewind::replay_decoded_block& out,
       std::string&
   ) override {
+    uint64_t address = flow.address;
+    uint32_t size = flow.size;
     if (size == 0 || (size % 2) != 0) {
       return false;
     }
@@ -57,13 +58,13 @@ TEST_CASE("w1rewind replay instruction cursor decodes blocks and steps backward"
   REQUIRE(writer);
   REQUIRE(writer->open());
 
+  auto arch = parse_arch_or_fail("x86_64");
   w1::rewind::trace_header header{};
-  header.architecture = w1::rewind::detect_trace_arch();
-  header.pointer_size = w1::rewind::detect_pointer_size();
+  header.arch = arch;
   header.flags = w1::rewind::trace_flag_blocks;
   REQUIRE(writer->write_header(header));
 
-  write_basic_metadata(*writer, header.architecture, header.pointer_size, minimal_registers(header.architecture));
+  write_basic_metadata(*writer, header.arch, minimal_registers(header.arch));
   write_module_table(*writer, 1, 0x2000);
   write_thread_start(*writer, 1, "thread1");
   write_block_def(*writer, 1, 0x2000 + 0x20, 4);
@@ -119,13 +120,13 @@ TEST_CASE("w1rewind replay instruction cursor reports missing decoder") {
   REQUIRE(writer);
   REQUIRE(writer->open());
 
+  auto arch = parse_arch_or_fail("x86_64");
   w1::rewind::trace_header header{};
-  header.architecture = w1::rewind::detect_trace_arch();
-  header.pointer_size = w1::rewind::detect_pointer_size();
+  header.arch = arch;
   header.flags = w1::rewind::trace_flag_blocks;
   REQUIRE(writer->write_header(header));
 
-  write_basic_metadata(*writer, header.architecture, header.pointer_size, minimal_registers(header.architecture));
+  write_basic_metadata(*writer, header.arch, minimal_registers(header.arch));
   write_module_table(*writer, 2, 0x4000);
   write_thread_start(*writer, 1, "thread1");
   write_block_def(*writer, 1, 0x4000 + 0x10, 4);

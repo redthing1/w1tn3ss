@@ -47,7 +47,7 @@ target_include_directories(w1rewind_record
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-target_link_libraries(w1rewind_record PUBLIC w1rewind_format redlog::redlog)
+target_link_libraries(w1rewind_record PUBLIC w1base w1rewind_format redlog::redlog)
 
 apply_common_compile_options(w1rewind_record)
 apply_windows_definitions(w1rewind_record)
@@ -75,7 +75,7 @@ target_include_directories(w1rewind_replay
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-target_link_libraries(w1rewind_replay PUBLIC w1rewind_format redlog::redlog)
+target_link_libraries(w1rewind_replay PUBLIC w1base w1rewind_format redlog::redlog)
 
 apply_common_compile_options(w1rewind_replay)
 apply_windows_definitions(w1rewind_replay)

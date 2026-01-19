@@ -8,6 +8,8 @@
 
 namespace w1::rewind {
 
+struct flow_step;
+
 struct replay_decoded_instruction {
   uint32_t offset = 0;
   uint32_t size = 0;
@@ -26,8 +28,7 @@ public:
 
   virtual bool decode_block(
       const replay_context& context,
-      uint64_t address,
-      uint32_t size,
+      const flow_step& flow,
       replay_decoded_block& out,
       std::string& error
   ) = 0;

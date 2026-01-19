@@ -10,14 +10,15 @@
 
 namespace {
 
-std::vector<std::string> make_register_names(w1::rewind::trace_arch arch) {
-  switch (arch) {
-  case w1::rewind::trace_arch::x86_64:
+std::vector<std::string> make_register_names(const w1::arch::arch_spec& arch) {
+  switch (arch.arch_mode) {
+  case w1::arch::mode::x86_64:
     return {"rax", "rsp"};
-  case w1::rewind::trace_arch::x86:
+  case w1::arch::mode::x86_32:
     return {"eax", "esp"};
-  case w1::rewind::trace_arch::aarch64:
-  case w1::rewind::trace_arch::arm:
+  case w1::arch::mode::aarch64:
+  case w1::arch::mode::arm:
+  case w1::arch::mode::thumb:
     return {"x0", "sp"};
   default:
     break;
@@ -44,14 +45,13 @@ TEST_CASE("w1rewind replay cursor applies register and memory state") {
   REQUIRE(writer->open());
 
   w1::rewind::trace_header header{};
-  header.architecture = w1::rewind::detect_trace_arch();
-  header.pointer_size = w1::rewind::detect_pointer_size();
+  header.arch = w1::arch::detect_host_arch_spec();
   header.flags = w1::rewind::trace_flag_instructions | w1::rewind::trace_flag_register_deltas |
                  w1::rewind::trace_flag_memory_access | w1::rewind::trace_flag_memory_values |
                  w1::rewind::trace_flag_snapshots | w1::rewind::trace_flag_stack_snapshot;
   REQUIRE(writer->write_header(header));
 
-  write_basic_metadata(*writer, header.architecture, header.pointer_size, make_register_names(header.architecture));
+  write_basic_metadata(*writer, header.arch, make_register_names(header.arch));
   write_module_table(*writer, 1, 0x1000);
 
   write_thread_start(*writer, 1, "main");

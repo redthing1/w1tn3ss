@@ -16,20 +16,19 @@ class test_block_decoder final : public w1::rewind::replay_block_decoder {
 public:
   bool decode_block(
       const w1::rewind::replay_context&,
-      uint64_t address,
-      uint32_t size,
+      const w1::rewind::flow_step& flow,
       w1::rewind::replay_decoded_block& out,
       std::string&
   ) override {
-    if (size == 0 || (size % 2) != 0) {
+    if (flow.size == 0 || (flow.size % 2) != 0) {
       return false;
     }
 
-    out.address = address;
-    out.size = size;
+    out.address = flow.address;
+    out.size = flow.size;
 
     uint32_t offset = 0;
-    while (offset < size) {
+    while (offset < flow.size) {
       w1::rewind::replay_decoded_instruction inst{};
       inst.offset = offset;
       inst.size = 2;
@@ -60,13 +59,13 @@ TEST_CASE("w1rewind replay session steps through decoded block instructions") {
   REQUIRE(writer);
   REQUIRE(writer->open());
 
+  auto arch = parse_arch_or_fail("x86_64");
   w1::rewind::trace_header header{};
-  header.architecture = w1::rewind::detect_trace_arch();
-  header.pointer_size = w1::rewind::detect_pointer_size();
+  header.arch = arch;
   header.flags = w1::rewind::trace_flag_blocks;
   REQUIRE(writer->write_header(header));
 
-  write_basic_metadata(*writer, header.architecture, header.pointer_size, minimal_registers(header.architecture));
+  write_basic_metadata(*writer, header.arch, minimal_registers(header.arch));
   write_module_table(*writer, 7, 0x2000);
 
   write_thread_start(*writer, 1, "thread1");
@@ -133,13 +132,13 @@ TEST_CASE("w1rewind replay session instruction stepping falls back without decod
   REQUIRE(writer);
   REQUIRE(writer->open());
 
+  auto arch = parse_arch_or_fail("x86_64");
   w1::rewind::trace_header header{};
-  header.architecture = w1::rewind::detect_trace_arch();
-  header.pointer_size = w1::rewind::detect_pointer_size();
+  header.arch = arch;
   header.flags = w1::rewind::trace_flag_blocks;
   REQUIRE(writer->write_header(header));
 
-  write_basic_metadata(*writer, header.architecture, header.pointer_size, minimal_registers(header.architecture));
+  write_basic_metadata(*writer, header.arch, minimal_registers(header.arch));
   write_module_table(*writer, 9, 0x3000);
 
   write_thread_start(*writer, 1, "thread1");
@@ -189,13 +188,13 @@ TEST_CASE("w1rewind replay session rebuilds stale index when trace changes") {
   REQUIRE(writer);
   REQUIRE(writer->open());
 
+  auto arch = parse_arch_or_fail("x86_64");
   w1::rewind::trace_header header{};
-  header.architecture = w1::rewind::detect_trace_arch();
-  header.pointer_size = w1::rewind::detect_pointer_size();
+  header.arch = arch;
   header.flags = w1::rewind::trace_flag_blocks;
   REQUIRE(writer->write_header(header));
 
-  write_basic_metadata(*writer, header.architecture, header.pointer_size, minimal_registers(header.architecture));
+  write_basic_metadata(*writer, header.arch, minimal_registers(header.arch));
   write_module_table(*writer, 5, 0x1000);
   write_thread_start(*writer, 1, "thread1");
   write_block_def(*writer, 1, 0x1000 + 0x10, 4);
@@ -216,13 +215,11 @@ TEST_CASE("w1rewind replay session rebuilds stale index when trace changes") {
   REQUIRE(new_writer->open());
 
   w1::rewind::trace_header new_header{};
-  new_header.architecture = header.architecture;
-  new_header.pointer_size = header.pointer_size;
+  new_header.arch = header.arch;
   new_header.flags = w1::rewind::trace_flag_blocks;
   REQUIRE(new_writer->write_header(new_header));
 
-  write_basic_metadata(*new_writer, new_header.architecture, new_header.pointer_size,
-                       minimal_registers(new_header.architecture));
+  write_basic_metadata(*new_writer, new_header.arch, minimal_registers(new_header.arch));
   write_module_table(*new_writer, 5, 0x1000);
   write_thread_start(*new_writer, 1, "thread1");
   write_block_def(*new_writer, 1, 0x1000 + 0x20, 4);
@@ -268,13 +265,13 @@ TEST_CASE("w1rewind replay session rebuilds index on mismatch even if trace is o
   REQUIRE(writer);
   REQUIRE(writer->open());
 
+  auto arch = parse_arch_or_fail("x86_64");
   w1::rewind::trace_header header{};
-  header.architecture = w1::rewind::detect_trace_arch();
-  header.pointer_size = w1::rewind::detect_pointer_size();
+  header.arch = arch;
   header.flags = w1::rewind::trace_flag_blocks;
   REQUIRE(writer->write_header(header));
 
-  write_basic_metadata(*writer, header.architecture, header.pointer_size, minimal_registers(header.architecture));
+  write_basic_metadata(*writer, header.arch, minimal_registers(header.arch));
   write_module_table(*writer, 6, 0x1000);
   write_thread_start(*writer, 1, "thread1");
   write_block_def(*writer, 1, 0x1000 + 0x10, 4);
@@ -297,13 +294,11 @@ TEST_CASE("w1rewind replay session rebuilds index on mismatch even if trace is o
   REQUIRE(new_writer->open());
 
   w1::rewind::trace_header new_header{};
-  new_header.architecture = header.architecture;
-  new_header.pointer_size = header.pointer_size;
+  new_header.arch = header.arch;
   new_header.flags = w1::rewind::trace_flag_blocks;
   REQUIRE(new_writer->write_header(new_header));
 
-  write_basic_metadata(*new_writer, new_header.architecture, new_header.pointer_size,
-                       minimal_registers(new_header.architecture));
+  write_basic_metadata(*new_writer, new_header.arch, minimal_registers(new_header.arch));
   write_module_table(*new_writer, 6, 0x1000);
   write_thread_start(*new_writer, 1, "thread1");
   write_block_def(*new_writer, 1, 0x1000 + 0x20, 4);
@@ -348,13 +343,13 @@ TEST_CASE("w1rewind replay session supports reverse instruction stepping on bloc
   REQUIRE(writer);
   REQUIRE(writer->open());
 
+  auto arch = parse_arch_or_fail("x86_64");
   w1::rewind::trace_header header{};
-  header.architecture = w1::rewind::detect_trace_arch();
-  header.pointer_size = w1::rewind::detect_pointer_size();
+  header.arch = arch;
   header.flags = w1::rewind::trace_flag_blocks;
   REQUIRE(writer->write_header(header));
 
-  write_basic_metadata(*writer, header.architecture, header.pointer_size, minimal_registers(header.architecture));
+  write_basic_metadata(*writer, header.arch, minimal_registers(header.arch));
   write_module_table(*writer, 11, 0x5000);
 
   write_thread_start(*writer, 1, "thread1");
@@ -413,13 +408,13 @@ TEST_CASE("w1rewind replay session preserves state across intra-block steps") {
   REQUIRE(writer);
   REQUIRE(writer->open());
 
+  auto arch = parse_arch_or_fail("x86_64");
   w1::rewind::trace_header header{};
-  header.architecture = w1::rewind::detect_trace_arch();
-  header.pointer_size = w1::rewind::detect_pointer_size();
+  header.arch = arch;
   header.flags = w1::rewind::trace_flag_blocks | w1::rewind::trace_flag_register_deltas;
   REQUIRE(writer->write_header(header));
 
-  write_basic_metadata(*writer, header.architecture, header.pointer_size, {"r0"});
+  write_basic_metadata(*writer, header.arch, {"r0"});
   write_module_table(*writer, 12, 0x6000);
 
   write_thread_start(*writer, 1, "thread1");
@@ -490,13 +485,13 @@ TEST_CASE("w1rewind replay session reverse instruction stepping on instruction t
   REQUIRE(writer);
   REQUIRE(writer->open());
 
+  auto arch = parse_arch_or_fail("x86_64");
   w1::rewind::trace_header header{};
-  header.architecture = w1::rewind::detect_trace_arch();
-  header.pointer_size = w1::rewind::detect_pointer_size();
+  header.arch = arch;
   header.flags = w1::rewind::trace_flag_instructions | w1::rewind::trace_flag_register_deltas;
   REQUIRE(writer->write_header(header));
 
-  write_basic_metadata(*writer, header.architecture, header.pointer_size, {"r0"});
+  write_basic_metadata(*writer, header.arch, {"r0"});
   write_module_table(*writer, 13, 0x7000);
 
   write_thread_start(*writer, 1, "thread1");

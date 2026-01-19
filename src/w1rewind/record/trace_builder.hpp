@@ -16,7 +16,11 @@ class trace_builder {
 public:
   explicit trace_builder(trace_builder_config config);
 
-  bool begin_trace(const target_info_record& target, const std::vector<register_spec>& register_specs);
+  bool begin_trace(
+      const w1::arch::arch_spec& arch,
+      const target_info_record& target,
+      const std::vector<register_spec>& register_specs
+  );
   bool set_module_table(std::vector<module_record> modules);
   bool set_memory_map(std::vector<memory_region_record> regions);
 
@@ -34,6 +38,7 @@ public:
       uint64_t thread_id,
       uint64_t address,
       uint32_t size,
+      uint32_t flags,
       uint64_t& sequence_out
   );
 
@@ -78,9 +83,10 @@ private:
   struct block_key {
     uint64_t address = 0;
     uint32_t size = 0;
+    uint32_t flags = 0;
 
     bool operator==(const block_key& other) const {
-      return address == other.address && size == other.size;
+      return address == other.address && size == other.size && flags == other.flags;
     }
   };
 
@@ -88,6 +94,7 @@ private:
     size_t operator()(const block_key& key) const noexcept {
       size_t seed = std::hash<uint64_t>{}(key.address);
       seed ^= std::hash<uint32_t>{}(key.size) + 0x9e3779b97f4a7c15ULL + (seed << 6) + (seed >> 2);
+      seed ^= std::hash<uint32_t>{}(key.flags) + 0x9e3779b97f4a7c15ULL + (seed << 6) + (seed >> 2);
       return seed;
     }
   };

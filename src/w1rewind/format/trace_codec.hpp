@@ -45,12 +45,6 @@ inline bool decode_register_table(trace_buffer_reader& reader, register_table_re
 inline bool encode_target_info(
     const target_info_record& record, trace_buffer_writer& writer, redlog::logger& log
 ) {
-  if (!writer.write_string(record.arch_id)) {
-    log.err("trace string too long", redlog::field("length", record.arch_id.size()));
-    return false;
-  }
-  writer.write_u32(record.pointer_bits);
-  writer.write_u8(static_cast<uint8_t>(record.endianness));
   if (!writer.write_string(record.os)) {
     log.err("trace string too long", redlog::field("length", record.os.size()));
     return false;
@@ -63,25 +57,13 @@ inline bool encode_target_info(
     log.err("trace string too long", redlog::field("length", record.cpu.size()));
     return false;
   }
-  if (!writer.write_string(record.gdb_arch)) {
-    log.err("trace string too long", redlog::field("length", record.gdb_arch.size()));
-    return false;
-  }
-  if (!writer.write_string(record.gdb_feature)) {
-    log.err("trace string too long", redlog::field("length", record.gdb_feature.size()));
-    return false;
-  }
   return true;
 }
 
 inline bool decode_target_info(trace_buffer_reader& reader, target_info_record& out) {
-  uint8_t endianness = 0;
-  if (!reader.read_string(out.arch_id) || !reader.read_u32(out.pointer_bits) || !reader.read_u8(endianness) ||
-      !reader.read_string(out.os) || !reader.read_string(out.abi) || !reader.read_string(out.cpu) ||
-      !reader.read_string(out.gdb_arch) || !reader.read_string(out.gdb_feature)) {
+  if (!reader.read_string(out.os) || !reader.read_string(out.abi) || !reader.read_string(out.cpu)) {
     return false;
   }
-  out.endianness = static_cast<trace_endianness>(endianness);
   return true;
 }
 
@@ -240,11 +222,13 @@ inline bool encode_block_definition(const block_definition_record& record, trace
   writer.write_u64(record.block_id);
   writer.write_u64(record.address);
   writer.write_u32(record.size);
+  writer.write_u32(record.flags);
   return true;
 }
 
 inline bool decode_block_definition(trace_buffer_reader& reader, block_definition_record& out) {
-  return reader.read_u64(out.block_id) && reader.read_u64(out.address) && reader.read_u32(out.size);
+  return reader.read_u64(out.block_id) && reader.read_u64(out.address) && reader.read_u32(out.size) &&
+         reader.read_u32(out.flags);
 }
 
 inline bool encode_block_exec(const block_exec_record& record, trace_buffer_writer& writer) {

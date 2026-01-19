@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -15,8 +16,8 @@ namespace p1ll::heur {
 
 namespace {
 
-using w1::asmr::arch;
-using w1::asmr::context;
+using w1::asmr::asm_context;
+using w1::asmr::disasm_context;
 using w1::asmr::instruction;
 using w1::asmr::operand_kind;
 
@@ -160,7 +161,7 @@ std::vector<uint8_t> mask_x86_instruction(const instruction& inst, policy policy
   return mask;
 }
 
-std::vector<uint8_t> mask_arm64_instruction(const instruction& inst, const context& ctx, policy policy_value) {
+std::vector<uint8_t> mask_arm64_instruction(const instruction& inst, const asm_context& ctx, policy policy_value) {
   std::vector<uint8_t> mask(inst.bytes.size(), 1);
 
   bool should_normalize = false;
@@ -258,17 +259,31 @@ engine::result<signature> code_signature(
     );
   }
 
-  auto arch_value = w1::asmr::parse_arch(platform.arch);
+  auto arch_value = w1::asmr::parse_arch_spec(platform.arch);
   if (!arch_value.ok()) {
     return engine::error_result<signature>(map_error_code(arch_value.status_info.code), arch_value.status_info.message);
   }
 
-  auto ctx = context::for_arch(arch_value.value);
-  if (!ctx.ok()) {
-    return engine::error_result<signature>(map_error_code(ctx.status_info.code), ctx.status_info.message);
+  if (arch_value.value.arch_mode != w1::arch::mode::x86_32 && arch_value.value.arch_mode != w1::arch::mode::x86_64 &&
+      arch_value.value.arch_mode != w1::arch::mode::aarch64) {
+    return engine::error_result<signature>(engine::error_code::unsupported, "unsupported architecture for signature");
   }
 
-  auto disassembly = ctx.value.disassemble(bytes, address);
+  auto disasm_ctx = disasm_context::for_arch(arch_value.value);
+  if (!disasm_ctx.ok()) {
+    return engine::error_result<signature>(map_error_code(disasm_ctx.status_info.code), disasm_ctx.status_info.message);
+  }
+
+  std::optional<asm_context> asm_ctx;
+  if (arch_value.value.arch_mode == w1::arch::mode::aarch64) {
+    auto asm_result = asm_context::for_arch(arch_value.value);
+    if (!asm_result.ok()) {
+      return engine::error_result<signature>(map_error_code(asm_result.status_info.code), asm_result.status_info.message);
+    }
+    asm_ctx = std::move(asm_result.value);
+  }
+
+  auto disassembly = disasm_ctx.value.disassemble(bytes, address);
   if (!disassembly.ok()) {
     return engine::error_result<signature>(
         map_error_code(disassembly.status_info.code), disassembly.status_info.message
@@ -291,8 +306,8 @@ engine::result<signature> code_signature(
     }
 
     std::vector<uint8_t> mask;
-    if (ctx.value.architecture() == arch::arm64) {
-      mask = mask_arm64_instruction(inst, ctx.value, policy_value);
+    if (arch_value.value.arch_mode == w1::arch::mode::aarch64) {
+      mask = mask_arm64_instruction(inst, *asm_ctx, policy_value);
     } else {
       mask = mask_x86_instruction(inst, policy_value);
     }

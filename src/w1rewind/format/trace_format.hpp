@@ -6,10 +6,12 @@
 #include <variant>
 #include <vector>
 
+#include "w1base/arch_spec.hpp"
+
 namespace w1::rewind {
 
-constexpr uint16_t k_trace_version = 8;
-constexpr std::array<uint8_t, 8> k_trace_magic = {'W', '1', 'R', 'W', 'N', 'D', '8', '\0'};
+constexpr uint16_t k_trace_version = 9;
+constexpr std::array<uint8_t, 8> k_trace_magic = {'W', '1', 'R', 'W', 'N', 'D', '9', '\0'};
 constexpr uint32_t k_trace_chunk_bytes = 8 * 1024 * 1024;
 constexpr uint64_t k_stack_snapshot_above_cap = 0x200;
 
@@ -45,20 +47,6 @@ inline stack_snapshot_layout compute_stack_snapshot_layout(uint64_t sp, uint64_t
   layout.above = above;
   return layout;
 }
-
-enum class trace_arch : uint16_t {
-  unknown = 0,
-  x86_64 = 0x0101,
-  x86 = 0x0102,
-  aarch64 = 0x0201,
-  arm = 0x0202,
-};
-
-enum class trace_endianness : uint8_t {
-  unknown = 0,
-  little = 1,
-  big = 2,
-};
 
 enum class module_perm : uint32_t {
   none = 0,
@@ -109,8 +97,7 @@ enum class record_kind : uint16_t {
 
 struct trace_header {
   uint16_t version = k_trace_version;
-  trace_arch architecture = trace_arch::unknown;
-  uint32_t pointer_size = 0;
+  w1::arch::arch_spec arch{};
   uint64_t flags = 0;
   trace_compression compression = trace_compression::none;
   uint32_t chunk_size = 0;
@@ -127,14 +114,9 @@ struct register_table_record {
 };
 
 struct target_info_record {
-  std::string arch_id;
-  uint32_t pointer_bits = 0;
-  trace_endianness endianness = trace_endianness::unknown;
   std::string os;
   std::string abi;
   std::string cpu;
-  std::string gdb_arch;
-  std::string gdb_feature;
 };
 
 enum register_flags : uint16_t {
@@ -209,10 +191,21 @@ struct instruction_record {
   uint32_t flags = 0;
 };
 
+enum instruction_flags : uint32_t {
+  trace_inst_flag_mode_valid = 1u << 0,
+  trace_inst_flag_thumb = 1u << 1,
+};
+
 struct block_definition_record {
   uint64_t block_id = 0;
   uint64_t address = 0;
   uint32_t size = 0;
+  uint32_t flags = 0;
+};
+
+enum block_flags : uint32_t {
+  trace_block_flag_mode_valid = 1u << 0,
+  trace_block_flag_thumb = 1u << 1,
 };
 
 struct block_exec_record {
@@ -286,33 +279,5 @@ using trace_record = std::variant<
     memory_access_record,
     snapshot_record,
     thread_end_record>;
-
-inline trace_arch detect_trace_arch() {
-#if defined(__x86_64__) || defined(_M_X64)
-  return trace_arch::x86_64;
-#elif defined(__i386__) || defined(_M_IX86)
-  return trace_arch::x86;
-#elif defined(__aarch64__) || defined(_M_ARM64)
-  return trace_arch::aarch64;
-#elif defined(__arm__) || defined(_M_ARM)
-  return trace_arch::arm;
-#else
-  return trace_arch::unknown;
-#endif
-}
-
-inline uint32_t detect_pointer_size() { return static_cast<uint32_t>(sizeof(void*)); }
-
-inline trace_endianness detect_trace_endianness() {
-  uint16_t value = 0x0102;
-  auto* bytes = reinterpret_cast<const uint8_t*>(&value);
-  if (bytes[0] == 0x02) {
-    return trace_endianness::little;
-  }
-  if (bytes[0] == 0x01) {
-    return trace_endianness::big;
-  }
-  return trace_endianness::unknown;
-}
 
 } // namespace w1::rewind

@@ -17,12 +17,12 @@ bool is_sp_name(const std::string& name) {
 } // namespace
 
 register_layout build_register_layout(
-    const w1::rewind::target_info_record& target,
+    const w1::arch::arch_spec& arch,
     const std::vector<w1::rewind::register_spec>& register_specs
 ) {
   register_layout layout{};
-  layout.architecture = target.gdb_arch;
-  layout.feature_name = target.gdb_feature;
+  layout.architecture = std::string(w1::arch::gdb_arch_name(arch));
+  layout.feature_name = std::string(w1::arch::gdb_feature_name(arch));
   if (layout.feature_name.empty()) {
     layout.feature_name = "org.w1tn3ss.rewind";
   }

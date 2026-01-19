@@ -6,22 +6,6 @@ namespace w1::rewind {
 
 namespace {
 
-trace_arch trace_arch_from_arch_id(const std::string& arch_id) {
-  if (arch_id == "x86_64" || arch_id == "amd64") {
-    return trace_arch::x86_64;
-  }
-  if (arch_id == "x86" || arch_id == "i386") {
-    return trace_arch::x86;
-  }
-  if (arch_id == "aarch64" || arch_id == "arm64") {
-    return trace_arch::aarch64;
-  }
-  if (arch_id == "arm" || arch_id == "arm32") {
-    return trace_arch::arm;
-  }
-  return trace_arch::unknown;
-}
-
 bool validate_register_specs(const std::vector<register_spec>& specs, std::string& error) {
   if (specs.empty()) {
     error = "register specs missing";
@@ -67,7 +51,11 @@ bool validate_register_specs(const std::vector<register_spec>& specs, std::strin
 
 trace_builder::trace_builder(trace_builder_config config) : config_(std::move(config)) {}
 
-bool trace_builder::begin_trace(const target_info_record& target, const std::vector<register_spec>& register_specs) {
+bool trace_builder::begin_trace(
+    const w1::arch::arch_spec& arch,
+    const target_info_record& target,
+    const std::vector<register_spec>& register_specs
+) {
   if (started_) {
     error_ = "trace already started";
     return false;
@@ -80,16 +68,16 @@ bool trace_builder::begin_trace(const target_info_record& target, const std::vec
     error_ = "trace writer not ready";
     return false;
   }
-  if (target.arch_id.empty()) {
-    error_ = "target arch_id missing";
+  if (arch.arch_family == w1::arch::family::unknown || arch.arch_mode == w1::arch::mode::unknown) {
+    error_ = "trace arch spec missing";
     return false;
   }
-  if (target.pointer_bits == 0 || (target.pointer_bits % 8) != 0) {
-    error_ = "target pointer_bits invalid";
+  if (arch.pointer_bits == 0 || (arch.pointer_bits % 8) != 0) {
+    error_ = "trace pointer bits invalid";
     return false;
   }
-  if (target.endianness == trace_endianness::unknown) {
-    error_ = "target endianness missing";
+  if (arch.arch_byte_order == w1::arch::byte_order::unknown) {
+    error_ = "trace byte order missing";
     return false;
   }
   if (!validate_register_specs(register_specs, error_)) {
@@ -100,8 +88,7 @@ bool trace_builder::begin_trace(const target_info_record& target, const std::vec
   register_specs_ = register_specs;
 
   trace_header header{};
-  header.architecture = trace_arch_from_arch_id(target.arch_id);
-  header.pointer_size = static_cast<uint32_t>(target.pointer_bits / 8);
+  header.arch = arch;
   header.flags = 0;
   if (config_.options.record_instructions) {
     header.flags |= trace_flag_instructions;
@@ -245,6 +232,7 @@ bool trace_builder::emit_block(
     uint64_t thread_id,
     uint64_t address,
     uint32_t size,
+    uint32_t flags,
     uint64_t& sequence_out
 ) {
   if (!ensure_trace_started()) {
@@ -262,6 +250,7 @@ bool trace_builder::emit_block(
   block_key key{};
   key.address = address;
   key.size = size;
+  key.flags = flags;
 
   uint64_t block_id = 0;
   auto it = block_ids_.find(key);
@@ -272,6 +261,7 @@ bool trace_builder::emit_block(
     def.block_id = block_id;
     def.address = address;
     def.size = size;
+    def.flags = flags;
     if (!config_.writer->write_block_definition(def)) {
       error_ = "failed to write block definition";
       return false;

@@ -16,9 +16,13 @@ namespace {
 class test_block_decoder final : public w1::rewind::replay_block_decoder {
 public:
   bool decode_block(
-      const w1::rewind::replay_context&, uint64_t address, uint32_t size,
-      w1::rewind::replay_decoded_block& out, std::string&
+      const w1::rewind::replay_context&,
+      const w1::rewind::flow_step& flow,
+      w1::rewind::replay_decoded_block& out,
+      std::string&
   ) override {
+    uint64_t address = flow.address;
+    uint32_t size = flow.size;
     if (size == 0 || (size % 2) != 0) {
       return false;
     }
@@ -55,15 +59,14 @@ std::filesystem::path write_block_trace(const char* name) {
   REQUIRE(writer);
   REQUIRE(writer->open());
 
+  auto arch = parse_arch_or_fail("arm64");
   w1::rewind::trace_header header{};
-  header.architecture = w1::rewind::trace_arch::aarch64;
-  header.pointer_size = 8;
+  header.arch = arch;
   header.flags = w1::rewind::trace_flag_blocks;
   REQUIRE(writer->write_header(header));
 
   std::vector<std::string> registers = {"pc"};
-  write_target_info(*writer, w1::rewind::trace_arch::aarch64, 8);
-  write_register_specs(*writer, registers, w1::rewind::trace_arch::aarch64, 8);
+  write_basic_metadata(*writer, arch, registers);
   write_module_table(*writer, 1, 0x1000);
   write_thread_start(*writer, 1, "thread1");
 
@@ -94,15 +97,14 @@ std::filesystem::path write_instruction_trace(const char* name) {
   REQUIRE(writer);
   REQUIRE(writer->open());
 
+  auto arch = parse_arch_or_fail("arm64");
   w1::rewind::trace_header header{};
-  header.architecture = w1::rewind::trace_arch::aarch64;
-  header.pointer_size = 8;
+  header.arch = arch;
   header.flags = w1::rewind::trace_flag_instructions;
   REQUIRE(writer->write_header(header));
 
   std::vector<std::string> registers = {"pc"};
-  write_target_info(*writer, w1::rewind::trace_arch::aarch64, 8);
-  write_register_specs(*writer, registers, w1::rewind::trace_arch::aarch64, 8);
+  write_basic_metadata(*writer, arch, registers);
   write_module_table(*writer, 1, 0x2000);
   write_thread_start(*writer, 1, "thread1");
   write_instruction(*writer, 1, 0, 0x2000 + 0x10);
