@@ -21,15 +21,13 @@ initialize submodules:
 git submodule update --init --recursive
 ```
 
-build for any platform:
+build:
 ```sh
 cmake -G Ninja -B build-release -DCMAKE_BUILD_TYPE=Release -DWITNESS_SCRIPT=ON
 cmake --build build-release --parallel
 ```
 
-tips:
-- set `WITNESS_ARCH` (`x64`, `x86`, `arm64`) to force a specific arch
-- set `-DWITNESS_SCRIPT_ENGINE=js` to use the JS scripting backend
+see [doc/build.md](./doc/build.md) for platform-specific instructions.
 
 ## `w1tool` guide
 
