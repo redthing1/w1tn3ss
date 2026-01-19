@@ -142,6 +142,8 @@ TEST_CASE("w1rewind replay checkpoint restores register state") {
   CHECK(session_bytes[0] == std::byte{0x10});
   CHECK(session_bytes[15] == std::byte{0x43});
 
+  cursor.close();
+  session.close();
   fs::remove(trace_path);
   fs::remove(index_path);
   fs::remove(checkpoint_path);
