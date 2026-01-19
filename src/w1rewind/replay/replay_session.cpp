@@ -241,6 +241,31 @@ bool replay_session::step_instruction_backward() {
   return true;
 }
 
+bool replay_session::sync_instruction_position() {
+  clear_error();
+
+  if (!open_) {
+    set_error("session not open");
+    return false;
+  }
+  if (!instruction_cursor_.has_value()) {
+    set_error("instruction cursor not ready");
+    return false;
+  }
+  if (!has_position_) {
+    set_error("no current position");
+    return false;
+  }
+
+  instruction_cursor_->set_position(current_step_);
+  if (auto notice = instruction_cursor_->take_notice(); notice.has_value()) {
+    notice_ = notice;
+  }
+  current_step_ = instruction_cursor_->current_step();
+  has_position_ = instruction_cursor_->has_position();
+  return true;
+}
+
 bool replay_session::continue_until_break() {
   clear_error();
 

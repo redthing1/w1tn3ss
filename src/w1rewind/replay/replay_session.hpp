@@ -45,6 +45,7 @@ public:
   bool step_backward();
   bool step_instruction();
   bool step_instruction_backward();
+  bool sync_instruction_position();
   bool continue_until_break();
 
   void add_breakpoint(uint64_t address);
