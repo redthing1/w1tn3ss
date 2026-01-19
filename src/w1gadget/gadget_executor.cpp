@@ -5,6 +5,13 @@
 
 #include "w1base/interval.hpp"
 
+namespace {
+
+// Guard to avoid truncating disassembly at the end of an instrumented range.
+constexpr size_t k_range_guard_bytes = 16;
+
+} // namespace
+
 namespace w1::gadget {
 
 gadget_executor::gadget_executor(QBDI::VM* parent_vm, config cfg) : parent_vm_(parent_vm), config_(cfg) {
@@ -114,6 +121,12 @@ bool gadget_executor::configure_instrumentation(
     uint64_t range_end = 0;
     if (stop_addr > start_addr) {
       range_end = static_cast<uint64_t>(stop_addr);
+      if (!w1::util::compute_end(range_end, k_range_guard_bytes, &range_end)) {
+        if (error) {
+          *error = "range size overflow";
+        }
+        return false;
+      }
     } else if (!w1::util::compute_end(static_cast<uint64_t>(start_addr), range_size, &range_end)) {
       if (error) {
         *error = "range size overflow";
