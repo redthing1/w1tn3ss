@@ -82,7 +82,7 @@ TEST_CASE("abi_dispatcher extracts stack arguments") {
   REQUIRE(args.size() == 9);
   CHECK(args[8].raw_value == 99);
 #elif defined(QBDI_ARCH_X86)
-  std::array<uint32_t, 2> stack = {123, 456};
+  std::array<uint32_t, 3> stack = {0xdead, 123, 456};
   gpr.esp = static_cast<QBDI::rword>(reinterpret_cast<uintptr_t>(stack.data()));
 
   auto args = dispatcher.extract_arguments(memory, &gpr, 1);
