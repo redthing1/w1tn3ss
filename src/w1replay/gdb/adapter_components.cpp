@@ -101,7 +101,14 @@ gdbstub::target_status mem_component::read_mem(uint64_t addr, std::span<std::byt
   auto module_read = state_.module_source_state.read_address_image(state_.context, addr, out.size());
 
   bool complete = merge_memory_bytes(recorded, module_read.bytes, module_read.known, out);
-  return complete ? gdbstub::target_status::ok : gdbstub::target_status::unsupported;
+  const bool any_known = has_any_known_byte(recorded, module_read.bytes, module_read.known, out.size());
+  if (complete || any_known) {
+    // lldb issues aligned reads that can extend beyond recorded snapshot windows
+    // return best-effort data when any bytes are known so the debugger keeps the
+    // valid portion instead of treating the whole read as unavailable
+    return gdbstub::target_status::ok;
+  }
+  return gdbstub::target_status::unsupported;
 }
 
 gdbstub::target_status mem_component::write_mem(uint64_t, std::span<const std::byte>) {
