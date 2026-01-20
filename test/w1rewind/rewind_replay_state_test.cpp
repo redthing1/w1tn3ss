@@ -85,7 +85,11 @@ TEST_CASE("w1rewind replay cursor applies register and memory state") {
       w1::rewind::register_delta{0, 0x2222},
       w1::rewind::register_delta{1, 0x3000},
   };
-  snapshot.stack_snapshot = {0x10, 0x20};
+  w1::rewind::stack_segment stack_segment{};
+  stack_segment.base = 0x3000;
+  stack_segment.size = 2;
+  stack_segment.bytes = {0x10, 0x20};
+  snapshot.stack_segments.push_back(std::move(stack_segment));
   snapshot.reason = "test";
   REQUIRE(writer->write_snapshot(snapshot));
 
@@ -124,8 +128,7 @@ TEST_CASE("w1rewind replay cursor applies register and memory state") {
   CHECK(mem_bytes[0].value() == 0xDE);
   CHECK(mem_bytes[1].value() == 0xAD);
 
-  auto stack_layout = w1::rewind::compute_stack_snapshot_layout(0x3000, 2);
-  auto stack_bytes = state->read_memory(stack_layout.base, 2);
+  auto stack_bytes = state->read_memory(0x3000, 2);
   REQUIRE(stack_bytes.size() == 2);
   CHECK(stack_bytes[0].has_value());
   CHECK(stack_bytes[1].has_value());

@@ -1,8 +1,36 @@
 #include "rewind_recorder.hpp"
 
 #include "w1runtime/memory_reader.hpp"
+#include "w1rewind/format/register_numbering.hpp"
+#include "w1rewind/record/memory_map_utils.hpp"
 
 #include <algorithm>
+#include <array>
+#include <limits>
+#include <span>
+
+#if defined(_WIN32)
+#include <windows.h>
+#else
+#include <unistd.h>
+#include <sys/utsname.h>
+#endif
+
+#if defined(__APPLE__)
+#include <sys/sysctl.h>
+#endif
+
+#if defined(WITNESS_LIEF_ENABLED)
+#include <LIEF/LIEF.hpp>
+#include <LIEF/ELF/Note.hpp>
+#include <LIEF/MachO/Binary.hpp>
+#include <LIEF/MachO/FatBinary.hpp>
+#include <LIEF/MachO/Header.hpp>
+#include <LIEF/MachO/Parser.hpp>
+#include <LIEF/MachO/UUIDCommand.hpp>
+#include <LIEF/PE/Binary.hpp>
+#include <LIEF/PE/debug/CodeViewPDB.hpp>
+#endif
 
 namespace {
 w1::rewind::module_perm module_perm_from_qbdi(uint32_t perms) {
@@ -19,6 +47,33 @@ w1::rewind::module_perm module_perm_from_qbdi(uint32_t perms) {
   return out;
 }
 
+std::vector<w1::rewind::memory_region_record> collect_memory_map(
+    const std::vector<w1::rewind::module_record>& modules
+) {
+  std::vector<w1::rewind::memory_region_record> regions;
+  auto maps = QBDI::getCurrentProcessMaps(true);
+  regions.reserve(maps.size());
+  for (const auto& map : maps) {
+    uint64_t start = map.range.start();
+    uint64_t end = map.range.end();
+    if (end <= start) {
+      continue;
+    }
+    w1::rewind::memory_region_record region{};
+    region.base = start;
+    region.size = end - start;
+    region.permissions = module_perm_from_qbdi(map.permission);
+    region.image_id = 0;
+    region.name = map.name;
+    regions.push_back(std::move(region));
+  }
+  w1::rewind::assign_memory_map_image_ids(regions, modules);
+  std::sort(regions.begin(), regions.end(), [](const auto& left, const auto& right) {
+    return left.base < right.base;
+  });
+  return regions;
+}
+
 std::string detect_os_id() {
 #if defined(_WIN32)
   return "windows";
@@ -29,6 +84,373 @@ std::string detect_os_id() {
 #else
   return {};
 #endif
+}
+
+#if defined(WITNESS_LIEF_ENABLED)
+std::string hex_encode(LIEF::span<const uint8_t> bytes) {
+  static const char k_hex[] = "0123456789abcdef";
+  std::string out;
+  out.reserve(bytes.size() * 2);
+  for (uint8_t value : bytes) {
+    out.push_back(k_hex[(value >> 4) & 0x0f]);
+    out.push_back(k_hex[value & 0x0f]);
+  }
+  return out;
+}
+
+std::string format_uuid(const std::array<uint8_t, 16>& bytes) {
+  static const char k_hex[] = "0123456789abcdef";
+  std::string out;
+  out.reserve(36);
+  auto append_byte = [&](uint8_t value) {
+    out.push_back(k_hex[(value >> 4) & 0x0f]);
+    out.push_back(k_hex[value & 0x0f]);
+  };
+  size_t idx = 0;
+  const size_t groups[] = {4, 2, 2, 2, 6};
+  for (size_t group = 0; group < 5; ++group) {
+    if (group > 0) {
+      out.push_back('-');
+    }
+    for (size_t i = 0; i < groups[group]; ++i) {
+      append_byte(bytes[idx++]);
+    }
+  }
+  return out;
+}
+
+bool is_all_zero_uuid(const std::array<uint8_t, 16>& bytes) {
+  for (uint8_t value : bytes) {
+    if (value != 0) {
+      return false;
+    }
+  }
+  return true;
+}
+
+LIEF::MachO::Header::CPU_TYPE macho_cpu_type_for_arch(const w1::arch::arch_spec& arch) {
+  using cpu_type = LIEF::MachO::Header::CPU_TYPE;
+  switch (arch.arch_mode) {
+  case w1::arch::mode::x86_64:
+    return cpu_type::X86_64;
+  case w1::arch::mode::x86_32:
+    return cpu_type::X86;
+  case w1::arch::mode::aarch64:
+    return cpu_type::ARM64;
+  case w1::arch::mode::arm:
+  case w1::arch::mode::thumb:
+    return cpu_type::ARM;
+  default:
+    break;
+  }
+  return cpu_type::ANY;
+}
+
+std::optional<std::string> read_macho_uuid(const std::string& path, const w1::arch::arch_spec& arch) {
+  auto fat = LIEF::MachO::Parser::parse(path);
+  if (!fat || fat->empty()) {
+    return std::nullopt;
+  }
+
+  const auto target = macho_cpu_type_for_arch(arch);
+  const LIEF::MachO::Binary* selected = nullptr;
+  for (const auto& binary : *fat) {
+    if (target == LIEF::MachO::Header::CPU_TYPE::ANY || binary.header().cpu_type() == target) {
+      selected = &binary;
+      break;
+    }
+  }
+  if (!selected) {
+    selected = fat->front();
+  }
+  if (!selected || !selected->has_uuid()) {
+    return std::nullopt;
+  }
+  const auto* uuid_cmd = selected->uuid();
+  if (!uuid_cmd) {
+    return std::nullopt;
+  }
+  const auto& uuid_bytes = uuid_cmd->uuid();
+  if (is_all_zero_uuid(uuid_bytes)) {
+    return std::nullopt;
+  }
+  return format_uuid(uuid_bytes);
+}
+
+void populate_module_identity(w1::rewind::module_record& record, const w1::arch::arch_spec& arch) {
+  if (record.path.empty()) {
+    return;
+  }
+  auto binary = LIEF::Parser::parse(record.path);
+  if (!binary) {
+    return;
+  }
+
+  switch (binary->format()) {
+  case LIEF::Binary::FORMATS::ELF: {
+    record.format = w1::rewind::module_format::elf;
+    auto* elf = dynamic_cast<LIEF::ELF::Binary*>(binary.get());
+    if (!elf) {
+      return;
+    }
+    const auto* note = elf->get(LIEF::ELF::Note::TYPE::GNU_BUILD_ID);
+    if (!note) {
+      return;
+    }
+    auto desc = note->description();
+    if (desc.empty()) {
+      return;
+    }
+    record.identity = hex_encode(desc);
+    return;
+  }
+  case LIEF::Binary::FORMATS::MACHO: {
+    record.format = w1::rewind::module_format::macho;
+    auto uuid = read_macho_uuid(record.path, arch);
+    if (uuid.has_value()) {
+      record.identity = *uuid;
+      return;
+    }
+    auto* macho = dynamic_cast<LIEF::MachO::Binary*>(binary.get());
+    if (!macho || !macho->has_uuid()) {
+      return;
+    }
+    const auto* uuid_cmd = macho->uuid();
+    if (!uuid_cmd) {
+      return;
+    }
+    const auto& uuid_bytes = uuid_cmd->uuid();
+    if (is_all_zero_uuid(uuid_bytes)) {
+      return;
+    }
+    record.identity = format_uuid(uuid_bytes);
+    return;
+  }
+  case LIEF::Binary::FORMATS::PE: {
+    record.format = w1::rewind::module_format::pe;
+    auto* pe = dynamic_cast<LIEF::PE::Binary*>(binary.get());
+    if (!pe) {
+      return;
+    }
+    const auto* pdb = pe->codeview_pdb();
+    if (!pdb) {
+      return;
+    }
+    auto guid = pdb->guid();
+    if (!guid.empty()) {
+      record.identity = std::move(guid);
+      record.identity_age = pdb->age();
+    }
+    return;
+  }
+  default:
+    break;
+  }
+}
+#else
+void populate_module_identity(w1::rewind::module_record&, const w1::arch::arch_spec&) {}
+#endif
+
+struct addressing_bits_info {
+  uint32_t addressing_bits = 0;
+  uint32_t low_mem_addressing_bits = 0;
+  uint32_t high_mem_addressing_bits = 0;
+};
+
+uint32_t bit_length_u64(uint64_t value) {
+  uint32_t bits = 0;
+  while (value != 0) {
+    value >>= 1;
+    ++bits;
+  }
+  return bits;
+}
+
+addressing_bits_info compute_addressing_bits(
+    const std::vector<w1::rewind::memory_region_record>& memory_map,
+    const std::vector<w1::rewind::module_record>& modules, uint32_t pointer_bits
+) {
+  addressing_bits_info out{};
+  uint32_t address_bits = pointer_bits == 0 ? 64u : pointer_bits;
+  if (address_bits <= 32) {
+    out.addressing_bits = address_bits;
+    out.low_mem_addressing_bits = address_bits;
+    out.high_mem_addressing_bits = address_bits;
+    return out;
+  }
+
+  bool found = false;
+  uint32_t low_bits = 0;
+  uint32_t high_bits = 0;
+
+  auto consider_end = [&](uint64_t end) {
+    found = true;
+    if ((end & (1ull << 63)) != 0) {
+      uint32_t bits = bit_length_u64(~end) + 1;
+      high_bits = std::max(high_bits, bits);
+    } else {
+      uint32_t bits = bit_length_u64(end) + 1;
+      low_bits = std::max(low_bits, bits);
+    }
+  };
+
+  auto consider_range = [&](uint64_t base, uint64_t size) {
+    if (size == 0) {
+      return;
+    }
+    uint64_t end = base + size - 1;
+    if (end < base) {
+      end = std::numeric_limits<uint64_t>::max();
+    }
+    consider_end(end);
+  };
+
+  if (!memory_map.empty()) {
+    for (const auto& region : memory_map) {
+      consider_range(region.base, region.size);
+    }
+  } else {
+    for (const auto& module : modules) {
+      consider_range(module.base, module.size);
+    }
+  }
+
+  if (!found) {
+    out.addressing_bits = address_bits;
+    out.low_mem_addressing_bits = address_bits;
+    out.high_mem_addressing_bits = address_bits;
+    return out;
+  }
+
+  if (low_bits == 0) {
+    low_bits = high_bits;
+  }
+  if (high_bits == 0) {
+    high_bits = low_bits;
+  }
+  if (low_bits == 0) {
+    low_bits = address_bits;
+  }
+  if (high_bits == 0) {
+    high_bits = address_bits;
+  }
+
+  if (low_bits > address_bits) {
+    low_bits = address_bits;
+  }
+  if (high_bits > address_bits) {
+    high_bits = address_bits;
+  }
+
+  uint32_t max_bits = std::max(low_bits, high_bits);
+  if (max_bits == 0 || max_bits > address_bits) {
+    max_bits = address_bits;
+  }
+
+  out.addressing_bits = max_bits;
+  out.low_mem_addressing_bits = low_bits;
+  out.high_mem_addressing_bits = high_bits;
+  return out;
+}
+
+#if defined(__APPLE__)
+std::string sysctl_string(const char* key) {
+  size_t size = 0;
+  if (sysctlbyname(key, nullptr, &size, nullptr, 0) != 0 || size == 0) {
+    return {};
+  }
+  std::string out(size, '\0');
+  if (sysctlbyname(key, out.data(), &size, nullptr, 0) != 0) {
+    return {};
+  }
+  if (!out.empty() && out.back() == '\0') {
+    out.pop_back();
+  }
+  return out;
+}
+#endif
+
+std::string detect_host_name() {
+#if defined(_WIN32)
+  char buffer[MAX_COMPUTERNAME_LENGTH + 1] = {};
+  DWORD size = MAX_COMPUTERNAME_LENGTH + 1;
+  if (GetComputerNameA(buffer, &size)) {
+    return std::string(buffer, size);
+  }
+#else
+  char buffer[256] = {};
+  if (gethostname(buffer, sizeof(buffer) - 1) == 0) {
+    buffer[sizeof(buffer) - 1] = '\0';
+    return buffer;
+  }
+#endif
+  return {};
+}
+
+std::string detect_os_version() {
+#if defined(__APPLE__)
+  return sysctl_string("kern.osproductversion");
+#elif !defined(_WIN32)
+  struct utsname info {};
+  if (uname(&info) == 0) {
+    return info.release;
+  }
+#endif
+  return {};
+}
+
+std::string detect_os_build() {
+#if defined(__APPLE__)
+  return sysctl_string("kern.osversion");
+#elif !defined(_WIN32)
+  struct utsname info {};
+  if (uname(&info) == 0) {
+    return info.version;
+  }
+#endif
+  return {};
+}
+
+std::string detect_os_kernel() {
+#if defined(__APPLE__)
+  return sysctl_string("kern.osrelease");
+#elif defined(_WIN32)
+  return "windows";
+#else
+  struct utsname info {};
+  if (uname(&info) == 0) {
+    return info.sysname;
+  }
+#endif
+  return {};
+}
+
+uint64_t detect_pid() {
+#if defined(_WIN32)
+  return static_cast<uint64_t>(GetCurrentProcessId());
+#else
+  return static_cast<uint64_t>(getpid());
+#endif
+}
+
+w1::rewind::target_environment_record build_target_environment(
+    const std::vector<w1::rewind::memory_region_record>& memory_map,
+    const std::vector<w1::rewind::module_record>& modules, const w1::arch::arch_spec& arch
+) {
+  w1::rewind::target_environment_record env{};
+  env.os_version = detect_os_version();
+  env.os_build = detect_os_build();
+  env.os_kernel = detect_os_kernel();
+  env.hostname = detect_host_name();
+  if (env.hostname.empty()) {
+    env.hostname = "w1rewind";
+  }
+  env.pid = detect_pid();
+  auto bits = compute_addressing_bits(memory_map, modules, arch.pointer_bits);
+  env.addressing_bits = bits.addressing_bits;
+  env.low_mem_addressing_bits = bits.low_mem_addressing_bits;
+  env.high_mem_addressing_bits = bits.high_mem_addressing_bits;
+  return env;
 }
 
 bool is_pc_name(const std::string& name) { return name == "pc" || name == "rip" || name == "eip"; }
@@ -75,6 +497,9 @@ std::string gdb_name_for_register(const std::string& name, const w1::arch::arch_
   if (arch.arch_mode == w1::arch::mode::aarch64 && name == "nzcv") {
     return "cpsr";
   }
+  if (name == "rflags") {
+    return "eflags";
+  }
   return name;
 }
 } // namespace
@@ -82,16 +507,19 @@ std::string gdb_name_for_register(const std::string& name, const w1::arch::arch_
 namespace w1rewind {
 
 rewind_recorder::rewind_recorder(rewind_config config, std::shared_ptr<w1::rewind::trace_writer> writer)
-    : config_(std::move(config)), writer_(std::move(writer)), instruction_flow_(config_.requires_instruction_flow()) {
+    : config_(std::move(config)),
+      writer_(std::move(writer)),
+      instruction_flow_(config_.flow.mode == rewind_config::flow_options::mode::instruction),
+      memory_filter_(config_.memory) {
   w1::rewind::trace_builder_config builder_config;
   builder_config.writer = writer_;
   builder_config.log = log_;
   builder_config.options.record_instructions = instruction_flow_;
-  builder_config.options.record_register_deltas = config_.record_register_deltas;
-  builder_config.options.record_memory_access = config_.memory.enabled;
-  builder_config.options.record_memory_values = config_.memory.include_values;
-  builder_config.options.record_snapshots = config_.snapshot_interval > 0;
-  builder_config.options.record_stack_snapshot = config_.stack_snapshot_bytes > 0;
+  builder_config.options.record_register_deltas = config_.registers.deltas;
+  builder_config.options.record_memory_access = config_.memory.access != rewind_config::memory_access::none;
+  builder_config.options.record_memory_values = config_.memory.values;
+  builder_config.options.record_snapshots = config_.registers.snapshot_interval > 0;
+  builder_config.options.record_stack_segments = config_.stack_snapshots.interval > 0;
   builder_ = std::make_unique<w1::rewind::trace_builder>(std::move(builder_config));
 }
 
@@ -154,12 +582,12 @@ void rewind_recorder::on_basic_block_entry(
 
   thread.flow_count += 1;
 
-  if (config_.snapshot_interval > 0) {
+  if (config_.registers.snapshot_interval > 0 || config_.stack_snapshots.interval > 0) {
     w1::util::register_state regs = w1::util::register_capturer::capture(gpr);
     auto snapshot = maybe_capture_snapshot(ctx, thread, regs);
     if (snapshot.has_value()) {
       builder_->emit_snapshot(
-          thread.thread_id, sequence, snapshot->snapshot_id, snapshot->registers, snapshot->stack_snapshot,
+          thread.thread_id, sequence, snapshot->snapshot_id, snapshot->registers, snapshot->stack_segments,
           std::move(snapshot->reason)
       );
     }
@@ -216,19 +644,19 @@ void rewind_recorder::on_instruction_post(
   }
 #endif
 
-  bool need_registers =
-      config_.record_register_deltas || config_.snapshot_interval > 0 || config_.stack_snapshot_bytes > 0;
+  bool need_registers = config_.registers.deltas || config_.registers.snapshot_interval > 0 ||
+      config_.stack_snapshots.interval > 0;
   w1::util::register_state regs;
   if (need_registers) {
     regs = w1::util::register_capturer::capture(gpr);
   }
 
-  if (config_.record_register_deltas) {
+  if (config_.registers.deltas) {
     capture_register_deltas(state, regs, pending.register_deltas);
   }
 
   state.flow_count += 1;
-  if (config_.snapshot_interval > 0) {
+  if (config_.registers.snapshot_interval > 0 || config_.stack_snapshots.interval > 0) {
     auto snapshot = maybe_capture_snapshot(ctx, state, regs);
     if (snapshot.has_value()) {
       pending.snapshot = std::move(snapshot);
@@ -243,10 +671,9 @@ void rewind_recorder::on_memory(
     QBDI::FPRState* fpr
 ) {
   (void) vm;
-  (void) gpr;
   (void) fpr;
 
-  if (!instruction_flow_ || !config_.memory.enabled) {
+  if (!instruction_flow_ || config_.memory.access == rewind_config::memory_access::none) {
     return;
   }
 
@@ -262,11 +689,36 @@ void rewind_recorder::on_memory(
     return;
   }
 
-  if (event.is_read && config_.memory.include_reads) {
-    append_memory_access(state, ctx, event, w1::rewind::memory_access_kind::read);
+  std::vector<stack_window_segment> stack_segments;
+  if (memory_filter_.uses_stack_window()) {
+    if (!gpr) {
+      log_.err("missing gpr state for stack window filtering");
+      return;
+    }
+    auto regs = w1::util::register_capturer::capture(gpr);
+    auto window = compute_stack_window_segments(regs, config_.stack_window);
+    if (window.frame_window_missing && !state.warned_missing_frame) {
+      log_.wrn("frame pointer not available; stack window will use SP-only segments");
+      state.warned_missing_frame = true;
+    }
+    stack_segments = std::move(window.segments);
   }
-  if (event.is_write) {
-    append_memory_access(state, ctx, event, w1::rewind::memory_access_kind::write);
+
+  auto segments = memory_filter_.filter(event.address, event.size, stack_segments);
+  if (segments.empty()) {
+    return;
+  }
+
+  bool capture_reads = config_.memory.access == rewind_config::memory_access::reads ||
+      config_.memory.access == rewind_config::memory_access::reads_writes;
+  bool capture_writes = config_.memory.access == rewind_config::memory_access::writes ||
+      config_.memory.access == rewind_config::memory_access::reads_writes;
+
+  if (event.is_read && capture_reads) {
+    append_memory_access(state, ctx, event, w1::rewind::memory_access_kind::read, segments);
+  }
+  if (event.is_write && capture_writes) {
+    append_memory_access(state, ctx, event, w1::rewind::memory_access_kind::write, segments);
   }
 }
 
@@ -322,11 +774,14 @@ bool rewind_recorder::ensure_builder_ready(w1::trace_context& ctx, const QBDI::G
   ctx.modules().refresh();
   update_module_table(ctx.modules());
 
+  auto memory_map = collect_memory_map(module_table_);
+
   w1::rewind::target_info_record target{};
   target.os = detect_os_id();
   target.abi.clear();
   target.cpu.clear();
-  if (!builder_->begin_trace(arch_spec_, target, register_specs_)) {
+  auto environment = build_target_environment(memory_map, module_table_, arch_spec_);
+  if (!builder_->begin_trace(arch_spec_, target, environment, register_specs_)) {
     log_.err("failed to begin trace", redlog::field("error", builder_->error()));
     return false;
   }
@@ -334,6 +789,13 @@ bool rewind_recorder::ensure_builder_ready(w1::trace_context& ctx, const QBDI::G
   if (!module_table_.empty()) {
     if (!builder_->set_module_table(module_table_)) {
       log_.err("failed to write module table", redlog::field("error", builder_->error()));
+      return false;
+    }
+  }
+
+  if (!memory_map.empty()) {
+    if (!builder_->set_memory_map(std::move(memory_map))) {
+      log_.err("failed to write memory map", redlog::field("error", builder_->error()));
       return false;
     }
   }
@@ -361,13 +823,13 @@ void rewind_recorder::flush_pending(thread_state& state) {
     }
   }
 
-  if (config_.record_register_deltas && !pending.register_deltas.empty()) {
+  if (config_.registers.deltas && !pending.register_deltas.empty()) {
     if (!builder_->emit_register_deltas(pending.thread_id, sequence, pending.register_deltas)) {
       return;
     }
   }
 
-  if (config_.memory.enabled) {
+  if (config_.memory.access != rewind_config::memory_access::none) {
     for (const auto& access : pending.memory_accesses) {
       if (!builder_->emit_memory_access(
               pending.thread_id, sequence, access.kind, access.address, access.size, access.value_known,
@@ -378,10 +840,10 @@ void rewind_recorder::flush_pending(thread_state& state) {
     }
   }
 
-  if (pending.snapshot.has_value() && config_.snapshot_interval > 0) {
+  if (pending.snapshot.has_value()) {
     builder_->emit_snapshot(
         pending.thread_id, sequence, pending.snapshot->snapshot_id, pending.snapshot->registers,
-        pending.snapshot->stack_snapshot, std::move(pending.snapshot->reason)
+        pending.snapshot->stack_segments, std::move(pending.snapshot->reason)
     );
   }
 }
@@ -452,48 +914,79 @@ std::vector<w1::rewind::register_delta> rewind_recorder::capture_register_snapsh
   return out;
 }
 
-std::vector<uint8_t> rewind_recorder::capture_stack_snapshot(
-    w1::trace_context& ctx, const w1::util::register_state& regs
-) const {
-  if (config_.stack_snapshot_bytes == 0) {
-    return {};
+std::vector<w1::rewind::stack_segment> rewind_recorder::capture_stack_segments(
+    w1::trace_context& ctx, thread_state& state, const w1::util::register_state& regs
+) {
+  std::vector<w1::rewind::stack_segment> out;
+  if (config_.stack_snapshots.interval == 0 || config_.stack_window.mode == rewind_config::stack_window_options::mode::none) {
+    return out;
   }
   if (regs.get_register_map().empty()) {
-    return {};
-  }
-  uint64_t sp = regs.get_stack_pointer();
-  if (sp == 0) {
-    return {};
+    return out;
   }
 
-  auto layout = w1::rewind::compute_stack_snapshot_layout(sp, config_.stack_snapshot_bytes);
-  if (layout.size == 0) {
-    return {};
+  auto window = compute_stack_window_segments(regs, config_.stack_window);
+  if (window.frame_window_missing && !state.warned_missing_frame) {
+    log_.wrn("frame pointer not available; stack snapshot will use SP-only segments");
+    state.warned_missing_frame = true;
   }
-  auto bytes = ctx.memory().read_bytes(layout.base, static_cast<size_t>(layout.size));
-  if (!bytes.has_value()) {
-    return {};
+
+  out.reserve(window.segments.size());
+  for (const auto& segment : window.segments) {
+    if (segment.size == 0) {
+      continue;
+    }
+    auto bytes = ctx.memory().read_bytes(segment.base, static_cast<size_t>(segment.size));
+    if (!bytes.has_value()) {
+      continue;
+    }
+    w1::rewind::stack_segment record{};
+    record.base = segment.base;
+    record.size = segment.size;
+    record.bytes = std::move(*bytes);
+    out.push_back(std::move(record));
   }
-  return *bytes;
+
+  return out;
 }
 
 std::optional<rewind_recorder::pending_snapshot> rewind_recorder::maybe_capture_snapshot(
     w1::trace_context& ctx, thread_state& state, const w1::util::register_state& regs
 ) {
-  if (config_.snapshot_interval == 0) {
-    return std::nullopt;
+  bool want_register_snapshot = config_.registers.snapshot_interval > 0;
+  bool want_stack_snapshot = config_.stack_snapshots.interval > 0;
+
+  bool register_due = false;
+  bool stack_due = false;
+
+  if (want_register_snapshot) {
+    state.flow_since_register_snapshot += 1;
+    if (state.flow_since_register_snapshot >= config_.registers.snapshot_interval) {
+      state.flow_since_register_snapshot = 0;
+      register_due = true;
+    }
   }
 
-  state.flow_since_snapshot += 1;
-  if (state.flow_since_snapshot < config_.snapshot_interval) {
+  if (want_stack_snapshot) {
+    state.flow_since_stack_snapshot += 1;
+    if (state.flow_since_stack_snapshot >= config_.stack_snapshots.interval) {
+      state.flow_since_stack_snapshot = 0;
+      stack_due = true;
+    }
+  }
+
+  if (!register_due && !stack_due) {
     return std::nullopt;
   }
-  state.flow_since_snapshot = 0;
 
   pending_snapshot snapshot{};
   snapshot.snapshot_id = state.snapshot_count++;
-  snapshot.registers = capture_register_snapshot(regs);
-  snapshot.stack_snapshot = capture_stack_snapshot(ctx, regs);
+  if (register_due) {
+    snapshot.registers = capture_register_snapshot(regs);
+  }
+  if (stack_due) {
+    snapshot.stack_segments = capture_stack_segments(ctx, state, regs);
+  }
   snapshot.reason = "interval";
   return snapshot;
 }
@@ -527,6 +1020,10 @@ void rewind_recorder::update_register_table(const w1::util::register_state& regs
     spec.gdb_name = gdb_name_for_register(name, arch);
     spec.reg_class = register_class_for_name(name);
     spec.value_kind = w1::rewind::register_value_kind::u64;
+    if (auto numbering = w1::rewind::lookup_register_numbering(arch, spec.gdb_name)) {
+      spec.dwarf_regnum = numbering->dwarf_regnum;
+      spec.ehframe_regnum = numbering->ehframe_regnum;
+    }
     register_specs_.push_back(std::move(spec));
   }
 }
@@ -545,46 +1042,77 @@ void rewind_recorder::update_module_table(const w1::runtime::module_registry& mo
     record.size = module.size;
     record.permissions = module_perm_from_qbdi(module.permissions);
     record.path = module.path.empty() ? module.name : module.path;
+    populate_module_identity(record, arch_spec_);
     module_table_.push_back(std::move(record));
   }
 }
 
 void rewind_recorder::append_memory_access(
-    thread_state& state, w1::trace_context& ctx, const w1::memory_event& event, w1::rewind::memory_access_kind kind
+    thread_state& state, w1::trace_context& ctx, const w1::memory_event& event, w1::rewind::memory_access_kind kind,
+    const std::vector<w1::address_range>& segments
 ) {
   if (!state.pending.has_value()) {
     return;
   }
-
-  pending_memory_access record{};
-  record.kind = kind;
-  record.address = event.address;
-  record.size = event.size;
-
-  if (config_.memory.include_values && config_.memory.max_value_bytes > 0) {
-    size_t max_bytes = static_cast<size_t>(config_.memory.max_value_bytes);
-    size_t capture_size = std::min<size_t>(event.size, max_bytes);
-    if (capture_size > 0) {
-      if (event.value_valid && capture_size <= sizeof(uint64_t)) {
-        record.data.resize(capture_size);
-        uint64_t value = event.value;
-        for (size_t i = 0; i < capture_size; ++i) {
-          record.data[i] = static_cast<uint8_t>((value >> (8 * i)) & 0xFF);
-        }
-        record.value_known = true;
-      } else {
-        auto bytes = ctx.memory().read_bytes(event.address, capture_size);
-        if (bytes.has_value()) {
-          record.data = std::move(*bytes);
-          record.value_known = true;
-        }
-      }
-      record.value_truncated = event.size > capture_size;
-    }
+  if (segments.empty()) {
+    return;
   }
 
-  state.pending->memory_accesses.push_back(std::move(record));
-  state.memory_events += 1;
+  bool capture_values = config_.memory.values && config_.memory.max_value_bytes > 0;
+  uint32_t max_bytes = config_.memory.max_value_bytes;
+  std::array<uint8_t, 8> value_bytes{};
+  bool have_value_bytes = false;
+
+  if (capture_values && event.value_valid) {
+    uint64_t value = event.value;
+    for (size_t i = 0; i < value_bytes.size(); ++i) {
+      value_bytes[i] = static_cast<uint8_t>((value >> (8 * i)) & 0xFF);
+    }
+    have_value_bytes = true;
+  }
+
+  for (const auto& segment : segments) {
+    if (segment.end <= segment.start) {
+      continue;
+    }
+    uint64_t seg_size_u64 = segment.end - segment.start;
+    if (seg_size_u64 > std::numeric_limits<uint32_t>::max()) {
+      continue;
+    }
+    uint32_t seg_size = static_cast<uint32_t>(seg_size_u64);
+
+    pending_memory_access record{};
+    record.kind = kind;
+    record.address = segment.start;
+    record.size = seg_size;
+
+    if (capture_values && seg_size > 0) {
+      uint32_t capture_size = std::min(seg_size, max_bytes);
+      if (capture_size > 0) {
+        if (segment.start < event.address) {
+          continue;
+        }
+        uint64_t offset = segment.start - event.address;
+        if (have_value_bytes && (offset + capture_size) <= value_bytes.size()) {
+          record.data.assign(
+              value_bytes.begin() + static_cast<std::ptrdiff_t>(offset),
+              value_bytes.begin() + static_cast<std::ptrdiff_t>(offset + capture_size)
+          );
+          record.value_known = true;
+        } else {
+          auto bytes = ctx.memory().read_bytes(segment.start, capture_size);
+          if (bytes.has_value()) {
+            record.data = std::move(*bytes);
+            record.value_known = true;
+          }
+        }
+        record.value_truncated = seg_size > capture_size;
+      }
+    }
+
+    state.pending->memory_accesses.push_back(std::move(record));
+    state.memory_events += 1;
+  }
 }
 
 } // namespace w1rewind

@@ -77,38 +77,15 @@ bool replay_state_applier::apply_snapshot(
     return true;
   }
 
-  if (track_registers) {
+  if (track_registers && !record.registers.empty()) {
     state.apply_register_snapshot(record.registers);
   }
 
-  if (!track_memory || record.stack_snapshot.empty()) {
+  if (!track_memory || record.stack_segments.empty()) {
     return true;
   }
 
-  uint64_t sp = 0;
-  bool have_sp = false;
-  if (context_.sp_reg_id.has_value()) {
-    if (track_registers) {
-      auto value = state.register_value(*context_.sp_reg_id);
-      if (value.has_value()) {
-        sp = *value;
-        have_sp = true;
-      }
-    }
-    if (!have_sp) {
-      for (const auto& reg : record.registers) {
-        if (reg.reg_id == *context_.sp_reg_id) {
-          sp = reg.value;
-          have_sp = true;
-          break;
-        }
-      }
-    }
-  }
-
-  if (have_sp) {
-    state.apply_stack_snapshot(sp, record.stack_snapshot);
-  }
+  state.apply_stack_segments(record.stack_segments);
 
   return true;
 }

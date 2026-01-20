@@ -41,11 +41,12 @@ TEST_CASE("w1rewind records block flow and snapshots") {
 
   w1rewind::rewind_config config;
   config.output_path = path.string();
-  config.record_instructions = false;
-  config.record_register_deltas = false;
-  config.snapshot_interval = 1;
-  config.stack_snapshot_bytes = 0;
-  config.memory.enabled = false;
+  config.flow.mode = w1rewind::rewind_config::flow_options::mode::block;
+  config.registers.deltas = false;
+  config.registers.snapshot_interval = 1;
+  config.stack_window.mode = w1rewind::rewind_config::stack_window_options::mode::none;
+  config.stack_snapshots.interval = 0;
+  config.memory.access = w1rewind::rewind_config::memory_access::none;
 
   w1::trace_session_config session_config;
   session_config.instrumentation.include_modules = {"w1rewind_unit_tests"};
@@ -120,6 +121,7 @@ TEST_CASE("w1rewind records block flow and snapshots") {
   CHECK((reader.header().flags & w1::rewind::trace_flag_memory_access) == 0);
   CHECK((reader.header().flags & w1::rewind::trace_flag_snapshots) != 0);
   CHECK(reader.target_info().has_value());
+  CHECK(reader.target_environment().has_value());
   CHECK(!reader.register_specs().empty());
   CHECK(!reader.module_table().empty());
   CHECK(!reader.block_table().empty());
@@ -130,7 +132,7 @@ TEST_CASE("w1rewind records block flow and snapshots") {
   CHECK(snapshot_count > 0);
   CHECK(thread_start_count == 1);
   CHECK(thread_end_count == 1);
-  CHECK(snapshot_count == block_exec_count / config.snapshot_interval);
+  CHECK(snapshot_count == block_exec_count / config.registers.snapshot_interval);
 
   reader.close();
   fs::remove(path);

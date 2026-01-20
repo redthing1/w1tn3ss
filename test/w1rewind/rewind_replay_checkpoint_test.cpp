@@ -34,6 +34,7 @@ TEST_CASE("w1rewind replay checkpoint restores register state") {
   REQUIRE(writer->write_header(header));
 
   write_target_info(*writer);
+  write_target_environment(*writer);
   w1::rewind::register_spec_record specs{};
   w1::rewind::register_spec gpr{};
   gpr.reg_id = 0;

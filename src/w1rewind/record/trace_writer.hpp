@@ -34,6 +34,7 @@ public:
   bool write_header(const trace_header& header);
   bool write_register_table(const register_table_record& record);
   bool write_target_info(const target_info_record& record);
+  bool write_target_environment(const target_environment_record& record);
   bool write_register_spec(const register_spec_record& record);
   bool write_module_table(const module_table_record& record);
   bool write_memory_map(const memory_map_record& record);

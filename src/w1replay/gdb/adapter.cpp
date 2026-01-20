@@ -2,6 +2,7 @@
 
 #include "w1replay/asmr_block_decoder.hpp"
 #include "target_xml.hpp"
+#include "loaded_libraries_provider.hpp"
 
 namespace w1replay::gdb {
 
@@ -26,6 +27,7 @@ bool adapter::open() {
   state_.breakpoints.clear();
   state_.decoder.reset();
   state_.module_source_state = module_source{};
+  state_.loaded_libraries_provider.reset();
   state_.module_source_state.configure(config_.module_mappings, config_.module_dirs);
   if (config_.module_reader) {
     state_.module_source_state.set_address_reader(config_.module_reader);
@@ -55,7 +57,18 @@ bool adapter::open() {
   run_component_ = std::make_unique<run_component>(state_);
   breakpoints_component_ = std::make_unique<breakpoints_component>(state_);
   threads_component_ = std::make_unique<threads_component>(state_);
+  host_info_component_ = std::make_unique<host_info_component>(state_);
   memory_layout_component_ = std::make_unique<memory_layout_component>(state_);
+  loaded_libraries_component_.reset();
+  libraries_component_ = std::make_unique<libraries_component>(state_);
+  state_.loaded_libraries_provider = make_loaded_libraries_provider(state_.context, state_.module_source_state);
+  if (state_.loaded_libraries_provider && !state_.loaded_libraries_provider->has_loaded_images()) {
+    state_.loaded_libraries_provider.reset();
+  }
+  if (state_.loaded_libraries_provider) {
+    loaded_libraries_component_ = std::make_unique<loaded_libraries_component>(state_);
+  }
+  process_info_component_ = std::make_unique<process_info_component>(state_);
   offsets_component_ = std::make_unique<offsets_component>(state_);
   register_info_component_ = std::make_unique<register_info_component>(state_);
 
@@ -63,9 +76,17 @@ bool adapter::open() {
 }
 
 gdbstub::target adapter::make_target() {
+  if (loaded_libraries_component_) {
+    return gdbstub::make_target(
+        *regs_component_, *mem_component_, *run_component_, *breakpoints_component_, *threads_component_,
+        *host_info_component_, *memory_layout_component_, *libraries_component_, *loaded_libraries_component_,
+        *process_info_component_, *offsets_component_, *register_info_component_
+    );
+  }
   return gdbstub::make_target(
       *regs_component_, *mem_component_, *run_component_, *breakpoints_component_, *threads_component_,
-      *memory_layout_component_, *offsets_component_, *register_info_component_
+      *host_info_component_, *memory_layout_component_, *libraries_component_, *process_info_component_,
+      *offsets_component_, *register_info_component_
   );
 }
 
@@ -110,6 +131,7 @@ bool adapter::load_context() {
   auto features = state_.context.features();
   state_.trace_is_block = features.has_blocks;
   state_.track_memory = features.track_memory;
+  state_.has_stack_snapshot = features.has_stack_snapshot;
   switch (state_.context.header.arch.arch_byte_order) {
   case w1::arch::byte_order::big:
     state_.target_endian = endian::big;

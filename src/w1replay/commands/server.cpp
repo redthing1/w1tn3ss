@@ -5,8 +5,8 @@
 
 #include <redlog.hpp>
 
-#include "gdbstub/server.hpp"
-#include "gdbstub/transport_tcp.hpp"
+#include "gdbstub/server/server.hpp"
+#include "gdbstub/transport/transport_tcp.hpp"
 
 #include "gdb/adapter.hpp"
 
@@ -44,6 +44,11 @@ int server(const server_options& options) {
     log.err("failed to open trace", redlog::field("error", adapter.error()));
     std::cerr << "error: " << adapter.error() << std::endl;
     return 1;
+  }
+  if (!adapter.track_memory()) {
+    log.warn("trace has no memory tracking; memory reads (including stack) may fail");
+  } else if (!adapter.has_stack_snapshot()) {
+    log.warn("trace has no stack snapshot; finish may fail without recorded stack bytes");
   }
 
   auto transport = std::make_unique<gdbstub::transport_tcp>();

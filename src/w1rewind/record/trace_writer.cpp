@@ -155,6 +155,15 @@ bool trace_writer::write_target_info(const target_info_record& record) {
   return write_record(record_kind::target_info, 0, payload);
 }
 
+bool trace_writer::write_target_environment(const target_environment_record& record) {
+  std::vector<uint8_t> payload;
+  trace_buffer_writer writer(payload);
+  if (!encode_target_environment(record, writer, config_.log)) {
+    return false;
+  }
+  return write_record(record_kind::target_environment, 0, payload);
+}
+
 bool trace_writer::write_register_spec(const register_spec_record& record) {
   std::vector<uint8_t> payload;
   trace_buffer_writer writer(payload);

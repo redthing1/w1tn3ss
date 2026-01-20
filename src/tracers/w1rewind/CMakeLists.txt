@@ -1,4 +1,6 @@
 set(W1REWIND_SOURCES
+    memory_filter.cpp
+    memory_filter.hpp
     preload.cpp
     rewind_config.cpp
     rewind_config.hpp
@@ -6,6 +8,8 @@ set(W1REWIND_SOURCES
     rewind_recorder.hpp
     rewind_tracer.cpp
     rewind_tracer.hpp
+    stack_window_policy.cpp
+    stack_window_policy.hpp
 )
 
 w1_add_tracer(w1rewind

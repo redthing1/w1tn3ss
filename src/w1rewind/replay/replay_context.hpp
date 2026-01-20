@@ -20,6 +20,7 @@ struct replay_thread_info {
 struct replay_context {
   trace_header header{};
   std::optional<target_info_record> target_info;
+  std::optional<target_environment_record> target_environment;
   std::vector<register_spec> register_specs;
   std::vector<std::string> register_names;
   std::vector<module_record> modules;

@@ -6,6 +6,7 @@
 
 #include "w1instrument/core/instrumentation_policy.hpp"
 #include "w1rewind/format/trace_format.hpp"
+#include "w1base/types.hpp"
 
 namespace w1rewind {
 
@@ -14,25 +15,58 @@ struct rewind_config {
   bool exclude_self = true;
   int verbose = 0;
 
-  bool record_instructions = false;
-  bool record_register_deltas = false;
-  uint64_t snapshot_interval = 4096;
-  uint64_t stack_snapshot_bytes = 0;
-
-  struct memory_capture_options {
-    bool enabled = false;
-    bool include_reads = false;
-    bool include_values = false;
-    uint32_t max_value_bytes = 32;
+  struct flow_options {
+    enum class mode { instruction, block };
+    mode mode = mode::block;
   };
 
-  memory_capture_options memory{};
+  struct register_options {
+    enum class capture_kind { gpr };
+    capture_kind capture = capture_kind::gpr;
+    bool deltas = false;
+    uint64_t snapshot_interval = 0;
+    bool bytes = false;
+  };
+
+  struct stack_window_options {
+    enum class mode { none, fixed, frame };
+    mode mode = mode::none;
+    uint64_t above_bytes = 512;
+    uint64_t below_bytes = 2048;
+    uint64_t max_total_bytes = 4096;
+  };
+
+  struct stack_snapshot_options {
+    uint64_t interval = 0;
+  };
+
+  enum class memory_access { none, reads, writes, reads_writes };
+  enum class memory_filter_kind { all, ranges, stack_window };
+
+  struct memory_options {
+    memory_access access = memory_access::none;
+    bool values = false;
+    uint32_t max_value_bytes = 32;
+    std::vector<memory_filter_kind> filters = {memory_filter_kind::all};
+    std::vector<w1::address_range> ranges{};
+  };
+
+  struct module_options {
+    bool dynamic_events = false;
+  };
+
+  flow_options flow{};
+  register_options registers{};
+  stack_window_options stack_window{};
+  stack_snapshot_options stack_snapshots{};
+  memory_options memory{};
+  module_options modules{};
   std::string output_path;
   bool compress_trace = false;
   uint32_t chunk_size = w1::rewind::k_trace_chunk_bytes;
 
-  static rewind_config from_environment();
-  bool requires_instruction_flow() const;
+  static rewind_config from_environment(std::string& error);
+  bool validate(std::string& error) const;
 };
 
 } // namespace w1rewind

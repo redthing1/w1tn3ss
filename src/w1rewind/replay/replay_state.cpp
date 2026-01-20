@@ -178,15 +178,19 @@ void replay_state::apply_memory_bytes(uint64_t address, const std::vector<uint8_
   }
 }
 
-void replay_state::apply_stack_snapshot(uint64_t sp, const std::vector<uint8_t>& bytes) {
-  if (bytes.empty()) {
+void replay_state::apply_stack_segments(const std::vector<stack_segment>& segments) {
+  if (segments.empty()) {
     return;
   }
-  auto layout = compute_stack_snapshot_layout(sp, static_cast<uint64_t>(bytes.size()));
-  if (layout.size == 0) {
-    return;
+  for (const auto& segment : segments) {
+    if (segment.bytes.empty() || segment.size == 0) {
+      continue;
+    }
+    if (segment.size != segment.bytes.size()) {
+      continue;
+    }
+    apply_memory_bytes(segment.base, segment.bytes);
   }
-  apply_memory_bytes(layout.base, bytes);
 }
 
 std::vector<std::optional<uint8_t>> replay_state::read_memory(uint64_t address, size_t size) const {

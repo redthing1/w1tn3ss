@@ -3,7 +3,9 @@
 #include "module_image_lief.hpp"
 
 #include <algorithm>
+#include <array>
 #include <filesystem>
+#include <limits>
 #include <unordered_map>
 
 namespace w1replay {
@@ -26,6 +28,10 @@ std::string basename_for_path(const std::string& path) {
   return path.substr(start + 1, end - start);
 }
 
+bool add_overflows(uint64_t base, uint64_t addend) {
+  return base > std::numeric_limits<uint64_t>::max() - addend;
+}
+
 bool parse_mapping(const std::string& mapping, std::string& name, std::string& path) {
   auto eq_pos = mapping.find('=');
   if (eq_pos == std::string::npos || eq_pos == 0 || eq_pos + 1 >= mapping.size()) {
@@ -35,6 +41,38 @@ bool parse_mapping(const std::string& mapping, std::string& name, std::string& p
   path = mapping.substr(eq_pos + 1);
   return !(name.empty() || path.empty());
 }
+
+#if defined(WITNESS_LIEF_ENABLED)
+std::string format_uuid(const std::array<uint8_t, 16>& bytes) {
+  static const char k_hex[] = "0123456789abcdef";
+  std::string out;
+  out.reserve(36);
+  auto append_byte = [&](uint8_t value) {
+    out.push_back(k_hex[(value >> 4) & 0x0f]);
+    out.push_back(k_hex[value & 0x0f]);
+  };
+  size_t idx = 0;
+  const size_t groups[] = {4, 2, 2, 2, 6};
+  for (size_t group = 0; group < 5; ++group) {
+    if (group > 0) {
+      out.push_back('-');
+    }
+    for (size_t i = 0; i < groups[group]; ++i) {
+      append_byte(bytes[idx++]);
+    }
+  }
+  return out;
+}
+
+bool is_all_zero_uuid(const std::array<uint8_t, 16>& bytes) {
+  for (uint8_t value : bytes) {
+    if (value != 0) {
+      return false;
+    }
+  }
+  return true;
+}
+#endif
 
 } // namespace
 
@@ -57,16 +95,16 @@ void module_source::apply_to_context(w1::rewind::replay_context& context) {
     overrides[name] = path;
   }
 
-  for (auto& module : context.modules) {
-    std::string module_name = basename_for_path(module.path);
+  auto apply_override = [&](std::string& path) {
+    std::string module_name = basename_for_path(path);
     if (module_name.empty()) {
-      continue;
+      return;
     }
 
     auto it = overrides.find(module_name);
     if (it != overrides.end()) {
-      module.path = it->second;
-      continue;
+      path = it->second;
+      return;
     }
 
     for (const auto& dir : module_dirs_) {
@@ -76,10 +114,24 @@ void module_source::apply_to_context(w1::rewind::replay_context& context) {
       std::filesystem::path candidate = std::filesystem::path(dir) / module_name;
       std::error_code ec;
       if (std::filesystem::exists(candidate, ec) && std::filesystem::is_regular_file(candidate, ec)) {
-        module.path = candidate.string();
-        break;
+        path = candidate.string();
+        return;
       }
     }
+  };
+
+  for (auto& module : context.modules) {
+    if (module.path.empty()) {
+      continue;
+    }
+    apply_override(module.path);
+  }
+
+  for (auto& region : context.memory_map) {
+    if (region.name.empty()) {
+      continue;
+    }
+    apply_override(region.name);
   }
 
   context.modules_by_id.clear();
@@ -87,6 +139,9 @@ void module_source::apply_to_context(w1::rewind::replay_context& context) {
   for (const auto& module : context.modules) {
     context.modules_by_id[module.id] = module;
   }
+
+  memory_map_entries_.clear();
+  memory_map_context_ = nullptr;
 }
 
 image_read_result module_source::read_module_image(
@@ -143,6 +198,22 @@ image_read_result module_source::read_address_image(
     return result;
   }
 
+  if (!context.memory_map.empty()) {
+    ensure_memory_map_index(context);
+    if (const auto* entry = find_memory_map_entry(address)) {
+      if (entry->module_base <= address) {
+        w1::rewind::module_record module{};
+        module.base = entry->module_base;
+        module.path = entry->name;
+        uint64_t module_offset = address - entry->module_base;
+        auto mapped = read_module_image(module, module_offset, size);
+        if (mapped.error.empty()) {
+          return mapped;
+        }
+      }
+    }
+  }
+
   uint64_t module_offset = 0;
   auto* matched = context.find_module_for_address(address, static_cast<uint64_t>(size), module_offset);
   if (!matched) {
@@ -153,6 +224,104 @@ image_read_result module_source::read_address_image(
   return read_module_image(*matched, module_offset, size);
 }
 
+void module_source::ensure_memory_map_index(const w1::rewind::replay_context& context) {
+  if (memory_map_context_ == &context) {
+    return;
+  }
+
+  memory_map_context_ = &context;
+  memory_map_entries_.clear();
+  if (context.memory_map.empty()) {
+    return;
+  }
+
+  memory_map_entries_.reserve(context.memory_map.size());
+  for (const auto& region : context.memory_map) {
+    if (region.size == 0 || region.image_id == 0) {
+      continue;
+    }
+    if (add_overflows(region.base, region.size)) {
+      continue;
+    }
+    uint64_t end = region.base + region.size;
+    if (end <= region.base) {
+      continue;
+    }
+    auto it = context.modules_by_id.find(region.image_id);
+    if (it == context.modules_by_id.end()) {
+      continue;
+    }
+    const auto& module = it->second;
+    memory_map_entry entry{};
+    entry.start = region.base;
+    entry.end = end;
+    entry.module_base = module.base;
+    entry.name = module.path.empty() ? region.name : module.path;
+    memory_map_entries_.push_back(std::move(entry));
+  }
+
+  std::unordered_map<std::string, uint64_t> module_bases;
+  module_bases.reserve(context.memory_map.size());
+  for (const auto& region : context.memory_map) {
+    if (region.image_id != 0 || region.name.empty() || region.size == 0) {
+      continue;
+    }
+    if (add_overflows(region.base, region.size)) {
+      continue;
+    }
+    auto it = module_bases.find(region.name);
+    if (it == module_bases.end() || region.base < it->second) {
+      module_bases[region.name] = region.base;
+    }
+  }
+
+  for (const auto& region : context.memory_map) {
+    if (region.image_id != 0 || region.name.empty() || region.size == 0) {
+      continue;
+    }
+    if (add_overflows(region.base, region.size)) {
+      continue;
+    }
+    uint64_t end = region.base + region.size;
+    if (end <= region.base) {
+      continue;
+    }
+    auto it = module_bases.find(region.name);
+    if (it == module_bases.end()) {
+      continue;
+    }
+    memory_map_entry entry{};
+    entry.start = region.base;
+    entry.end = end;
+    entry.module_base = it->second;
+    entry.name = region.name;
+    memory_map_entries_.push_back(std::move(entry));
+  }
+
+  std::sort(memory_map_entries_.begin(), memory_map_entries_.end(), [](const auto& left, const auto& right) {
+    return left.start < right.start;
+  });
+}
+
+const module_source::memory_map_entry* module_source::find_memory_map_entry(uint64_t address) const {
+  if (memory_map_entries_.empty()) {
+    return nullptr;
+  }
+
+  auto it = std::upper_bound(
+      memory_map_entries_.begin(), memory_map_entries_.end(), address,
+      [](uint64_t value, const memory_map_entry& entry) { return value < entry.start; }
+  );
+  if (it == memory_map_entries_.begin()) {
+    return nullptr;
+  }
+  --it;
+  if (address >= it->start && address < it->end) {
+    return &(*it);
+  }
+  return nullptr;
+}
+
 const image_layout* module_source::get_module_layout(const w1::rewind::module_record& module, std::string& error) {
   error.clear();
 #if !defined(WITNESS_LIEF_ENABLED)
@@ -160,28 +329,154 @@ const image_layout* module_source::get_module_layout(const w1::rewind::module_re
   error = "module bytes unavailable (build with WITNESS_LIEF=ON)";
   return nullptr;
 #else
-  if (module.path.empty()) {
-    error = "module path missing";
+  auto* entry = get_or_load_entry(module, error);
+  if (!entry) {
     return nullptr;
   }
+  return &entry->layout;
+#endif
+}
 
-  auto& entry = modules_[module.path];
-  if (!entry.binary) {
-    auto binary = LIEF::Parser::parse(module.path);
-    if (!binary) {
-      error = "failed to parse module: " + module.path;
-      return nullptr;
-    }
-    entry.binary = std::move(binary);
-    if (!build_image_layout(*entry.binary, entry.layout, error)) {
-      error = "failed to build module layout: " + error;
-      entry.binary.reset();
-      entry.layout = image_layout{};
-      return nullptr;
-    }
+std::optional<std::string> module_source::get_module_uuid(
+    const w1::rewind::module_record& module, std::string& error
+) {
+  error.clear();
+#if !defined(WITNESS_LIEF_ENABLED)
+  (void) module;
+  error = "module uuid unavailable (build with WITNESS_LIEF=ON)";
+  return std::nullopt;
+#else
+  auto* entry = get_or_load_entry(module, error);
+  if (!entry || !entry->binary) {
+    return std::nullopt;
+  }
+  if (entry->binary->format() != LIEF::Binary::FORMATS::MACHO) {
+    error = "module is not Mach-O";
+    return std::nullopt;
+  }
+  auto* macho = dynamic_cast<LIEF::MachO::Binary*>(entry->binary.get());
+  if (!macho || !macho->has_uuid()) {
+    error = "Mach-O UUID unavailable";
+    return std::nullopt;
+  }
+  const auto* uuid_cmd = macho->uuid();
+  if (!uuid_cmd) {
+    error = "Mach-O UUID unavailable";
+    return std::nullopt;
+  }
+  const auto& uuid_bytes = uuid_cmd->uuid();
+  if (is_all_zero_uuid(uuid_bytes)) {
+    error = "Mach-O UUID is zero";
+    return std::nullopt;
+  }
+  return format_uuid(uuid_bytes);
+#endif
+}
+
+std::optional<uint64_t> module_source::get_macho_section_va(
+    const w1::rewind::module_record& module, std::string_view section_name, std::string& error
+) {
+  error.clear();
+#if !defined(WITNESS_LIEF_ENABLED)
+  (void) module;
+  (void) section_name;
+  error = "module sections unavailable (build with WITNESS_LIEF=ON)";
+  return std::nullopt;
+#else
+  if (section_name.empty()) {
+    error = "section name missing";
+    return std::nullopt;
+  }
+  auto* entry = get_or_load_entry(module, error);
+  if (!entry || !entry->binary) {
+    return std::nullopt;
+  }
+  if (entry->binary->format() != LIEF::Binary::FORMATS::MACHO) {
+    error = "module is not Mach-O";
+    return std::nullopt;
+  }
+  auto* macho = dynamic_cast<LIEF::MachO::Binary*>(entry->binary.get());
+  if (!macho) {
+    error = "invalid Mach-O binary";
+    return std::nullopt;
+  }
+  const auto* section = macho->get_section(std::string(section_name));
+  if (!section) {
+    error = "Mach-O section not found: " + std::string(section_name);
+    return std::nullopt;
+  }
+  return section->virtual_address();
+#endif
+}
+
+std::optional<macho_header_info> module_source::get_macho_header_info(
+    const w1::rewind::module_record& module, std::string& error
+) {
+  error.clear();
+#if !defined(WITNESS_LIEF_ENABLED)
+  (void) module;
+  error = "module header unavailable (build with WITNESS_LIEF=ON)";
+  return std::nullopt;
+#else
+  auto* entry = get_or_load_entry(module, error);
+  if (!entry || !entry->binary) {
+    return std::nullopt;
+  }
+  if (entry->binary->format() != LIEF::Binary::FORMATS::MACHO) {
+    error = "module is not Mach-O";
+    return std::nullopt;
+  }
+  auto* macho = dynamic_cast<LIEF::MachO::Binary*>(entry->binary.get());
+  if (!macho) {
+    error = "invalid Mach-O binary";
+    return std::nullopt;
+  }
+  const auto& header = macho->header();
+  macho_header_info info{};
+  info.magic = static_cast<uint32_t>(header.magic());
+  info.cputype = static_cast<uint32_t>(header.cpu_type());
+  info.cpusubtype = header.cpu_subtype();
+  info.filetype = static_cast<uint32_t>(header.file_type());
+  return info;
+#endif
+}
+
+std::vector<macho_segment_info> module_source::get_macho_segments(
+    const w1::rewind::module_record& module, std::string& error
+) {
+  error.clear();
+#if !defined(WITNESS_LIEF_ENABLED)
+  (void) module;
+  error = "module segments unavailable (build with WITNESS_LIEF=ON)";
+  return {};
+#else
+  auto* entry = get_or_load_entry(module, error);
+  if (!entry || !entry->binary) {
+    return {};
+  }
+  if (entry->binary->format() != LIEF::Binary::FORMATS::MACHO) {
+    error = "module is not Mach-O";
+    return {};
+  }
+  auto* macho = dynamic_cast<LIEF::MachO::Binary*>(entry->binary.get());
+  if (!macho) {
+    error = "invalid Mach-O binary";
+    return {};
   }
 
-  return &entry.layout;
+  std::vector<macho_segment_info> segments;
+  segments.reserve(macho->segments().size());
+  for (const auto& segment : macho->segments()) {
+    macho_segment_info info{};
+    info.name = segment.name();
+    info.vmaddr = segment.virtual_address();
+    info.vmsize = segment.virtual_size();
+    info.fileoff = segment.file_offset();
+    info.filesize = segment.file_size();
+    info.maxprot = static_cast<uint32_t>(segment.max_protection());
+    segments.push_back(std::move(info));
+  }
+  return segments;
 #endif
 }
 
@@ -208,5 +503,33 @@ bool module_source::read_by_address(
   std::copy(result.bytes.begin(), result.bytes.begin() + static_cast<std::ptrdiff_t>(out.size()), out.begin());
   return true;
 }
+
+#if defined(WITNESS_LIEF_ENABLED)
+module_source::module_entry* module_source::get_or_load_entry(
+    const w1::rewind::module_record& module, std::string& error
+) {
+  if (module.path.empty()) {
+    error = "module path missing";
+    return nullptr;
+  }
+
+  auto& entry = modules_[module.path];
+  if (!entry.binary) {
+    auto binary = LIEF::Parser::parse(module.path);
+    if (!binary) {
+      error = "failed to parse module: " + module.path;
+      return nullptr;
+    }
+    entry.binary = std::move(binary);
+    if (!build_image_layout(*entry.binary, entry.layout, error)) {
+      error = "failed to build module layout: " + error;
+      entry.binary.reset();
+      entry.layout = image_layout{};
+      return nullptr;
+    }
+  }
+  return &entry;
+}
+#endif
 
 } // namespace w1replay

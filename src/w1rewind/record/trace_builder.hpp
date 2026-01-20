@@ -17,7 +17,7 @@ public:
   explicit trace_builder(trace_builder_config config);
 
   bool begin_trace(
-      const w1::arch::arch_spec& arch, const target_info_record& target,
+      const w1::arch::arch_spec& arch, const target_info_record& target, const target_environment_record& environment,
       const std::vector<register_spec>& register_specs
   );
   bool set_module_table(std::vector<module_record> modules);
@@ -40,7 +40,7 @@ public:
   );
   bool emit_snapshot(
       uint64_t thread_id, uint64_t sequence, uint64_t snapshot_id, std::span<const register_delta> registers,
-      std::span<const uint8_t> stack_snapshot, std::string reason
+      std::span<const stack_segment> stack_segments, std::string reason
   );
 
   void flush();
@@ -87,6 +87,7 @@ private:
   bool memory_map_pending_ = false;
 
   target_info_record target_info_{};
+  target_environment_record target_environment_{};
   std::vector<register_spec> register_specs_{};
   std::vector<module_record> modules_{};
   std::vector<memory_region_record> memory_map_{};

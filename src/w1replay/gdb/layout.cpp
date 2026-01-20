@@ -1,6 +1,7 @@
 #include "layout.hpp"
 
 #include <algorithm>
+#include <limits>
 
 namespace w1replay::gdb {
 
@@ -36,6 +37,14 @@ register_layout build_register_layout(
     desc.is_pc = (spec.flags & w1::rewind::register_flag_pc) != 0;
     desc.is_sp = (spec.flags & w1::rewind::register_flag_sp) != 0;
     desc.is_flags = (spec.flags & w1::rewind::register_flag_flags) != 0;
+    if (spec.dwarf_regnum != w1::rewind::k_register_regnum_unknown &&
+        spec.dwarf_regnum <= static_cast<uint32_t>(std::numeric_limits<int>::max())) {
+      desc.dwarf_regnum = static_cast<int>(spec.dwarf_regnum);
+    }
+    if (spec.ehframe_regnum != w1::rewind::k_register_regnum_unknown &&
+        spec.ehframe_regnum <= static_cast<uint32_t>(std::numeric_limits<int>::max())) {
+      desc.ehframe_regnum = static_cast<int>(spec.ehframe_regnum);
+    }
     desc.reg_class = spec.reg_class;
     desc.value_kind = spec.value_kind;
     layout.registers.push_back(std::move(desc));

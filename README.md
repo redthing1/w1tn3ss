@@ -155,7 +155,8 @@ inspect:
 ```
 
 tips:
-- to increase trace detail, enable `record_instructions`, `record_register_deltas`, `memory`
+- to increase trace detail, set `flow=instruction`, `reg_deltas=true`, `mem_access=reads_writes`, `mem_values=true`
+- to capture stack bytes, set `stack_window_mode=frame` and `stack_snapshot_interval=1`
 - run a gdb rsp server with `w1replay server -t <trace> --gdb 127.0.0.1:5555`
 
 ## `p1ll` guide

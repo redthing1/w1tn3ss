@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-#include "gdbstub/target.hpp"
+#include "gdbstub/target/target.hpp"
 
 #include "adapter_components.hpp"
 #include "adapter_state.hpp"
@@ -35,6 +35,8 @@ public:
 
   gdbstub::target make_target();
   const gdbstub::arch_spec& arch_spec() const { return state_.arch_spec; }
+  bool track_memory() const { return state_.track_memory; }
+  bool has_stack_snapshot() const { return state_.has_stack_snapshot; }
 
   const w1::rewind::replay_session& session() const;
   w1::rewind::replay_session& session();
@@ -56,7 +58,11 @@ private:
   std::unique_ptr<run_component> run_component_;
   std::unique_ptr<breakpoints_component> breakpoints_component_;
   std::unique_ptr<threads_component> threads_component_;
+  std::unique_ptr<host_info_component> host_info_component_;
   std::unique_ptr<memory_layout_component> memory_layout_component_;
+  std::unique_ptr<libraries_component> libraries_component_;
+  std::unique_ptr<loaded_libraries_component> loaded_libraries_component_;
+  std::unique_ptr<process_info_component> process_info_component_;
   std::unique_ptr<offsets_component> offsets_component_;
   std::unique_ptr<register_info_component> register_info_component_;
 };

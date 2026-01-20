@@ -6,7 +6,7 @@
 #include "w1rewind/replay/replay_state_applier.hpp"
 #include "w1rewind/format/trace_format.hpp"
 
-TEST_CASE("w1rewind replay state applier applies snapshot state and stack snapshot") {
+TEST_CASE("w1rewind replay state applier applies snapshot state and stack segments") {
   w1::rewind::replay_context context{};
   context.register_specs = {
       w1::rewind::register_spec{
@@ -29,7 +29,11 @@ TEST_CASE("w1rewind replay state applier applies snapshot state and stack snapsh
       w1::rewind::register_delta{0, 0x1111},
       w1::rewind::register_delta{1, 0x2000},
   };
-  snapshot.stack_snapshot = {0xAA, 0xBB};
+  w1::rewind::stack_segment segment{};
+  segment.base = 0x2000;
+  segment.size = 2;
+  segment.bytes = {0xAA, 0xBB};
+  snapshot.stack_segments.push_back(std::move(segment));
 
   w1::rewind::replay_state_applier applier(context);
   REQUIRE(applier.apply_snapshot(snapshot, 1, true, true, state));
@@ -37,9 +41,8 @@ TEST_CASE("w1rewind replay state applier applies snapshot state and stack snapsh
   CHECK(state.register_value(0) == 0x1111);
   CHECK(state.register_value(1) == 0x2000);
 
-  auto layout = w1::rewind::compute_stack_snapshot_layout(0x2000, snapshot.stack_snapshot.size());
-  auto mem = state.read_memory(layout.base, snapshot.stack_snapshot.size());
-  REQUIRE(mem.size() == snapshot.stack_snapshot.size());
+  auto mem = state.read_memory(0x2000, 2);
+  REQUIRE(mem.size() == 2);
   CHECK(mem[0].has_value());
   CHECK(mem[1].has_value());
   CHECK(mem[0].value() == 0xAA);

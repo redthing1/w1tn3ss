@@ -17,6 +17,8 @@
 #include "w1instrument/tracer/trace_context.hpp"
 #include "w1instrument/tracer/types.hpp"
 #include "w1runtime/register_capture.hpp"
+#include "stack_window_policy.hpp"
+#include "memory_filter.hpp"
 
 namespace w1rewind {
 
@@ -43,7 +45,7 @@ private:
   struct pending_snapshot {
     uint64_t snapshot_id = 0;
     std::vector<w1::rewind::register_delta> registers;
-    std::vector<uint8_t> stack_snapshot;
+    std::vector<w1::rewind::stack_segment> stack_segments;
     std::string reason;
   };
 
@@ -71,10 +73,12 @@ private:
     std::string thread_name;
     uint64_t flow_count = 0;
     uint64_t snapshot_count = 0;
-    uint64_t flow_since_snapshot = 0;
+    uint64_t flow_since_register_snapshot = 0;
+    uint64_t flow_since_stack_snapshot = 0;
     uint64_t memory_events = 0;
     std::optional<w1::util::register_state> last_registers;
     std::optional<pending_instruction> pending;
+    bool warned_missing_frame = false;
   };
 
   bool ensure_builder_ready(w1::trace_context& ctx, const QBDI::GPRState* gpr);
@@ -83,14 +87,17 @@ private:
       thread_state& state, const w1::util::register_state& regs, std::vector<w1::rewind::register_delta>& out
   );
   std::vector<w1::rewind::register_delta> capture_register_snapshot(const w1::util::register_state& regs) const;
-  std::vector<uint8_t> capture_stack_snapshot(w1::trace_context& ctx, const w1::util::register_state& regs) const;
+  std::vector<w1::rewind::stack_segment> capture_stack_segments(
+      w1::trace_context& ctx, thread_state& state, const w1::util::register_state& regs
+  );
   std::optional<pending_snapshot> maybe_capture_snapshot(
       w1::trace_context& ctx, thread_state& state, const w1::util::register_state& regs
   );
   void update_register_table(const w1::util::register_state& regs);
   void update_module_table(const w1::runtime::module_registry& modules);
   void append_memory_access(
-      thread_state& state, w1::trace_context& ctx, const w1::memory_event& event, w1::rewind::memory_access_kind kind
+      thread_state& state, w1::trace_context& ctx, const w1::memory_event& event, w1::rewind::memory_access_kind kind,
+      const std::vector<w1::address_range>& segments
   );
 
   rewind_config config_{};
@@ -99,6 +106,7 @@ private:
   redlog::logger log_ = redlog::get_logger("w1rewind.recorder");
   bool builder_ready_ = false;
   bool instruction_flow_ = false;
+  memory_filter memory_filter_;
   w1::arch::arch_spec arch_spec_{};
 
   std::vector<std::string> register_table_;

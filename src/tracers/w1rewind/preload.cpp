@@ -52,6 +52,18 @@ void shutdown_tracer() {
   }
 }
 
+bool has_filter(
+    const std::vector<w1rewind::rewind_config::memory_filter_kind>& filters,
+    w1rewind::rewind_config::memory_filter_kind kind
+) {
+  for (const auto& entry : filters) {
+    if (entry == kind) {
+      return true;
+    }
+  }
+  return false;
+}
+
 } // namespace
 
 extern "C" {
@@ -62,8 +74,13 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
   auto log = redlog::get_logger("w1rewind.preload");
   log.inf("qbdipreload_on_run");
 
-  g_config = w1rewind::rewind_config::from_environment();
+  std::string config_error;
+  g_config = w1rewind::rewind_config::from_environment(config_error);
   configure_logging(g_config.verbose);
+  if (!config_error.empty()) {
+    log.err("invalid rewind config", redlog::field("error", config_error));
+    return QBDIPRELOAD_ERR_STARTUP_FAILED;
+  }
 
   if (g_config.exclude_self) {
     w1::util::append_self_excludes(g_config.instrumentation, reinterpret_cast<const void*>(&qbdipreload_on_run));
@@ -86,9 +103,13 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
   session_config.thread_id = 1;
   session_config.thread_name = "main";
 
-  bool instruction_flow = g_config.requires_instruction_flow();
-  if (instruction_flow && !g_config.record_instructions) {
-    log.wrn("instruction flow forced by state capture");
+  bool instruction_flow = g_config.flow.mode == w1rewind::rewind_config::flow_options::mode::instruction;
+  if (g_config.memory.access != w1rewind::rewind_config::memory_access::none && !g_config.memory.values) {
+    log.wrn("memory values disabled; replayable memory state will be incomplete");
+  }
+  if (!g_config.memory.ranges.empty() &&
+      !has_filter(g_config.memory.filters, w1rewind::rewind_config::memory_filter_kind::ranges)) {
+    log.wrn("memory ranges configured but ranges filter not enabled");
   }
 
   if (instruction_flow) {

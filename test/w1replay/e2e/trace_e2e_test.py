@@ -38,9 +38,9 @@ def main() -> int:
         {
             "name": "pc_only",
             "configs": [
-                "record_instructions=false",
-                "record_register_deltas=false",
-                "memory=false",
+                "flow=block",
+                "reg_deltas=false",
+                "mem_access=none",
             ],
             "sample": "simple_demo",
             "expect_kind": "block",
@@ -50,9 +50,9 @@ def main() -> int:
         {
             "name": "instruction",
             "configs": [
-                "record_instructions=true",
-                "record_register_deltas=false",
-                "memory=false",
+                "flow=instruction",
+                "reg_deltas=false",
+                "mem_access=none",
             ],
             "sample": "rewind_demo_basic",
             "expect_kind": "instruction",
@@ -62,9 +62,9 @@ def main() -> int:
         {
             "name": "regs",
             "configs": [
-                "record_instructions=true",
-                "record_register_deltas=true",
-                "memory=false",
+                "flow=instruction",
+                "reg_deltas=true",
+                "mem_access=none",
             ],
             "sample": "rewind_demo_calls",
             "expect_kind": "instruction",
@@ -74,13 +74,13 @@ def main() -> int:
         {
             "name": "memory",
             "configs": [
-                "record_instructions=true",
-                "record_register_deltas=true",
-                "memory=true",
-                "memory_reads=true",
-                "memory_values=true",
-                "stack_snapshot=4096",
-                "snapshot_interval=1",
+                "flow=instruction",
+                "reg_deltas=true",
+                "mem_access=reads_writes",
+                "mem_values=true",
+                "stack_window_mode=frame",
+                "stack_window_max=4096",
+                "stack_snapshot_interval=1",
             ],
             "sample": "rewind_demo_memops",
             "expect_kind": "instruction",

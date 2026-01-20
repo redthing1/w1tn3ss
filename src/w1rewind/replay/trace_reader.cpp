@@ -37,6 +37,7 @@ void trace_reader::close() {
   current_chunk_index_ = 0;
   last_chunk_info_.reset();
   target_info_.reset();
+  target_environment_.reset();
   register_specs_.clear();
   register_table_.clear();
   module_table_.clear();
@@ -58,6 +59,7 @@ void trace_reader::reset() {
   current_chunk_index_ = 0;
   last_chunk_info_.reset();
   target_info_.reset();
+  target_environment_.reset();
   register_specs_.clear();
   register_table_.clear();
   module_table_.clear();
@@ -394,6 +396,15 @@ bool trace_reader::parse_record(
       return false;
     }
     target_info_ = out;
+    record = std::move(out);
+    return true;
+  }
+  case record_kind::target_environment: {
+    target_environment_record out{};
+    if (!decode_target_environment(reader, out)) {
+      return false;
+    }
+    target_environment_ = out;
     record = std::move(out);
     return true;
   }

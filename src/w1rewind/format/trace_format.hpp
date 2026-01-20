@@ -10,49 +10,23 @@
 
 namespace w1::rewind {
 
-constexpr uint16_t k_trace_version = 9;
-constexpr std::array<uint8_t, 8> k_trace_magic = {'W', '1', 'R', 'W', 'N', 'D', '9', '\0'};
+constexpr uint16_t k_trace_version = 13;
+constexpr std::array<uint8_t, 8> k_trace_magic = {'W', '1', 'R', 'W', 'N', 'D', '1', '1'};
 constexpr uint32_t k_trace_chunk_bytes = 8 * 1024 * 1024;
-constexpr uint64_t k_stack_snapshot_above_cap = 0x200;
-
-struct stack_snapshot_layout {
-  uint64_t base = 0;
-  uint64_t size = 0;
-  uint64_t below = 0;
-  uint64_t above = 0;
-};
-
-inline stack_snapshot_layout compute_stack_snapshot_layout(uint64_t sp, uint64_t window_bytes) {
-  stack_snapshot_layout layout{};
-  if (window_bytes == 0) {
-    return layout;
-  }
-
-  uint64_t above = window_bytes / 4;
-  if (above > k_stack_snapshot_above_cap) {
-    above = k_stack_snapshot_above_cap;
-  }
-  if (above > window_bytes) {
-    above = window_bytes;
-  }
-
-  uint64_t below = window_bytes - above;
-  if (sp < below) {
-    below = sp;
-  }
-
-  layout.base = sp - below;
-  layout.size = below + above;
-  layout.below = below;
-  layout.above = above;
-  return layout;
-}
+constexpr uint32_t k_register_regnum_unknown = 0xFFFFFFFFu;
 
 enum class module_perm : uint32_t {
   none = 0,
   read = 1u << 0,
   write = 1u << 1,
   exec = 1u << 2,
+};
+
+enum class module_format : uint8_t {
+  unknown = 0,
+  elf = 1,
+  macho = 2,
+  pe = 3,
 };
 
 inline module_perm operator|(module_perm lhs, module_perm rhs) {
@@ -93,6 +67,7 @@ enum class record_kind : uint16_t {
   register_spec = 12,
   memory_map = 13,
   register_bytes = 14,
+  target_environment = 15,
 };
 
 struct trace_header {
@@ -117,6 +92,17 @@ struct target_info_record {
   std::string os;
   std::string abi;
   std::string cpu;
+};
+
+struct target_environment_record {
+  std::string os_version;
+  std::string os_build;
+  std::string os_kernel;
+  std::string hostname;
+  uint64_t pid = 0;
+  uint32_t addressing_bits = 0;
+  uint32_t low_mem_addressing_bits = 0;
+  uint32_t high_mem_addressing_bits = 0;
 };
 
 enum register_flags : uint16_t {
@@ -148,6 +134,8 @@ struct register_spec {
   std::string gdb_name;
   register_class reg_class = register_class::unknown;
   register_value_kind value_kind = register_value_kind::unknown;
+  uint32_t dwarf_regnum = k_register_regnum_unknown;
+  uint32_t ehframe_regnum = k_register_regnum_unknown;
 };
 
 struct register_spec_record {
@@ -159,6 +147,9 @@ struct module_record {
   uint64_t base = 0;
   uint64_t size = 0;
   module_perm permissions = module_perm::none;
+  module_format format = module_format::unknown;
+  std::string identity;
+  uint32_t identity_age = 0;
   std::string path;
 };
 
@@ -251,12 +242,18 @@ struct memory_access_record {
   std::vector<uint8_t> data;
 };
 
+struct stack_segment {
+  uint64_t base = 0;
+  uint64_t size = 0;
+  std::vector<uint8_t> bytes;
+};
+
 struct snapshot_record {
   uint64_t snapshot_id = 0;
   uint64_t sequence = 0;
   uint64_t thread_id = 0;
   std::vector<register_delta> registers;
-  std::vector<uint8_t> stack_snapshot;
+  std::vector<stack_segment> stack_segments;
   std::string reason;
 };
 
@@ -265,8 +262,8 @@ struct thread_end_record {
 };
 
 using trace_record = std::variant<
-    register_table_record, target_info_record, register_spec_record, module_table_record, memory_map_record,
-    thread_start_record, instruction_record, block_definition_record, block_exec_record, register_delta_record,
-    register_bytes_record, memory_access_record, snapshot_record, thread_end_record>;
+    register_table_record, target_info_record, target_environment_record, register_spec_record, module_table_record,
+    memory_map_record, thread_start_record, instruction_record, block_definition_record, block_exec_record,
+    register_delta_record, register_bytes_record, memory_access_record, snapshot_record, thread_end_record>;
 
 } // namespace w1::rewind

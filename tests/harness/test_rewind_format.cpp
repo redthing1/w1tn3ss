@@ -36,7 +36,7 @@ bool write_sample_trace(const std::string& path, bool include_modules, bool incl
   builder_config.options.record_memory_access = true;
   builder_config.options.record_memory_values = true;
   builder_config.options.record_snapshots = true;
-  builder_config.options.record_stack_snapshot = true;
+  builder_config.options.record_stack_segments = true;
 
   w1::rewind::trace_builder builder(std::move(builder_config));
 
@@ -51,6 +51,16 @@ bool write_sample_trace(const std::string& path, bool include_modules, bool incl
   target.os = "test";
   target.abi = "test";
   target.cpu = "test";
+
+  w1::rewind::target_environment_record environment{};
+  environment.os_version = "1.0";
+  environment.os_build = "test-build";
+  environment.os_kernel = "test-kernel";
+  environment.hostname = "test-host";
+  environment.pid = 123;
+  environment.addressing_bits = 48;
+  environment.low_mem_addressing_bits = 48;
+  environment.high_mem_addressing_bits = 48;
 
   std::vector<w1::rewind::register_spec> regs;
   regs.push_back(
@@ -78,7 +88,7 @@ bool write_sample_trace(const std::string& path, bool include_modules, bool incl
     );
   }
 
-  if (!builder.begin_trace(arch, target, regs)) {
+  if (!builder.begin_trace(arch, target, environment, regs)) {
     std::cerr << "failed to begin trace: " << builder.error() << "\n";
     return false;
   }
@@ -136,8 +146,15 @@ bool write_sample_trace(const std::string& path, bool include_modules, bool incl
   }
 
   std::vector<uint8_t> stack = {0xaa, 0xbb, 0xcc, 0xdd};
+  std::vector<w1::rewind::stack_segment> segments;
+  w1::rewind::stack_segment segment{};
+  segment.base = 0x3000;
+  segment.size = stack.size();
+  segment.bytes = stack;
+  segments.push_back(std::move(segment));
   if (!builder.emit_snapshot(
-          1, sequence, 0, std::span<const w1::rewind::register_delta>(deltas), std::span<const uint8_t>(stack), "test"
+          1, sequence, 0, std::span<const w1::rewind::register_delta>(deltas),
+          std::span<const w1::rewind::stack_segment>(segments), "test"
       )) {
     std::cerr << "failed to emit snapshot: " << builder.error() << "\n";
     return false;
@@ -164,6 +181,7 @@ int run_test() {
   }
 
   bool saw_target = false;
+  bool saw_environment = false;
   bool saw_regs = false;
   bool saw_instruction = false;
   bool saw_memory = false;
@@ -178,6 +196,13 @@ int run_test() {
         return 1;
       }
       saw_target = true;
+    } else if (std::holds_alternative<w1::rewind::target_environment_record>(record)) {
+      const auto& env = std::get<w1::rewind::target_environment_record>(record);
+      if (env.hostname != "test-host" || env.pid != 123 || env.addressing_bits != 48) {
+        std::cerr << "target environment mismatch\n";
+        return 1;
+      }
+      saw_environment = true;
     } else if (std::holds_alternative<w1::rewind::register_spec_record>(record)) {
       const auto& specs = std::get<w1::rewind::register_spec_record>(record).registers;
       if (specs.size() != 3 || specs[1].name != "rsp") {
@@ -206,7 +231,7 @@ int run_test() {
     return 1;
   }
 
-  if (!saw_target || !saw_regs || !saw_instruction || !saw_memory || !saw_snapshot) {
+  if (!saw_target || !saw_environment || !saw_regs || !saw_instruction || !saw_memory || !saw_snapshot) {
     std::cerr << "missing expected records\n";
     return 1;
   }

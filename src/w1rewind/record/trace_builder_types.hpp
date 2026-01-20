@@ -14,7 +14,7 @@ struct trace_builder_options {
   bool record_memory_access = false;
   bool record_memory_values = false;
   bool record_snapshots = false;
-  bool record_stack_snapshot = false;
+  bool record_stack_segments = false;
 };
 
 struct trace_builder_config {

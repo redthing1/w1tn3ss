@@ -9,6 +9,7 @@
 
 #include "w1rewind/format/trace_format.hpp"
 #include "w1rewind/record/trace_writer.hpp"
+#include "w1rewind/format/register_numbering.hpp"
 #include "w1rewind/replay/replay_registers.hpp"
 
 namespace w1::rewind::test_helpers {
@@ -48,6 +49,19 @@ inline target_info_record make_target_info() {
   return target;
 }
 
+inline target_environment_record make_target_environment() {
+  target_environment_record env{};
+  env.os_version = "1.0";
+  env.os_build = "test-build";
+  env.os_kernel = "test-kernel";
+  env.hostname = "test-host";
+  env.pid = 42;
+  env.addressing_bits = 48;
+  env.low_mem_addressing_bits = 48;
+  env.high_mem_addressing_bits = 48;
+  return env;
+}
+
 inline std::vector<register_spec> make_register_specs(
     const std::vector<std::string>& names, const w1::arch::arch_spec& arch
 ) {
@@ -72,6 +86,15 @@ inline std::vector<register_spec> make_register_specs(
     spec.gdb_name = gdb_name_for_register(names[i]);
     spec.reg_class = is_flags_name(names[i]) ? register_class::flags : register_class::gpr;
     spec.value_kind = register_value_kind::u64;
+    if (auto numbering = lookup_register_numbering(arch, spec.gdb_name)) {
+      spec.dwarf_regnum = numbering->dwarf_regnum;
+      spec.ehframe_regnum = numbering->ehframe_regnum;
+    } else if (spec.gdb_name != spec.name) {
+      if (auto fallback = lookup_register_numbering(arch, spec.name)) {
+        spec.dwarf_regnum = fallback->dwarf_regnum;
+        spec.ehframe_regnum = fallback->ehframe_regnum;
+      }
+    }
     specs.push_back(std::move(spec));
   }
   return specs;
@@ -98,6 +121,11 @@ inline void write_target_info(trace_writer& writer) {
   REQUIRE(writer.write_target_info(target));
 }
 
+inline void write_target_environment(trace_writer& writer) {
+  auto env = make_target_environment();
+  REQUIRE(writer.write_target_environment(env));
+}
+
 inline void write_register_specs(
     trace_writer& writer, const std::vector<std::string>& names, const w1::arch::arch_spec& arch
 ) {
@@ -110,6 +138,7 @@ inline void write_basic_metadata(
     trace_writer& writer, const w1::arch::arch_spec& arch, const std::vector<std::string>& names
 ) {
   write_target_info(writer);
+  write_target_environment(writer);
   write_register_specs(writer, names, arch);
 }
 

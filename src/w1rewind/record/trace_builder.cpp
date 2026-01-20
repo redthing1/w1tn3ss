@@ -52,7 +52,8 @@ bool validate_register_specs(const std::vector<register_spec>& specs, std::strin
 trace_builder::trace_builder(trace_builder_config config) : config_(std::move(config)) {}
 
 bool trace_builder::begin_trace(
-    const w1::arch::arch_spec& arch, const target_info_record& target, const std::vector<register_spec>& register_specs
+    const w1::arch::arch_spec& arch, const target_info_record& target, const target_environment_record& environment,
+    const std::vector<register_spec>& register_specs
 ) {
   if (started_) {
     error_ = "trace already started";
@@ -83,6 +84,7 @@ bool trace_builder::begin_trace(
   }
 
   target_info_ = target;
+  target_environment_ = environment;
   register_specs_ = register_specs;
 
   trace_header header{};
@@ -102,10 +104,10 @@ bool trace_builder::begin_trace(
       header.flags |= trace_flag_memory_values;
     }
   }
-  if (config_.options.record_snapshots) {
+  if (config_.options.record_snapshots || config_.options.record_stack_segments) {
     header.flags |= trace_flag_snapshots;
   }
-  if (config_.options.record_stack_snapshot) {
+  if (config_.options.record_stack_segments) {
     header.flags |= trace_flag_stack_snapshot;
   }
 
@@ -116,6 +118,10 @@ bool trace_builder::begin_trace(
 
   if (!config_.writer->write_target_info(target_info_)) {
     error_ = "failed to write target info";
+    return false;
+  }
+  if (!config_.writer->write_target_environment(target_environment_)) {
+    error_ = "failed to write target environment";
     return false;
   }
 
@@ -380,9 +386,9 @@ bool trace_builder::emit_memory_access(
 
 bool trace_builder::emit_snapshot(
     uint64_t thread_id, uint64_t sequence, uint64_t snapshot_id, std::span<const register_delta> registers,
-    std::span<const uint8_t> stack_snapshot, std::string reason
+    std::span<const stack_segment> stack_segments, std::string reason
 ) {
-  if (!config_.options.record_snapshots && !config_.options.record_stack_snapshot) {
+  if (!config_.options.record_snapshots && !config_.options.record_stack_segments) {
     return true;
   }
   if (!ensure_trace_started()) {
@@ -394,7 +400,7 @@ bool trace_builder::emit_snapshot(
   record.sequence = sequence;
   record.thread_id = thread_id;
   record.registers.assign(registers.begin(), registers.end());
-  record.stack_snapshot.assign(stack_snapshot.begin(), stack_snapshot.end());
+  record.stack_segments.assign(stack_segments.begin(), stack_segments.end());
   record.reason = std::move(reason);
 
   if (!config_.writer->write_snapshot(record)) {

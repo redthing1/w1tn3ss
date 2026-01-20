@@ -41,13 +41,13 @@ TEST_CASE("w1rewind records instruction flow, memory, and snapshots") {
 
   w1rewind::rewind_config config;
   config.output_path = path.string();
-  config.record_instructions = true;
-  config.record_register_deltas = true;
-  config.snapshot_interval = 8;
-  config.stack_snapshot_bytes = 0;
-  config.memory.enabled = true;
-  config.memory.include_reads = true;
-  config.memory.include_values = true;
+  config.flow.mode = w1rewind::rewind_config::flow_options::mode::instruction;
+  config.registers.deltas = true;
+  config.registers.snapshot_interval = 8;
+  config.stack_window.mode = w1rewind::rewind_config::stack_window_options::mode::none;
+  config.stack_snapshots.interval = 0;
+  config.memory.access = w1rewind::rewind_config::memory_access::reads_writes;
+  config.memory.values = true;
   config.memory.max_value_bytes = 4;
 
   w1::trace_session_config session_config;
@@ -134,8 +134,10 @@ TEST_CASE("w1rewind records instruction flow, memory, and snapshots") {
   CHECK((reader.header().flags & w1::rewind::trace_flag_memory_values) != 0);
   CHECK((reader.header().flags & w1::rewind::trace_flag_snapshots) != 0);
   CHECK(reader.target_info().has_value());
+  CHECK(reader.target_environment().has_value());
   CHECK(!reader.register_specs().empty());
   CHECK(!reader.module_table().empty());
+  CHECK(!reader.memory_map().empty());
 
   CHECK(instruction_count > 0);
   CHECK(delta_count > 0);
@@ -145,7 +147,7 @@ TEST_CASE("w1rewind records instruction flow, memory, and snapshots") {
   CHECK(thread_end_count == 1);
   CHECK(delta_count <= instruction_count);
   CHECK(saw_truncated);
-  CHECK(snapshot_count == instruction_count / config.snapshot_interval);
+  CHECK(snapshot_count == instruction_count / config.registers.snapshot_interval);
 
   reader.close();
   fs::remove(path);

@@ -10,6 +10,8 @@ target_include_directories(w1rewind_format
 )
 
 w1_add_static_library(w1rewind_record
+    format/register_numbering.cpp
+    record/memory_map_utils.cpp
     record/trace_writer.cpp
     record/trace_builder.cpp
 )

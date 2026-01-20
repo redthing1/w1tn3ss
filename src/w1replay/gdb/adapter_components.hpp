@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-#include "gdbstub/target.hpp"
+#include "gdbstub/target/target.hpp"
 
 #include "adapter_state.hpp"
 
@@ -51,8 +51,8 @@ class breakpoints_component {
 public:
   explicit breakpoints_component(adapter_state& state);
 
-  gdbstub::target_status set_breakpoint(const gdbstub::breakpoint_spec& request);
-  gdbstub::target_status remove_breakpoint(const gdbstub::breakpoint_spec& request);
+  gdbstub::target_status set_breakpoint(const gdbstub::breakpoint_request& request);
+  gdbstub::target_status remove_breakpoint(const gdbstub::breakpoint_request& request);
 
 private:
   adapter_state& state_;
@@ -73,11 +73,53 @@ private:
   adapter_state& state_;
 };
 
+class host_info_component {
+public:
+  explicit host_info_component(adapter_state& state);
+
+  std::optional<gdbstub::host_info> get_host_info() const;
+
+private:
+  adapter_state& state_;
+};
+
 class memory_layout_component {
 public:
   explicit memory_layout_component(adapter_state& state);
 
   std::vector<gdbstub::memory_region> memory_map() const;
+
+private:
+  adapter_state& state_;
+};
+
+class libraries_component {
+public:
+  explicit libraries_component(adapter_state& state);
+
+  std::vector<gdbstub::library_entry> libraries() const;
+
+private:
+  adapter_state& state_;
+};
+
+class loaded_libraries_component {
+public:
+  explicit loaded_libraries_component(adapter_state& state);
+
+  std::optional<std::string> loaded_libraries_json(const gdbstub::lldb::loaded_libraries_request& request);
+  std::optional<std::vector<gdbstub::lldb::process_kv_pair>> process_info_extras() const;
+  bool has_loaded_images() const;
+
+private:
+  adapter_state& state_;
+};
+
+class process_info_component {
+public:
+  explicit process_info_component(adapter_state& state);
+
+  std::optional<gdbstub::process_info> get_process_info() const;
 
 private:
   adapter_state& state_;

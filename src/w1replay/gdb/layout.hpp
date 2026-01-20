@@ -17,6 +17,8 @@ struct register_desc {
   bool is_pc = false;
   bool is_sp = false;
   bool is_flags = false;
+  std::optional<int> dwarf_regnum;
+  std::optional<int> ehframe_regnum;
   w1::rewind::register_class reg_class = w1::rewind::register_class::unknown;
   w1::rewind::register_value_kind value_kind = w1::rewind::register_value_kind::unknown;
 };

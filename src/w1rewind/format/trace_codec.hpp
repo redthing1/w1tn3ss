@@ -65,6 +65,41 @@ inline bool decode_target_info(trace_buffer_reader& reader, target_info_record& 
   return true;
 }
 
+inline bool encode_target_environment(
+    const target_environment_record& record, trace_buffer_writer& writer, redlog::logger& log
+) {
+  if (!writer.write_string(record.os_version)) {
+    log.err("trace string too long", redlog::field("length", record.os_version.size()));
+    return false;
+  }
+  if (!writer.write_string(record.os_build)) {
+    log.err("trace string too long", redlog::field("length", record.os_build.size()));
+    return false;
+  }
+  if (!writer.write_string(record.os_kernel)) {
+    log.err("trace string too long", redlog::field("length", record.os_kernel.size()));
+    return false;
+  }
+  if (!writer.write_string(record.hostname)) {
+    log.err("trace string too long", redlog::field("length", record.hostname.size()));
+    return false;
+  }
+  writer.write_u64(record.pid);
+  writer.write_u32(record.addressing_bits);
+  writer.write_u32(record.low_mem_addressing_bits);
+  writer.write_u32(record.high_mem_addressing_bits);
+  return true;
+}
+
+inline bool decode_target_environment(trace_buffer_reader& reader, target_environment_record& out) {
+  if (!reader.read_string(out.os_version) || !reader.read_string(out.os_build) || !reader.read_string(out.os_kernel) ||
+      !reader.read_string(out.hostname) || !reader.read_u64(out.pid) || !reader.read_u32(out.addressing_bits) ||
+      !reader.read_u32(out.low_mem_addressing_bits) || !reader.read_u32(out.high_mem_addressing_bits)) {
+    return false;
+  }
+  return true;
+}
+
 inline bool encode_register_spec(const register_spec_record& record, trace_buffer_writer& writer, redlog::logger& log) {
   if (record.registers.size() > std::numeric_limits<uint16_t>::max()) {
     log.err("register spec list too large", redlog::field("count", record.registers.size()));
@@ -72,15 +107,17 @@ inline bool encode_register_spec(const register_spec_record& record, trace_buffe
   }
   writer.write_u16(static_cast<uint16_t>(record.registers.size()));
   for (const auto& reg : record.registers) {
-    writer.write_u16(reg.reg_id);
-    writer.write_u16(reg.bits);
-    writer.write_u16(reg.flags);
-    writer.write_u8(static_cast<uint8_t>(reg.reg_class));
-    writer.write_u8(static_cast<uint8_t>(reg.value_kind));
-    if (!writer.write_string(reg.name)) {
-      log.err("trace string too long", redlog::field("length", reg.name.size()));
-      return false;
-    }
+  writer.write_u16(reg.reg_id);
+  writer.write_u16(reg.bits);
+  writer.write_u16(reg.flags);
+  writer.write_u8(static_cast<uint8_t>(reg.reg_class));
+  writer.write_u8(static_cast<uint8_t>(reg.value_kind));
+  writer.write_u32(reg.dwarf_regnum);
+  writer.write_u32(reg.ehframe_regnum);
+  if (!writer.write_string(reg.name)) {
+    log.err("trace string too long", redlog::field("length", reg.name.size()));
+    return false;
+  }
     if (!writer.write_string(reg.gdb_name)) {
       log.err("trace string too long", redlog::field("length", reg.gdb_name.size()));
       return false;
@@ -99,13 +136,17 @@ inline bool decode_register_spec(trace_buffer_reader& reader, register_spec_reco
     register_spec spec{};
     uint8_t reg_class = 0;
     uint8_t value_kind = 0;
+    uint32_t dwarf_regnum = 0;
+    uint32_t ehframe_regnum = 0;
     if (!reader.read_u16(spec.reg_id) || !reader.read_u16(spec.bits) || !reader.read_u16(spec.flags) ||
-        !reader.read_u8(reg_class) || !reader.read_u8(value_kind) || !reader.read_string(spec.name) ||
-        !reader.read_string(spec.gdb_name)) {
+        !reader.read_u8(reg_class) || !reader.read_u8(value_kind) || !reader.read_u32(dwarf_regnum) ||
+        !reader.read_u32(ehframe_regnum) || !reader.read_string(spec.name) || !reader.read_string(spec.gdb_name)) {
       return false;
     }
     spec.reg_class = static_cast<register_class>(reg_class);
     spec.value_kind = static_cast<register_value_kind>(value_kind);
+    spec.dwarf_regnum = dwarf_regnum;
+    spec.ehframe_regnum = ehframe_regnum;
     out.registers.push_back(std::move(spec));
   }
   return true;
@@ -122,6 +163,12 @@ inline bool encode_module_table(const module_table_record& record, trace_buffer_
     writer.write_u64(module.base);
     writer.write_u64(module.size);
     writer.write_u32(static_cast<uint32_t>(module.permissions));
+    writer.write_u8(static_cast<uint8_t>(module.format));
+    writer.write_u32(module.identity_age);
+    if (!writer.write_string(module.identity)) {
+      log.err("trace string too long", redlog::field("length", module.identity.size()));
+      return false;
+    }
     if (!writer.write_string(module.path)) {
       log.err("trace string too long", redlog::field("length", module.path.size()));
       return false;
@@ -177,11 +224,14 @@ inline bool decode_module_table(trace_buffer_reader& reader, module_table_record
   for (uint32_t i = 0; i < count; ++i) {
     module_record module{};
     uint32_t perms = 0;
+    uint8_t format = 0;
     if (!reader.read_u64(module.id) || !reader.read_u64(module.base) || !reader.read_u64(module.size) ||
-        !reader.read_u32(perms) || !reader.read_string(module.path)) {
+        !reader.read_u32(perms) || !reader.read_u8(format) || !reader.read_u32(module.identity_age) ||
+        !reader.read_string(module.identity) || !reader.read_string(module.path)) {
       return false;
     }
     module.permissions = static_cast<module_perm>(perms);
+    module.format = static_cast<module_format>(format);
     out.modules.push_back(std::move(module));
   }
   return true;
@@ -370,8 +420,8 @@ inline bool encode_snapshot(const snapshot_record& record, trace_buffer_writer& 
     log.err("snapshot register list too large", redlog::field("count", record.registers.size()));
     return false;
   }
-  if (record.stack_snapshot.size() > std::numeric_limits<uint32_t>::max()) {
-    log.err("snapshot stack slice too large", redlog::field("size", record.stack_snapshot.size()));
+  if (record.stack_segments.size() > std::numeric_limits<uint16_t>::max()) {
+    log.err("snapshot stack segment list too large", redlog::field("count", record.stack_segments.size()));
     return false;
   }
   writer.write_u64(record.snapshot_id);
@@ -382,9 +432,17 @@ inline bool encode_snapshot(const snapshot_record& record, trace_buffer_writer& 
     writer.write_u16(reg.reg_id);
     writer.write_u64(reg.value);
   }
-  writer.write_u32(static_cast<uint32_t>(record.stack_snapshot.size()));
-  if (!record.stack_snapshot.empty()) {
-    writer.write_bytes(record.stack_snapshot.data(), record.stack_snapshot.size());
+  writer.write_u16(static_cast<uint16_t>(record.stack_segments.size()));
+  for (const auto& segment : record.stack_segments) {
+    if (segment.size != segment.bytes.size()) {
+      log.err("snapshot stack segment size mismatch", redlog::field("size", segment.size));
+      return false;
+    }
+    writer.write_u64(segment.base);
+    writer.write_u64(segment.size);
+    if (!segment.bytes.empty()) {
+      writer.write_bytes(segment.bytes.data(), segment.bytes.size());
+    }
   }
   if (!writer.write_string(record.reason)) {
     log.err("trace string too long", redlog::field("length", record.reason.size()));
@@ -395,7 +453,7 @@ inline bool encode_snapshot(const snapshot_record& record, trace_buffer_writer& 
 
 inline bool decode_snapshot(trace_buffer_reader& reader, snapshot_record& out) {
   uint16_t reg_count = 0;
-  uint32_t stack_size = 0;
+  uint16_t segment_count = 0;
   if (!reader.read_u64(out.snapshot_id) || !reader.read_u64(out.sequence) || !reader.read_u64(out.thread_id) ||
       !reader.read_u16(reg_count)) {
     return false;
@@ -408,13 +466,21 @@ inline bool decode_snapshot(trace_buffer_reader& reader, snapshot_record& out) {
     }
     out.registers.push_back(delta);
   }
-  if (!reader.read_u32(stack_size)) {
+  if (!reader.read_u16(segment_count)) {
     return false;
   }
-  if (stack_size > 0) {
-    if (!reader.read_bytes(out.stack_snapshot, stack_size)) {
+  out.stack_segments.reserve(segment_count);
+  for (uint16_t i = 0; i < segment_count; ++i) {
+    stack_segment segment{};
+    if (!reader.read_u64(segment.base) || !reader.read_u64(segment.size)) {
       return false;
     }
+    if (segment.size > 0) {
+      if (!reader.read_bytes(segment.bytes, static_cast<size_t>(segment.size))) {
+        return false;
+      }
+    }
+    out.stack_segments.push_back(std::move(segment));
   }
   if (!reader.read_string(out.reason)) {
     return false;

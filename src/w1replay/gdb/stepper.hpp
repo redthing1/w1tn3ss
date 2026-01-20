@@ -4,7 +4,7 @@
 #include <optional>
 #include <unordered_set>
 
-#include "gdbstub/target.hpp"
+#include "gdbstub/target/target.hpp"
 
 #include "w1rewind/replay/replay_session.hpp"
 

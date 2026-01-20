@@ -6,14 +6,15 @@
 #include <string>
 #include <unordered_set>
 
-#include "gdbstub/server.hpp"
-#include "gdbstub/target.hpp"
+#include "gdbstub/server/server.hpp"
+#include "gdbstub/target/target.hpp"
 
 #include "w1rewind/replay/replay_context.hpp"
 #include "w1rewind/replay/replay_session.hpp"
 
 #include "w1replay/module_source.hpp"
 #include "layout.hpp"
+#include "loaded_libraries_provider.hpp"
 #include "run_policy.hpp"
 #include "value_codec.hpp"
 
@@ -37,9 +38,11 @@ struct adapter_state {
   bool trace_is_block = false;
   bool decoder_available = false;
   bool track_memory = false;
+  bool has_stack_snapshot = false;
   std::unordered_set<uint64_t> breakpoints;
   std::unique_ptr<w1replay::asmr_block_decoder> decoder;
   module_source module_source_state;
+  std::unique_ptr<loaded_libraries_provider> loaded_libraries_provider;
 
   run_policy make_run_policy() const {
     run_policy policy{};

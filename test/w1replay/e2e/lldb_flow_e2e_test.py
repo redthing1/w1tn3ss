@@ -136,9 +136,9 @@ def main() -> int:
         Scenario(
             name="block_inst",
             configs=[
-                "record_instructions=false",
-                "record_register_deltas=false",
-                "memory=false",
+                "flow=block",
+                "reg_deltas=false",
+                "mem_access=none",
             ],
             sample="simple_demo",
             inspect_inst=True,
@@ -147,9 +147,9 @@ def main() -> int:
         Scenario(
             name="instruction",
             configs=[
-                "record_instructions=true",
-                "record_register_deltas=false",
-                "memory=false",
+                "flow=instruction",
+                "reg_deltas=false",
+                "mem_access=none",
             ],
             sample="rewind_demo_basic",
             inspect_inst=False,

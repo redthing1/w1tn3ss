@@ -17,6 +17,7 @@ set(W1REPLAY_TEST_SOURCES
     gdb_register_info_test.cpp
     gdb_stepper_test.cpp
     gdb_value_codec_test.cpp
+    gdb_loaded_libraries_test.cpp
     module_image_test.cpp
     module_source_test.cpp
     replay_context_test.cpp
@@ -25,7 +26,21 @@ set(W1REPLAY_TEST_SOURCES
     ${W1_SOURCE_DIR}/src/w1replay/asmr_block_decoder.cpp
     ${W1_SOURCE_DIR}/src/w1replay/module_source.cpp
     ${W1_SOURCE_DIR}/src/w1replay/gdb/adapter.cpp
-    ${W1_SOURCE_DIR}/src/w1replay/gdb/adapter_components.cpp
+    ${W1_SOURCE_DIR}/src/w1replay/gdb/loaded_libraries_provider.cpp
+    ${W1_SOURCE_DIR}/src/w1replay/gdb/triple_utils.cpp
+    ${W1_SOURCE_DIR}/src/w1replay/gdb/components/regs_component.cpp
+    ${W1_SOURCE_DIR}/src/w1replay/gdb/components/mem_component.cpp
+    ${W1_SOURCE_DIR}/src/w1replay/gdb/components/run_component.cpp
+    ${W1_SOURCE_DIR}/src/w1replay/gdb/components/breakpoints_component.cpp
+    ${W1_SOURCE_DIR}/src/w1replay/gdb/components/threads_component.cpp
+    ${W1_SOURCE_DIR}/src/w1replay/gdb/components/host_info_component.cpp
+    ${W1_SOURCE_DIR}/src/w1replay/gdb/components/memory_layout_component.cpp
+    ${W1_SOURCE_DIR}/src/w1replay/gdb/components/libraries_component.cpp
+    ${W1_SOURCE_DIR}/src/w1replay/gdb/components/loaded_libraries_component.cpp
+    ${W1_SOURCE_DIR}/src/w1replay/gdb/components/process_info_component.cpp
+    ${W1_SOURCE_DIR}/src/w1replay/gdb/components/offsets_component.cpp
+    ${W1_SOURCE_DIR}/src/w1replay/gdb/components/register_info_component.cpp
+    ${W1_SOURCE_DIR}/src/w1replay/gdb/lldb/darwin_loaded_libraries.cpp
     ${W1_SOURCE_DIR}/src/w1replay/gdb/layout.cpp
     ${W1_SOURCE_DIR}/src/w1replay/gdb/target_xml.cpp
     ${W1_SOURCE_DIR}/src/w1replay/gdb/memory_merge.cpp

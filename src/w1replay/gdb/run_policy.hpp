@@ -1,6 +1,6 @@
 #pragma once
 
-#include "gdbstub/target.hpp"
+#include "gdbstub/target/target.hpp"
 
 namespace w1replay::gdb {
 

@@ -18,6 +18,15 @@ bool xml_has_reg(const std::string& xml, const std::string& name, size_t regnum)
   return xml.find(regnum_text, pos) != std::string::npos;
 }
 
+bool xml_has_reg_attr(const std::string& xml, const std::string& name, const std::string& attr) {
+  std::string needle = "name=\"" + name + "\"";
+  auto pos = xml.find(needle);
+  if (pos == std::string::npos) {
+    return false;
+  }
+  return xml.find(attr, pos) != std::string::npos;
+}
+
 } // namespace
 
 TEST_CASE("gdb target xml encodes architecture and regnums") {
@@ -33,4 +42,8 @@ TEST_CASE("gdb target xml encodes architecture and regnums") {
   CHECK(xml_has_reg(xml, "sp", 3));
   CHECK(xml_has_reg(xml, "pc", 4));
   CHECK(xml_has_reg(xml, "cpsr", 5));
+  CHECK(xml_has_reg_attr(xml, "pc", "dwarf_regnum=\"32\""));
+  CHECK(xml_has_reg_attr(xml, "pc", "gcc_regnum=\"32\""));
+  CHECK(xml_has_reg_attr(xml, "sp", "dwarf_regnum=\"31\""));
+  CHECK(xml_has_reg_attr(xml, "lr", "dwarf_regnum=\"30\""));
 }

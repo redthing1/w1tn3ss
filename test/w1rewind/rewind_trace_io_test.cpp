@@ -41,6 +41,9 @@ TEST_CASE("rewind trace writer and reader round trip (instructions)") {
   module.base = 0x1000;
   module.size = 0x2000;
   module.permissions = w1::rewind::module_perm::read | w1::rewind::module_perm::exec;
+  module.format = w1::rewind::module_format::elf;
+  module.identity = "deadbeef";
+  module.identity_age = 0;
   module.path = "/bin/test_module";
 
   w1::rewind::module_table_record mod_table{};
@@ -86,7 +89,11 @@ TEST_CASE("rewind trace writer and reader round trip (instructions)") {
       w1::rewind::register_delta{0, 0xAAAA},
       w1::rewind::register_delta{1, 0xBBBB},
   };
-  snapshot.stack_snapshot = {0x10, 0x20};
+  w1::rewind::stack_segment stack_segment{};
+  stack_segment.base = 0x3000;
+  stack_segment.size = 2;
+  stack_segment.bytes = {0x10, 0x20};
+  snapshot.stack_segments.push_back(std::move(stack_segment));
   snapshot.reason = "interval";
   REQUIRE(writer->write_snapshot(snapshot));
 
@@ -112,17 +119,23 @@ TEST_CASE("rewind trace writer and reader round trip (instructions)") {
     records.push_back(record);
   }
   CHECK(reader.error().empty());
-  REQUIRE(records.size() == 9);
+  REQUIRE(records.size() == 10);
 
   CHECK(std::holds_alternative<w1::rewind::target_info_record>(records[0]));
-  CHECK(std::holds_alternative<w1::rewind::register_spec_record>(records[1]));
-  CHECK(std::holds_alternative<w1::rewind::module_table_record>(records[2]));
-  CHECK(std::holds_alternative<w1::rewind::thread_start_record>(records[3]));
-  CHECK(std::holds_alternative<w1::rewind::instruction_record>(records[4]));
-  CHECK(std::holds_alternative<w1::rewind::register_delta_record>(records[5]));
-  CHECK(std::holds_alternative<w1::rewind::memory_access_record>(records[6]));
-  CHECK(std::holds_alternative<w1::rewind::snapshot_record>(records[7]));
-  CHECK(std::holds_alternative<w1::rewind::thread_end_record>(records[8]));
+  CHECK(std::holds_alternative<w1::rewind::target_environment_record>(records[1]));
+  CHECK(std::holds_alternative<w1::rewind::register_spec_record>(records[2]));
+  CHECK(std::holds_alternative<w1::rewind::module_table_record>(records[3]));
+  const auto& modules = std::get<w1::rewind::module_table_record>(records[3]).modules;
+  REQUIRE(modules.size() == 1);
+  CHECK(modules[0].format == w1::rewind::module_format::elf);
+  CHECK(modules[0].identity == "deadbeef");
+  CHECK(modules[0].identity_age == 0);
+  CHECK(std::holds_alternative<w1::rewind::thread_start_record>(records[4]));
+  CHECK(std::holds_alternative<w1::rewind::instruction_record>(records[5]));
+  CHECK(std::holds_alternative<w1::rewind::register_delta_record>(records[6]));
+  CHECK(std::holds_alternative<w1::rewind::memory_access_record>(records[7]));
+  CHECK(std::holds_alternative<w1::rewind::snapshot_record>(records[8]));
+  CHECK(std::holds_alternative<w1::rewind::thread_end_record>(records[9]));
 
   reader.close();
   fs::remove(path);
@@ -199,15 +212,16 @@ TEST_CASE("rewind trace writer and reader round trip (compressed blocks)") {
     records.push_back(record);
   }
   CHECK(reader.error().empty());
-  REQUIRE(records.size() == 7);
+  REQUIRE(records.size() == 8);
 
   CHECK(std::holds_alternative<w1::rewind::target_info_record>(records[0]));
-  CHECK(std::holds_alternative<w1::rewind::register_spec_record>(records[1]));
-  CHECK(std::holds_alternative<w1::rewind::module_table_record>(records[2]));
-  CHECK(std::holds_alternative<w1::rewind::thread_start_record>(records[3]));
-  CHECK(std::holds_alternative<w1::rewind::block_definition_record>(records[4]));
-  CHECK(std::holds_alternative<w1::rewind::block_exec_record>(records[5]));
-  CHECK(std::holds_alternative<w1::rewind::thread_end_record>(records[6]));
+  CHECK(std::holds_alternative<w1::rewind::target_environment_record>(records[1]));
+  CHECK(std::holds_alternative<w1::rewind::register_spec_record>(records[2]));
+  CHECK(std::holds_alternative<w1::rewind::module_table_record>(records[3]));
+  CHECK(std::holds_alternative<w1::rewind::thread_start_record>(records[4]));
+  CHECK(std::holds_alternative<w1::rewind::block_definition_record>(records[5]));
+  CHECK(std::holds_alternative<w1::rewind::block_exec_record>(records[6]));
+  CHECK(std::holds_alternative<w1::rewind::thread_end_record>(records[7]));
 
   reader.close();
   fs::remove(path);
@@ -272,7 +286,7 @@ TEST_CASE("rewind trace writer and reader round trip (blocks)") {
       w1::rewind::register_delta{0, 0xAAAA},
       w1::rewind::register_delta{1, 0xBBBB},
   };
-  snapshot.stack_snapshot = {};
+  snapshot.stack_segments.clear();
   snapshot.reason = "interval";
   REQUIRE(writer->write_snapshot(snapshot));
 
@@ -297,16 +311,17 @@ TEST_CASE("rewind trace writer and reader round trip (blocks)") {
     records.push_back(record);
   }
   CHECK(reader.error().empty());
-  REQUIRE(records.size() == 8);
+  REQUIRE(records.size() == 9);
 
   CHECK(std::holds_alternative<w1::rewind::target_info_record>(records[0]));
-  CHECK(std::holds_alternative<w1::rewind::register_spec_record>(records[1]));
-  CHECK(std::holds_alternative<w1::rewind::module_table_record>(records[2]));
-  CHECK(std::holds_alternative<w1::rewind::thread_start_record>(records[3]));
-  CHECK(std::holds_alternative<w1::rewind::block_definition_record>(records[4]));
-  CHECK(std::holds_alternative<w1::rewind::block_exec_record>(records[5]));
-  CHECK(std::holds_alternative<w1::rewind::snapshot_record>(records[6]));
-  CHECK(std::holds_alternative<w1::rewind::thread_end_record>(records[7]));
+  CHECK(std::holds_alternative<w1::rewind::target_environment_record>(records[1]));
+  CHECK(std::holds_alternative<w1::rewind::register_spec_record>(records[2]));
+  CHECK(std::holds_alternative<w1::rewind::module_table_record>(records[3]));
+  CHECK(std::holds_alternative<w1::rewind::thread_start_record>(records[4]));
+  CHECK(std::holds_alternative<w1::rewind::block_definition_record>(records[5]));
+  CHECK(std::holds_alternative<w1::rewind::block_exec_record>(records[6]));
+  CHECK(std::holds_alternative<w1::rewind::snapshot_record>(records[7]));
+  CHECK(std::holds_alternative<w1::rewind::thread_end_record>(records[8]));
   CHECK(reader.block_table().size() == 1);
 
   reader.close();
@@ -335,6 +350,8 @@ TEST_CASE("rewind trace writer and reader round trip (register bytes)") {
 
   auto target = make_target_info();
   REQUIRE(writer->write_target_info(target));
+  auto environment = make_target_environment();
+  REQUIRE(writer->write_target_environment(environment));
 
   w1::rewind::register_spec_record specs{};
   specs.registers = {

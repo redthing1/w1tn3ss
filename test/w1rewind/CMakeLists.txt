@@ -7,6 +7,11 @@ set(W1REWIND_TEST_SOURCES
     rewind_trace_io_test.cpp
     rewind_recorder_recording_test.cpp
     rewind_recorder_block_recording_test.cpp
+    rewind_config_validation_test.cpp
+    rewind_memory_filter_test.cpp
+    rewind_memory_map_mapping_test.cpp
+    rewind_snapshot_codec_test.cpp
+    rewind_stack_window_policy_test.cpp
     rewind_trace_index_test.cpp
     rewind_trace_cursor_test.cpp
     rewind_replay_cursor_test.cpp

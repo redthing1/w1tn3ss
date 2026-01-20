@@ -2,7 +2,7 @@
 
 #include <vector>
 
-#include "gdbstub/target.hpp"
+#include "gdbstub/target/target.hpp"
 
 #include "w1rewind/replay/replay_state.hpp"
 #include "w1rewind/format/trace_format.hpp"

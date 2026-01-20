@@ -79,6 +79,8 @@ bool load_replay_context(const std::string& trace_path, replay_context& out, std
   while (reader.read_next(record)) {
     if (std::holds_alternative<target_info_record>(record)) {
       context.target_info = std::get<target_info_record>(record);
+    } else if (std::holds_alternative<target_environment_record>(record)) {
+      context.target_environment = std::get<target_environment_record>(record);
     } else if (std::holds_alternative<register_spec_record>(record)) {
       context.register_specs = std::get<register_spec_record>(record).registers;
     } else if (std::holds_alternative<register_table_record>(record)) {
@@ -113,6 +115,10 @@ bool load_replay_context(const std::string& trace_path, replay_context& out, std
 
   if (!context.target_info.has_value()) {
     error = "target info missing";
+    return false;
+  }
+  if (!context.target_environment.has_value()) {
+    error = "target environment missing";
     return false;
   }
   if (context.header.arch.arch_family == w1::arch::family::unknown ||

@@ -124,7 +124,18 @@ std::vector<gdbstub::memory_region> build_memory_map(
     const std::vector<w1::rewind::memory_region_record>& memory_map, const w1::rewind::replay_state* state
 ) {
   std::vector<gdbstub::memory_region> regions;
-  if (!modules.empty()) {
+  const bool use_memory_map = !memory_map.empty();
+  if (use_memory_map) {
+    regions.reserve(memory_map.size());
+    for (const auto& region_info : memory_map) {
+      gdbstub::memory_region region{};
+      region.start = region_info.base;
+      region.size = region_info.size;
+      region.perms = perms_from_module(region_info.permissions);
+      region.name = region_info.name;
+      regions.push_back(std::move(region));
+    }
+  } else if (!modules.empty()) {
     regions.reserve(modules.size());
     for (const auto& module : modules) {
       gdbstub::memory_region region{};
@@ -136,19 +147,9 @@ std::vector<gdbstub::memory_region> build_memory_map(
       }
       regions.push_back(std::move(region));
     }
-  } else if (!memory_map.empty()) {
-    regions.reserve(memory_map.size());
-    for (const auto& region_info : memory_map) {
-      gdbstub::memory_region region{};
-      region.start = region_info.base;
-      region.size = region_info.size;
-      region.perms = perms_from_module(region_info.permissions);
-      region.name = region_info.name;
-      regions.push_back(std::move(region));
-    }
   }
 
-  auto ranges = !modules.empty() ? build_module_ranges(modules) : build_memory_ranges(memory_map);
+  auto ranges = use_memory_map ? build_memory_ranges(memory_map) : build_module_ranges(modules);
   auto recorded = build_recorded_regions(state, ranges);
   if (!recorded.empty()) {
     regions.insert(regions.end(), recorded.begin(), recorded.end());
