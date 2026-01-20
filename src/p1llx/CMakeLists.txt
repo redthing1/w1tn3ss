@@ -33,6 +33,11 @@ if(WITNESS_SCRIPT)
         target_link_libraries(p1llx PRIVATE w1asmr)
     endif()
     
+    install(TARGETS p1llx
+        RUNTIME DESTINATION bin
+        COMPONENT ${W1_INSTALL_COMPONENT}
+    )
+
     message(STATUS "p1llx static patcher tool configured")
     
 else()

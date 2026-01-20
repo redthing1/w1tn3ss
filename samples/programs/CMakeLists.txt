@@ -137,4 +137,5 @@ w1_apply_debug_sanitizers_to_targets(${sample_targets})
 # install targets
 install(TARGETS ${sample_targets}
     RUNTIME DESTINATION bin/samples/programs
+    COMPONENT ${W1_INSTALL_COMPONENT}
 )

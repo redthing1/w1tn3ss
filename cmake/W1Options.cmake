@@ -35,9 +35,13 @@ option(WITNESS_LUAJIT_ENABLE_LUA52COMPAT "Enable lua 5.2 compatibility features"
 if(W1_IS_TOP_LEVEL)
     w1_set_cache_default(W1_ENABLE_DEV_TOOLS BOOL ON "Enable formatting and tidy helpers")
     w1_set_cache_default(W1_EXPORT_COMPILE_COMMANDS BOOL ON "Generate compile_commands.json")
+    w1_set_cache_default(W1_ENABLE_PACKAGING BOOL ON "Enable packaging support")
+    w1_set_cache_default(W1_ENABLE_COMPILER_CACHE BOOL ON "Enable compiler caching (sccache/ccache)")
 else()
     w1_set_cache_default(W1_ENABLE_DEV_TOOLS BOOL OFF "Enable formatting and tidy helpers")
     w1_set_cache_default(W1_EXPORT_COMPILE_COMMANDS BOOL OFF "Generate compile_commands.json")
+    w1_set_cache_default(W1_ENABLE_PACKAGING BOOL OFF "Enable packaging support")
+    w1_set_cache_default(W1_ENABLE_COMPILER_CACHE BOOL OFF "Enable compiler caching (sccache/ccache)")
 endif()
 
 if(W1_ENABLE_DEV_TOOLS)
@@ -57,6 +61,18 @@ endif()
 
 if(W1_EXPORT_COMPILE_COMMANDS)
     set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+endif()
+
+w1_set_cache_default(W1_INSTALL_COMPONENT STRING "w1" "Install component name for w1tn3ss artifacts")
+w1_set_cache_default(W1_TESTS_COMPONENT STRING "tests" "Install component name for test artifacts")
+w1_set_cache_default(W1_USE_SYSTEM_ZSTD BOOL ON "Use system Zstd when available (adds runtime dependency)")
+w1_set_cache_default(W1_PREFER_STATIC_ZSTD BOOL ON "Prefer static Zstd when available")
+w1_set_cache_default(W1_REQUIRE_ZSTD BOOL OFF "Fail configuration if Zstd requested but not found")
+w1_set_cache_default(W1_STATIC_MSVC_RUNTIME BOOL ON "Use static MSVC runtime on Windows")
+
+if(MSVC AND W1_STATIC_MSVC_RUNTIME)
+    set(_w1_msvc_runtime "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "${_w1_msvc_runtime}" CACHE STRING "MSVC runtime library" FORCE)
 endif()
 
 w1_set_cache_default(W1_OUTPUT_BIN_DIR PATH "${CMAKE_BINARY_DIR}/bin" "Output directory for executables")

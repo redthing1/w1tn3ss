@@ -35,4 +35,4 @@ if(TARGET w1asmr)
     target_link_libraries(w1replay PRIVATE w1asmr)
 endif()
 
-install(TARGETS w1replay RUNTIME DESTINATION bin)
+install(TARGETS w1replay RUNTIME DESTINATION bin COMPONENT ${W1_INSTALL_COMPONENT})

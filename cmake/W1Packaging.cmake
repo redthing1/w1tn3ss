@@ -1,0 +1,39 @@
+# packaging configuration for w1tn3ss
+include_guard()
+
+include(GNUInstallDirs)
+
+if(NOT DEFINED CMAKE_INSTALL_DEFAULT_COMPONENT_NAME OR CMAKE_INSTALL_DEFAULT_COMPONENT_NAME STREQUAL "")
+    set(CMAKE_INSTALL_DEFAULT_COMPONENT_NAME "third_party" CACHE STRING "Default install component name" FORCE)
+endif()
+
+if(EXISTS "${PROJECT_SOURCE_DIR}/scripts")
+    install(DIRECTORY "${PROJECT_SOURCE_DIR}/scripts/"
+        DESTINATION "${CMAKE_INSTALL_DATADIR}/w1tn3ss/scripts"
+        COMPONENT ${W1_INSTALL_COMPONENT}
+        USE_SOURCE_PERMISSIONS
+        PATTERN "__pycache__" EXCLUDE
+        PATTERN "*.pyc" EXCLUDE
+        PATTERN "*.pyo" EXCLUDE
+    )
+endif()
+
+set(CPACK_PACKAGE_NAME "${PROJECT_NAME}")
+set(CPACK_PACKAGE_VENDOR "w1tn3ss")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "${PROJECT_DESCRIPTION}")
+set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
+set(CPACK_GENERATOR "ZIP")
+set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY ON)
+
+string(TOLOWER "${CMAKE_SYSTEM_NAME}" _w1_pkg_os)
+set(_w1_pkg_arch "${WITNESS_ARCH}")
+if(NOT _w1_pkg_arch)
+    set(_w1_pkg_arch "${CMAKE_SYSTEM_PROCESSOR}")
+endif()
+string(TOLOWER "${_w1_pkg_arch}" _w1_pkg_arch)
+set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-${_w1_pkg_os}-${_w1_pkg_arch}")
+
+set(CPACK_COMPONENTS_ALL "${W1_INSTALL_COMPONENT}")
+set(CPACK_INSTALL_CMAKE_PROJECTS "${CMAKE_BINARY_DIR};${PROJECT_NAME};${W1_INSTALL_COMPONENT};/")
+
+include(CPack)

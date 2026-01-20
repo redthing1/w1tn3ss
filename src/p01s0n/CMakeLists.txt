@@ -38,6 +38,7 @@ if(WITNESS_SCRIPT)
     install(TARGETS p01s0n
         LIBRARY DESTINATION lib
         RUNTIME DESTINATION bin
+        COMPONENT ${W1_INSTALL_COMPONENT}
     )
     
     message(STATUS "p01s0n dynamic injection library configured")

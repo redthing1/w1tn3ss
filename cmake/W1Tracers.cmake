@@ -61,6 +61,13 @@ function(w1_add_tracer TRACER_NAME)
         if(W1_LIBS)
             target_link_libraries(${TRACER_NAME}_qbdipreload PUBLIC ${W1_LIBS})
         endif()
+
+        install(TARGETS ${TRACER_NAME}_qbdipreload
+            RUNTIME DESTINATION lib
+            LIBRARY DESTINATION lib
+            ARCHIVE DESTINATION lib
+            COMPONENT ${W1_INSTALL_COMPONENT}
+        )
     endif()
 
     if(WITNESS_BUILD_STATIC)

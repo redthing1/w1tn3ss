@@ -24,4 +24,4 @@ target_link_libraries(w1tool PRIVATE
     w1::lief
 )
 
-install(TARGETS w1tool RUNTIME DESTINATION bin)
+install(TARGETS w1tool RUNTIME DESTINATION bin COMPONENT ${W1_INSTALL_COMPONENT})

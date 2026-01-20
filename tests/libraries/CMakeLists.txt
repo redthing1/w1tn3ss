@@ -42,4 +42,5 @@ endforeach()
 install(TARGETS ${TEST_LIBRARY_TARGETS}
     LIBRARY DESTINATION test/libraries
     RUNTIME DESTINATION test/libraries
+    COMPONENT ${W1_TESTS_COMPONENT}
 )

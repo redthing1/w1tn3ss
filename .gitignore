@@ -1,9 +1,6 @@
-.claude/
 .vscode/
-claude/
-CLAUDE.md
-AGENTS.md
-STATUS.md
+
+/_CPack*
 
 /*.drcov
 /*.json
