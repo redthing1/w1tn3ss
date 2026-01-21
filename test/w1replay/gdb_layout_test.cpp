@@ -55,3 +55,20 @@ TEST_CASE("gdb register layout for x86_64 uses eflags and segments") {
   REQUIRE(layout.registers[*eflags_idx].trace_index.has_value());
   CHECK(trace_regs[*layout.registers[*eflags_idx].trace_index] == "rflags");
 }
+
+TEST_CASE("gdb register layout falls back to minimal registers when specs are missing") {
+  auto arch = w1::rewind::test_helpers::parse_arch_or_fail("arm64");
+  std::vector<w1::rewind::register_spec> specs;
+  auto layout = w1replay::gdb::build_register_layout(arch, specs);
+
+  REQUIRE(layout.registers.size() == 3);
+  auto pc_idx = find_reg_index(layout, "pc");
+  auto sp_idx = find_reg_index(layout, "sp");
+  auto cpsr_idx = find_reg_index(layout, "cpsr");
+  REQUIRE(pc_idx.has_value());
+  REQUIRE(sp_idx.has_value());
+  REQUIRE(cpsr_idx.has_value());
+  CHECK(layout.registers[*pc_idx].is_pc);
+  CHECK(layout.registers[*sp_idx].is_sp);
+  CHECK(layout.registers[*cpsr_idx].is_flags);
+}

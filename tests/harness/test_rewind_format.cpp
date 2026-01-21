@@ -9,7 +9,8 @@
 
 #include "w1rewind/format/trace_format.hpp"
 #include "w1rewind/record/trace_builder.hpp"
-#include "w1rewind/replay/trace_reader.hpp"
+#include "w1rewind/trace/trace_file_writer.hpp"
+#include "w1rewind/trace/trace_reader.hpp"
 
 namespace {
 
@@ -19,17 +20,17 @@ std::string make_temp_path() {
 }
 
 bool write_sample_trace(const std::string& path, bool include_modules, bool include_byte_reg) {
-  w1::rewind::trace_writer_config writer_config;
+  w1::rewind::trace_file_writer_config writer_config;
   writer_config.path = path;
   writer_config.log = redlog::get_logger("w1rewind.test.trace");
-  auto writer = w1::rewind::make_trace_writer(std::move(writer_config));
+  auto writer = w1::rewind::make_trace_file_writer(std::move(writer_config));
   if (!writer || !writer->open()) {
     std::cerr << "failed to open trace writer\n";
     return false;
   }
 
   w1::rewind::trace_builder_config builder_config;
-  builder_config.writer = writer;
+  builder_config.sink = writer;
   builder_config.log = redlog::get_logger("w1rewind.test.builder");
   builder_config.options.record_instructions = true;
   builder_config.options.record_register_deltas = true;

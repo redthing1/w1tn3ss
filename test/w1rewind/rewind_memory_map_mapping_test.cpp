@@ -32,7 +32,11 @@ TEST_CASE("assign_memory_map_image_ids matches regions to modules") {
   region4.size = 0x8;
   region4.image_id = 99;
 
-  std::vector<w1::rewind::memory_region_record> regions{region1, region2, region3, region4};
+  w1::rewind::memory_region_record region5{};
+  region5.base = 0x0FF0;
+  region5.size = 0x30;
+
+  std::vector<w1::rewind::memory_region_record> regions{region1, region2, region3, region4, region5};
 
   w1::rewind::assign_memory_map_image_ids(regions, modules);
 
@@ -40,4 +44,5 @@ TEST_CASE("assign_memory_map_image_ids matches regions to modules") {
   CHECK(regions[1].image_id == 2);
   CHECK(regions[2].image_id == 0);
   CHECK(regions[3].image_id == 99);
+  CHECK(regions[4].image_id == 1);
 }

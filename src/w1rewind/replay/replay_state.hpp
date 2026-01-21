@@ -3,10 +3,10 @@
 #include <cstdint>
 #include <optional>
 #include <span>
-#include <unordered_map>
 #include <vector>
 
 #include "w1rewind/format/trace_format.hpp"
+#include "w1rewind/replay/memory_store.hpp"
 
 namespace w1::rewind {
 
@@ -22,12 +22,12 @@ public:
   std::optional<uint64_t> register_value(uint16_t reg_id) const;
   bool copy_register_bytes(uint16_t reg_id, std::span<std::byte> out, bool& known) const;
   const std::vector<std::optional<uint64_t>>& registers() const { return registers_; }
-  const std::unordered_map<uint64_t, uint8_t>& memory_map() const { return memory_; }
-  void set_memory_map(std::unordered_map<uint64_t, uint8_t> memory) { memory_ = std::move(memory); }
+  const memory_store& memory_store() const { return memory_; }
+  void set_memory_spans(std::span<const memory_span> spans);
 
-  void apply_memory_bytes(uint64_t address, const std::vector<uint8_t>& data);
+  void apply_memory_bytes(uint64_t address, std::span<const uint8_t> data);
   void apply_stack_segments(const std::vector<stack_segment>& segments);
-  std::vector<std::optional<uint8_t>> read_memory(uint64_t address, size_t size) const;
+  memory_read read_memory(uint64_t address, size_t size) const;
 
 private:
   void ensure_register_capacity(size_t count);
@@ -38,7 +38,7 @@ private:
   std::vector<uint16_t> register_byte_sizes_;
   std::vector<uint8_t> register_bytes_;
   std::vector<uint8_t> register_bytes_known_;
-  std::unordered_map<uint64_t, uint8_t> memory_;
+  w1::rewind::memory_store memory_;
 };
 
 } // namespace w1::rewind

@@ -13,7 +13,8 @@ struct replay_context;
 }
 
 namespace w1replay {
-struct module_source;
+class module_metadata_provider;
+class module_path_resolver;
 }
 
 namespace w1replay::gdb {
@@ -32,7 +33,8 @@ public:
 };
 
 std::unique_ptr<loaded_libraries_provider> make_loaded_libraries_provider(
-    const w1::rewind::replay_context& context, module_source& module_source
+    const w1::rewind::replay_context& context, module_metadata_provider& metadata_provider,
+    module_path_resolver& resolver
 );
 
 } // namespace w1replay::gdb

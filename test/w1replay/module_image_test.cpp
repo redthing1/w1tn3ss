@@ -4,7 +4,7 @@
 
 #include "doctest/doctest.hpp"
 
-#include "w1replay/module_image.hpp"
+#include "w1replay/modules/module_image.hpp"
 
 TEST_CASE("module_image reads file-backed bytes") {
   w1replay::image_layout layout;

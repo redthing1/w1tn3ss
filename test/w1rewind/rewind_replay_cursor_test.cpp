@@ -1,11 +1,15 @@
 #include <filesystem>
+#include <memory>
+#include <string>
 
 #include "doctest/doctest.hpp"
 
 #include "w1rewind/rewind_test_helpers.hpp"
-#include "w1rewind/replay/replay_flow_cursor.hpp"
-#include "w1rewind/replay/trace_index.hpp"
-#include "w1rewind/record/trace_writer.hpp"
+#include "w1rewind/replay/flow_cursor.hpp"
+#include "w1rewind/replay/replay_context.hpp"
+#include "w1rewind/trace/trace_index.hpp"
+#include "w1rewind/trace/trace_reader.hpp"
+#include "w1rewind/trace/trace_file_writer.hpp"
 
 TEST_CASE("w1rewind replay cursor steps through instruction flow") {
   namespace fs = std::filesystem;
@@ -14,12 +18,12 @@ TEST_CASE("w1rewind replay cursor steps through instruction flow") {
   fs::path trace_path = temp_path("w1rewind_replay_inst.trace");
   fs::path index_path = temp_path("w1rewind_replay_inst.trace.idx");
 
-  w1::rewind::trace_writer_config writer_config;
+  w1::rewind::trace_file_writer_config writer_config;
   writer_config.path = trace_path.string();
   writer_config.log = redlog::get_logger("test.w1rewind.replay");
   writer_config.chunk_size = 64;
 
-  auto writer = w1::rewind::make_trace_writer(writer_config);
+  auto writer = w1::rewind::make_trace_file_writer(writer_config);
   REQUIRE(writer);
   REQUIRE(writer->open());
 
@@ -48,12 +52,23 @@ TEST_CASE("w1rewind replay cursor steps through instruction flow") {
   writer->close();
 
   w1::rewind::trace_index_options index_options;
-  w1::rewind::trace_index index;
+  auto index = std::make_shared<w1::rewind::trace_index>();
   REQUIRE(
-      w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, &index, writer_config.log)
+      w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, index.get(), writer_config.log)
   );
 
-  w1::rewind::replay_flow_cursor cursor({trace_path.string(), index_path.string(), 4});
+  w1::rewind::replay_context context;
+  std::string error;
+  REQUIRE(w1::rewind::load_replay_context(trace_path.string(), context, error));
+
+  auto stream = std::make_shared<w1::rewind::trace_reader>(trace_path.string());
+  w1::rewind::flow_cursor_config replay_config{};
+  replay_config.stream = stream;
+  replay_config.index = index;
+  replay_config.history_size = 4;
+  replay_config.context = &context;
+
+  w1::rewind::flow_cursor cursor(replay_config);
   REQUIRE(cursor.open());
   REQUIRE(cursor.seek(1, 2));
 
@@ -77,12 +92,12 @@ TEST_CASE("w1rewind replay cursor resolves block flow addresses") {
   fs::path trace_path = temp_path("w1rewind_replay_block.trace");
   fs::path index_path = temp_path("w1rewind_replay_block.trace.idx");
 
-  w1::rewind::trace_writer_config writer_config;
+  w1::rewind::trace_file_writer_config writer_config;
   writer_config.path = trace_path.string();
   writer_config.log = redlog::get_logger("test.w1rewind.replay");
   writer_config.chunk_size = 64;
 
-  auto writer = w1::rewind::make_trace_writer(writer_config);
+  auto writer = w1::rewind::make_trace_file_writer(writer_config);
   REQUIRE(writer);
   REQUIRE(writer->open());
 
@@ -107,12 +122,23 @@ TEST_CASE("w1rewind replay cursor resolves block flow addresses") {
   writer->close();
 
   w1::rewind::trace_index_options index_options;
-  w1::rewind::trace_index index;
+  auto index = std::make_shared<w1::rewind::trace_index>();
   REQUIRE(
-      w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, &index, writer_config.log)
+      w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, index.get(), writer_config.log)
   );
 
-  w1::rewind::replay_flow_cursor cursor({trace_path.string(), index_path.string(), 4});
+  w1::rewind::replay_context context;
+  std::string error;
+  REQUIRE(w1::rewind::load_replay_context(trace_path.string(), context, error));
+
+  auto stream = std::make_shared<w1::rewind::trace_reader>(trace_path.string());
+  w1::rewind::flow_cursor_config replay_config{};
+  replay_config.stream = stream;
+  replay_config.index = index;
+  replay_config.history_size = 4;
+  replay_config.context = &context;
+
+  w1::rewind::flow_cursor cursor(replay_config);
   REQUIRE(cursor.open());
   REQUIRE(cursor.seek(1, 0));
 
@@ -134,12 +160,12 @@ TEST_CASE("w1rewind replay cursor handles module-less traces") {
   fs::path trace_path = temp_path("w1rewind_replay_moduleless.trace");
   fs::path index_path = temp_path("w1rewind_replay_moduleless.trace.idx");
 
-  w1::rewind::trace_writer_config writer_config;
+  w1::rewind::trace_file_writer_config writer_config;
   writer_config.path = trace_path.string();
   writer_config.log = redlog::get_logger("test.w1rewind.replay");
   writer_config.chunk_size = 64;
 
-  auto writer = w1::rewind::make_trace_writer(writer_config);
+  auto writer = w1::rewind::make_trace_file_writer(writer_config);
   REQUIRE(writer);
   REQUIRE(writer->open());
 
@@ -159,12 +185,23 @@ TEST_CASE("w1rewind replay cursor handles module-less traces") {
   writer->close();
 
   w1::rewind::trace_index_options index_options;
-  w1::rewind::trace_index index;
+  auto index = std::make_shared<w1::rewind::trace_index>();
   REQUIRE(
-      w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, &index, writer_config.log)
+      w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, index.get(), writer_config.log)
   );
 
-  w1::rewind::replay_flow_cursor cursor({trace_path.string(), index_path.string(), 4});
+  w1::rewind::replay_context context;
+  std::string error;
+  REQUIRE(w1::rewind::load_replay_context(trace_path.string(), context, error));
+
+  auto stream = std::make_shared<w1::rewind::trace_reader>(trace_path.string());
+  w1::rewind::flow_cursor_config replay_config{};
+  replay_config.stream = stream;
+  replay_config.index = index;
+  replay_config.history_size = 4;
+  replay_config.context = &context;
+
+  w1::rewind::flow_cursor cursor(replay_config);
   REQUIRE(cursor.open());
   REQUIRE(cursor.seek(1, 0));
 

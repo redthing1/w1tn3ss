@@ -13,10 +13,10 @@ TEST_CASE("gdb memory map skips recorded bytes inside module ranges") {
   module.path = "mod";
 
   w1::rewind::replay_state state;
-  state.apply_memory_bytes(0x1010, {0xAA});
-  state.apply_memory_bytes(0x3000, {0xBB, 0xCC});
+  state.apply_memory_bytes(0x1010, std::vector<uint8_t>{0xAA});
+  state.apply_memory_bytes(0x3000, std::vector<uint8_t>{0xBB, 0xCC});
 
-  auto regions = w1replay::gdb::build_memory_map({module}, {}, &state);
+  auto regions = w1replay::gdb::build_memory_map({module}, {}, &state, nullptr);
 
   bool saw_module = false;
   bool saw_recorded = false;
@@ -50,10 +50,10 @@ TEST_CASE("gdb memory map prefers explicit memory map ranges over module spans")
   region.name = "mod";
 
   w1::rewind::replay_state state;
-  state.apply_memory_bytes(0x1010, {0xAA});
-  state.apply_memory_bytes(0x3000, {0xBB});
+  state.apply_memory_bytes(0x1010, std::vector<uint8_t>{0xAA});
+  state.apply_memory_bytes(0x3000, std::vector<uint8_t>{0xBB});
 
-  auto regions = w1replay::gdb::build_memory_map({module}, {region}, &state);
+  auto regions = w1replay::gdb::build_memory_map({module}, {region}, &state, nullptr);
 
   bool saw_map = false;
   bool saw_span = false;

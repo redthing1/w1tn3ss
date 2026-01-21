@@ -9,39 +9,6 @@
 
 namespace w1::rewind {
 
-inline bool encode_register_table(
-    const register_table_record& record, trace_buffer_writer& writer, redlog::logger& log
-) {
-  if (record.names.size() > std::numeric_limits<uint16_t>::max()) {
-    log.err("register table too large", redlog::field("count", record.names.size()));
-    return false;
-  }
-  writer.write_u16(static_cast<uint16_t>(record.names.size()));
-  for (const auto& name : record.names) {
-    if (!writer.write_string(name)) {
-      log.err("trace string too long", redlog::field("length", name.size()));
-      return false;
-    }
-  }
-  return true;
-}
-
-inline bool decode_register_table(trace_buffer_reader& reader, register_table_record& out) {
-  uint16_t count = 0;
-  if (!reader.read_u16(count)) {
-    return false;
-  }
-  out.names.reserve(count);
-  for (uint16_t i = 0; i < count; ++i) {
-    std::string name;
-    if (!reader.read_string(name)) {
-      return false;
-    }
-    out.names.push_back(std::move(name));
-  }
-  return true;
-}
-
 inline bool encode_target_info(const target_info_record& record, trace_buffer_writer& writer, redlog::logger& log) {
   if (!writer.write_string(record.os)) {
     log.err("trace string too long", redlog::field("length", record.os.size()));
@@ -107,17 +74,17 @@ inline bool encode_register_spec(const register_spec_record& record, trace_buffe
   }
   writer.write_u16(static_cast<uint16_t>(record.registers.size()));
   for (const auto& reg : record.registers) {
-  writer.write_u16(reg.reg_id);
-  writer.write_u16(reg.bits);
-  writer.write_u16(reg.flags);
-  writer.write_u8(static_cast<uint8_t>(reg.reg_class));
-  writer.write_u8(static_cast<uint8_t>(reg.value_kind));
-  writer.write_u32(reg.dwarf_regnum);
-  writer.write_u32(reg.ehframe_regnum);
-  if (!writer.write_string(reg.name)) {
-    log.err("trace string too long", redlog::field("length", reg.name.size()));
-    return false;
-  }
+    writer.write_u16(reg.reg_id);
+    writer.write_u16(reg.bits);
+    writer.write_u16(reg.flags);
+    writer.write_u8(static_cast<uint8_t>(reg.reg_class));
+    writer.write_u8(static_cast<uint8_t>(reg.value_kind));
+    writer.write_u32(reg.dwarf_regnum);
+    writer.write_u32(reg.ehframe_regnum);
+    if (!writer.write_string(reg.name)) {
+      log.err("trace string too long", redlog::field("length", reg.name.size()));
+      return false;
+    }
     if (!writer.write_string(reg.gdb_name)) {
       log.err("trace string too long", redlog::field("length", reg.gdb_name.size()));
       return false;
@@ -165,6 +132,8 @@ inline bool encode_module_table(const module_table_record& record, trace_buffer_
     writer.write_u32(static_cast<uint32_t>(module.permissions));
     writer.write_u8(static_cast<uint8_t>(module.format));
     writer.write_u32(module.identity_age);
+    writer.write_u32(module.flags);
+    writer.write_u64(module.link_base);
     if (!writer.write_string(module.identity)) {
       log.err("trace string too long", redlog::field("length", module.identity.size()));
       return false;
@@ -224,14 +193,17 @@ inline bool decode_module_table(trace_buffer_reader& reader, module_table_record
   for (uint32_t i = 0; i < count; ++i) {
     module_record module{};
     uint32_t perms = 0;
+    uint32_t flags = 0;
     uint8_t format = 0;
     if (!reader.read_u64(module.id) || !reader.read_u64(module.base) || !reader.read_u64(module.size) ||
         !reader.read_u32(perms) || !reader.read_u8(format) || !reader.read_u32(module.identity_age) ||
-        !reader.read_string(module.identity) || !reader.read_string(module.path)) {
+        !reader.read_u32(flags) || !reader.read_u64(module.link_base) || !reader.read_string(module.identity) ||
+        !reader.read_string(module.path)) {
       return false;
     }
     module.permissions = static_cast<module_perm>(perms);
     module.format = static_cast<module_format>(format);
+    module.flags = flags;
     out.modules.push_back(std::move(module));
   }
   return true;

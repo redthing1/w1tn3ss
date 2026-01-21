@@ -3,9 +3,9 @@
 namespace w1rewind {
 
 rewind_instruction_tracer::rewind_instruction_tracer(
-    rewind_config config, std::shared_ptr<w1::rewind::trace_writer> writer
+    rewind_config config, std::shared_ptr<w1::rewind::trace_record_sink> sink
 )
-    : recorder_(std::move(config), std::move(writer)) {}
+    : recorder_(std::move(config), std::move(sink)) {}
 
 void rewind_instruction_tracer::on_thread_start(w1::trace_context& ctx, const w1::thread_event& event) {
   recorder_.on_thread_start(ctx, event);
@@ -29,8 +29,8 @@ void rewind_instruction_tracer::on_thread_stop(w1::trace_context& ctx, const w1:
   recorder_.on_thread_stop(ctx, event);
 }
 
-rewind_block_tracer::rewind_block_tracer(rewind_config config, std::shared_ptr<w1::rewind::trace_writer> writer)
-    : recorder_(std::move(config), std::move(writer)) {}
+rewind_block_tracer::rewind_block_tracer(rewind_config config, std::shared_ptr<w1::rewind::trace_record_sink> sink)
+    : recorder_(std::move(config), std::move(sink)) {}
 
 void rewind_block_tracer::on_thread_start(w1::trace_context& ctx, const w1::thread_event& event) {
   recorder_.on_thread_start(ctx, event);

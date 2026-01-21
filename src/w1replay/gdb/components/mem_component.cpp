@@ -1,52 +1,25 @@
 #include "w1replay/gdb/adapter_components.hpp"
 
-#include "w1replay/gdb/memory_merge.hpp"
+#include <algorithm>
+
+#include "w1replay/memory/memory_view.hpp"
 
 namespace w1replay::gdb {
 
-namespace {
-bool has_any_known_byte(
-    const std::vector<std::optional<uint8_t>>& recorded, const std::vector<std::byte>& module_bytes,
-    std::span<const uint8_t> module_known, size_t size
-) {
-  for (size_t i = 0; i < size && i < recorded.size(); ++i) {
-    if (recorded[i].has_value()) {
-      return true;
-    }
-  }
-  if (module_bytes.size() < size || module_known.size() < size) {
-    return false;
-  }
-  for (size_t i = 0; i < size; ++i) {
-    if (module_known[i]) {
-      return true;
-    }
-  }
-  return false;
-}
-} // namespace
-
-mem_component::mem_component(adapter_state& state) : state_(state) {}
+mem_component::mem_component(const adapter_services& services) : services_(services) {}
 
 gdbstub::target_status mem_component::read_mem(uint64_t addr, std::span<std::byte> out) {
-  if (!state_.session) {
+  if (!services_.memory) {
     return gdbstub::target_status::unsupported;
   }
 
-  std::vector<std::optional<uint8_t>> recorded;
-  recorded.resize(out.size());
-  if (state_.track_memory) {
-    recorded = state_.session->read_memory(addr, out.size());
-    if (recorded.size() != out.size()) {
-      return gdbstub::target_status::fault;
-    }
+  auto read = services_.memory->read(addr, out.size());
+  if (read.bytes.size() < out.size()) {
+    return gdbstub::target_status::fault;
   }
+  std::copy(read.bytes.begin(), read.bytes.begin() + static_cast<std::ptrdiff_t>(out.size()), out.begin());
 
-  auto module_read = state_.module_source_state.read_address_image(state_.context, addr, out.size());
-
-  bool complete = merge_memory_bytes(recorded, module_read.bytes, module_read.known, out);
-  const bool any_known = has_any_known_byte(recorded, module_read.bytes, module_read.known, out.size());
-  if (complete || any_known) {
+  if (read.complete() || read.any_known()) {
     // lldb issues aligned reads that can extend beyond recorded snapshot windows
     // return best-effort data when any bytes are known so the debugger keeps the
     // valid portion instead of treating the whole read as unavailable

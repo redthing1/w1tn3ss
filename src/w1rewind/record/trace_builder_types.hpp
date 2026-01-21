@@ -4,7 +4,7 @@
 
 #include <redlog.hpp>
 
-#include "w1rewind/record/trace_writer.hpp"
+#include "w1rewind/trace/record_sink.hpp"
 
 namespace w1::rewind {
 
@@ -18,7 +18,7 @@ struct trace_builder_options {
 };
 
 struct trace_builder_config {
-  std::shared_ptr<trace_writer> writer;
+  std::shared_ptr<trace_record_sink> sink;
   redlog::logger log;
   trace_builder_options options;
 };

@@ -4,19 +4,11 @@
 #include <string_view>
 #include <unordered_set>
 
+#include "w1rewind/replay/replay_context.hpp"
+
 namespace w1replay::gdb {
 
 namespace {
-std::optional<std::string> uuid_from_record(const w1::rewind::module_record& module) {
-  if (module.format != w1::rewind::module_format::macho) {
-    return std::nullopt;
-  }
-  if (module.identity.empty()) {
-    return std::nullopt;
-  }
-  return module.identity;
-}
-
 void append_json_string(std::string& out, std::string_view value) {
   out.push_back('"');
   for (char ch : value) {
@@ -63,9 +55,9 @@ void append_json_key(std::string& out, std::string_view key) {
 } // namespace
 
 darwin_loaded_libraries_provider::darwin_loaded_libraries_provider(
-    const w1::rewind::replay_context& context, module_source& module_source
+    const w1::rewind::replay_context& context, module_metadata_provider& metadata_provider, module_path_resolver& resolver
 )
-    : context_(context), module_source_(module_source) {}
+    : context_(context), metadata_provider_(metadata_provider), resolver_(resolver) {}
 
 std::vector<darwin_loaded_image> darwin_loaded_libraries_provider::collect_loaded_images(
     const gdbstub::lldb::loaded_libraries_request& request
@@ -87,27 +79,28 @@ std::vector<darwin_loaded_image> darwin_loaded_libraries_provider::collect_loade
 
     darwin_loaded_image image{};
     image.load_address = module.base;
-    image.pathname = module.path;
+    if (!module.path.empty()) {
+      if (auto resolved = resolver_.resolve_module_path(module)) {
+        image.pathname = *resolved;
+      } else {
+        image.pathname = module.path;
+      }
+    }
 
     std::string error;
-    auto uuid = uuid_from_record(module);
-    if (!uuid && !module.path.empty()) {
-      uuid = module_source_.get_module_uuid(module, error);
-    }
-    if (uuid.has_value()) {
+    auto uuid = metadata_provider_.module_uuid(module, error);
+    if (uuid) {
       image.uuid = *uuid;
     }
 
     if (include_load_commands) {
-      if (!module.path.empty()) {
-        auto header = module_source_.get_macho_header_info(module, error);
-        if (header) {
-          image.header = *header;
-        }
-        auto segments = module_source_.get_macho_segments(module, error);
-        if (!segments.empty()) {
-          image.segments = std::move(segments);
-        }
+      auto header = metadata_provider_.macho_header(module, error);
+      if (header) {
+        image.header = *header;
+      }
+      auto segments = metadata_provider_.macho_segments(module, error);
+      if (!segments.empty()) {
+        image.segments = std::move(segments);
       }
     }
 
@@ -219,10 +212,7 @@ std::optional<std::vector<gdbstub::lldb::process_kv_pair>> darwin_loaded_librari
   extras.push_back(std::move(addr));
 
   std::string uuid_error;
-  auto uuid = uuid_from_record(*module);
-  if (!uuid) {
-    uuid = module_source_.get_module_uuid(*module, uuid_error);
-  }
+  auto uuid = metadata_provider_.module_uuid(*module, uuid_error);
   if (uuid) {
     gdbstub::lldb::process_kv_pair uuid_pair{};
     uuid_pair.key = "main-binary-uuid";

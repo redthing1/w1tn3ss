@@ -9,7 +9,7 @@
 #include <redlog.hpp>
 
 #include "w1replay/gdb/adapter.hpp"
-#include "w1rewind/record/trace_writer.hpp"
+#include "w1rewind/trace/trace_file_writer.hpp"
 #include "w1rewind/rewind_test_helpers.hpp"
 
 TEST_CASE("gdb adapter reads recorded memory bytes") {
@@ -18,12 +18,12 @@ TEST_CASE("gdb adapter reads recorded memory bytes") {
 
   fs::path trace_path = temp_path("w1replay_gdb_mem_read.trace");
 
-  w1::rewind::trace_writer_config writer_config;
+  w1::rewind::trace_file_writer_config writer_config;
   writer_config.path = trace_path.string();
   writer_config.log = redlog::get_logger("test.w1replay.gdb");
   writer_config.chunk_size = 64;
 
-  auto writer = w1::rewind::make_trace_writer(writer_config);
+  auto writer = w1::rewind::make_trace_file_writer(writer_config);
   REQUIRE(writer);
   REQUIRE(writer->open());
 
@@ -72,18 +72,76 @@ TEST_CASE("gdb adapter reads recorded memory bytes") {
   CHECK(buffer[3] == std::byte{0xEF});
 }
 
+TEST_CASE("gdb adapter reads memory access read values") {
+  namespace fs = std::filesystem;
+  using namespace w1::rewind::test_helpers;
+
+  fs::path trace_path = temp_path("w1replay_gdb_mem_read_access.trace");
+
+  w1::rewind::trace_file_writer_config writer_config;
+  writer_config.path = trace_path.string();
+  writer_config.log = redlog::get_logger("test.w1replay.gdb");
+  writer_config.chunk_size = 64;
+
+  auto writer = w1::rewind::make_trace_file_writer(writer_config);
+  REQUIRE(writer);
+  REQUIRE(writer->open());
+
+  auto arch = parse_arch_or_fail("arm64");
+  w1::rewind::trace_header header{};
+  header.arch = arch;
+  header.flags =
+      w1::rewind::trace_flag_instructions | w1::rewind::trace_flag_memory_access | w1::rewind::trace_flag_memory_values;
+  REQUIRE(writer->write_header(header));
+
+  std::vector<std::string> registers = {"pc"};
+  write_basic_metadata(*writer, arch, registers);
+  write_module_table(*writer, 1, 0x1000);
+  write_thread_start(*writer, 1, "thread1");
+  write_instruction(*writer, 1, 0, 0x1000 + 0x10);
+
+  w1::rewind::memory_access_record access{};
+  access.sequence = 0;
+  access.thread_id = 1;
+  access.kind = w1::rewind::memory_access_kind::read;
+  access.address = 0x4000;
+  access.size = 2;
+  access.value_known = true;
+  access.value_truncated = false;
+  access.data = {0xFE, 0xED};
+  REQUIRE(writer->write_memory_access(access));
+
+  write_thread_end(*writer, 1);
+
+  writer->flush();
+  writer->close();
+
+  w1replay::gdb::adapter::config config;
+  config.trace_path = trace_path.string();
+
+  w1replay::gdb::adapter adapter(std::move(config));
+  REQUIRE(adapter.open());
+
+  auto target = adapter.make_target();
+  std::array<std::byte, 2> buffer{};
+  auto status = target.view().mem.read_mem(0x4000, buffer);
+  CHECK(status == gdbstub::target_status::ok);
+  CHECK(buffer[0] == std::byte{0xFE});
+  CHECK(buffer[1] == std::byte{0xED});
+}
+
 TEST_CASE("gdb adapter reads module bytes when memory missing") {
   namespace fs = std::filesystem;
   using namespace w1::rewind::test_helpers;
 
   fs::path trace_path = temp_path("w1replay_gdb_module_mem.trace");
 
-  w1::rewind::trace_writer_config writer_config;
+  w1::rewind::trace_file_writer_config writer_config;
   writer_config.path = trace_path.string();
   writer_config.log = redlog::get_logger("test.w1replay.gdb");
   writer_config.chunk_size = 64;
 
-  auto writer = w1::rewind::make_trace_writer(writer_config);
+  auto writer = w1::rewind::make_trace_file_writer(writer_config);
   REQUIRE(writer);
   REQUIRE(writer->open());
 
@@ -129,12 +187,12 @@ TEST_CASE("gdb adapter prefers recorded memory over module bytes") {
 
   fs::path trace_path = temp_path("w1replay_gdb_recorded_overrides.trace");
 
-  w1::rewind::trace_writer_config writer_config;
+  w1::rewind::trace_file_writer_config writer_config;
   writer_config.path = trace_path.string();
   writer_config.log = redlog::get_logger("test.w1replay.gdb");
   writer_config.chunk_size = 64;
 
-  auto writer = w1::rewind::make_trace_writer(writer_config);
+  auto writer = w1::rewind::make_trace_file_writer(writer_config);
   REQUIRE(writer);
   REQUIRE(writer->open());
 

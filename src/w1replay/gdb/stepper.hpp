@@ -2,12 +2,11 @@
 
 #include <cstdint>
 #include <optional>
-#include <unordered_set>
-
 #include "gdbstub/target/target.hpp"
 
 #include "w1rewind/replay/replay_session.hpp"
 
+#include "breakpoint_store.hpp"
 #include "run_policy.hpp"
 
 namespace w1replay::gdb {
@@ -18,12 +17,12 @@ struct stepper_result {
 };
 
 stepper_result resume_step(
-    w1::rewind::replay_session& session, const run_policy& policy, const std::unordered_set<uint64_t>& breakpoints,
+    w1::rewind::replay_session& session, const run_policy& policy, const breakpoint_store& breakpoints,
     uint64_t thread_id, gdbstub::resume_direction direction
 );
 
 stepper_result resume_continue(
-    w1::rewind::replay_session& session, const run_policy& policy, const std::unordered_set<uint64_t>& breakpoints,
+    w1::rewind::replay_session& session, const run_policy& policy, const breakpoint_store& breakpoints,
     uint64_t thread_id, gdbstub::resume_direction direction
 );
 

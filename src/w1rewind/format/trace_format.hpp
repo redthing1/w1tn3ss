@@ -10,7 +10,7 @@
 
 namespace w1::rewind {
 
-constexpr uint16_t k_trace_version = 13;
+constexpr uint16_t k_trace_version = 15;
 constexpr std::array<uint8_t, 8> k_trace_magic = {'W', '1', 'R', 'W', 'N', 'D', '1', '1'};
 constexpr uint32_t k_trace_chunk_bytes = 8 * 1024 * 1024;
 constexpr uint32_t k_register_regnum_unknown = 0xFFFFFFFFu;
@@ -53,7 +53,6 @@ enum class trace_compression : uint32_t {
 };
 
 enum class record_kind : uint16_t {
-  register_table = 1,
   module_table = 2,
   thread_start = 3,
   instruction = 4,
@@ -82,10 +81,6 @@ struct record_header {
   record_kind kind = record_kind::instruction;
   uint16_t flags = 0;
   uint32_t size = 0;
-};
-
-struct register_table_record {
-  std::vector<std::string> names;
 };
 
 struct target_info_record {
@@ -142,6 +137,10 @@ struct register_spec_record {
   std::vector<register_spec> registers;
 };
 
+enum module_record_flags : uint32_t {
+  module_record_flag_link_base_valid = 1u << 0,
+};
+
 struct module_record {
   uint64_t id = 0;
   uint64_t base = 0;
@@ -150,6 +149,8 @@ struct module_record {
   module_format format = module_format::unknown;
   std::string identity;
   uint32_t identity_age = 0;
+  uint32_t flags = 0;
+  uint64_t link_base = 0;
   std::string path;
 };
 
@@ -262,8 +263,8 @@ struct thread_end_record {
 };
 
 using trace_record = std::variant<
-    register_table_record, target_info_record, target_environment_record, register_spec_record, module_table_record,
-    memory_map_record, thread_start_record, instruction_record, block_definition_record, block_exec_record,
-    register_delta_record, register_bytes_record, memory_access_record, snapshot_record, thread_end_record>;
+    target_info_record, target_environment_record, register_spec_record, module_table_record, memory_map_record,
+    thread_start_record, instruction_record, block_definition_record, block_exec_record, register_delta_record,
+    register_bytes_record, memory_access_record, snapshot_record, thread_end_record>;
 
 } // namespace w1::rewind

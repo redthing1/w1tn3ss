@@ -8,13 +8,16 @@ bool is_frame_pointer_name(const std::string& name) {
 }
 } // namespace
 
-register_info_component::register_info_component(adapter_state& state) : state_(state) {}
+register_info_component::register_info_component(const adapter_services& services) : services_(services) {}
 
 std::optional<gdbstub::register_info> register_info_component::get_register_info(int regno) const {
-  if (regno < 0 || static_cast<size_t>(regno) >= state_.layout.registers.size()) {
+  if (!services_.layout) {
     return std::nullopt;
   }
-  const auto& reg = state_.layout.registers[static_cast<size_t>(regno)];
+  if (regno < 0 || static_cast<size_t>(regno) >= services_.layout->registers.size()) {
+    return std::nullopt;
+  }
+  const auto& reg = services_.layout->registers[static_cast<size_t>(regno)];
   gdbstub::register_info info{};
   info.name = reg.name;
   info.bitsize = static_cast<int>(reg.bits);

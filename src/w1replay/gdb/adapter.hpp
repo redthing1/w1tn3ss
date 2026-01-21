@@ -5,11 +5,18 @@
 #include <string>
 #include <vector>
 
+#include "gdbstub/server/server.hpp"
 #include "gdbstub/target/target.hpp"
 
 #include "adapter_components.hpp"
-#include "adapter_state.hpp"
-#include "w1replay/module_source.hpp"
+#include "adapter_services.hpp"
+#include "thread_state.hpp"
+#include "w1replay/modules/image_reader.hpp"
+#include "w1replay/modules/address_index.hpp"
+
+namespace w1replay {
+class asmr_block_decoder;
+}
 
 namespace w1replay::gdb {
 
@@ -34,9 +41,9 @@ public:
   const std::string& error() const { return error_; }
 
   gdbstub::target make_target();
-  const gdbstub::arch_spec& arch_spec() const { return state_.arch_spec; }
-  bool track_memory() const { return state_.track_memory; }
-  bool has_stack_snapshot() const { return state_.has_stack_snapshot; }
+  const gdbstub::arch_spec& arch_spec() const { return arch_spec_; }
+  bool track_memory() const { return track_memory_; }
+  bool has_stack_snapshot() const { return has_stack_snapshot_; }
 
   const w1::rewind::replay_session& session() const;
   w1::rewind::replay_session& session();
@@ -50,8 +57,31 @@ private:
   bool build_target_xml();
 
   config config_;
-  adapter_state state_{};
   std::string error_;
+  w1::rewind::replay_context context_{};
+  std::shared_ptr<w1::rewind::trace_record_stream> stream_;
+  std::shared_ptr<w1::rewind::trace_index> index_;
+  std::shared_ptr<w1::rewind::replay_checkpoint_index> checkpoint_;
+  std::optional<w1::rewind::replay_session> session_;
+  register_layout layout_{};
+  std::string target_xml_;
+  gdbstub::arch_spec arch_spec_{};
+  int pc_reg_num_ = -1;
+  endian target_endian_ = endian::little;
+  bool trace_is_block_ = false;
+  bool decoder_available_ = false;
+  bool track_memory_ = false;
+  bool has_stack_snapshot_ = false;
+  breakpoint_store breakpoints_{};
+  std::unique_ptr<w1replay::asmr_block_decoder> decoder_;
+  std::unique_ptr<module_path_resolver> module_resolver_;
+  std::shared_ptr<module_image_reader> module_image_reader_;
+  std::shared_ptr<module_metadata_provider> module_metadata_provider_;
+  std::unique_ptr<memory_view> memory_view_;
+  std::unique_ptr<loaded_libraries_provider> loaded_libraries_provider_;
+  std::unique_ptr<module_address_index> module_index_;
+  adapter_services services_{};
+  thread_state thread_state_{};
 
   std::unique_ptr<regs_component> regs_component_;
   std::unique_ptr<mem_component> mem_component_;

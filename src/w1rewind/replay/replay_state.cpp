@@ -172,10 +172,8 @@ bool replay_state::copy_register_bytes(uint16_t reg_id, std::span<std::byte> out
   return true;
 }
 
-void replay_state::apply_memory_bytes(uint64_t address, const std::vector<uint8_t>& data) {
-  for (size_t i = 0; i < data.size(); ++i) {
-    memory_[address + i] = data[i];
-  }
+void replay_state::apply_memory_bytes(uint64_t address, std::span<const uint8_t> data) {
+  memory_.apply_bytes(address, data);
 }
 
 void replay_state::apply_stack_segments(const std::vector<stack_segment>& segments) {
@@ -189,22 +187,17 @@ void replay_state::apply_stack_segments(const std::vector<stack_segment>& segmen
     if (segment.size != segment.bytes.size()) {
       continue;
     }
-    apply_memory_bytes(segment.base, segment.bytes);
+    memory_.apply_bytes(segment.base, segment.bytes);
   }
 }
 
-std::vector<std::optional<uint8_t>> replay_state::read_memory(uint64_t address, size_t size) const {
-  std::vector<std::optional<uint8_t>> out;
-  out.reserve(size);
-  for (size_t i = 0; i < size; ++i) {
-    auto it = memory_.find(address + i);
-    if (it == memory_.end()) {
-      out.push_back(std::nullopt);
-    } else {
-      out.push_back(it->second);
-    }
-  }
-  return out;
+void replay_state::set_memory_spans(std::span<const memory_span> spans) {
+  memory_.clear();
+  memory_.apply_segments(spans);
+}
+
+memory_read replay_state::read_memory(uint64_t address, size_t size) const {
+  return memory_.read(address, size);
 }
 
 void replay_state::reset_register_bytes() {

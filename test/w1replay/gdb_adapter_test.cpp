@@ -7,7 +7,7 @@
 #include <redlog.hpp>
 
 #include "w1replay/gdb/adapter.hpp"
-#include "w1rewind/record/trace_writer.hpp"
+#include "w1rewind/trace/trace_file_writer.hpp"
 
 #include "w1rewind/rewind_test_helpers.hpp"
 
@@ -21,12 +21,12 @@ std::filesystem::path write_trace(
 
   std::filesystem::path trace_path = temp_path(name);
 
-  w1::rewind::trace_writer_config writer_config;
+  w1::rewind::trace_file_writer_config writer_config;
   writer_config.path = trace_path.string();
   writer_config.log = redlog::get_logger("test.w1replay.gdb");
   writer_config.chunk_size = 64;
 
-  auto writer = w1::rewind::make_trace_writer(writer_config);
+  auto writer = w1::rewind::make_trace_file_writer(writer_config);
   REQUIRE(writer);
   REQUIRE(writer->open());
 

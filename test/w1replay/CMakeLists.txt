@@ -13,18 +13,23 @@ set(W1REPLAY_TEST_SOURCES
     gdb_memory_map_test.cpp
     gdb_memory_read_test.cpp
     gdb_pc_only_test.cpp
+    gdb_host_process_info_test.cpp
     gdb_run_policy_test.cpp
     gdb_register_info_test.cpp
     gdb_stepper_test.cpp
     gdb_value_codec_test.cpp
     gdb_loaded_libraries_test.cpp
     module_image_test.cpp
-    module_source_test.cpp
+    module_address_index_test.cpp
+    module_path_resolver_test.cpp
     replay_context_test.cpp
-    ${W1_SOURCE_DIR}/src/w1replay/module_image.cpp
-    ${W1_SOURCE_DIR}/src/w1replay/module_image_lief.cpp
-    ${W1_SOURCE_DIR}/src/w1replay/asmr_block_decoder.cpp
-    ${W1_SOURCE_DIR}/src/w1replay/module_source.cpp
+    ${W1_SOURCE_DIR}/src/w1replay/modules/address_index.cpp
+    ${W1_SOURCE_DIR}/src/w1replay/modules/module_image.cpp
+    ${W1_SOURCE_DIR}/src/w1replay/modules/module_image_lief.cpp
+    ${W1_SOURCE_DIR}/src/w1replay/modules/asmr_block_decoder.cpp
+    ${W1_SOURCE_DIR}/src/w1replay/modules/lief_module_provider.cpp
+    ${W1_SOURCE_DIR}/src/w1replay/modules/path_resolver.cpp
+    ${W1_SOURCE_DIR}/src/w1replay/trace_loader/trace_loader.cpp
     ${W1_SOURCE_DIR}/src/w1replay/gdb/adapter.cpp
     ${W1_SOURCE_DIR}/src/w1replay/gdb/loaded_libraries_provider.cpp
     ${W1_SOURCE_DIR}/src/w1replay/gdb/triple_utils.cpp
@@ -43,8 +48,8 @@ set(W1REPLAY_TEST_SOURCES
     ${W1_SOURCE_DIR}/src/w1replay/gdb/lldb/darwin_loaded_libraries.cpp
     ${W1_SOURCE_DIR}/src/w1replay/gdb/layout.cpp
     ${W1_SOURCE_DIR}/src/w1replay/gdb/target_xml.cpp
-    ${W1_SOURCE_DIR}/src/w1replay/gdb/memory_merge.cpp
     ${W1_SOURCE_DIR}/src/w1replay/gdb/memory_map.cpp
+    ${W1_SOURCE_DIR}/src/w1replay/memory/memory_view.cpp
     ${W1_SOURCE_DIR}/src/w1replay/gdb/value_codec.cpp
     ${W1_SOURCE_DIR}/src/w1replay/gdb/stepper.cpp
 )

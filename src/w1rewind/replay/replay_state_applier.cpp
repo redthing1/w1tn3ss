@@ -62,9 +62,6 @@ bool replay_state_applier::apply_memory_access(
   if (!record.value_known || record.data.empty()) {
     return true;
   }
-  if (record.kind != memory_access_kind::write) {
-    return true;
-  }
   state.apply_memory_bytes(record.address, record.data);
   return true;
 }

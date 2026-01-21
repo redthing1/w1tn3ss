@@ -5,6 +5,7 @@ w1_add_static_library(w1base
     env_config.cpp
     module_identity.cpp
     signal_handler.cpp
+    uuid_format.cpp
 )
 add_library(w1::base ALIAS w1base)
 

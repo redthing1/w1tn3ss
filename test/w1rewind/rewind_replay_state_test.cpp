@@ -1,12 +1,20 @@
+#include <cstddef>
 #include <filesystem>
+#include <memory>
+#include <string>
 
 #include "doctest/doctest.hpp"
 
 #include "w1rewind/rewind_test_helpers.hpp"
-#include "w1rewind/replay/replay_flow_cursor.hpp"
+#include "w1rewind/replay/flow_cursor.hpp"
+#include "w1rewind/replay/replay_context.hpp"
+#include "w1rewind/replay/replay_state.hpp"
+#include "w1rewind/replay/replay_state_applier.hpp"
+#include "w1rewind/replay/stateful_flow_cursor.hpp"
 #include "w1rewind/format/trace_format.hpp"
-#include "w1rewind/replay/trace_index.hpp"
-#include "w1rewind/record/trace_writer.hpp"
+#include "w1rewind/trace/trace_index.hpp"
+#include "w1rewind/trace/trace_reader.hpp"
+#include "w1rewind/trace/trace_file_writer.hpp"
 
 namespace {
 
@@ -35,12 +43,12 @@ TEST_CASE("w1rewind replay cursor applies register and memory state") {
   fs::path trace_path = temp_path("w1rewind_replay_state.trace");
   fs::path index_path = temp_path("w1rewind_replay_state.trace.idx");
 
-  w1::rewind::trace_writer_config config;
+  w1::rewind::trace_file_writer_config config;
   config.path = trace_path.string();
   config.log = redlog::get_logger("test.w1rewind.replay_state");
   config.chunk_size = 64;
 
-  auto writer = w1::rewind::make_trace_writer(config);
+  auto writer = w1::rewind::make_trace_file_writer(config);
   REQUIRE(writer);
   REQUIRE(writer->open());
 
@@ -99,45 +107,56 @@ TEST_CASE("w1rewind replay cursor applies register and memory state") {
   writer->close();
 
   w1::rewind::trace_index_options index_options;
-  w1::rewind::trace_index index;
-  REQUIRE(w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, &index, config.log));
+  auto index = std::make_shared<w1::rewind::trace_index>();
+  REQUIRE(w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, index.get(), config.log));
 
-  w1::rewind::replay_flow_cursor_config replay_config{};
-  replay_config.trace_path = trace_path.string();
-  replay_config.index_path = index_path.string();
+  w1::rewind::replay_context context;
+  std::string error;
+  REQUIRE(w1::rewind::load_replay_context(trace_path.string(), context, error));
+
+  auto stream = std::make_shared<w1::rewind::trace_reader>(trace_path.string());
+  w1::rewind::flow_cursor_config replay_config{};
+  replay_config.stream = stream;
+  replay_config.index = index;
   replay_config.history_size = 4;
-  replay_config.track_registers = true;
-  replay_config.track_memory = true;
+  replay_config.context = &context;
 
-  w1::rewind::replay_flow_cursor cursor(replay_config);
+  w1::rewind::flow_cursor cursor(replay_config);
   REQUIRE(cursor.open());
+
+  w1::rewind::replay_state state;
+  w1::rewind::replay_state_applier applier(context);
+  w1::rewind::stateful_flow_cursor stateful_cursor(cursor, applier, state);
+  stateful_cursor.configure(context, true, true);
   REQUIRE(cursor.seek(1, 1));
 
   w1::rewind::flow_step step{};
   REQUIRE(cursor.step_forward(step));
 
-  const auto* state = cursor.state();
-  REQUIRE(state != nullptr);
-  CHECK(state->register_value(0) == 0x2222);
-  CHECK(state->register_value(1) == 0x3000);
+  const auto& state_view = stateful_cursor.state();
+  CHECK(state_view.register_value(0) == 0x2222);
+  CHECK(state_view.register_value(1) == 0x3000);
 
-  auto mem_bytes = state->read_memory(0x2000, 2);
-  REQUIRE(mem_bytes.size() == 2);
-  CHECK(mem_bytes[0].has_value());
-  CHECK(mem_bytes[1].has_value());
-  CHECK(mem_bytes[0].value() == 0xDE);
-  CHECK(mem_bytes[1].value() == 0xAD);
+  auto mem_bytes = state_view.read_memory(0x2000, 2);
+  REQUIRE(mem_bytes.bytes.size() == 2);
+  REQUIRE(mem_bytes.known.size() == 2);
+  CHECK(mem_bytes.known[0] == 1);
+  CHECK(mem_bytes.known[1] == 1);
+  CHECK(std::to_integer<uint8_t>(mem_bytes.bytes[0]) == 0xDE);
+  CHECK(std::to_integer<uint8_t>(mem_bytes.bytes[1]) == 0xAD);
 
-  auto stack_bytes = state->read_memory(0x3000, 2);
-  REQUIRE(stack_bytes.size() == 2);
-  CHECK(stack_bytes[0].has_value());
-  CHECK(stack_bytes[1].has_value());
-  CHECK(stack_bytes[0].value() == 0x10);
-  CHECK(stack_bytes[1].value() == 0x20);
+  auto stack_bytes = state_view.read_memory(0x3000, 2);
+  REQUIRE(stack_bytes.bytes.size() == 2);
+  REQUIRE(stack_bytes.known.size() == 2);
+  CHECK(stack_bytes.known[0] == 1);
+  CHECK(stack_bytes.known[1] == 1);
+  CHECK(std::to_integer<uint8_t>(stack_bytes.bytes[0]) == 0x10);
+  CHECK(std::to_integer<uint8_t>(stack_bytes.bytes[1]) == 0x20);
 
-  auto unknown = state->read_memory(0x2002, 1);
-  REQUIRE(unknown.size() == 1);
-  CHECK(!unknown[0].has_value());
+  auto unknown = state_view.read_memory(0x2002, 1);
+  REQUIRE(unknown.bytes.size() == 1);
+  REQUIRE(unknown.known.size() == 1);
+  CHECK(unknown.known[0] == 0);
 
   cursor.close();
   fs::remove(trace_path);

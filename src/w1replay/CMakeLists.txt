@@ -4,11 +4,18 @@ w1_dep_gdbstub()
 find_package(Threads REQUIRED)
 
 w1_add_executable(w1replay
-    main.cpp
-    asmr_block_decoder.cpp
-    module_image.cpp
-    module_image_lief.cpp
-    module_source.cpp
+    cli/main.cpp
+    cli/commands/checkpoint.cpp
+    cli/commands/inspect.cpp
+    cli/commands/server.cpp
+    cli/commands/threads.cpp
+    modules/asmr_block_decoder.cpp
+    modules/address_index.cpp
+    modules/module_image.cpp
+    modules/module_image_lief.cpp
+    modules/lief_module_provider.cpp
+    modules/path_resolver.cpp
+    trace_loader/trace_loader.cpp
     gdb/adapter.cpp
     gdb/loaded_libraries_provider.cpp
     gdb/triple_utils.cpp
@@ -27,14 +34,10 @@ w1_add_executable(w1replay
     gdb/lldb/darwin_loaded_libraries.cpp
     gdb/layout.cpp
     gdb/target_xml.cpp
-    gdb/memory_merge.cpp
     gdb/memory_map.cpp
+    memory/memory_view.cpp
     gdb/value_codec.cpp
     gdb/stepper.cpp
-    commands/checkpoint.cpp
-    commands/inspect.cpp
-    commands/server.cpp
-    commands/threads.cpp
 )
 
 target_link_libraries(w1replay PRIVATE

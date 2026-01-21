@@ -1,53 +1,8 @@
 #include "trace_builder.hpp"
 
-#include <algorithm>
+#include "w1rewind/format/trace_validator.hpp"
 
 namespace w1::rewind {
-
-namespace {
-
-bool validate_register_specs(const std::vector<register_spec>& specs, std::string& error) {
-  if (specs.empty()) {
-    error = "register specs missing";
-    return false;
-  }
-
-  uint16_t max_id = 0;
-  for (const auto& spec : specs) {
-    if (spec.name.empty()) {
-      error = "register spec name missing";
-      return false;
-    }
-    if (spec.bits == 0) {
-      error = "register spec bits missing";
-      return false;
-    }
-    max_id = std::max(max_id, spec.reg_id);
-  }
-
-  size_t expected = static_cast<size_t>(max_id) + 1;
-  if (expected != specs.size()) {
-    error = "register ids must be contiguous";
-    return false;
-  }
-
-  std::vector<bool> seen(expected, false);
-  for (const auto& spec : specs) {
-    if (spec.reg_id >= expected) {
-      error = "register id out of range";
-      return false;
-    }
-    if (seen[spec.reg_id]) {
-      error = "duplicate register id";
-      return false;
-    }
-    seen[spec.reg_id] = true;
-  }
-
-  return true;
-}
-
-} // namespace
 
 trace_builder::trace_builder(trace_builder_config config) : config_(std::move(config)) {}
 
@@ -59,33 +14,24 @@ bool trace_builder::begin_trace(
     error_ = "trace already started";
     return false;
   }
-  if (!config_.writer) {
-    error_ = "trace writer missing";
+  if (!config_.sink) {
+    error_ = "trace sink missing";
     return false;
   }
-  if (!config_.writer->good()) {
-    error_ = "trace writer not ready";
+  if (!config_.sink->good()) {
+    error_ = "trace sink not ready";
     return false;
   }
-  if (arch.arch_family == w1::arch::family::unknown || arch.arch_mode == w1::arch::mode::unknown) {
-    error_ = "trace arch spec missing";
+  if (!validate_trace_arch(arch, error_)) {
     return false;
   }
-  if (arch.pointer_bits == 0 || (arch.pointer_bits % 8) != 0) {
-    error_ = "trace pointer bits invalid";
-    return false;
-  }
-  if (arch.arch_byte_order == w1::arch::byte_order::unknown) {
-    error_ = "trace byte order missing";
-    return false;
-  }
-  if (!validate_register_specs(register_specs, error_)) {
+  register_specs_ = register_specs;
+  if (!normalize_register_specs(register_specs_, error_)) {
     return false;
   }
 
   target_info_ = target;
   target_environment_ = environment;
-  register_specs_ = register_specs;
 
   trace_header header{};
   header.arch = arch;
@@ -111,23 +57,23 @@ bool trace_builder::begin_trace(
     header.flags |= trace_flag_stack_snapshot;
   }
 
-  if (!config_.writer->write_header(header)) {
+  if (!config_.sink->write_header(header)) {
     error_ = "failed to write trace header";
     return false;
   }
 
-  if (!config_.writer->write_target_info(target_info_)) {
+  if (!config_.sink->write_target_info(target_info_)) {
     error_ = "failed to write target info";
     return false;
   }
-  if (!config_.writer->write_target_environment(target_environment_)) {
+  if (!config_.sink->write_target_environment(target_environment_)) {
     error_ = "failed to write target environment";
     return false;
   }
 
   register_spec_record spec_record{};
   spec_record.registers = register_specs_;
-  if (!config_.writer->write_register_spec(spec_record)) {
+  if (!config_.sink->write_register_spec(spec_record)) {
     error_ = "failed to write register specs";
     return false;
   }
@@ -189,7 +135,7 @@ bool trace_builder::end_thread(uint64_t thread_id) {
   }
   thread_end_record end{};
   end.thread_id = thread_id;
-  if (!config_.writer->write_thread_end(end)) {
+  if (!config_.sink->write_thread_end(end)) {
     error_ = "failed to write thread end";
     return false;
   }
@@ -219,7 +165,7 @@ bool trace_builder::emit_instruction(
   record.size = size;
   record.flags = flags;
 
-  if (!config_.writer->write_instruction(record)) {
+  if (!config_.sink->write_instruction(record)) {
     error_ = "failed to write instruction record";
     return false;
   }
@@ -258,7 +204,7 @@ bool trace_builder::emit_block(
     def.address = address;
     def.size = size;
     def.flags = flags;
-    if (!config_.writer->write_block_definition(def)) {
+    if (!config_.sink->write_block_definition(def)) {
       error_ = "failed to write block definition";
       return false;
     }
@@ -270,7 +216,7 @@ bool trace_builder::emit_block(
   exec.sequence = state.next_sequence++;
   exec.thread_id = thread_id;
   exec.block_id = block_id;
-  if (!config_.writer->write_block_exec(exec)) {
+  if (!config_.sink->write_block_exec(exec)) {
     error_ = "failed to write block exec";
     return false;
   }
@@ -294,7 +240,7 @@ bool trace_builder::emit_register_deltas(
   record.thread_id = thread_id;
   record.deltas.assign(deltas.begin(), deltas.end());
 
-  if (!config_.writer->write_register_deltas(record)) {
+  if (!config_.sink->write_register_deltas(record)) {
     error_ = "failed to write register deltas";
     return false;
   }
@@ -343,7 +289,7 @@ bool trace_builder::emit_register_bytes(
   record.entries.assign(entries.begin(), entries.end());
   record.data.assign(data.begin(), data.end());
 
-  if (!config_.writer->write_register_bytes(record)) {
+  if (!config_.sink->write_register_bytes(record)) {
     error_ = "failed to write register bytes";
     return false;
   }
@@ -377,7 +323,7 @@ bool trace_builder::emit_memory_access(
     record.data.assign(data.begin(), data.end());
   }
 
-  if (!config_.writer->write_memory_access(record)) {
+  if (!config_.sink->write_memory_access(record)) {
     error_ = "failed to write memory access";
     return false;
   }
@@ -403,7 +349,7 @@ bool trace_builder::emit_snapshot(
   record.stack_segments.assign(stack_segments.begin(), stack_segments.end());
   record.reason = std::move(reason);
 
-  if (!config_.writer->write_snapshot(record)) {
+  if (!config_.sink->write_snapshot(record)) {
     error_ = "failed to write snapshot";
     return false;
   }
@@ -411,16 +357,16 @@ bool trace_builder::emit_snapshot(
 }
 
 void trace_builder::flush() {
-  if (config_.writer) {
-    config_.writer->flush();
+  if (config_.sink) {
+    config_.sink->flush();
   }
 }
 
 bool trace_builder::good() const {
-  if (!config_.writer) {
+  if (!config_.sink) {
     return false;
   }
-  return config_.writer->good();
+  return config_.sink->good();
 }
 
 bool trace_builder::ensure_trace_started() {
@@ -439,7 +385,7 @@ bool trace_builder::ensure_thread_started(thread_state& state, uint64_t thread_i
   thread_start_record start{};
   start.thread_id = thread_id;
   start.name = state.name;
-  if (!config_.writer->write_thread_start(start)) {
+  if (!config_.sink->write_thread_start(start)) {
     error_ = "failed to write thread start";
     return false;
   }
@@ -456,7 +402,7 @@ bool trace_builder::write_module_table() {
   }
   module_table_record record{};
   record.modules = modules_;
-  if (!config_.writer->write_module_table(record)) {
+  if (!config_.sink->write_module_table(record)) {
     error_ = "failed to write module table";
     return false;
   }
@@ -474,7 +420,7 @@ bool trace_builder::write_memory_map() {
   }
   memory_map_record record{};
   record.regions = memory_map_;
-  if (!config_.writer->write_memory_map(record)) {
+  if (!config_.sink->write_memory_map(record)) {
     error_ = "failed to write memory map";
     return false;
   }

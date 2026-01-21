@@ -42,14 +42,15 @@ TEST_CASE("w1rewind replay state applier applies snapshot state and stack segmen
   CHECK(state.register_value(1) == 0x2000);
 
   auto mem = state.read_memory(0x2000, 2);
-  REQUIRE(mem.size() == 2);
-  CHECK(mem[0].has_value());
-  CHECK(mem[1].has_value());
-  CHECK(mem[0].value() == 0xAA);
-  CHECK(mem[1].value() == 0xBB);
+  REQUIRE(mem.bytes.size() == 2);
+  REQUIRE(mem.known.size() == 2);
+  CHECK(mem.known[0] == 1);
+  CHECK(mem.known[1] == 1);
+  CHECK(std::to_integer<uint8_t>(mem.bytes[0]) == 0xAA);
+  CHECK(std::to_integer<uint8_t>(mem.bytes[1]) == 0xBB);
 }
 
-TEST_CASE("w1rewind replay state applier ignores non-active thread and read accesses") {
+TEST_CASE("w1rewind replay state applier applies read accesses with known values") {
   w1::rewind::replay_context context{};
   context.register_specs = {
       w1::rewind::register_spec{
@@ -84,8 +85,10 @@ TEST_CASE("w1rewind replay state applier ignores non-active thread and read acce
 
   CHECK(!state.register_value(0).has_value());
   auto mem_bytes = state.read_memory(0x3000, 1);
-  REQUIRE(mem_bytes.size() == 1);
-  CHECK(!mem_bytes[0].has_value());
+  REQUIRE(mem_bytes.bytes.size() == 1);
+  REQUIRE(mem_bytes.known.size() == 1);
+  CHECK(mem_bytes.known[0] == 1);
+  CHECK(std::to_integer<uint8_t>(mem_bytes.bytes[0]) == 0xCC);
 }
 
 TEST_CASE("w1rewind replay state applier applies register byte values") {

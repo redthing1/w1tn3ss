@@ -2,30 +2,26 @@
 
 namespace w1replay::gdb {
 
-offsets_component::offsets_component(adapter_state& state) : state_(state) {}
+offsets_component::offsets_component(const adapter_services& services) : services_(services) {}
 
 std::optional<gdbstub::offsets_info> offsets_component::get_offsets_info() const {
-  auto pc = state_.current_pc();
-  if (!pc.has_value()) {
+  if (!services_.session || !services_.context || !services_.module_index) {
     return std::nullopt;
   }
 
-  uint64_t module_offset = 0;
-  auto* module = state_.context.find_module_for_address(*pc, 1, module_offset);
-  if (!module) {
+  uint64_t pc = services_.session->current_step().address;
+  auto match = services_.module_index->find(pc, 1);
+  if (!match.has_value() || !match->module) {
     return std::nullopt;
   }
-
-  std::string error;
-  const auto* layout = state_.module_source_state.get_module_layout(*module, error);
-  if (!layout) {
+  const auto& module = *match->module;
+  if ((module.flags & w1::rewind::module_record_flag_link_base_valid) == 0) {
     return std::nullopt;
   }
-
-  if (module->base < layout->link_base) {
+  if (module.base < module.link_base) {
     return std::nullopt;
   }
-  uint64_t slide = module->base - layout->link_base;
+  uint64_t slide = module.base - module.link_base;
   return gdbstub::offsets_info::section(slide, slide, slide);
 }
 

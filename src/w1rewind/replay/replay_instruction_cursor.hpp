@@ -4,7 +4,7 @@
 #include <string>
 
 #include "replay_decode.hpp"
-#include "replay_flow_cursor.hpp"
+#include "stateful_flow_cursor.hpp"
 
 namespace w1::rewind {
 
@@ -17,7 +17,7 @@ struct replay_notice {
 
 class replay_instruction_cursor {
 public:
-  explicit replay_instruction_cursor(replay_flow_cursor& flow);
+  explicit replay_instruction_cursor(stateful_flow_cursor& flow);
 
   void set_decoder(replay_block_decoder* decoder) { decoder_ = decoder; }
   void reset();
@@ -46,7 +46,7 @@ private:
   bool fallback_to_flow_forward(flow_step& out, replay_notice notice);
   bool fallback_to_flow_backward(flow_step& out, replay_notice notice);
 
-  replay_flow_cursor& flow_;
+  stateful_flow_cursor& flow_;
   replay_block_decoder* decoder_ = nullptr;
   instruction_state instruction_state_{};
   flow_step current_step_{};

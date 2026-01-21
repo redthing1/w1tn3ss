@@ -10,7 +10,7 @@
 #include "rewind_config.hpp"
 #include "rewind_tracer.hpp"
 
-#include "w1rewind/record/trace_writer.hpp"
+#include "w1rewind/trace/trace_file_writer.hpp"
 #include "w1instrument/tracer/trace_session.hpp"
 #include "w1instrument/self_exclude.hpp"
 
@@ -86,13 +86,13 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
     w1::util::append_self_excludes(g_config.instrumentation, reinterpret_cast<const void*>(&qbdipreload_on_run));
   }
 
-  w1::rewind::trace_writer_config writer_config;
+  w1::rewind::trace_file_writer_config writer_config;
   writer_config.path = g_config.output_path;
   writer_config.log = redlog::get_logger("w1rewind.trace");
   writer_config.compression =
       g_config.compress_trace ? w1::rewind::trace_compression::zstd : w1::rewind::trace_compression::none;
   writer_config.chunk_size = g_config.chunk_size;
-  auto writer = w1::rewind::make_trace_writer(std::move(writer_config));
+  auto writer = w1::rewind::make_trace_file_writer(std::move(writer_config));
   if (!writer || !writer->open()) {
     log.err("failed to initialize trace writer");
     return QBDIPRELOAD_ERR_STARTUP_FAILED;

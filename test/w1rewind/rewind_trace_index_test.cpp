@@ -3,14 +3,14 @@
 #include "doctest/doctest.hpp"
 
 #include "w1rewind/rewind_test_helpers.hpp"
-#include "w1rewind/replay/trace_index.hpp"
-#include "w1rewind/replay/trace_reader.hpp"
-#include "w1rewind/record/trace_writer.hpp"
+#include "w1rewind/trace/trace_index.hpp"
+#include "w1rewind/trace/trace_reader.hpp"
+#include "w1rewind/trace/trace_file_writer.hpp"
 
 namespace {
 
 void write_instruction_range(
-    w1::rewind::trace_writer& writer, uint64_t thread_id, uint64_t start_seq, uint64_t count, uint64_t base_address
+    w1::rewind::trace_file_writer& writer, uint64_t thread_id, uint64_t start_seq, uint64_t count, uint64_t base_address
 ) {
   for (uint64_t i = 0; i < count; ++i) {
     w1::rewind::instruction_record record{};
@@ -32,11 +32,11 @@ TEST_CASE("w1rewind trace index builds anchors for instruction flow") {
   fs::path trace_path = fs::temp_directory_path() / "w1rewind_index.trace";
   fs::path index_path = fs::temp_directory_path() / "w1rewind_index.trace.idx";
 
-  w1::rewind::trace_writer_config writer_config;
+  w1::rewind::trace_file_writer_config writer_config;
   writer_config.path = trace_path.string();
   writer_config.log = redlog::get_logger("test.w1rewind.index");
 
-  auto writer = w1::rewind::make_trace_writer(writer_config);
+  auto writer = w1::rewind::make_trace_file_writer(writer_config);
   REQUIRE(writer);
   REQUIRE(writer->open());
 

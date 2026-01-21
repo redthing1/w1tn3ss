@@ -5,8 +5,8 @@
 #include "doctest/doctest.hpp"
 
 #include "tracers/w1rewind/rewind_tracer.hpp"
-#include "w1rewind/replay/trace_reader.hpp"
-#include "w1rewind/record/trace_writer.hpp"
+#include "w1rewind/trace/trace_reader.hpp"
+#include "w1rewind/trace/trace_file_writer.hpp"
 #include "w1instrument/tracer/trace_session.hpp"
 
 namespace {
@@ -31,11 +31,11 @@ TEST_CASE("w1rewind records block flow and snapshots") {
 
   fs::path path = fs::temp_directory_path() / "w1rewind_recorder_blocks.trace";
 
-  w1::rewind::trace_writer_config writer_config;
+  w1::rewind::trace_file_writer_config writer_config;
   writer_config.path = path.string();
   writer_config.log = redlog::get_logger("test.w1rewind.recorder");
 
-  auto writer = w1::rewind::make_trace_writer(writer_config);
+  auto writer = w1::rewind::make_trace_file_writer(writer_config);
   REQUIRE(writer);
   REQUIRE(writer->open());
 
@@ -124,7 +124,6 @@ TEST_CASE("w1rewind records block flow and snapshots") {
   CHECK(reader.target_environment().has_value());
   CHECK(!reader.register_specs().empty());
   CHECK(!reader.module_table().empty());
-  CHECK(!reader.block_table().empty());
 
   CHECK(block_def_count > 0);
   CHECK(block_exec_count > 0);

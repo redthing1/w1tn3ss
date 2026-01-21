@@ -54,11 +54,11 @@ bool step_once(w1::rewind::replay_session& session, bool instruction, gdbstub::r
 } // namespace
 
 stepper_result resume_step(
-    w1::rewind::replay_session& session, const run_policy& policy, const std::unordered_set<uint64_t>& breakpoints,
+    w1::rewind::replay_session& session, const run_policy& policy, const breakpoint_store& breakpoints,
     uint64_t thread_id, gdbstub::resume_direction direction
 ) {
   bool instruction =
-      policy.choose_step_mode(gdbstub::resume_action::step, !breakpoints.empty()) == step_mode::instruction;
+      policy.choose_step_mode(gdbstub::resume_action::step, !breakpoints.all().empty()) == step_mode::instruction;
   if (!step_once(session, instruction, direction)) {
     auto kind = session.error_kind();
     if (kind == w1::rewind::replay_session::replay_error_kind::begin_of_trace) {
@@ -71,18 +71,18 @@ stepper_result resume_step(
   }
 
   uint64_t address = session.current_step().address;
-  if (breakpoints.find(address) != breakpoints.end()) {
+  if (breakpoints.contains(address)) {
     return make_break_result(address, thread_id);
   }
   return make_signal_result(thread_id);
 }
 
 stepper_result resume_continue(
-    w1::rewind::replay_session& session, const run_policy& policy, const std::unordered_set<uint64_t>& breakpoints,
+    w1::rewind::replay_session& session, const run_policy& policy, const breakpoint_store& breakpoints,
     uint64_t thread_id, gdbstub::resume_direction direction
 ) {
   bool instruction =
-      policy.choose_step_mode(gdbstub::resume_action::cont, !breakpoints.empty()) == step_mode::instruction;
+      policy.choose_step_mode(gdbstub::resume_action::cont, !breakpoints.all().empty()) == step_mode::instruction;
 
   for (;;) {
     if (!step_once(session, instruction, direction)) {
@@ -97,7 +97,7 @@ stepper_result resume_continue(
     }
 
     uint64_t address = session.current_step().address;
-    if (breakpoints.find(address) != breakpoints.end()) {
+    if (breakpoints.contains(address)) {
       return make_break_result(address, thread_id);
     }
   }

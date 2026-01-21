@@ -1,8 +1,11 @@
 #include "memory_map.hpp"
 
 #include <algorithm>
+#include <limits>
 
 #include "w1rewind/format/trace_format.hpp"
+
+#include "w1replay/modules/path_resolver.hpp"
 
 namespace w1replay::gdb {
 
@@ -25,6 +28,28 @@ gdbstub::mem_perm perms_from_module(w1::rewind::module_perm perms) {
     out |= gdbstub::mem_perm::exec;
   }
   return out;
+}
+
+std::string resolve_module_path(const module_path_resolver* resolver, const w1::rewind::module_record& module) {
+  if (!resolver || module.path.empty()) {
+    return module.path;
+  }
+  auto resolved = resolver->resolve_module_path(module);
+  if (resolved.has_value()) {
+    return *resolved;
+  }
+  return module.path;
+}
+
+std::string resolve_region_name(const module_path_resolver* resolver, const std::string& name) {
+  if (!resolver || name.empty()) {
+    return name;
+  }
+  auto resolved = resolver->resolve_region_name(name);
+  if (resolved.has_value()) {
+    return *resolved;
+  }
+  return name;
 }
 
 std::vector<range> build_module_ranges(const std::vector<w1::rewind::module_record>& modules) {
@@ -53,66 +78,78 @@ std::vector<range> build_memory_ranges(const std::vector<w1::rewind::memory_regi
   return ranges;
 }
 
-bool address_in_ranges(uint64_t address, const std::vector<range>& ranges) {
-  auto it = std::upper_bound(ranges.begin(), ranges.end(), address, [](uint64_t addr, const range& r) {
-    return addr < r.start;
-  });
-  if (it == ranges.begin()) {
-    return false;
-  }
-  --it;
-  return address >= it->start && address < it->end;
-}
-
 std::vector<gdbstub::memory_region> build_recorded_regions(
     const w1::rewind::replay_state* state, const std::vector<range>& module_ranges
 ) {
   if (!state) {
     return {};
   }
-  const auto& memory = state->memory_map();
-  if (memory.empty()) {
+  auto spans = state->memory_store().spans();
+  if (spans.empty()) {
     return {};
   }
 
-  std::vector<uint64_t> addresses;
-  addresses.reserve(memory.size());
-  for (const auto& entry : memory) {
-    if (!address_in_ranges(entry.first, module_ranges)) {
-      addresses.push_back(entry.first);
+  auto safe_end = [](uint64_t base, size_t size) {
+    if (size == 0) {
+      return base;
     }
-  }
-
-  if (addresses.empty()) {
-    return {};
-  }
-
-  std::sort(addresses.begin(), addresses.end());
+    uint64_t end = base + static_cast<uint64_t>(size);
+    if (end < base) {
+      return std::numeric_limits<uint64_t>::max();
+    }
+    return end;
+  };
 
   std::vector<gdbstub::memory_region> regions;
-  uint64_t start = addresses.front();
-  uint64_t prev = start;
+  size_t range_index = 0;
 
-  auto flush_range = [&](uint64_t range_start, uint64_t range_end) {
+  auto append_region = [&](uint64_t start, uint64_t end) {
+    if (end <= start) {
+      return;
+    }
     gdbstub::memory_region region{};
-    region.start = range_start;
-    region.size = range_end - range_start + 1;
+    region.start = start;
+    region.size = end - start;
     region.perms = gdbstub::mem_perm::read | gdbstub::mem_perm::write;
     region.name = "rewind.recorded";
     regions.push_back(std::move(region));
   };
 
-  for (size_t i = 1; i < addresses.size(); ++i) {
-    uint64_t addr = addresses[i];
-    if (addr == prev + 1) {
-      prev = addr;
+  for (const auto& span : spans) {
+    if (span.bytes.empty()) {
       continue;
     }
-    flush_range(start, prev);
-    start = addr;
-    prev = addr;
+    uint64_t span_start = span.base;
+    uint64_t span_end = safe_end(span.base, span.bytes.size());
+    if (span_end <= span_start) {
+      continue;
+    }
+
+    uint64_t cursor = span_start;
+    while (range_index < module_ranges.size() && module_ranges[range_index].end <= cursor) {
+      ++range_index;
+    }
+
+    size_t scan_index = range_index;
+    while (scan_index < module_ranges.size() && module_ranges[scan_index].start < span_end) {
+      const auto& range = module_ranges[scan_index];
+      if (range.start > cursor) {
+        append_region(cursor, std::min(range.start, span_end));
+      }
+      if (range.end >= span_end) {
+        cursor = span_end;
+        break;
+      }
+      cursor = std::max(cursor, range.end);
+      ++scan_index;
+    }
+
+    if (cursor < span_end) {
+      append_region(cursor, span_end);
+    }
+
+    range_index = scan_index;
   }
-  flush_range(start, prev);
 
   return regions;
 }
@@ -121,7 +158,8 @@ std::vector<gdbstub::memory_region> build_recorded_regions(
 
 std::vector<gdbstub::memory_region> build_memory_map(
     const std::vector<w1::rewind::module_record>& modules,
-    const std::vector<w1::rewind::memory_region_record>& memory_map, const w1::rewind::replay_state* state
+    const std::vector<w1::rewind::memory_region_record>& memory_map, const w1::rewind::replay_state* state,
+    const module_path_resolver* resolver
 ) {
   std::vector<gdbstub::memory_region> regions;
   const bool use_memory_map = !memory_map.empty();
@@ -132,7 +170,7 @@ std::vector<gdbstub::memory_region> build_memory_map(
       region.start = region_info.base;
       region.size = region_info.size;
       region.perms = perms_from_module(region_info.permissions);
-      region.name = region_info.name;
+      region.name = resolve_region_name(resolver, region_info.name);
       regions.push_back(std::move(region));
     }
   } else if (!modules.empty()) {
@@ -143,7 +181,7 @@ std::vector<gdbstub::memory_region> build_memory_map(
       region.size = module.size;
       region.perms = perms_from_module(module.permissions);
       if (!module.path.empty()) {
-        region.name = module.path;
+        region.name = resolve_module_path(resolver, module);
       }
       regions.push_back(std::move(region));
     }

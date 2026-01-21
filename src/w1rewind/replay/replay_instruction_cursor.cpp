@@ -15,7 +15,7 @@ replay_notice make_notice(replay_notice_kind kind, const std::string& message) {
 
 } // namespace
 
-replay_instruction_cursor::replay_instruction_cursor(replay_flow_cursor& flow) : flow_(flow) {}
+replay_instruction_cursor::replay_instruction_cursor(stateful_flow_cursor& flow) : flow_(flow) {}
 
 void replay_instruction_cursor::reset() {
   instruction_state_ = instruction_state{};

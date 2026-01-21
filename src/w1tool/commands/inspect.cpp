@@ -1,4 +1,5 @@
 #include "inspect.hpp"
+
 #include <redlog.hpp>
 #include <algorithm>
 #include <cctype>
@@ -8,6 +9,8 @@
 #include <optional>
 #include <sstream>
 #include <vector>
+
+#include "w1base/uuid_format.hpp"
 
 #ifdef WITNESS_LIEF_ENABLED
 #include <LIEF/LIEF.hpp>
@@ -206,18 +209,6 @@ std::string format_permissions(bool read, bool write, bool exec) {
     perms[2] = 'x';
   }
   return perms;
-}
-
-std::string format_uuid(const LIEF::MachO::uuid_t& uuid) {
-  std::ostringstream out;
-  out << std::hex << std::setfill('0');
-  for (size_t i = 0; i < uuid.size(); ++i) {
-    if (i == 4 || i == 6 || i == 8 || i == 10) {
-      out << '-';
-    }
-    out << std::setw(2) << static_cast<int>(uuid[i]);
-  }
-  return out.str();
 }
 
 std::string format_version(const LIEF::MachO::BuildVersion::version_t& version) {
@@ -573,7 +564,7 @@ inspect_report build_report(const inspect_request& request, LIEF::Binary& binary
       }
       if (macho.has_uuid()) {
         if (const auto* uuid = macho.uuid()) {
-          header_info.uuid = format_uuid(uuid->uuid());
+          header_info.uuid = w1::util::format_uuid(uuid->uuid());
         }
       }
       if (macho.has_build_version()) {

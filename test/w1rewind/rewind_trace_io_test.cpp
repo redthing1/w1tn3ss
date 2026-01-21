@@ -3,8 +3,8 @@
 #include "doctest/doctest.hpp"
 
 #include "w1rewind/rewind_test_helpers.hpp"
-#include "w1rewind/replay/trace_reader.hpp"
-#include "w1rewind/record/trace_writer.hpp"
+#include "w1rewind/trace/trace_reader.hpp"
+#include "w1rewind/trace/trace_file_writer.hpp"
 
 namespace {
 
@@ -18,11 +18,11 @@ TEST_CASE("rewind trace writer and reader round trip (instructions)") {
 
   fs::path path = make_temp_path("w1rewind_trace_io_instruction.trace");
 
-  w1::rewind::trace_writer_config config;
+  w1::rewind::trace_file_writer_config config;
   config.path = path.string();
   config.log = redlog::get_logger("test.w1rewind.trace");
 
-  auto writer = w1::rewind::make_trace_writer(config);
+  auto writer = w1::rewind::make_trace_file_writer(config);
   REQUIRE(writer);
   REQUIRE(writer->open());
 
@@ -44,6 +44,8 @@ TEST_CASE("rewind trace writer and reader round trip (instructions)") {
   module.format = w1::rewind::module_format::elf;
   module.identity = "deadbeef";
   module.identity_age = 0;
+  module.flags = w1::rewind::module_record_flag_link_base_valid;
+  module.link_base = 0x800;
   module.path = "/bin/test_module";
 
   w1::rewind::module_table_record mod_table{};
@@ -130,6 +132,8 @@ TEST_CASE("rewind trace writer and reader round trip (instructions)") {
   CHECK(modules[0].format == w1::rewind::module_format::elf);
   CHECK(modules[0].identity == "deadbeef");
   CHECK(modules[0].identity_age == 0);
+  CHECK(modules[0].flags == w1::rewind::module_record_flag_link_base_valid);
+  CHECK(modules[0].link_base == 0x800);
   CHECK(std::holds_alternative<w1::rewind::thread_start_record>(records[4]));
   CHECK(std::holds_alternative<w1::rewind::instruction_record>(records[5]));
   CHECK(std::holds_alternative<w1::rewind::register_delta_record>(records[6]));
@@ -148,12 +152,12 @@ TEST_CASE("rewind trace writer and reader round trip (compressed blocks)") {
 
   fs::path path = make_temp_path("w1rewind_trace_io_compressed_block.trace");
 
-  w1::rewind::trace_writer_config config;
+  w1::rewind::trace_file_writer_config config;
   config.path = path.string();
   config.log = redlog::get_logger("test.w1rewind.trace");
   config.compression = w1::rewind::trace_compression::zstd;
 
-  auto writer = w1::rewind::make_trace_writer(config);
+  auto writer = w1::rewind::make_trace_file_writer(config);
   REQUIRE(writer);
   REQUIRE(writer->open());
 
@@ -234,11 +238,11 @@ TEST_CASE("rewind trace writer and reader round trip (blocks)") {
 
   fs::path path = make_temp_path("w1rewind_trace_io_block.trace");
 
-  w1::rewind::trace_writer_config config;
+  w1::rewind::trace_file_writer_config config;
   config.path = path.string();
   config.log = redlog::get_logger("test.w1rewind.trace");
 
-  auto writer = w1::rewind::make_trace_writer(config);
+  auto writer = w1::rewind::make_trace_file_writer(config);
   REQUIRE(writer);
   REQUIRE(writer->open());
 
@@ -322,7 +326,6 @@ TEST_CASE("rewind trace writer and reader round trip (blocks)") {
   CHECK(std::holds_alternative<w1::rewind::block_exec_record>(records[6]));
   CHECK(std::holds_alternative<w1::rewind::snapshot_record>(records[7]));
   CHECK(std::holds_alternative<w1::rewind::thread_end_record>(records[8]));
-  CHECK(reader.block_table().size() == 1);
 
   reader.close();
   fs::remove(path);
@@ -333,11 +336,11 @@ TEST_CASE("rewind trace writer and reader round trip (register bytes)") {
 
   fs::path path = make_temp_path("w1rewind_trace_io_regbytes.trace");
 
-  w1::rewind::trace_writer_config config;
+  w1::rewind::trace_file_writer_config config;
   config.path = path.string();
   config.log = redlog::get_logger("test.w1rewind.trace");
 
-  auto writer = w1::rewind::make_trace_writer(config);
+  auto writer = w1::rewind::make_trace_file_writer(config);
   REQUIRE(writer);
   REQUIRE(writer->open());
 

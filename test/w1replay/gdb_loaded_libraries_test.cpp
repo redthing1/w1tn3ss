@@ -2,10 +2,34 @@
 
 #include "w1replay/gdb/lldb/darwin_loaded_libraries.hpp"
 #include "w1replay/gdb/loaded_libraries_provider.hpp"
-#include "w1replay/module_source.hpp"
+#include "w1replay/modules/metadata_provider.hpp"
+#include "w1replay/modules/path_resolver.hpp"
 #include "w1rewind/replay/replay_context.hpp"
 
 namespace w1replay::gdb {
+
+namespace {
+
+struct stub_metadata_provider final : public module_metadata_provider {
+  std::optional<std::string> module_uuid(const w1::rewind::module_record&, std::string&) override {
+    return std::nullopt;
+  }
+  std::optional<macho_header_info> macho_header(const w1::rewind::module_record&, std::string&) override {
+    return std::nullopt;
+  }
+  std::vector<macho_segment_info> macho_segments(const w1::rewind::module_record&, std::string&) override {
+    return {};
+  }
+};
+
+struct stub_path_resolver final : public module_path_resolver {
+  std::optional<std::string> resolve_module_path(const w1::rewind::module_record&) const override {
+    return std::nullopt;
+  }
+  std::optional<std::string> resolve_region_name(std::string_view) const override { return std::nullopt; }
+};
+
+} // namespace
 
 TEST_CASE("darwin loaded libraries json includes load commands when requested") {
   gdbstub::lldb::loaded_libraries_request request{};
@@ -49,14 +73,15 @@ TEST_CASE("darwin loaded libraries json omits load commands when disabled") {
 TEST_CASE("loaded libraries provider selection respects target os") {
   w1::rewind::replay_context context{};
   context.target_info = w1::rewind::target_info_record{};
-  w1replay::module_source module_source;
+  stub_metadata_provider metadata_provider;
+  stub_path_resolver resolver;
 
   context.target_info->os = "macos";
-  auto darwin_provider = make_loaded_libraries_provider(context, module_source);
+  auto darwin_provider = make_loaded_libraries_provider(context, metadata_provider, resolver);
   CHECK(darwin_provider != nullptr);
 
   context.target_info->os = "linux";
-  auto linux_provider = make_loaded_libraries_provider(context, module_source);
+  auto linux_provider = make_loaded_libraries_provider(context, metadata_provider, resolver);
   CHECK(linux_provider == nullptr);
 }
 

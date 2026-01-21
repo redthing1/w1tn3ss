@@ -2,17 +2,17 @@
 
 namespace w1replay::gdb {
 
-breakpoints_component::breakpoints_component(adapter_state& state) : state_(state) {}
+breakpoints_component::breakpoints_component(const adapter_services& services) : services_(services) {}
 
 gdbstub::target_status breakpoints_component::set_breakpoint(const gdbstub::breakpoint_request& request) {
   if (request.spec.type != gdbstub::breakpoint_type::software &&
       request.spec.type != gdbstub::breakpoint_type::hardware) {
     return gdbstub::target_status::unsupported;
   }
-  state_.breakpoints.insert(request.spec.addr);
-  if (state_.session) {
-    state_.session->add_breakpoint(request.spec.addr);
+  if (!services_.breakpoints) {
+    return gdbstub::target_status::unsupported;
   }
+  services_.breakpoints->add(request.spec.addr);
   return gdbstub::target_status::ok;
 }
 
@@ -21,10 +21,10 @@ gdbstub::target_status breakpoints_component::remove_breakpoint(const gdbstub::b
       request.spec.type != gdbstub::breakpoint_type::hardware) {
     return gdbstub::target_status::unsupported;
   }
-  state_.breakpoints.erase(request.spec.addr);
-  if (state_.session) {
-    state_.session->remove_breakpoint(request.spec.addr);
+  if (!services_.breakpoints) {
+    return gdbstub::target_status::unsupported;
   }
+  services_.breakpoints->remove(request.spec.addr);
   return gdbstub::target_status::ok;
 }
 

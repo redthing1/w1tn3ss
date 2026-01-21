@@ -8,7 +8,8 @@
 #include "gdbstub/lldb/types.hpp"
 
 #include "w1replay/gdb/loaded_libraries_provider.hpp"
-#include "w1replay/module_source.hpp"
+#include "w1replay/modules/metadata_provider.hpp"
+#include "w1replay/modules/path_resolver.hpp"
 
 namespace w1replay::gdb {
 
@@ -26,7 +27,10 @@ std::string build_darwin_loaded_libraries_json(
 
 class darwin_loaded_libraries_provider final : public loaded_libraries_provider {
 public:
-  darwin_loaded_libraries_provider(const w1::rewind::replay_context& context, module_source& module_source);
+  darwin_loaded_libraries_provider(
+      const w1::rewind::replay_context& context, module_metadata_provider& metadata_provider,
+      module_path_resolver& resolver
+  );
 
   std::optional<std::string> loaded_libraries_json(
       const gdbstub::lldb::loaded_libraries_request& request
@@ -42,7 +46,8 @@ private:
   ) const;
 
   const w1::rewind::replay_context& context_;
-  module_source& module_source_;
+  module_metadata_provider& metadata_provider_;
+  module_path_resolver& resolver_;
 };
 
 } // namespace w1replay::gdb

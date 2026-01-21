@@ -7,7 +7,7 @@
 #include "rewind_config.hpp"
 #include "rewind_recorder.hpp"
 
-#include "w1rewind/record/trace_writer.hpp"
+#include "w1rewind/trace/record_sink.hpp"
 #include "w1instrument/tracer/event.hpp"
 #include "w1instrument/tracer/trace_context.hpp"
 #include "w1instrument/tracer/types.hpp"
@@ -16,7 +16,7 @@ namespace w1rewind {
 
 class rewind_instruction_tracer {
 public:
-  explicit rewind_instruction_tracer(rewind_config config, std::shared_ptr<w1::rewind::trace_writer> writer);
+  explicit rewind_instruction_tracer(rewind_config config, std::shared_ptr<w1::rewind::trace_record_sink> sink);
 
   const char* name() const { return "w1rewind"; }
   static constexpr w1::event_mask requested_events() {
@@ -46,7 +46,7 @@ private:
 
 class rewind_block_tracer {
 public:
-  explicit rewind_block_tracer(rewind_config config, std::shared_ptr<w1::rewind::trace_writer> writer);
+  explicit rewind_block_tracer(rewind_config config, std::shared_ptr<w1::rewind::trace_record_sink> sink);
 
   const char* name() const { return "w1rewind"; }
   static constexpr w1::event_mask requested_events() {
