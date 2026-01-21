@@ -415,7 +415,6 @@ void replay_session::reset_instruction_cursor() {
   notice_.reset();
 }
 
-
 bool replay_session::step_flow_internal(flow_step& out) {
   clear_error();
 
@@ -475,7 +474,9 @@ bool replay_session::step_flow_backward_internal(flow_step& out) {
         }
         flow_step step{};
         if (!stateful_flow_cursor_->step_forward(step)) {
-          set_error(map_flow_error_kind(stateful_flow_cursor_->error_kind()), std::string(stateful_flow_cursor_->error()));
+          set_error(
+              map_flow_error_kind(stateful_flow_cursor_->error_kind()), std::string(stateful_flow_cursor_->error())
+          );
           return false;
         }
         out = step;

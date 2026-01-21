@@ -55,7 +55,8 @@ void append_json_key(std::string& out, std::string_view key) {
 } // namespace
 
 darwin_loaded_libraries_provider::darwin_loaded_libraries_provider(
-    const w1::rewind::replay_context& context, module_metadata_provider& metadata_provider, module_path_resolver& resolver
+    const w1::rewind::replay_context& context, module_metadata_provider& metadata_provider,
+    module_path_resolver& resolver
 )
     : context_(context), metadata_provider_(metadata_provider), resolver_(resolver) {}
 

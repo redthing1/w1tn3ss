@@ -46,9 +46,7 @@ inline register_value_kind register_value_kind_for_name(std::string_view name) {
   return register_value_kind::u64;
 }
 
-inline uint32_t register_bitsize(
-    const w1::arch::arch_spec& arch, std::string_view name, uint32_t pointer_size_bytes
-) {
+inline uint32_t register_bitsize(const w1::arch::arch_spec& arch, std::string_view name, uint32_t pointer_size_bytes) {
   uint32_t pointer_bits = pointer_size_bytes * 8;
   if (arch.arch_mode == w1::arch::mode::x86_64 || arch.arch_mode == w1::arch::mode::x86_32) {
     if (name == "eflags" || name == "rflags") {
@@ -81,9 +79,7 @@ inline std::string gdb_name_for_register(std::string_view name, const w1::arch::
   return std::string(name);
 }
 
-inline std::optional<uint16_t> find_register_id(
-    const std::vector<std::string>& names, std::string_view target
-) {
+inline std::optional<uint16_t> find_register_id(const std::vector<std::string>& names, std::string_view target) {
   for (size_t i = 0; i < names.size(); ++i) {
     if (names[i] == target) {
       return static_cast<uint16_t>(i);

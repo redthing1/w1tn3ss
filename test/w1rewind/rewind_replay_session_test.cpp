@@ -83,7 +83,9 @@ TEST_CASE("w1rewind replay session steps through decoded block instructions") {
   w1::rewind::trace_index_options index_options;
   auto index = std::make_shared<w1::rewind::trace_index>();
   REQUIRE(
-      w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, index.get(), writer_config.log)
+      w1::rewind::build_trace_index(
+          trace_path.string(), index_path.string(), index_options, index.get(), writer_config.log
+      )
   );
 
   w1::rewind::replay_context context;
@@ -163,7 +165,9 @@ TEST_CASE("w1rewind replay session instruction stepping falls back without decod
   w1::rewind::trace_index_options index_options;
   auto index = std::make_shared<w1::rewind::trace_index>();
   REQUIRE(
-      w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, index.get(), writer_config.log)
+      w1::rewind::build_trace_index(
+          trace_path.string(), index_path.string(), index_options, index.get(), writer_config.log
+      )
   );
 
   w1::rewind::replay_context context;
@@ -225,7 +229,9 @@ TEST_CASE("w1rewind trace index rebuilds stale index when trace changes") {
   w1::rewind::trace_index_options index_options;
   auto index = std::make_shared<w1::rewind::trace_index>();
   REQUIRE(
-      w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, index.get(), writer_config.log)
+      w1::rewind::build_trace_index(
+          trace_path.string(), index_path.string(), index_options, index.get(), writer_config.log
+      )
   );
 
   w1::rewind::trace_file_writer_config new_writer_config = writer_config;
@@ -295,7 +301,9 @@ TEST_CASE("w1rewind trace index rebuilds index on mismatch even if trace is olde
   w1::rewind::trace_index_options index_options;
   auto index = std::make_shared<w1::rewind::trace_index>();
   REQUIRE(
-      w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, index.get(), writer_config.log)
+      w1::rewind::build_trace_index(
+          trace_path.string(), index_path.string(), index_options, index.get(), writer_config.log
+      )
   );
 
   auto index_time = fs::last_write_time(index_path);
@@ -369,7 +377,9 @@ TEST_CASE("w1rewind replay session supports reverse instruction stepping on bloc
   w1::rewind::trace_index_options index_options;
   auto index = std::make_shared<w1::rewind::trace_index>();
   REQUIRE(
-      w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, index.get(), writer_config.log)
+      w1::rewind::build_trace_index(
+          trace_path.string(), index_path.string(), index_options, index.get(), writer_config.log
+      )
   );
 
   w1::rewind::replay_context context;
@@ -447,7 +457,9 @@ TEST_CASE("w1rewind replay session preserves state across intra-block steps") {
   w1::rewind::trace_index_options index_options;
   auto index = std::make_shared<w1::rewind::trace_index>();
   REQUIRE(
-      w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, index.get(), writer_config.log)
+      w1::rewind::build_trace_index(
+          trace_path.string(), index_path.string(), index_options, index.get(), writer_config.log
+      )
   );
 
   w1::rewind::replay_context context;
@@ -531,7 +543,9 @@ TEST_CASE("w1rewind replay session reverse instruction stepping on instruction t
   w1::rewind::trace_index_options index_options;
   auto index = std::make_shared<w1::rewind::trace_index>();
   REQUIRE(
-      w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, index.get(), writer_config.log)
+      w1::rewind::build_trace_index(
+          trace_path.string(), index_path.string(), index_options, index.get(), writer_config.log
+      )
   );
 
   w1::rewind::replay_context context;

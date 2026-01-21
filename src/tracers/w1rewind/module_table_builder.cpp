@@ -281,9 +281,7 @@ std::vector<w1::rewind::memory_region_record> collect_memory_map(
     regions.push_back(std::move(region));
   }
   w1::rewind::assign_memory_map_image_ids(regions, modules);
-  std::sort(regions.begin(), regions.end(), [](const auto& left, const auto& right) {
-    return left.base < right.base;
-  });
+  std::sort(regions.begin(), regions.end(), [](const auto& left, const auto& right) { return left.base < right.base; });
   return regions;
 }
 

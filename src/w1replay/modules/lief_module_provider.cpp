@@ -12,8 +12,7 @@
 namespace w1replay {
 
 lief_module_provider::lief_module_provider(lief_module_provider_config config)
-    : resolver_(config.resolver),
-      address_index_(config.address_index),
+    : resolver_(config.resolver), address_index_(config.address_index),
       address_reader_(std::move(config.address_reader)) {}
 
 std::string lief_module_provider::resolved_module_path(const w1::rewind::module_record& module) const {
@@ -99,9 +98,7 @@ image_read_result lief_module_provider::read_address_bytes(
   return read_module_bytes(resolved, match->module_offset, size);
 }
 
-const image_layout* lief_module_provider::module_layout(
-    const w1::rewind::module_record& module, std::string& error
-) {
+const image_layout* lief_module_provider::module_layout(const w1::rewind::module_record& module, std::string& error) {
   error.clear();
 #if !defined(WITNESS_LIEF_ENABLED)
   (void) module;

@@ -31,8 +31,7 @@ gdbstub::resume_result run_component::resume(const gdbstub::resume_request& requ
 
   run_policy policy = services_.run_policy;
   static const breakpoint_store empty_breakpoints{};
-  const breakpoint_store& breakpoints =
-      services_.breakpoints ? *services_.breakpoints : empty_breakpoints;
+  const breakpoint_store& breakpoints = services_.breakpoints ? *services_.breakpoints : empty_breakpoints;
 
   stepper_result result{};
   if (request.action == gdbstub::resume_action::step) {

@@ -11,7 +11,7 @@
 namespace w1::rewind {
 struct module_record;
 struct replay_context;
-}
+} // namespace w1::rewind
 
 namespace w1replay {
 
@@ -27,9 +27,7 @@ public:
   virtual image_read_result read_address_bytes(
       const w1::rewind::replay_context& context, uint64_t address, size_t size
   ) = 0;
-  virtual const image_layout* module_layout(
-      const w1::rewind::module_record& module, std::string& error
-  ) = 0;
+  virtual const image_layout* module_layout(const w1::rewind::module_record& module, std::string& error) = 0;
 };
 
 } // namespace w1replay

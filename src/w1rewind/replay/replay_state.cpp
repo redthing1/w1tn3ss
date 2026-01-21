@@ -196,9 +196,7 @@ void replay_state::set_memory_spans(std::span<const memory_span> spans) {
   memory_.apply_segments(spans);
 }
 
-memory_read replay_state::read_memory(uint64_t address, size_t size) const {
-  return memory_.read(address, size);
-}
+memory_read replay_state::read_memory(uint64_t address, size_t size) const { return memory_.read(address, size); }
 
 void replay_state::reset_register_bytes() {
   register_byte_offsets_.clear();

@@ -72,9 +72,7 @@ void merge_ranges(std::vector<w1::address_range>& ranges) {
   if (ranges.empty()) {
     return;
   }
-  std::sort(ranges.begin(), ranges.end(), [](const auto& left, const auto& right) {
-    return left.start < right.start;
-  });
+  std::sort(ranges.begin(), ranges.end(), [](const auto& left, const auto& right) { return left.start < right.start; });
 
   std::vector<w1::address_range> merged;
   merged.reserve(ranges.size());

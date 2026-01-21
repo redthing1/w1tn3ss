@@ -13,8 +13,6 @@ struct register_numbering {
   uint32_t ehframe_regnum = k_register_regnum_unknown;
 };
 
-std::optional<register_numbering> lookup_register_numbering(
-    const w1::arch::arch_spec& arch, std::string_view name
-);
+std::optional<register_numbering> lookup_register_numbering(const w1::arch::arch_spec& arch, std::string_view name);
 
 } // namespace w1::rewind

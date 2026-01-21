@@ -8,7 +8,7 @@
 namespace w1::rewind {
 struct replay_context;
 class replay_state;
-}
+} // namespace w1::rewind
 
 namespace w1replay {
 

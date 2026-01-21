@@ -68,9 +68,7 @@ std::string triple_arch_from_spec(const w1::arch::arch_spec& spec) {
 }
 } // namespace
 
-std::string build_process_triple(
-    const w1::arch::arch_spec& spec, const std::string& os_id, const std::string& abi
-) {
+std::string build_process_triple(const w1::arch::arch_spec& spec, const std::string& os_id, const std::string& abi) {
   std::string arch = triple_arch_from_spec(spec);
   if (arch.empty()) {
     return {};

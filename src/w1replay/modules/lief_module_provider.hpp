@@ -28,23 +28,15 @@ class lief_module_provider final : public module_image_reader, public module_met
 public:
   explicit lief_module_provider(lief_module_provider_config config);
 
-  image_read_result read_module_bytes(
-      const w1::rewind::module_record& module, uint64_t offset, size_t size
-  ) override;
+  image_read_result read_module_bytes(const w1::rewind::module_record& module, uint64_t offset, size_t size) override;
   image_read_result read_address_bytes(
       const w1::rewind::replay_context& context, uint64_t address, size_t size
   ) override;
   const image_layout* module_layout(const w1::rewind::module_record& module, std::string& error) override;
 
-  std::optional<std::string> module_uuid(
-      const w1::rewind::module_record& module, std::string& error
-  ) override;
-  std::optional<macho_header_info> macho_header(
-      const w1::rewind::module_record& module, std::string& error
-  ) override;
-  std::vector<macho_segment_info> macho_segments(
-      const w1::rewind::module_record& module, std::string& error
-  ) override;
+  std::optional<std::string> module_uuid(const w1::rewind::module_record& module, std::string& error) override;
+  std::optional<macho_header_info> macho_header(const w1::rewind::module_record& module, std::string& error) override;
+  std::vector<macho_segment_info> macho_segments(const w1::rewind::module_record& module, std::string& error) override;
 
 private:
   std::string resolved_module_path(const w1::rewind::module_record& module) const;

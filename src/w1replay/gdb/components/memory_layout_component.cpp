@@ -10,8 +10,7 @@ std::vector<gdbstub::memory_region> memory_layout_component::memory_map() const 
   if (!services_.context) {
     return {};
   }
-  const auto* replay_state =
-      (services_.session && services_.track_memory) ? services_.session->state() : nullptr;
+  const auto* replay_state = (services_.session && services_.track_memory) ? services_.session->state() : nullptr;
   return build_memory_map(
       services_.context->modules, services_.context->memory_map, replay_state, services_.module_resolver
   );

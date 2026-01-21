@@ -99,31 +99,10 @@ std::optional<register_numbering> lookup_x86_32(std::string_view name) {
 
 std::optional<register_numbering> lookup_x86_64(std::string_view name) {
   static constexpr std::array<std::pair<std::string_view, uint32_t>, 25> kMap = {{
-      {"rax", 0},
-      {"rdx", 1},
-      {"rcx", 2},
-      {"rbx", 3},
-      {"rsi", 4},
-      {"rdi", 5},
-      {"rbp", 6},
-      {"rsp", 7},
-      {"r8", 8},
-      {"r9", 9},
-      {"r10", 10},
-      {"r11", 11},
-      {"r12", 12},
-      {"r13", 13},
-      {"r14", 14},
-      {"r15", 15},
-      {"rip", 16},
-      {"rflags", 49},
-      {"eflags", 49},
-      {"es", 50},
-      {"cs", 51},
-      {"ss", 52},
-      {"ds", 53},
-      {"fs", 54},
-      {"gs", 55},
+      {"rax", 0},  {"rdx", 1},  {"rcx", 2},  {"rbx", 3},     {"rsi", 4},     {"rdi", 5},  {"rbp", 6},
+      {"rsp", 7},  {"r8", 8},   {"r9", 9},   {"r10", 10},    {"r11", 11},    {"r12", 12}, {"r13", 13},
+      {"r14", 14}, {"r15", 15}, {"rip", 16}, {"rflags", 49}, {"eflags", 49}, {"es", 50},  {"cs", 51},
+      {"ss", 52},  {"ds", 53},  {"fs", 54},  {"gs", 55},
   }};
   for (const auto& [reg_name, regnum] : kMap) {
     if (name == reg_name) {
@@ -135,9 +114,7 @@ std::optional<register_numbering> lookup_x86_64(std::string_view name) {
 
 } // namespace
 
-std::optional<register_numbering> lookup_register_numbering(
-    const w1::arch::arch_spec& arch, std::string_view name
-) {
+std::optional<register_numbering> lookup_register_numbering(const w1::arch::arch_spec& arch, std::string_view name) {
   switch (arch.arch_mode) {
   case w1::arch::mode::aarch64:
     return lookup_aarch64(name);

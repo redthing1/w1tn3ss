@@ -35,9 +35,7 @@ std::vector<w1::rewind::register_spec> build_minimal_register_specs(const w1::ar
   std::vector<w1::rewind::register_spec> specs;
   specs.reserve(names.size());
   for (size_t i = 0; i < names.size(); ++i) {
-    specs.push_back(
-        w1::rewind::build_register_spec(arch, static_cast<uint16_t>(i), names[i], pointer_size)
-    );
+    specs.push_back(w1::rewind::build_register_spec(arch, static_cast<uint16_t>(i), names[i], pointer_size));
   }
   return specs;
 }

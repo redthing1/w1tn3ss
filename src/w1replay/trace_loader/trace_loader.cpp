@@ -57,9 +57,9 @@ bool load_trace(const trace_load_options& options, trace_load_result& out) {
   std::shared_ptr<w1::rewind::replay_checkpoint_index> checkpoint_ptr;
   bool wants_checkpoint = !options.checkpoint_path.empty() || options.checkpoint_stride > 0;
   if (wants_checkpoint) {
-    std::filesystem::path checkpoint_path =
-        options.checkpoint_path.empty() ? w1::rewind::default_replay_checkpoint_path(options.trace_path)
-                                        : options.checkpoint_path;
+    std::filesystem::path checkpoint_path = options.checkpoint_path.empty()
+                                                ? w1::rewind::default_replay_checkpoint_path(options.trace_path)
+                                                : options.checkpoint_path;
     bool checkpoint_exists = path_exists(checkpoint_path);
 
     auto checkpoint = std::make_shared<w1::rewind::replay_checkpoint_index>();

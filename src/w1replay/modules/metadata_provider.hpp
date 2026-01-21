@@ -31,9 +31,7 @@ class module_metadata_provider {
 public:
   virtual ~module_metadata_provider() = default;
 
-  virtual std::optional<std::string> module_uuid(
-      const w1::rewind::module_record& module, std::string& error
-  ) = 0;
+  virtual std::optional<std::string> module_uuid(const w1::rewind::module_record& module, std::string& error) = 0;
   virtual std::optional<macho_header_info> macho_header(
       const w1::rewind::module_record& module, std::string& error
   ) = 0;

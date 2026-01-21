@@ -188,8 +188,7 @@ stack_window_result compute_stack_window_segments(
     uint64_t max_sp_size = options.max_total_bytes;
     if (fp_valid) {
       uint64_t overlap = overlap_size(stack_window_segment{sp_seg.base, sp_seg.size}, fp_seg);
-      uint64_t available =
-          options.max_total_bytes > fp_seg.size ? options.max_total_bytes - fp_seg.size : 0;
+      uint64_t available = options.max_total_bytes > fp_seg.size ? options.max_total_bytes - fp_seg.size : 0;
       if (sp_seg.size > available + overlap) {
         max_sp_size = available + overlap;
       }

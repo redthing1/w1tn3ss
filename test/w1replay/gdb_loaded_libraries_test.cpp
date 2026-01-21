@@ -17,9 +17,7 @@ struct stub_metadata_provider final : public module_metadata_provider {
   std::optional<macho_header_info> macho_header(const w1::rewind::module_record&, std::string&) override {
     return std::nullopt;
   }
-  std::vector<macho_segment_info> macho_segments(const w1::rewind::module_record&, std::string&) override {
-    return {};
-  }
+  std::vector<macho_segment_info> macho_segments(const w1::rewind::module_record&, std::string&) override { return {}; }
 };
 
 struct stub_path_resolver final : public module_path_resolver {

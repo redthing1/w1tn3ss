@@ -9,8 +9,7 @@
 namespace w1replay {
 
 replay_memory_view::replay_memory_view(
-    const w1::rewind::replay_context* context, const w1::rewind::replay_state* state,
-    module_image_reader* module_reader
+    const w1::rewind::replay_context* context, const w1::rewind::replay_state* state, module_image_reader* module_reader
 )
     : context_(context), state_(state), module_reader_(module_reader) {}
 

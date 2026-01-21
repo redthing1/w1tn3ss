@@ -54,7 +54,9 @@ TEST_CASE("w1rewind replay cursor steps through instruction flow") {
   w1::rewind::trace_index_options index_options;
   auto index = std::make_shared<w1::rewind::trace_index>();
   REQUIRE(
-      w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, index.get(), writer_config.log)
+      w1::rewind::build_trace_index(
+          trace_path.string(), index_path.string(), index_options, index.get(), writer_config.log
+      )
   );
 
   w1::rewind::replay_context context;
@@ -124,7 +126,9 @@ TEST_CASE("w1rewind replay cursor resolves block flow addresses") {
   w1::rewind::trace_index_options index_options;
   auto index = std::make_shared<w1::rewind::trace_index>();
   REQUIRE(
-      w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, index.get(), writer_config.log)
+      w1::rewind::build_trace_index(
+          trace_path.string(), index_path.string(), index_options, index.get(), writer_config.log
+      )
   );
 
   w1::rewind::replay_context context;
@@ -187,7 +191,9 @@ TEST_CASE("w1rewind replay cursor handles module-less traces") {
   w1::rewind::trace_index_options index_options;
   auto index = std::make_shared<w1::rewind::trace_index>();
   REQUIRE(
-      w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, index.get(), writer_config.log)
+      w1::rewind::build_trace_index(
+          trace_path.string(), index_path.string(), index_options, index.get(), writer_config.log
+      )
   );
 
   w1::rewind::replay_context context;

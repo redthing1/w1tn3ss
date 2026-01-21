@@ -38,8 +38,7 @@ uint32_t apply_arm_thumb_flags(
 } // namespace
 
 recording_engine::recording_engine(rewind_config config, std::shared_ptr<w1::rewind::trace_record_sink> sink)
-    : config_(std::move(config)),
-      sink_(std::move(sink)),
+    : config_(std::move(config)), sink_(std::move(sink)),
       instruction_flow_(config_.flow.mode == rewind_config::flow_options::mode::instruction),
       memory_filter_(config_.memory) {
   w1::rewind::trace_builder_config builder_config;
@@ -142,8 +141,8 @@ void recording_engine::on_instruction_post(
   pending.size = event.size;
   pending.flags = resolve_instruction_flags(regs);
 
-  bool need_registers = config_.registers.deltas || config_.registers.snapshot_interval > 0 ||
-      config_.stack_snapshots.interval > 0;
+  bool need_registers =
+      config_.registers.deltas || config_.registers.snapshot_interval > 0 || config_.stack_snapshots.interval > 0;
   w1::util::register_state empty_regs;
   const auto* use_regs = regs ? regs : &empty_regs;
 
@@ -203,9 +202,9 @@ void recording_engine::on_memory(
   }
 
   bool capture_reads = config_.memory.access == rewind_config::memory_access::reads ||
-      config_.memory.access == rewind_config::memory_access::reads_writes;
+                       config_.memory.access == rewind_config::memory_access::reads_writes;
   bool capture_writes = config_.memory.access == rewind_config::memory_access::writes ||
-      config_.memory.access == rewind_config::memory_access::reads_writes;
+                        config_.memory.access == rewind_config::memory_access::reads_writes;
 
   if (event.is_read && capture_reads) {
     append_memory_access(

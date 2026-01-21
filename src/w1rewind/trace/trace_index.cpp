@@ -169,9 +169,7 @@ bool build_trace_index(
     if (flow_record) {
       auto& state = threads[flow_record->thread_id];
       if (state.flow_count % options.anchor_stride == 0) {
-        state.anchors.push_back(
-            trace_anchor{flow_record->sequence, location.chunk_index, location.record_offset}
-        );
+        state.anchors.push_back(trace_anchor{flow_record->sequence, location.chunk_index, location.record_offset});
       }
       state.flow_count += 1;
     } else if (options.include_snapshots && std::holds_alternative<snapshot_record>(record)) {

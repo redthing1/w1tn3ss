@@ -5,9 +5,7 @@
 namespace w1::rewind {
 
 namespace {
-bool add_overflows(uint64_t base, uint64_t addend) {
-  return base > std::numeric_limits<uint64_t>::max() - addend;
-}
+bool add_overflows(uint64_t base, uint64_t addend) { return base > std::numeric_limits<uint64_t>::max() - addend; }
 
 uint64_t range_end(uint64_t base, uint64_t size) {
   if (size == 0) {

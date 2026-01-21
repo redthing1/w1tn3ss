@@ -46,7 +46,6 @@ public:
   bool step_instruction_backward();
   bool sync_instruction_position();
 
-
   const flow_step& current_step() const { return current_step_; }
   const replay_context& context() const { return context_; }
   const std::vector<std::string>& register_names() const { return context_.register_names; }

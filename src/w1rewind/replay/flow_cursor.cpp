@@ -132,9 +132,7 @@ bool flow_cursor::seek(uint64_t thread_id, uint64_t sequence) {
   return scan_until_sequence(thread_id, sequence);
 }
 
-bool flow_cursor::seek_from_location(
-    uint64_t thread_id, uint64_t sequence, const trace_record_location& location
-) {
+bool flow_cursor::seek_from_location(uint64_t thread_id, uint64_t sequence, const trace_record_location& location) {
   clear_error();
 
   if (!open_) {

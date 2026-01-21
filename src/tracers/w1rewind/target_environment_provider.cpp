@@ -155,7 +155,7 @@ std::string detect_os_version() {
 #if defined(__APPLE__)
   return sysctl_string("kern.osproductversion");
 #elif !defined(_WIN32)
-  struct utsname info {};
+  struct utsname info{};
   if (uname(&info) == 0) {
     return info.release;
   }
@@ -167,7 +167,7 @@ std::string detect_os_build() {
 #if defined(__APPLE__)
   return sysctl_string("kern.osversion");
 #elif !defined(_WIN32)
-  struct utsname info {};
+  struct utsname info{};
   if (uname(&info) == 0) {
     return info.version;
   }
@@ -181,7 +181,7 @@ std::string detect_os_kernel() {
 #elif defined(_WIN32)
   return "windows";
 #else
-  struct utsname info {};
+  struct utsname info{};
   if (uname(&info) == 0) {
     return info.sysname;
   }

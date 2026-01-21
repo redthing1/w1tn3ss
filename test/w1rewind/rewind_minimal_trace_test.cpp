@@ -75,8 +75,8 @@ TEST_CASE("replay session tracks memory without register specs") {
   auto arch = parse_arch_or_fail("arm64");
   w1::rewind::trace_header header{};
   header.arch = arch;
-  header.flags = w1::rewind::trace_flag_instructions | w1::rewind::trace_flag_memory_access |
-                 w1::rewind::trace_flag_memory_values;
+  header.flags =
+      w1::rewind::trace_flag_instructions | w1::rewind::trace_flag_memory_access | w1::rewind::trace_flag_memory_values;
   REQUIRE(writer->write_header(header));
 
   write_thread_start(*writer, 1, "main");
@@ -99,7 +99,9 @@ TEST_CASE("replay session tracks memory without register specs") {
 
   w1::rewind::trace_index_options index_options;
   auto index = std::make_shared<w1::rewind::trace_index>();
-  REQUIRE(w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, index.get(), config.log));
+  REQUIRE(
+      w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, index.get(), config.log)
+  );
 
   w1::rewind::replay_context context;
   std::string error;
