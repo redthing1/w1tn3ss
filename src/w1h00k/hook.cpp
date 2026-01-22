@@ -1,13 +1,10 @@
 #include "w1h00k/hook.hpp"
 
 #include "w1h00k/core/hook_manager.hpp"
+#include "w1h00k/core/hook_transaction.hpp"
 
 namespace w1::h00k {
 namespace {
-
-bool is_valid_target(const hook_target& target) {
-  return target.address != nullptr || target.symbol != nullptr;
-}
 
 core::hook_manager& global_manager() {
   static core::hook_manager manager{};
@@ -16,35 +13,32 @@ core::hook_manager& global_manager() {
 
 } // namespace
 
+struct hook_transaction::impl {
+  core::hook_transaction transaction;
+
+  explicit impl(core::hook_manager& manager) : transaction(manager) {}
+};
+
+hook_transaction::hook_transaction() : impl_(std::make_unique<impl>(global_manager())) {}
+
+hook_transaction::~hook_transaction() = default;
+
+hook_transaction::hook_transaction(hook_transaction&&) noexcept = default;
+hook_transaction& hook_transaction::operator=(hook_transaction&&) noexcept = default;
+
 hook_result hook_transaction::attach(const hook_request& request, void** original) {
-  if (!is_valid_target(request.target)) {
-    if (original) {
-      *original = nullptr;
-    }
-    return {{}, hook_error::invalid_target};
-  }
-  if (original) {
-    *original = nullptr;
-  }
-  return {{}, hook_error::unsupported};
+  return impl_->transaction.attach(request, original);
 }
 
 hook_error hook_transaction::detach(hook_handle handle) {
-  (void)handle;
-  return hook_error::unsupported;
+  return impl_->transaction.detach(handle);
 }
 
 hook_error hook_transaction::commit() {
-  return hook_error::unsupported;
+  return impl_->transaction.commit();
 }
 
 hook_result attach(const hook_request& request, void** original) {
-  if (!is_valid_target(request.target)) {
-    if (original) {
-      *original = nullptr;
-    }
-    return {{}, hook_error::invalid_target};
-  }
   return global_manager().attach(request, original);
 }
 
@@ -53,9 +47,6 @@ hook_error detach(hook_handle handle) {
 }
 
 bool supports(const hook_request& request) {
-  if (!is_valid_target(request.target)) {
-    return false;
-  }
   return global_manager().supports(request);
 }
 

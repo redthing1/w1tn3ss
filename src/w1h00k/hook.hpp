@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <utility>
 
 namespace w1::h00k {
@@ -20,6 +21,10 @@ enum class hook_kind {
 };
 
 using hook_technique_mask = uint32_t;
+
+constexpr hook_technique_mask technique_mask(hook_technique technique) {
+  return static_cast<hook_technique_mask>(1u << static_cast<uint32_t>(technique));
+}
 
 enum class hook_error {
   ok,
@@ -72,9 +77,20 @@ struct hook_result {
 
 class hook_transaction {
 public:
+  hook_transaction();
+  ~hook_transaction();
+  hook_transaction(hook_transaction&&) noexcept;
+  hook_transaction& operator=(hook_transaction&&) noexcept;
+  hook_transaction(const hook_transaction&) = delete;
+  hook_transaction& operator=(const hook_transaction&) = delete;
+
   hook_result attach(const hook_request& request, void** original);
   hook_error detach(hook_handle handle);
   hook_error commit();
+
+private:
+  struct impl;
+  std::unique_ptr<impl> impl_{};
 };
 
 hook_result attach(const hook_request& request, void** original);

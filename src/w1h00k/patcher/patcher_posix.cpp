@@ -36,8 +36,13 @@ bool protect_region(void* address, size_t size, bool writable) {
   const uintptr_t page_end = (end + page - 1) & ~(static_cast<uintptr_t>(page) - 1);
   const size_t total = page_end - page_start;
 
+#if defined(__APPLE__)
+  vm_prot_t prot = writable ? (VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY) : (VM_PROT_READ | VM_PROT_EXECUTE);
+  return vm_protect(mach_task_self(), page_start, total, false, prot) == KERN_SUCCESS;
+#else
   int prot = writable ? (PROT_READ | PROT_WRITE) : (PROT_READ | PROT_EXEC);
   return mprotect(reinterpret_cast<void*>(page_start), total, prot) == 0;
+#endif
 }
 
 void flush_icache(void* address, size_t size) {

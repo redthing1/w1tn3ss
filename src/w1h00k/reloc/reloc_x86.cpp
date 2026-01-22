@@ -16,6 +16,15 @@ enum class branch_kind {
   jcc
 };
 
+struct branch_info {
+  branch_kind kind = branch_kind::none;
+  uint8_t cond = 0;
+  size_t imm_offset = 0;
+  size_t imm_size = 0;
+  size_t insn_len = 0;
+  uint64_t target = 0;
+};
+
 bool has_pc_relative_mem(const w1::asmr::instruction& insn) {
   for (const auto& operand : insn.operand_details) {
     if (operand.kind != w1::asmr::operand_kind::mem) {
@@ -27,8 +36,6 @@ bool has_pc_relative_mem(const w1::asmr::instruction& insn) {
   }
   return false;
 }
-
-} // namespace
 
 branch_kind classify_branch(const w1::asmr::instruction& insn, uint8_t& cond_out) {
   cond_out = 0;
@@ -97,6 +104,48 @@ bool emit_jcc_stub(std::vector<uint8_t>& out, uint64_t trampoline_address, uint6
   return emit_abs_branch(out, trampoline_address, target, false, is_x64);
 }
 
+bool apply_branch_fixup(std::vector<uint8_t>& out, const branch_info& branch, uint64_t trampoline_address,
+                        size_t out_base, bool is_x64, reloc_error& error) {
+  const uint64_t insn_end = trampoline_address + out_base + branch.insn_len;
+  const int64_t new_disp = static_cast<int64_t>(branch.target) - static_cast<int64_t>(insn_end);
+  if (write_signed_le(out, out_base + branch.imm_offset, branch.imm_size, new_disp)) {
+    return true;
+  }
+
+  out.resize(out_base);
+  bool stub_ok = false;
+  if (branch.kind == branch_kind::jmp || branch.kind == branch_kind::call) {
+    stub_ok = emit_abs_branch(out, trampoline_address, branch.target, branch.kind == branch_kind::call, is_x64);
+  } else if (branch.kind == branch_kind::jcc) {
+    stub_ok = emit_jcc_stub(out, trampoline_address, branch.target, branch.cond, is_x64);
+  }
+  if (!stub_ok) {
+    error = reloc_error::out_of_range;
+    return false;
+  }
+  return true;
+}
+
+bool apply_pc_relative_fixup(std::vector<uint8_t>& out, const w1::asmr::instruction& insn, uint64_t trampoline_address,
+                             size_t out_base, reloc_error& error) {
+  if (insn.encoding_info.disp_size == 0) {
+    error = reloc_error::unsupported_instruction;
+    return false;
+  }
+  const int64_t orig_disp = read_signed_le(insn.bytes.data() + insn.encoding_info.disp_offset,
+                                           insn.encoding_info.disp_size);
+  const uint64_t target_addr = insn.address + insn.bytes.size() + static_cast<int64_t>(orig_disp);
+  const uint64_t insn_end = trampoline_address + out_base + insn.bytes.size();
+  const int64_t new_disp = static_cast<int64_t>(target_addr) - static_cast<int64_t>(insn_end);
+  if (!write_signed_le(out, out_base + insn.encoding_info.disp_offset, insn.encoding_info.disp_size, new_disp)) {
+    error = reloc_error::out_of_range;
+    return false;
+  }
+  return true;
+}
+
+} // namespace
+
 reloc_result relocate_x86(const w1::asmr::disasm_context& disasm, const void* target, size_t min_patch_size,
                           uint64_t trampoline_address) {
   auto fail = [](reloc_error error) {
@@ -125,10 +174,16 @@ reloc_result relocate_x86(const w1::asmr::disasm_context& disasm, const void* ta
     const size_t out_base = result.trampoline_bytes.size();
     const bool pc_relative_mem = has_pc_relative_mem(insn);
     const bool branch_relative = insn.is_branch_relative;
-    uint8_t cond = 0;
-    branch_kind kind = branch_relative ? classify_branch(insn, cond) : branch_kind::none;
+    branch_info branch{};
+    if (branch_relative) {
+      branch.cond = 0;
+      branch.kind = classify_branch(insn, branch.cond);
+      branch.imm_offset = insn.encoding_info.imm_offset;
+      branch.imm_size = insn.encoding_info.imm_size;
+      branch.insn_len = insn_len;
+    }
 
-    if (branch_relative && kind == branch_kind::none) {
+    if (branch_relative && branch.kind == branch_kind::none) {
       return fail(reloc_error::unsupported_instruction);
     }
 
@@ -141,43 +196,21 @@ reloc_result relocate_x86(const w1::asmr::disasm_context& disasm, const void* ta
     result.trampoline_bytes.insert(result.trampoline_bytes.end(), insn.bytes.begin(), insn.bytes.end());
 
     if (branch_relative) {
-      if (insn.encoding_info.imm_size == 0) {
+      if (branch.imm_size == 0) {
         return fail(reloc_error::unsupported_instruction);
       }
-      const int64_t orig_disp = read_signed_le(insn.bytes.data() + insn.encoding_info.imm_offset,
-                                               insn.encoding_info.imm_size);
-      const uint64_t target_addr = insn.address + insn_len + static_cast<int64_t>(orig_disp);
-      const uint64_t insn_end = trampoline_address + out_base + insn_len;
-      const int64_t new_disp = static_cast<int64_t>(target_addr) - static_cast<int64_t>(insn_end);
-
-      if (!write_signed_le(result.trampoline_bytes, out_base + insn.encoding_info.imm_offset,
-                           insn.encoding_info.imm_size, new_disp)) {
-        result.trampoline_bytes.resize(out_base);
-        bool stub_ok = false;
-        if (kind == branch_kind::jmp || kind == branch_kind::call) {
-          stub_ok = emit_abs_branch(result.trampoline_bytes, trampoline_address, target_addr, kind == branch_kind::call,
-                                    is_x64);
-        } else if (kind == branch_kind::jcc) {
-          stub_ok = emit_jcc_stub(result.trampoline_bytes, trampoline_address, target_addr, cond, is_x64);
-        }
-        if (!stub_ok) {
-          return fail(reloc_error::out_of_range);
-        }
+      const int64_t orig_disp = read_signed_le(insn.bytes.data() + branch.imm_offset, branch.imm_size);
+      branch.target = insn.address + insn_len + static_cast<int64_t>(orig_disp);
+      reloc_error error = reloc_error::ok;
+      if (!apply_branch_fixup(result.trampoline_bytes, branch, trampoline_address, out_base, is_x64, error)) {
+        return fail(error);
       }
     }
 
     if (pc_relative_mem) {
-      if (insn.encoding_info.disp_size == 0) {
-        return fail(reloc_error::unsupported_instruction);
-      }
-      const int64_t orig_disp = read_signed_le(insn.bytes.data() + insn.encoding_info.disp_offset,
-                                               insn.encoding_info.disp_size);
-      const uint64_t target_addr = insn.address + insn_len + static_cast<int64_t>(orig_disp);
-      const uint64_t insn_end = trampoline_address + out_base + insn_len;
-      const int64_t new_disp = static_cast<int64_t>(target_addr) - static_cast<int64_t>(insn_end);
-      if (!write_signed_le(result.trampoline_bytes, out_base + insn.encoding_info.disp_offset,
-                           insn.encoding_info.disp_size, new_disp)) {
-        return fail(reloc_error::out_of_range);
+      reloc_error error = reloc_error::ok;
+      if (!apply_pc_relative_fixup(result.trampoline_bytes, insn, trampoline_address, out_base, error)) {
+        return fail(error);
       }
     }
 

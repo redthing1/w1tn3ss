@@ -7,6 +7,8 @@ set(W1H00K_TEST_SOURCES
     reloc_tests.cpp
     patcher_tests.cpp
     memory_tests.cpp
+    inline_tests.cpp
+    inline_detour_tests.cpp
 )
 
 w1_add_doctest_suite(w1h00k_tests

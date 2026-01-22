@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -15,6 +16,24 @@ namespace {
 bool disasm_supported(const w1::arch::arch_spec& spec) {
   auto ctx = w1::asmr::disasm_context::for_arch(spec);
   return ctx.ok();
+}
+
+std::vector<uint8_t> assemble_or_empty(const w1::arch::arch_spec& spec, std::string_view text, uint64_t address) {
+  auto ctx = w1::asmr::asm_context::for_arch(spec);
+  if (!ctx.ok()) {
+    return {};
+  }
+  auto bytes = ctx.value.assemble(text, address);
+  if (!bytes.ok()) {
+    return {};
+  }
+  return bytes.value;
+}
+
+std::string hex_addr(uint64_t value) {
+  std::ostringstream oss;
+  oss << "0x" << std::hex << value;
+  return oss.str();
 }
 
 w1::arch::arch_spec parse_arch_or(const char* name, const w1::arch::arch_spec& fallback) {
@@ -202,6 +221,24 @@ TEST_CASE("w1h00k relocator requires trampoline address for pc-relative") {
   CHECK(result.error == w1::h00k::reloc::reloc_error::missing_trampoline);
 }
 
+TEST_CASE("w1h00k relocator requires trampoline address for branch-relative") {
+  auto spec = parse_arch_or("x86_64", w1::arch::detect_host_arch_spec());
+  if (spec.arch_mode != w1::arch::mode::x86_64 || !disasm_supported(spec)) {
+    CHECK(true);
+    return;
+  }
+
+  const std::vector<uint8_t> jmp = {0xE9, 0x05, 0x00, 0x00, 0x00};
+  const std::vector<uint8_t> filler = {0x90};
+  auto buffer = make_filled_buffer(jmp, 64, filler);
+
+  auto result = w1::h00k::reloc::relocate(buffer.data(), jmp.size(), 0, spec);
+
+  CHECK(result.patch_size == 0);
+  CHECK(result.trampoline_bytes.empty());
+  CHECK(result.error == w1::h00k::reloc::reloc_error::missing_trampoline);
+}
+
 TEST_CASE("w1h00k relocator adjusts x86_64 rel32 branches") {
   auto spec = parse_arch_or("x86_64", w1::arch::detect_host_arch_spec());
   if (spec.arch_mode != w1::arch::mode::x86_64 || !disasm_supported(spec)) {
@@ -221,6 +258,34 @@ TEST_CASE("w1h00k relocator adjusts x86_64 rel32 branches") {
   REQUIRE(result.patch_size == jmp.size());
   const int32_t disp = read_s32_le(result.trampoline_bytes.data() + 1);
   const int64_t expected = static_cast<int64_t>(origin + 10) - static_cast<int64_t>(tramp + 5);
+  CHECK(disp == expected);
+}
+
+TEST_CASE("w1h00k relocator adjusts x86_64 call rel32 (asmr)") {
+  auto spec = parse_arch_or("x86_64", w1::arch::detect_host_arch_spec());
+  if (spec.arch_mode != w1::arch::mode::x86_64 || !disasm_supported(spec)) {
+    CHECK(true);
+    return;
+  }
+
+  std::vector<uint8_t> filler = {0x90};
+  auto buffer = make_filled_buffer({}, 64, filler);
+  const uint64_t origin = reinterpret_cast<uint64_t>(buffer.data());
+  const uint64_t target_addr = origin + 0x20;
+  auto bytes = assemble_or_empty(spec, "call " + hex_addr(target_addr), origin);
+  if (bytes.empty()) {
+    WARN("asmr assembly unavailable for x86_64 call");
+    return;
+  }
+  std::copy(bytes.begin(), bytes.end(), buffer.begin());
+
+  const uint64_t tramp = origin + 0x4000;
+  auto result = w1::h00k::reloc::relocate(buffer.data(), bytes.size(), tramp, spec);
+
+  CHECK(result.ok());
+  REQUIRE(result.patch_size == bytes.size());
+  const int32_t disp = read_s32_le(result.trampoline_bytes.data() + 1);
+  const int64_t expected = static_cast<int64_t>(target_addr) - static_cast<int64_t>(tramp + bytes.size());
   CHECK(disp == expected);
 }
 
@@ -345,6 +410,71 @@ TEST_CASE("w1h00k relocator adjusts arm64 conditional branches") {
   CHECK(relocated_target == target_addr + 8);
 }
 
+TEST_CASE("w1h00k relocator adjusts arm64 CBZ via asmr") {
+  auto spec = w1::arch::detect_host_arch_spec();
+  if (spec.arch_mode != w1::arch::mode::aarch64) {
+    CHECK(true);
+    return;
+  }
+
+  auto filler = nop_bytes_for_arch(spec);
+  auto buffer = make_filled_buffer({}, 64, filler);
+
+  const uint64_t origin = reinterpret_cast<uint64_t>(buffer.data());
+  auto cbz = assemble_or_empty(spec, "cbz x0, #8", origin);
+  if (cbz.empty()) {
+    WARN("asmr assembly unavailable for arm64 cbz");
+    return;
+  }
+  std::copy(cbz.begin(), cbz.end(), buffer.begin());
+
+  const uint64_t tramp = origin + 0x1000;
+  auto result = w1::h00k::reloc::relocate(buffer.data(), cbz.size(), tramp);
+
+  CHECK(result.ok());
+  REQUIRE(result.patch_size == cbz.size());
+  const uint32_t relocated = read_u32_le(result.trampoline_bytes.data());
+  const uint32_t original = read_u32_le(cbz.data());
+  const uint64_t original_target = arm64_decode_target(original, origin);
+  const uint64_t relocated_target = arm64_decode_target(relocated, tramp);
+  CHECK(relocated_target == original_target);
+}
+
+TEST_CASE("w1h00k relocator emits arm64 CBZ stub when out of range") {
+  auto spec = w1::arch::detect_host_arch_spec();
+  if (spec.arch_mode != w1::arch::mode::aarch64) {
+    CHECK(true);
+    return;
+  }
+
+  auto filler = nop_bytes_for_arch(spec);
+  auto buffer = make_filled_buffer({}, 64, filler);
+
+  const uint64_t origin = reinterpret_cast<uint64_t>(buffer.data());
+  auto cbz = assemble_or_empty(spec, "cbz x0, #8", origin);
+  if (cbz.empty()) {
+    WARN("asmr assembly unavailable for arm64 cbz");
+    return;
+  }
+  std::copy(cbz.begin(), cbz.end(), buffer.begin());
+
+  const uint64_t tramp = origin + 0x20000000ULL;
+  auto result = w1::h00k::reloc::relocate(buffer.data(), cbz.size(), tramp);
+
+  CHECK(result.ok());
+  REQUIRE(result.patch_size == cbz.size());
+  REQUIRE(result.trampoline_bytes.size() == 20);
+
+  const uint32_t skip = read_u32_le(result.trampoline_bytes.data());
+  const uint32_t original = read_u32_le(cbz.data());
+  CHECK(((skip ^ original) & 0x01000000u) != 0);
+  const uint64_t skip_target = arm64_decode_target(skip, tramp);
+  CHECK(skip_target == tramp + 16);
+
+  const uint64_t literal = read_u64_le(result.trampoline_bytes.data() + 12);
+  const uint64_t original_target = arm64_decode_target(original, origin);
+  CHECK(literal == original_target);
+}
 TEST_CASE("w1h00k relocator emits arm64 conditional stub when out of range") {
   auto spec = w1::arch::detect_host_arch_spec();
   if (spec.arch_mode != w1::arch::mode::aarch64) {

@@ -33,6 +33,8 @@ w1_add_static_library(w1h00k_patcher ${W1H00K_PATCHER_SOURCES})
 
 w1_add_static_library(w1h00k_backend
     backend/backend_registry.cpp
+    backend/inline_backend.cpp
+    backend/inline/inline_detour.cpp
 )
 
 w1_add_static_library(w1h00k_core

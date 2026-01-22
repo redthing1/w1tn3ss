@@ -40,6 +40,50 @@ bool arm64_is_tbnz(uint32_t inst) { return (inst & 0x7F000000u) == 0x37000000u; 
 bool arm64_is_adr(uint32_t inst) { return (inst & 0x9F000000u) == 0x10000000u; }
 bool arm64_is_adrp(uint32_t inst) { return (inst & 0x9F000000u) == 0x90000000u; }
 
+enum class arm64_fixup_kind {
+  none,
+  b,
+  bl,
+  bcond,
+  cbz,
+  cbnz,
+  tbz,
+  tbnz,
+  adr,
+  adrp
+};
+
+arm64_fixup_kind classify_arm64(uint32_t inst) {
+  if (arm64_is_b(inst)) {
+    return arm64_fixup_kind::b;
+  }
+  if (arm64_is_bl(inst)) {
+    return arm64_fixup_kind::bl;
+  }
+  if (arm64_is_bcond(inst)) {
+    return arm64_fixup_kind::bcond;
+  }
+  if (arm64_is_cbz(inst)) {
+    return arm64_fixup_kind::cbz;
+  }
+  if (arm64_is_cbnz(inst)) {
+    return arm64_fixup_kind::cbnz;
+  }
+  if (arm64_is_tbz(inst)) {
+    return arm64_fixup_kind::tbz;
+  }
+  if (arm64_is_tbnz(inst)) {
+    return arm64_fixup_kind::tbnz;
+  }
+  if (arm64_is_adr(inst)) {
+    return arm64_fixup_kind::adr;
+  }
+  if (arm64_is_adrp(inst)) {
+    return arm64_fixup_kind::adrp;
+  }
+  return arm64_fixup_kind::none;
+}
+
 uint64_t arm64_branch_target(uint32_t inst, uint64_t pc) {
   if (arm64_is_b(inst) || arm64_is_bl(inst)) {
     const int64_t imm26 = detail::sign_extend(inst & 0x03FFFFFFu, 26) << 2;
@@ -220,9 +264,8 @@ reloc_result relocate_arm64(const w1::asmr::disasm_context& disasm, const void* 
     result.trampoline_bytes.insert(result.trampoline_bytes.end(), insn.bytes.begin(), insn.bytes.end());
 
     uint32_t inst = read_u32_le(insn.bytes.data());
-    const bool needs_fixup = arm64_is_b(inst) || arm64_is_bl(inst) || arm64_is_bcond(inst) || arm64_is_cbz(inst) ||
-                             arm64_is_cbnz(inst) || arm64_is_tbz(inst) || arm64_is_tbnz(inst) || arm64_is_adr(inst) ||
-                             arm64_is_adrp(inst);
+    const arm64_fixup_kind kind = classify_arm64(inst);
+    const bool needs_fixup = kind != arm64_fixup_kind::none;
 
     if (needs_fixup) {
       if (trampoline_address == 0) {
@@ -232,11 +275,12 @@ reloc_result relocate_arm64(const w1::asmr::disasm_context& disasm, const void* 
       const uint64_t new_addr = trampoline_address + out_base;
       const uint64_t target_addr = arm64_branch_target(inst, insn_addr);
 
-      if (arm64_is_b(inst) || arm64_is_bl(inst)) {
+      if (kind == arm64_fixup_kind::b || kind == arm64_fixup_kind::bl) {
         const int64_t offset = static_cast<int64_t>(target_addr) - static_cast<int64_t>(new_addr);
         if (!arm64_patch_imm26(inst, offset)) {
           result.trampoline_bytes.resize(out_base);
-          if (!emit_arm64_abs_branch(result.trampoline_bytes, target_addr, arm64_is_bl(inst))) {
+          const bool is_call = kind == arm64_fixup_kind::bl;
+          if (!emit_arm64_abs_branch(result.trampoline_bytes, target_addr, is_call)) {
             return fail(reloc_error::out_of_range);
           }
           consumed += insn_len;
@@ -245,7 +289,7 @@ reloc_result relocate_arm64(const w1::asmr::disasm_context& disasm, const void* 
           }
           continue;
         }
-      } else if (arm64_is_bcond(inst) || arm64_is_cbz(inst) || arm64_is_cbnz(inst)) {
+      } else if (kind == arm64_fixup_kind::bcond || kind == arm64_fixup_kind::cbz || kind == arm64_fixup_kind::cbnz) {
         const int64_t offset = static_cast<int64_t>(target_addr) - static_cast<int64_t>(new_addr);
         if (!arm64_patch_imm19(inst, offset)) {
           result.trampoline_bytes.resize(out_base);
@@ -258,7 +302,7 @@ reloc_result relocate_arm64(const w1::asmr::disasm_context& disasm, const void* 
           }
           continue;
         }
-      } else if (arm64_is_tbz(inst) || arm64_is_tbnz(inst)) {
+      } else if (kind == arm64_fixup_kind::tbz || kind == arm64_fixup_kind::tbnz) {
         const int64_t offset = static_cast<int64_t>(target_addr) - static_cast<int64_t>(new_addr);
         if (!arm64_patch_imm14(inst, offset)) {
           result.trampoline_bytes.resize(out_base);
@@ -271,7 +315,7 @@ reloc_result relocate_arm64(const w1::asmr::disasm_context& disasm, const void* 
           }
           continue;
         }
-      } else if (arm64_is_adr(inst)) {
+      } else if (kind == arm64_fixup_kind::adr) {
         const int64_t offset = static_cast<int64_t>(target_addr) - static_cast<int64_t>(new_addr);
         if (!arm64_patch_adr(inst, offset)) {
           result.trampoline_bytes.resize(out_base);
@@ -285,7 +329,7 @@ reloc_result relocate_arm64(const w1::asmr::disasm_context& disasm, const void* 
           }
           continue;
         }
-      } else if (arm64_is_adrp(inst)) {
+      } else if (kind == arm64_fixup_kind::adrp) {
         const uint64_t target_page = target_addr & ~0xFFFULL;
         const uint64_t new_page = new_addr & ~0xFFFULL;
         const int64_t page_delta = static_cast<int64_t>(target_page) - static_cast<int64_t>(new_page);

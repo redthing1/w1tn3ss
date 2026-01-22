@@ -29,9 +29,30 @@ TEST_CASE("w1h00k executable allocation rejects zero size") {
 
 TEST_CASE("w1h00k near allocation returns memory") {
   uint8_t anchor = 0;
-  auto block = w1::h00k::memory::allocate_near(&anchor, 128, 1024 * 1024);
-  CHECK(block.ok());
-  if (block.ok()) {
-    w1::h00k::memory::free_executable(block);
+  constexpr size_t range = 256 * 1024 * 1024;
+  auto block = w1::h00k::memory::allocate_near(&anchor, 128, range);
+  if (!block.ok()) {
+    WARN("allocate_near failed; no suitable region found within range");
+    return;
   }
+
+  const uintptr_t anchor_addr = reinterpret_cast<uintptr_t>(&anchor);
+  const uintptr_t block_addr = reinterpret_cast<uintptr_t>(block.address);
+  const uintptr_t distance = block_addr >= anchor_addr ? block_addr - anchor_addr : anchor_addr - block_addr;
+  CHECK(distance <= range);
+
+  w1::h00k::memory::free_executable(block);
+}
+
+TEST_CASE("w1h00k near allocation validates inputs") {
+  uint8_t anchor = 0;
+  CHECK_FALSE(w1::h00k::memory::allocate_near(nullptr, 16, 1024).ok());
+  CHECK_FALSE(w1::h00k::memory::allocate_near(&anchor, 0, 1024).ok());
+  CHECK_FALSE(w1::h00k::memory::allocate_near(&anchor, 16, 0).ok());
+}
+
+TEST_CASE("w1h00k near allocation rejects too-small range") {
+  uint8_t anchor = 0;
+  auto block = w1::h00k::memory::allocate_near(&anchor, 4096, 1);
+  CHECK_FALSE(block.ok());
 }

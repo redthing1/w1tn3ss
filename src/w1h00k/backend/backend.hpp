@@ -12,6 +12,7 @@ struct hook_plan {
   std::vector<uint8_t> patch_bytes{};
   std::vector<uint8_t> restore_bytes{};
   void* trampoline = nullptr;
+  size_t trampoline_size = 0;
 };
 
 struct prepare_result {
