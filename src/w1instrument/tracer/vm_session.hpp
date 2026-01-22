@@ -207,13 +207,13 @@ public:
 
     if (clear_callbacks) {
       event_router_.clear();
+      if (refresh_callback_id_ != QBDI::INVALID_EVENTID) {
+        vm_controller_.vm()->deleteInstrumentation(refresh_callback_id_);
+      }
     } else {
       event_router_.detach();
     }
-    if (refresh_callback_id_ != QBDI::INVALID_EVENTID) {
-      vm_controller_.vm()->deleteInstrumentation(refresh_callback_id_);
-      refresh_callback_id_ = QBDI::INVALID_EVENTID;
-    }
+    refresh_callback_id_ = QBDI::INVALID_EVENTID;
     initialized_ = false;
     instrumented_ = false;
   }
