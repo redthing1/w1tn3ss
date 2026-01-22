@@ -9,9 +9,14 @@ w1_add_static_library(w1h00k_os
     os/os.cpp
 )
 
-w1_add_static_library(w1h00k_resolve
-    resolve/resolve.cpp
-)
+set(W1H00K_RESOLVE_SOURCES "")
+if(WIN32)
+    list(APPEND W1H00K_RESOLVE_SOURCES resolve/windows.cpp)
+else()
+    list(APPEND W1H00K_RESOLVE_SOURCES resolve/posix.cpp)
+endif()
+
+w1_add_static_library(w1h00k_resolve ${W1H00K_RESOLVE_SOURCES})
 
 set(W1H00K_MEMORY_SOURCES "")
 if(WIN32)

@@ -7,6 +7,7 @@ set(W1H00K_TEST_SOURCES
     reloc_tests.cpp
     patcher_tests.cpp
     memory_tests.cpp
+    resolve_tests.cpp
     inline_tests.cpp
     inline_detour_tests.cpp
 )
