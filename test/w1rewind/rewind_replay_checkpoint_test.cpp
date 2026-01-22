@@ -107,73 +107,75 @@ TEST_CASE("w1rewind replay checkpoint restores register state") {
   REQUIRE(checkpoint != nullptr);
   CHECK(checkpoint->sequence == 2);
 
-  auto stream = std::make_shared<w1::rewind::trace_reader>(trace_path.string());
-  w1::rewind::flow_cursor_config replay_config{};
-  replay_config.stream = stream;
-  replay_config.index = index;
-  replay_config.history_size = 4;
-  replay_config.context = &context;
+  {
+    auto stream = std::make_shared<w1::rewind::trace_reader>(trace_path.string());
+    w1::rewind::flow_cursor_config replay_config{};
+    replay_config.stream = stream;
+    replay_config.index = index;
+    replay_config.history_size = 4;
+    replay_config.context = &context;
 
-  w1::rewind::flow_cursor cursor(replay_config);
-  REQUIRE(cursor.open());
+    w1::rewind::flow_cursor cursor(replay_config);
+    REQUIRE(cursor.open());
 
-  w1::rewind::replay_state state;
-  w1::rewind::replay_state_applier applier(context);
-  w1::rewind::stateful_flow_cursor stateful_cursor(cursor, applier, state);
-  stateful_cursor.configure(context, true, false);
+    w1::rewind::replay_state state;
+    w1::rewind::replay_state_applier applier(context);
+    w1::rewind::stateful_flow_cursor stateful_cursor(cursor, applier, state);
+    stateful_cursor.configure(context, true, false);
 
-  state.reset();
-  state.set_register_specs(context.register_specs);
-  state.apply_register_snapshot(checkpoint->registers);
-  if (!checkpoint->register_bytes_entries.empty()) {
-    REQUIRE(state.apply_register_bytes(checkpoint->register_bytes_entries, checkpoint->register_bytes));
+    state.reset();
+    state.set_register_specs(context.register_specs);
+    state.apply_register_snapshot(checkpoint->registers);
+    if (!checkpoint->register_bytes_entries.empty()) {
+      REQUIRE(state.apply_register_bytes(checkpoint->register_bytes_entries, checkpoint->register_bytes));
+    }
+
+    REQUIRE(cursor.seek_from_location(1, 2, checkpoint->location));
+
+    w1::rewind::flow_step step{};
+    REQUIRE(stateful_cursor.step_forward(step));
+    CHECK(step.sequence == 2);
+
+    const auto& state_view = stateful_cursor.state();
+    CHECK(state_view.register_value(0) == 0x1000 + 2);
+    std::array<std::byte, 16> byte_out{};
+    bool known = false;
+    REQUIRE(state_view.copy_register_bytes(1, byte_out, known));
+    CHECK(known);
+    CHECK(byte_out[0] == std::byte{0x10});
+    CHECK(byte_out[15] == std::byte{0x43});
+
+    auto session_stream = std::make_shared<w1::rewind::trace_reader>(trace_path.string());
+    auto checkpoint_ptr = std::make_shared<w1::rewind::replay_checkpoint_index>(loaded);
+
+    w1::rewind::replay_session_config session_config{};
+    session_config.stream = session_stream;
+    session_config.index = index;
+    session_config.checkpoint = checkpoint_ptr;
+    session_config.context = context;
+    session_config.thread_id = 1;
+    session_config.start_sequence = 2;
+    session_config.track_registers = true;
+    session_config.track_memory = false;
+
+    w1::rewind::replay_session session(session_config);
+    REQUIRE(session.open());
+    REQUIRE(session.step_flow());
+    CHECK(session.current_step().sequence == 2);
+    auto regs = session.read_registers();
+    REQUIRE(!regs.empty());
+    CHECK(regs[0].has_value());
+    CHECK(regs[0].value() == 0x1000 + 2);
+    std::array<std::byte, 16> session_bytes{};
+    bool session_known = false;
+    REQUIRE(session.read_register_bytes(1, session_bytes, session_known));
+    CHECK(session_known);
+    CHECK(session_bytes[0] == std::byte{0x10});
+    CHECK(session_bytes[15] == std::byte{0x43});
+
+    cursor.close();
+    session.close();
   }
-
-  REQUIRE(cursor.seek_from_location(1, 2, checkpoint->location));
-
-  w1::rewind::flow_step step{};
-  REQUIRE(stateful_cursor.step_forward(step));
-  CHECK(step.sequence == 2);
-
-  const auto& state_view = stateful_cursor.state();
-  CHECK(state_view.register_value(0) == 0x1000 + 2);
-  std::array<std::byte, 16> byte_out{};
-  bool known = false;
-  REQUIRE(state_view.copy_register_bytes(1, byte_out, known));
-  CHECK(known);
-  CHECK(byte_out[0] == std::byte{0x10});
-  CHECK(byte_out[15] == std::byte{0x43});
-
-  auto session_stream = std::make_shared<w1::rewind::trace_reader>(trace_path.string());
-  auto checkpoint_ptr = std::make_shared<w1::rewind::replay_checkpoint_index>(loaded);
-
-  w1::rewind::replay_session_config session_config{};
-  session_config.stream = session_stream;
-  session_config.index = index;
-  session_config.checkpoint = checkpoint_ptr;
-  session_config.context = context;
-  session_config.thread_id = 1;
-  session_config.start_sequence = 2;
-  session_config.track_registers = true;
-  session_config.track_memory = false;
-
-  w1::rewind::replay_session session(session_config);
-  REQUIRE(session.open());
-  REQUIRE(session.step_flow());
-  CHECK(session.current_step().sequence == 2);
-  auto regs = session.read_registers();
-  REQUIRE(!regs.empty());
-  CHECK(regs[0].has_value());
-  CHECK(regs[0].value() == 0x1000 + 2);
-  std::array<std::byte, 16> session_bytes{};
-  bool session_known = false;
-  REQUIRE(session.read_register_bytes(1, session_bytes, session_known));
-  CHECK(session_known);
-  CHECK(session_bytes[0] == std::byte{0x10});
-  CHECK(session_bytes[15] == std::byte{0x43});
-
-  cursor.close();
-  session.close();
   fs::remove(trace_path);
   fs::remove(index_path);
   fs::remove(checkpoint_path);
