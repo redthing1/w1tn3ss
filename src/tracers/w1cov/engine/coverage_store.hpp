@@ -5,7 +5,7 @@
 #include <mutex>
 #include <unordered_map>
 
-#include "engine/coverage_snapshot.hpp"
+#include "coverage_snapshot.hpp"
 
 namespace w1cov {
 

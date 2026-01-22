@@ -4,8 +4,8 @@
 #include <string>
 #include <vector>
 
-#include "tracers/w1cov/engine/coverage_engine.hpp"
-#include "tracers/w1cov/instrument/coverage_recorder.hpp"
+#include "engine/coverage_engine.hpp"
+#include "instrument/coverage_recorder.hpp"
 #include "w1base/thread_utils.hpp"
 #include "w1formats/drcov.hpp"
 #include "w1instrument/tracer/vm_session.hpp"

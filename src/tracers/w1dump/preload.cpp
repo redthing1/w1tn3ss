@@ -12,10 +12,12 @@
 #include "w1instrument/self_exclude.hpp"
 #include "w1instrument/logging.hpp"
 
-#include "dump_config.hpp"
-#include "dump_tracer.hpp"
+#include "config/dump_config.hpp"
+#include "engine/dump_engine.hpp"
+#include "instrument/dump_recorder.hpp"
 
-static std::unique_ptr<w1::vm_session<w1dump::dump_tracer>> g_session;
+static std::unique_ptr<w1::vm_session<w1dump::dump_recorder>> g_session;
+static std::shared_ptr<w1dump::dump_engine> g_engine;
 static w1dump::dump_config g_config;
 
 extern "C" {
@@ -36,7 +38,8 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
   session_config.thread_id = 1;
   session_config.thread_name = "main";
 
-  g_session = std::make_unique<w1::vm_session<w1dump::dump_tracer>>(session_config, vm, std::in_place, g_config);
+  g_engine = std::make_shared<w1dump::dump_engine>(g_config);
+  g_session = std::make_unique<w1::vm_session<w1dump::dump_recorder>>(session_config, vm, std::in_place, g_engine);
 
   log.inf(
       "starting dump session", redlog::field("start", "0x%llx", static_cast<unsigned long long>(start)),
@@ -63,6 +66,7 @@ QBDI_EXPORT int qbdipreload_on_exit(int status) {
     g_session->shutdown(false);
     g_session.reset();
   }
+  g_engine.reset();
 
   log.inf("qbdipreload_on_exit completed");
   return QBDIPRELOAD_NO_ERROR;

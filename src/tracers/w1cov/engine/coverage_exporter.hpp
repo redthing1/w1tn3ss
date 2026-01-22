@@ -9,7 +9,7 @@
 
 #include <w1formats/drcov.hpp>
 
-#include "engine/coverage_snapshot.hpp"
+#include "coverage_snapshot.hpp"
 #include "w1runtime/module_catalog.hpp"
 
 namespace w1cov {

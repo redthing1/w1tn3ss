@@ -1,8 +1,8 @@
 #include <iostream>
 #include <vector>
 
-#include "tracers/w1cov/engine/coverage_exporter.hpp"
-#include "tracers/w1cov/engine/coverage_store.hpp"
+#include "engine/coverage_exporter.hpp"
+#include "engine/coverage_store.hpp"
 #include "w1runtime/module_catalog.hpp"
 
 int main() {

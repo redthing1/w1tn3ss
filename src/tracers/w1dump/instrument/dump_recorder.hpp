@@ -1,21 +1,19 @@
 #pragma once
 
-#include "dump_config.hpp"
+#include <memory>
 
-#include "w1dump/memory_dumper.hpp"
-#include "w1dump/process_dumper.hpp"
+#include <QBDI.h>
+
+#include "engine/dump_engine.hpp"
 #include "w1instrument/tracer/event.hpp"
 #include "w1instrument/tracer/trace_context.hpp"
 #include "w1instrument/tracer/types.hpp"
 
-#include <QBDI.h>
-#include <redlog.hpp>
-
 namespace w1dump {
 
-class dump_tracer {
+class dump_recorder {
 public:
-  explicit dump_tracer(dump_config config);
+  explicit dump_recorder(std::shared_ptr<dump_engine> engine);
 
   const char* name() const { return "w1dump"; }
   static constexpr w1::event_mask requested_events() {
@@ -36,15 +34,10 @@ public:
       QBDI::FPRState* fpr
   );
 
-  bool dump_completed() const { return dumped_; }
+  bool dump_completed() const;
 
 private:
-  void perform_dump(w1::trace_context& ctx, QBDI::VMInstanceRef vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr);
-  std::vector<w1::dump::dump_options::filter> parse_filters() const;
-
-  dump_config config_{};
-  redlog::logger log_ = redlog::get_logger("w1dump.tracer");
-  bool dumped_ = false;
+  std::shared_ptr<dump_engine> engine_;
 };
 
 } // namespace w1dump

@@ -10,7 +10,7 @@
 
 #include "config/coverage_config.hpp"
 #include "engine/coverage_engine.hpp"
-#include "instrument/coverage_recorder.hpp"
+#include "coverage_recorder.hpp"
 
 namespace w1cov {
 

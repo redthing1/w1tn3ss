@@ -1,58 +1,47 @@
-#include "dump_tracer.hpp"
+#include "dump_engine.hpp"
 
-#include <algorithm>
 #include <sstream>
 #include <utility>
 
+#include "w1dump/process_dumper.hpp"
+
 namespace w1dump {
 
-dump_tracer::dump_tracer(dump_config config) : config_(std::move(config)) {
+namespace {
+void trim_in_place(std::string& value) {
+  const auto start = value.find_first_not_of(" \t");
+  if (start == std::string::npos) {
+    value.clear();
+    return;
+  }
+  const auto end = value.find_last_not_of(" \t");
+  value = value.substr(start, end - start + 1);
+}
+}
+
+dump_engine::dump_engine(dump_config config) : config_(std::move(config)) {
+  options_.dump_memory_content = config_.dump_memory_content;
+  options_.filters = parse_filters();
+  options_.max_region_size = config_.max_region_size;
+
   log_.inf(
-      "dump tracer created", redlog::field("output", config_.output),
-      redlog::field("dump_memory", config_.dump_memory_content), redlog::field("filter_count", config_.filters.size())
+      "dump engine configured", redlog::field("output", config_.output),
+      redlog::field("dump_memory", config_.dump_memory_content),
+      redlog::field("filter_count", options_.filters.size())
   );
 }
 
-QBDI::VMAction dump_tracer::on_vm_start(
-    w1::trace_context& ctx, const w1::sequence_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state,
-    QBDI::GPRState* gpr, QBDI::FPRState* fpr
-) {
-  (void) event;
-  (void) state;
-
-  if (config_.dump_on_entry && !dumped_) {
-    perform_dump(ctx, vm, gpr, fpr);
-    return QBDI::VMAction::STOP;
-  }
-
-  return QBDI::VMAction::CONTINUE;
-}
-
-QBDI::VMAction dump_tracer::on_instruction_pre(
-    w1::trace_context& ctx, const w1::instruction_event& event, QBDI::VMInstanceRef vm, QBDI::GPRState* gpr,
-    QBDI::FPRState* fpr
-) {
-  (void) event;
-
-  if (!config_.dump_on_entry && !dumped_) {
-    perform_dump(ctx, vm, gpr, fpr);
-    return QBDI::VMAction::STOP;
-  }
-
-  return QBDI::VMAction::CONTINUE;
-}
-
-void dump_tracer::perform_dump(
+bool dump_engine::dump_once(
     w1::trace_context& ctx, QBDI::VMInstanceRef vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr
 ) {
   if (dumped_) {
-    return;
+    return false;
   }
 
   QBDI::VM* qbdi_vm = static_cast<QBDI::VM*>(vm);
   if (!qbdi_vm) {
     log_.err("vm instance is null");
-    return;
+    return false;
   }
 
   QBDI::GPRState local_gpr{};
@@ -69,13 +58,8 @@ void dump_tracer::perform_dump(
     fpr_ptr = &local_fpr;
   }
 
-  w1::dump::dump_options options;
-  options.dump_memory_content = config_.dump_memory_content;
-  options.filters = parse_filters();
-  options.max_region_size = config_.max_region_size;
-
   try {
-    auto dump = w1::dump::process_dumper::dump_current(vm, ctx.memory(), ctx.thread_id(), *gpr_ptr, *fpr_ptr, options);
+    auto dump = w1::dump::process_dumper::dump_current(vm, ctx.memory(), ctx.thread_id(), *gpr_ptr, *fpr_ptr, options_);
     w1::dump::process_dumper::save_dump(dump, config_.output);
 
     log_.inf(
@@ -83,12 +67,15 @@ void dump_tracer::perform_dump(
         redlog::field("regions", dump.regions.size())
     );
     dumped_ = true;
+    return true;
   } catch (const std::exception& e) {
     log_.err("dump failed", redlog::field("error", e.what()));
   }
+
+  return false;
 }
 
-std::vector<w1::dump::dump_options::filter> dump_tracer::parse_filters() const {
+std::vector<w1::dump::dump_options::filter> dump_engine::parse_filters() const {
   std::vector<w1::dump::dump_options::filter> result;
 
   for (const auto& filter_str : config_.filters) {
@@ -116,9 +103,7 @@ std::vector<w1::dump::dump_options::filter> dump_tracer::parse_filters() const {
       std::string module;
 
       while (std::getline(ss, module, ',')) {
-        module.erase(0, module.find_first_not_of(" \t"));
-        module.erase(module.find_last_not_of(" \t") + 1);
-
+        trim_in_place(module);
         if (!module.empty()) {
           filter.modules.insert(module);
         }
