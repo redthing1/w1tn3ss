@@ -18,6 +18,7 @@ endfunction()
 set(W1_COMPONENTS
     w1base
     w1h00k
+    w1monitor
     w1formats
     w1runtime
     w1instrument
@@ -39,6 +40,7 @@ set(W1_COMPONENTS
 
 set(W1_COMPONENT_DIR_w1base "src/w1base")
 set(W1_COMPONENT_DIR_w1h00k "src/w1h00k")
+set(W1_COMPONENT_DIR_w1monitor "src/w1monitor")
 set(W1_COMPONENT_DIR_w1formats "src/w1formats")
 set(W1_COMPONENT_DIR_w1runtime "src/w1runtime")
 set(W1_COMPONENT_DIR_w1instrument "src/w1instrument")
@@ -59,6 +61,7 @@ set(W1_COMPONENT_DIR_p01s0n "src/p01s0n")
 
 set(W1_COMPONENT_DEPS_w1base "")
 set(W1_COMPONENT_DEPS_w1h00k "w1base;w1asmr")
+set(W1_COMPONENT_DEPS_w1monitor "w1base;w1h00k")
 set(W1_COMPONENT_DEPS_w1formats "")
 set(W1_COMPONENT_DEPS_w1runtime "")
 set(W1_COMPONENT_DEPS_w1instrument "w1runtime;w1base")
