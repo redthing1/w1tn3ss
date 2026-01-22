@@ -2,36 +2,12 @@
 
 #include <cstring>
 
+#include "w1h00k/backend/pointer_auth.hpp"
 #include "w1h00k/patcher/patcher.hpp"
 #include "w1h00k/resolve/resolve.hpp"
 
-#if defined(__APPLE__) && __has_feature(ptrauth_calls)
-#include <ptrauth.h>
-#endif
-
 namespace w1::h00k::backend {
 namespace {
-
-void* sanitize_original_pointer(void* value) {
-#if defined(__APPLE__) && __has_feature(ptrauth_calls)
-  value = ptrauth_strip(value, ptrauth_key_asia);
-  value = ptrauth_sign_unauthenticated(value, ptrauth_key_asia, 0);
-  return value;
-#else
-  return value;
-#endif
-}
-
-void* sign_replacement_pointer(void* value, void* slot) {
-#if defined(__APPLE__) && __has_feature(ptrauth_calls)
-  value = ptrauth_strip(value, ptrauth_key_asia);
-  value = ptrauth_sign_unauthenticated(value, ptrauth_key_asia, slot);
-  return value;
-#else
-  (void)slot;
-  return value;
-#endif
-}
 
 hook_technique backend_technique() {
 #if defined(_WIN32)

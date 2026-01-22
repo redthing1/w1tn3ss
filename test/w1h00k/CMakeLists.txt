@@ -13,6 +13,7 @@ set(W1H00K_TEST_SOURCES
     arg_access_tests.cpp
     instrument_tests.cpp
     import_table_tests.cpp
+    interpose_tests.cpp
 )
 
 w1_add_doctest_suite(w1h00k_tests

@@ -34,4 +34,26 @@ import_resolution resolve_import(const hook_target& target);
 
 void* symbol_address(const char* symbol, const char* module);
 
+inline std::vector<import_resolution> resolve_imports(const char* symbol, const char* module,
+                                                      const char* import_module) {
+  std::vector<import_resolution> matches;
+  if (module && module[0] != '\0') {
+    auto resolved = resolve_import(symbol, module, import_module);
+    if (resolved.error.ok() && resolved.slot) {
+      matches.push_back(resolved);
+    }
+    return matches;
+  }
+
+  auto modules = enumerate_modules();
+  for (const auto& entry : modules) {
+    const char* module_path = entry.path.empty() ? nullptr : entry.path.c_str();
+    auto resolved = resolve_import(symbol, module_path, import_module);
+    if (resolved.error.ok() && resolved.slot) {
+      matches.push_back(resolved);
+    }
+  }
+  return matches;
+}
+
 } // namespace w1::h00k::resolve

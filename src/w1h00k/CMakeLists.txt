@@ -41,6 +41,7 @@ w1_add_static_library(w1h00k_backend
     backend/inline/inline_backend.cpp
     backend/inline/inline_detour.cpp
     backend/inline/inline_instrumentation.cpp
+    backend/interpose/interpose_backend.cpp
     backend/import_table/import_table_backend.cpp
 )
 

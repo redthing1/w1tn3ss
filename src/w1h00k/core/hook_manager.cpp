@@ -4,7 +4,9 @@
 
 #include "w1h00k/backend/import_table/import_table_backend.hpp"
 #include "w1h00k/backend/inline/inline_backend.hpp"
+#include "w1h00k/backend/interpose/interpose_backend.hpp"
 #include "w1h00k/memory/memory.hpp"
+#include "w1h00k/core/plan_targets.hpp"
 #include "w1h00k/resolve/resolve.hpp"
 
 namespace w1::h00k::core {
@@ -21,6 +23,7 @@ void free_trampoline(const backend::hook_plan& plan) {
 
 hook_manager::hook_manager() {
   registry_.register_backend(backend::make_inline_trampoline_backend());
+  registry_.register_backend(backend::make_interpose_backend());
   registry_.register_backend(backend::make_import_table_backend());
 }
 
@@ -93,18 +96,14 @@ hook_error hook_manager::prepare_attach(const hook_request& request, prepared_ho
   }
 
   void* resolved = resolve_target(normalized.target);
-  if (!resolved) {
-    if (original) {
-      *original = nullptr;
-    }
-    return hook_error::not_found;
-  }
 
-  if (target_to_handle_.find(resolved) != target_to_handle_.end()) {
-    if (original) {
-      *original = nullptr;
+  if (resolved && backend->technique() != hook_technique::interpose) {
+    if (target_to_handle_.find(resolved) != target_to_handle_.end()) {
+      if (original) {
+        *original = nullptr;
+      }
+      return hook_error::already_hooked;
     }
-    return hook_error::already_hooked;
   }
 
   auto prepared = backend->prepare(normalized, resolved);
@@ -115,7 +114,32 @@ hook_error hook_manager::prepare_attach(const hook_request& request, prepared_ho
     return prepared.error;
   }
 
-  prepared.plan.resolved_target = resolved;
+  if (!prepared.plan.resolved_target) {
+    prepared.plan.resolved_target = resolved;
+  }
+  bool has_target = false;
+  bool collision = false;
+  core::for_each_plan_target(prepared.plan, [&](void* target) {
+    has_target = true;
+    if (target_to_handle_.find(target) != target_to_handle_.end()) {
+      collision = true;
+    }
+  });
+  if (!has_target) {
+    if (original) {
+      *original = nullptr;
+    }
+    free_trampoline(prepared.plan);
+    return hook_error::invalid_target;
+  }
+  if (collision) {
+    if (original) {
+      *original = nullptr;
+    }
+    free_trampoline(prepared.plan);
+    return hook_error::already_hooked;
+  }
+
   out.plan = std::move(prepared.plan);
   out.backend = backend;
   if (original) {
@@ -147,7 +171,9 @@ hook_error hook_manager::commit_attach(prepared_hook& prepared) {
   }
 
   hooks_[prepared.handle.id] = prepared;
-  target_to_handle_[prepared.plan.resolved_target] = prepared.handle.id;
+  core::for_each_plan_target(prepared.plan, [&](void* target) {
+    target_to_handle_[target] = prepared.handle.id;
+  });
   return hook_error::ok;
 }
 
@@ -165,7 +191,7 @@ void hook_manager::rollback_attach(const prepared_hook& prepared) {
   prepared.backend->revert(prepared.plan);
   if (prepared.handle.id != 0) {
     hooks_.erase(prepared.handle.id);
-    target_to_handle_.erase(prepared.plan.resolved_target);
+    core::for_each_plan_target(prepared.plan, [&](void* target) { target_to_handle_.erase(target); });
   }
   free_trampoline(prepared.plan);
 }
@@ -180,7 +206,7 @@ void hook_manager::rollback_detach(const prepared_hook& prepared) {
 void hook_manager::finalize_detach(const prepared_hook& prepared) {
   if (prepared.handle.id != 0) {
     hooks_.erase(prepared.handle.id);
-    target_to_handle_.erase(prepared.plan.resolved_target);
+    core::for_each_plan_target(prepared.plan, [&](void* target) { target_to_handle_.erase(target); });
   }
   free_trampoline(prepared.plan);
 }

@@ -5,6 +5,7 @@
 #include <dlfcn.h>
 #include <string_view>
 
+#include "w1h00k/resolve/module_match.hpp"
 #if defined(__linux__)
 #include <elf.h>
 #include <link.h>
@@ -25,30 +26,6 @@ hook_error_info make_error(hook_error code, const char* detail) {
   info.code = code;
   info.detail = detail;
   return info;
-}
-
-std::string_view basename_view(std::string_view path) {
-  const size_t pos = path.find_last_of("/\\");
-  if (pos == std::string_view::npos) {
-    return path;
-  }
-  return path.substr(pos + 1);
-}
-
-bool module_matches(const char* requested, const std::string& path) {
-  if (!requested || requested[0] == '\0') {
-    return true;
-  }
-  if (path.empty()) {
-    return false;
-  }
-  const std::string_view req_view(requested);
-  const bool has_sep = req_view.find('/') != std::string_view::npos ||
-                       req_view.find('\\') != std::string_view::npos;
-  if (has_sep) {
-    return path == requested;
-  }
-  return basename_view(path) == req_view;
 }
 
 module_info module_from_dladdr(void* address) {

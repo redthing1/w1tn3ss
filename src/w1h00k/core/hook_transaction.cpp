@@ -1,6 +1,9 @@
 #include "w1h00k/core/hook_transaction.hpp"
 
 #include "w1h00k/memory/memory.hpp"
+#include "w1h00k/core/plan_targets.hpp"
+
+#include <unordered_set>
 
 namespace w1::h00k::core {
 
@@ -39,8 +42,23 @@ hook_result hook_transaction::attach(const hook_request& request, void** origina
     return {{}, {err}};
   }
 
+  std::unordered_set<void*> new_targets;
+  core::for_each_plan_target(prepared.plan, [&](void* target) { new_targets.insert(target); });
+  if (new_targets.empty()) {
+    release_prepared(prepared);
+    last_error_ = hook_error::invalid_target;
+    return {{}, {last_error_}};
+  }
+
   for (const auto& existing : pending_attaches_) {
-    if (existing.plan.resolved_target == prepared.plan.resolved_target) {
+    bool collision = false;
+    core::for_each_plan_target(existing.plan, [&](void* target) {
+      if (new_targets.find(target) != new_targets.end()) {
+        collision = true;
+      }
+    });
+    if (collision) {
+      release_prepared(prepared);
       last_error_ = hook_error::already_hooked;
       return {{}, {last_error_}};
     }

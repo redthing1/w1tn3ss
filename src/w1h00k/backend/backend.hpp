@@ -6,11 +6,18 @@
 
 namespace w1::h00k::backend {
 
+struct patch_entry {
+  void* target = nullptr;
+  std::vector<uint8_t> patch_bytes{};
+  std::vector<uint8_t> restore_bytes{};
+};
+
 struct hook_plan {
   hook_request request{};
   void* resolved_target = nullptr;
   std::vector<uint8_t> patch_bytes{};
   std::vector<uint8_t> restore_bytes{};
+  std::vector<patch_entry> patches{};
   void* trampoline = nullptr;
   size_t trampoline_size = 0;
 };

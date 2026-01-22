@@ -209,8 +209,23 @@ void* arg_get_stack_addr(const hook_arg_handle* args, int pos) {
 }
 
 void register_interpose(const interpose_pair* pairs, size_t count) {
-  (void)pairs;
-  (void)count;
+  if (!pairs || count == 0) {
+    return;
+  }
+  for (size_t i = 0; i < count; ++i) {
+    const auto& entry = pairs[i];
+    if (!entry.first || !entry.second) {
+      continue;
+    }
+    hook_request request{};
+    request.target.kind = hook_target_kind::symbol;
+    request.target.symbol = entry.first;
+    request.replacement = entry.second;
+    request.preferred = hook_technique::interpose;
+    request.allowed = technique_mask(hook_technique::interpose);
+    request.selection = hook_selection::strict;
+    (void)attach(request, nullptr);
+  }
 }
 
 } // namespace w1::h00k
