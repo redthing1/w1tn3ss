@@ -2,7 +2,7 @@
 
 namespace w1cov {
 coverage_engine::coverage_engine(coverage_config config)
-    : config_(std::move(config)), modules_(config_) {}
+    : config_(std::move(config)), modules_(coverage_module_policy{config_.instrumentation}) {}
 
 void coverage_engine::configure(const w1::runtime::module_catalog& modules) {
   store_.reset();
@@ -43,7 +43,7 @@ uint64_t coverage_engine::total_hits() const { return store_.total_hits(); }
 uint64_t coverage_engine::module_epoch() const { return modules_.registry_version(); }
 
 std::optional<w1::core::module_lookup<uint16_t>> coverage_engine::find_module(uint64_t address) const {
-  return modules_.find_module(address);
+  return modules_.find(address);
 }
 
 void coverage_engine::merge_buffer(const coverage_buffer& buffer) { store_.merge(buffer); }

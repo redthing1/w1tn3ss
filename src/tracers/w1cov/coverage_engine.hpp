@@ -3,15 +3,26 @@
 #include <atomic>
 #include <memory>
 #include <optional>
+#include <string_view>
 
 #include <w1formats/drcov.hpp>
 
 #include "coverage_config.hpp"
 #include "coverage_exporter.hpp"
 #include "coverage_store.hpp"
-#include "module_index.hpp"
+#include "w1instrument/core/module_id_map.hpp"
 
 namespace w1cov {
+
+struct coverage_module_policy {
+  w1::core::instrumentation_policy instrumentation{};
+
+  bool include(const w1::runtime::module_info& module) const { return instrumentation.should_instrument(module); }
+
+  std::string_view identity(const w1::runtime::module_info& module) const {
+    return module.path.empty() ? module.name : module.path;
+  }
+};
 
 class coverage_engine {
 public:
@@ -33,8 +44,10 @@ public:
   const coverage_config& config() const { return config_; }
 
 private:
+  using module_map = w1::core::module_id_map<coverage_module_policy, uint16_t>;
+
   coverage_config config_{};
-  module_index modules_;
+  module_map modules_;
   coverage_store store_{};
   coverage_exporter exporter_{};
 
