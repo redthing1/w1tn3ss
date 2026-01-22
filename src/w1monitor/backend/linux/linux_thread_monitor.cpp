@@ -24,6 +24,8 @@ using pthread_create_fn = int (*)(pthread_t*, const pthread_attr_t*, void* (*)(v
 using pthread_exit_fn = void (*)(void*);
 using pthread_setname_fn = int (*)(pthread_t, const char*);
 
+static thread_local bool g_stop_emitted = false;
+
 uint64_t current_tid() {
   return static_cast<uint64_t>(syscall(SYS_gettid));
 }
@@ -72,6 +74,7 @@ public:
   }
 
   bool poll(thread_event& out) override { return queue_.poll(out); }
+  void set_entry_callback(thread_entry_callback callback) override { entry_callback_ = std::move(callback); }
 
 private:
   static void* start_trampoline(void* arg) {
@@ -83,14 +86,28 @@ private:
     if (monitor && monitor->active_) {
       monitor->emit_started(current_tid());
     }
+    g_stop_emitted = false;
 
     void* result = nullptr;
-    if (start_routine) {
+    if (monitor && monitor->entry_callback_) {
+      thread_entry_context ctx{};
+      ctx.kind = thread_entry_kind::posix;
+      ctx.tid = current_tid();
+      ctx.start_routine = reinterpret_cast<void*>(start_routine);
+      ctx.arg = start_arg;
+      uint64_t callback_result = 0;
+      if (monitor->entry_callback_(ctx, callback_result)) {
+        result = reinterpret_cast<void*>(callback_result);
+      } else if (start_routine) {
+        result = start_routine(start_arg);
+      }
+    } else if (start_routine) {
       result = start_routine(start_arg);
     }
 
-    if (monitor && monitor->active_) {
+    if (monitor && monitor->active_ && !g_stop_emitted) {
       monitor->emit_stopped(current_tid());
+      g_stop_emitted = true;
     }
 
     return result;
@@ -118,8 +135,9 @@ private:
 
   static void replacement_pthread_exit(void* value) {
     auto* monitor = active_monitor;
-    if (monitor && monitor->active_) {
+    if (monitor && monitor->active_ && !g_stop_emitted) {
       monitor->emit_stopped(current_tid());
+      g_stop_emitted = true;
     }
     if (monitor && monitor->original_pthread_exit_) {
       monitor->original_pthread_exit_(value);
@@ -223,6 +241,7 @@ private:
   pthread_create_fn original_pthread_create_ = nullptr;
   pthread_exit_fn original_pthread_exit_ = nullptr;
   pthread_setname_fn original_pthread_setname_ = nullptr;
+  thread_entry_callback entry_callback_{};
 };
 
 } // namespace

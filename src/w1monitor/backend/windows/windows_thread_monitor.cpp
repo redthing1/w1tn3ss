@@ -15,6 +15,8 @@ using create_thread_fn = HANDLE(WINAPI*)(LPSECURITY_ATTRIBUTES, SIZE_T, LPTHREAD
 using exit_thread_fn = VOID(WINAPI*)(DWORD);
 using set_thread_description_fn = HRESULT(WINAPI*)(HANDLE, PCWSTR);
 
+static thread_local bool g_stop_emitted = false;
+
 std::string utf16_to_utf8(PCWSTR value) {
   if (!value) {
     return {};
@@ -69,20 +71,65 @@ public:
   }
 
   bool poll(thread_event& out) override { return queue_.poll(out); }
+  void set_entry_callback(thread_entry_callback callback) override { entry_callback_ = std::move(callback); }
 
 private:
+  struct start_payload {
+    LPTHREAD_START_ROUTINE start_routine = nullptr;
+    void* arg = nullptr;
+    class windows_thread_monitor* monitor = nullptr;
+  };
+
+  static DWORD WINAPI start_trampoline(LPVOID param) {
+    std::unique_ptr<start_payload> payload(static_cast<start_payload*>(param));
+    windows_thread_monitor* monitor = payload->monitor;
+    LPTHREAD_START_ROUTINE start_routine = payload->start_routine;
+    void* start_arg = payload->arg;
+
+    g_stop_emitted = false;
+    if (monitor && monitor->active_) {
+      monitor->emit_started(static_cast<uint64_t>(GetCurrentThreadId()));
+    }
+
+    DWORD result = 0;
+    if (monitor && monitor->entry_callback_) {
+      thread_entry_context ctx{};
+      ctx.kind = thread_entry_kind::win32;
+      ctx.tid = static_cast<uint64_t>(GetCurrentThreadId());
+      ctx.start_routine = reinterpret_cast<void*>(start_routine);
+      ctx.arg = start_arg;
+      uint64_t callback_result = 0;
+      if (monitor->entry_callback_(ctx, callback_result)) {
+        result = static_cast<DWORD>(callback_result);
+      } else if (start_routine) {
+        result = start_routine(start_arg);
+      }
+    } else if (start_routine) {
+      result = start_routine(start_arg);
+    }
+
+    if (monitor && monitor->active_ && !g_stop_emitted) {
+      monitor->emit_stopped(static_cast<uint64_t>(GetCurrentThreadId()));
+      g_stop_emitted = true;
+    }
+
+    return result;
+  }
+
   static HANDLE WINAPI replacement_create_thread(LPSECURITY_ATTRIBUTES attrs, SIZE_T stack,
                                                  LPTHREAD_START_ROUTINE start, LPVOID param,
                                                  DWORD flags, LPDWORD thread_id) {
     auto* monitor = active_monitor;
     HANDLE handle = nullptr;
     if (monitor && monitor->original_create_thread_) {
-      handle = monitor->original_create_thread_(attrs, stack, start, param, flags, thread_id);
-      if (monitor->active_ && handle) {
-        DWORD tid = thread_id ? *thread_id : GetThreadId(handle);
-        if (tid != 0) {
-          monitor->emit_started(static_cast<uint64_t>(tid));
-        }
+      auto* payload = new start_payload{};
+      payload->start_routine = start;
+      payload->arg = param;
+      payload->monitor = monitor;
+      handle = monitor->original_create_thread_(attrs, stack, &windows_thread_monitor::start_trampoline, payload,
+                                                flags, thread_id);
+      if (!handle) {
+        delete payload;
       }
     }
     return handle;
@@ -90,8 +137,9 @@ private:
 
   static VOID WINAPI replacement_exit_thread(DWORD code) {
     auto* monitor = active_monitor;
-    if (monitor && monitor->active_) {
+    if (monitor && monitor->active_ && !g_stop_emitted) {
       monitor->emit_stopped(static_cast<uint64_t>(GetCurrentThreadId()));
+      g_stop_emitted = true;
     }
     if (monitor && monitor->original_exit_thread_) {
       monitor->original_exit_thread_(code);
@@ -189,6 +237,7 @@ private:
   create_thread_fn original_create_thread_ = nullptr;
   exit_thread_fn original_exit_thread_ = nullptr;
   set_thread_description_fn original_set_description_ = nullptr;
+  thread_entry_callback entry_callback_{};
 };
 
 } // namespace
