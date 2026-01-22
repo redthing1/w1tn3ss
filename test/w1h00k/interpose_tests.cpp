@@ -37,7 +37,7 @@ static pid_t replacement_getpid() {
 #endif
 
 std::string interpose_library_path() {
-  return w1::h00k::test_paths::test_library_path(kInterposeLibName);
+  return w1::test_paths::test_library_path(kInterposeLibName);
 }
 
 struct interpose_library {

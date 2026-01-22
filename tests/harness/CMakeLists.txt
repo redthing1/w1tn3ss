@@ -31,6 +31,15 @@ w1_add_harness_test(test_rewind_format
     OUTPUT_SUBDIR harness
 )
 
+w1_add_harness_test(test_monitor_demo
+    SOURCES test_monitor_demo.cpp
+    INCLUDE_DIRS
+        ${W1_SOURCE_DIR}/src
+        ${W1_SOURCE_DIR}/test/common
+    LIBS w1monitor ${CMAKE_DL_LIBS}
+    OUTPUT_SUBDIR harness
+)
+
 set_tests_properties(test_gadget_executor PROPERTIES
     LABELS "unit;gadget;executor"
 )

@@ -46,6 +46,9 @@ endif()
 if(TARGET w1monitor_tests)
     add_dependencies(w1monitor_tests w1h00k_interpose_lib)
 endif()
+if(TARGET test_monitor_demo)
+    add_dependencies(test_monitor_demo w1h00k_interpose_lib)
+endif()
 
 install(TARGETS ${TEST_LIBRARY_TARGETS}
     LIBRARY DESTINATION test/libraries

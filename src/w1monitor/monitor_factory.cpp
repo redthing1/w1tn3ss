@@ -3,6 +3,12 @@
 #if defined(__APPLE__)
 #include "w1monitor/backend/darwin/darwin_module_monitor.hpp"
 #include "w1monitor/backend/darwin/darwin_thread_monitor.hpp"
+#elif defined(_WIN32)
+#include "w1monitor/backend/windows/windows_module_monitor.hpp"
+#include "w1monitor/backend/windows/windows_thread_monitor.hpp"
+#elif defined(__linux__)
+#include "w1monitor/backend/linux/linux_module_monitor.hpp"
+#include "w1monitor/backend/linux/linux_thread_monitor.hpp"
 #else
 #include "w1monitor/backend/null/null_module_monitor.hpp"
 #include "w1monitor/backend/null/null_thread_monitor.hpp"
@@ -13,6 +19,10 @@ namespace w1::monitor {
 std::unique_ptr<module_monitor> make_module_monitor() {
 #if defined(__APPLE__)
   return backend::darwin::make_module_monitor();
+#elif defined(_WIN32)
+  return backend::windows::make_module_monitor();
+#elif defined(__linux__)
+  return backend::linux_backend::make_module_monitor();
 #else
   return backend::null_backend::make_module_monitor();
 #endif
@@ -21,6 +31,10 @@ std::unique_ptr<module_monitor> make_module_monitor() {
 std::unique_ptr<thread_monitor> make_thread_monitor() {
 #if defined(__APPLE__)
   return backend::darwin::make_thread_monitor();
+#elif defined(_WIN32)
+  return backend::windows::make_thread_monitor();
+#elif defined(__linux__)
+  return backend::linux_backend::make_thread_monitor();
 #else
   return backend::null_backend::make_thread_monitor();
 #endif

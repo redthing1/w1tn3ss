@@ -12,8 +12,9 @@ w1_add_doctest_suite(w1monitor_tests
     SOURCES ${W1MONITOR_TEST_SOURCES}
     INCLUDE_DIRS
         ${CMAKE_CURRENT_SOURCE_DIR}
+        ${W1_SOURCE_DIR}/test/common
         ${W1_SOURCE_DIR}/src
         ${W1_SOURCE_DIR}/src/third_party
-    LIBS w1monitor
+    LIBS w1monitor ${CMAKE_DL_LIBS}
     OUTPUT_SUBDIR w1monitor
 )

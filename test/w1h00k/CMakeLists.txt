@@ -20,8 +20,9 @@ w1_add_doctest_suite(w1h00k_tests
     SOURCES ${W1H00K_TEST_SOURCES}
     INCLUDE_DIRS
         ${CMAKE_CURRENT_SOURCE_DIR}
+        ${W1_SOURCE_DIR}/test/common
         ${W1_SOURCE_DIR}/src
         ${W1_SOURCE_DIR}/src/third_party
-    LIBS w1h00k
+    LIBS w1h00k ${CMAKE_DL_LIBS}
     OUTPUT_SUBDIR w1h00k
 )

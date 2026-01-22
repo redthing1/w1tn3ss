@@ -12,7 +12,7 @@
 #include <unistd.h>
 #endif
 
-namespace w1::monitor::test_paths {
+namespace w1::test_paths {
 
 inline std::string executable_path() {
 #if defined(_WIN32)
@@ -57,4 +57,4 @@ inline std::string test_library_path(const char* name) {
 #endif
 }
 
-} // namespace w1::monitor::test_paths
+} // namespace w1::test_paths
