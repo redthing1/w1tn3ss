@@ -70,6 +70,7 @@ struct hook_target {
   void* address = nullptr;
   const char* symbol = nullptr;
   const char* module = nullptr;
+  const char* import_module = nullptr;
   void** slot = nullptr;
   void** table = nullptr;
   size_t index = 0;

@@ -29,7 +29,7 @@ bool hook_manager::is_valid_target(const hook_target& target) const {
     case hook_target_kind::symbol:
       return target.symbol != nullptr;
     case hook_target_kind::import_slot:
-      return target.slot != nullptr;
+      return target.slot != nullptr || target.symbol != nullptr;
     case hook_target_kind::table_slot:
       return target.table != nullptr;
   }
@@ -50,7 +50,14 @@ void* hook_manager::resolve_target(const hook_target& target) const {
     case hook_target_kind::symbol:
       return resolve::symbol_address(target.symbol, target.module);
     case hook_target_kind::import_slot:
-      return target.slot;
+      if (target.slot) {
+        return target.slot;
+      }
+      if (target.symbol) {
+        auto resolved = resolve::resolve_import(target.symbol, target.module, target.import_module);
+        return resolved.slot;
+      }
+      return nullptr;
     case hook_target_kind::table_slot:
       if (!target.table) {
         return nullptr;
