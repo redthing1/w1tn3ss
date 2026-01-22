@@ -115,8 +115,9 @@ bool layout_for(hook_call_abi abi, abi_layout& out) {
 }
 
 core::hook_manager& global_manager() {
-  static core::hook_manager manager{};
-  return manager;
+  // intentionally leaked to avoid shutdown-order issues in preload/teardown
+  static core::hook_manager* manager = new core::hook_manager();
+  return *manager;
 }
 
 } // namespace
