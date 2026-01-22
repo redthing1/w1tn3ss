@@ -32,6 +32,7 @@ struct operand {
   uint32_t mem_index = 0;
   int32_t mem_scale = 0;
   int64_t mem_disp = 0;
+  bool is_pc_relative = false;
 };
 
 struct instruction {
