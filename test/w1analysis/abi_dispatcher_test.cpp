@@ -3,11 +3,11 @@
 #include <array>
 
 #include "w1analysis/abi_dispatcher.hpp"
-#include "w1runtime/module_registry.hpp"
+#include "w1runtime/module_catalog.hpp"
 #include "w1runtime/memory_reader.hpp"
 
 TEST_CASE("abi_dispatcher extracts register arguments") {
-  w1::runtime::module_registry modules;
+  w1::runtime::module_catalog modules;
   w1::util::memory_reader memory(nullptr, modules);
   w1::analysis::abi_dispatcher dispatcher;
 
@@ -54,7 +54,7 @@ TEST_CASE("abi_dispatcher extracts register arguments") {
 }
 
 TEST_CASE("abi_dispatcher extracts stack arguments") {
-  w1::runtime::module_registry modules;
+  w1::runtime::module_catalog modules;
   w1::util::memory_reader memory(nullptr, modules);
   w1::analysis::abi_dispatcher dispatcher;
 

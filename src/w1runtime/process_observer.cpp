@@ -1,4 +1,4 @@
-#include "w1runtime/process_monitor.hpp"
+#include "w1runtime/process_observer.hpp"
 
 #include <chrono>
 
@@ -7,11 +7,11 @@ namespace {
 constexpr auto kPollInterval = std::chrono::milliseconds(5);
 }
 
-process_monitor::process_monitor() = default;
+process_observer::process_observer() = default;
 
-process_monitor::~process_monitor() { stop(); }
+process_observer::~process_observer() { stop(); }
 
-void process_monitor::start() {
+void process_observer::start() {
   if (running_.exchange(true, std::memory_order_acq_rel)) {
     return;
   }
@@ -31,10 +31,10 @@ void process_monitor::start() {
     }
   }
 
-  pump_thread_ = std::thread(&process_monitor::pump, this);
+  pump_thread_ = std::thread(&process_observer::pump, this);
 }
 
-void process_monitor::stop() {
+void process_observer::stop() {
   if (!running_.exchange(false, std::memory_order_acq_rel)) {
     return;
   }
@@ -54,7 +54,7 @@ void process_monitor::stop() {
   thread_monitor_.reset();
 }
 
-void process_monitor::poll_once() {
+void process_observer::poll_once() {
   w1::monitor::module_event module_event{};
   w1::monitor::thread_event thread_event{};
 
@@ -75,19 +75,19 @@ void process_monitor::poll_once() {
   }
 }
 
-process_monitor::subscription_id process_monitor::subscribe(event_callback callback) {
+process_observer::subscription_id process_observer::subscribe(event_callback callback) {
   std::lock_guard<std::mutex> lock(callback_mutex_);
   subscription_id id = next_callback_id_.fetch_add(1, std::memory_order_relaxed);
   callbacks_.emplace(id, std::move(callback));
   return id;
 }
 
-void process_monitor::unsubscribe(subscription_id id) {
+void process_observer::unsubscribe(subscription_id id) {
   std::lock_guard<std::mutex> lock(callback_mutex_);
   callbacks_.erase(id);
 }
 
-void process_monitor::set_thread_entry_callback(w1::monitor::thread_entry_callback callback) {
+void process_observer::set_thread_entry_callback(w1::monitor::thread_entry_callback callback) {
   std::lock_guard<std::mutex> lock(monitor_mutex_);
   entry_callback_ = std::move(callback);
   if (thread_monitor_) {
@@ -95,14 +95,14 @@ void process_monitor::set_thread_entry_callback(w1::monitor::thread_entry_callba
   }
 }
 
-void process_monitor::pump() {
+void process_observer::pump() {
   while (running_.load(std::memory_order_acquire)) {
     poll_once();
     std::this_thread::sleep_for(kPollInterval);
   }
 }
 
-void process_monitor::emit_event(const monitor_event& event) {
+void process_observer::emit_event(const process_event& event) {
   std::vector<event_callback> callbacks_copy;
   {
     std::lock_guard<std::mutex> lock(callback_mutex_);
@@ -120,31 +120,31 @@ void process_monitor::emit_event(const monitor_event& event) {
   }
 }
 
-void process_monitor::handle_module_event(const w1::monitor::module_event& event) {
+void process_observer::handle_module_event(const w1::monitor::module_event& event) {
   modules_.refresh();
 
-  monitor_event out{};
+  process_event out{};
   out.module = event;
   out.type = (event.type == w1::monitor::module_event::kind::loaded)
-                 ? monitor_event::kind::module_loaded
-                 : monitor_event::kind::module_unloaded;
+                 ? process_event::kind::module_loaded
+                 : process_event::kind::module_unloaded;
   emit_event(out);
 }
 
-void process_monitor::handle_thread_event(const w1::monitor::thread_event& event) {
+void process_observer::handle_thread_event(const w1::monitor::thread_event& event) {
   threads_.apply(event);
 
-  monitor_event out{};
+  process_event out{};
   out.thread = event;
   switch (event.type) {
     case w1::monitor::thread_event::kind::started:
-      out.type = monitor_event::kind::thread_started;
+      out.type = process_event::kind::thread_started;
       break;
     case w1::monitor::thread_event::kind::stopped:
-      out.type = monitor_event::kind::thread_stopped;
+      out.type = process_event::kind::thread_stopped;
       break;
     case w1::monitor::thread_event::kind::renamed:
-      out.type = monitor_event::kind::thread_renamed;
+      out.type = process_event::kind::thread_renamed;
       break;
     default:
       return;

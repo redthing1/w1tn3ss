@@ -33,7 +33,7 @@ mnemonic_collector::~mnemonic_collector() {
 }
 
 void mnemonic_collector::record_mnemonic(
-    const w1::runtime::module_registry& modules, uint64_t address, std::string_view mnemonic,
+    const w1::runtime::module_catalog& modules, uint64_t address, std::string_view mnemonic,
     std::string_view disassembly
 ) {
   stats_.matched_instructions++;
@@ -69,7 +69,7 @@ void mnemonic_collector::shutdown() {
   shutdown_called_ = true;
 }
 
-void mnemonic_collector::ensure_metadata_written(const w1::runtime::module_registry& modules) {
+void mnemonic_collector::ensure_metadata_written(const w1::runtime::module_catalog& modules) {
   if (metadata_written_) {
     return;
   }
@@ -83,7 +83,7 @@ void mnemonic_collector::ensure_metadata_written(const w1::runtime::module_regis
   metadata_written_ = true;
 }
 
-std::string mnemonic_collector::get_module_name(const w1::runtime::module_registry& modules, uint64_t address) const {
+std::string mnemonic_collector::get_module_name(const w1::runtime::module_catalog& modules, uint64_t address) const {
   if (address == 0) {
     return "unknown";
   }

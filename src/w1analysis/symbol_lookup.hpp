@@ -8,7 +8,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "w1runtime/module_registry.hpp"
+#include "w1runtime/module_catalog.hpp"
 
 namespace w1::analysis {
 
@@ -35,9 +35,9 @@ struct symbol_lookup_config {
 class symbol_lookup {
 public:
   symbol_lookup() = default;
-  explicit symbol_lookup(const runtime::module_registry* modules, symbol_lookup_config config = {});
+  explicit symbol_lookup(const runtime::module_catalog* modules, symbol_lookup_config config = {});
 
-  void set_module_registry(const runtime::module_registry* modules);
+  void set_module_catalog(const runtime::module_catalog* modules);
   void set_config(symbol_lookup_config config);
 
   std::optional<symbol_info> resolve(uint64_t address) const;
@@ -58,7 +58,7 @@ private:
   std::optional<native_symbol_result> resolve_native(uint64_t address) const;
   std::string maybe_demangle(const char* name) const;
 
-  const runtime::module_registry* modules_ = nullptr;
+  const runtime::module_catalog* modules_ = nullptr;
   symbol_lookup_config config_{};
 
   mutable std::unordered_map<uint64_t, std::optional<symbol_info>> cache_{};

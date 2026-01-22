@@ -1,4 +1,4 @@
-#include "transfer_tracer.hpp"
+#include "transfer_recorder.hpp"
 
 #include <sstream>
 #include <utility>
@@ -23,11 +23,11 @@ std::string format_symbol_name(const transfer_symbol& symbol) {
 
 } // namespace
 
-transfer_tracer::transfer_tracer(transfer_config config)
-    : config_(std::move(config)), pipeline_(config_), log_(redlog::get_logger("w1xfer.tracer")) {
+transfer_recorder::transfer_recorder(transfer_config config)
+    : config_(std::move(config)), pipeline_(config_), log_(redlog::get_logger("w1xfer.recorder")) {
   if (config_.verbose > 0) {
     log_.inf(
-        "transfer tracer created", redlog::field("output", config_.output.path),
+        "transfer recorder created", redlog::field("output", config_.output.path),
         redlog::field("capture_registers", config_.capture.registers),
         redlog::field("capture_stack", config_.capture.stack), redlog::field("enrich_modules", config_.enrich.modules),
         redlog::field("enrich_symbols", config_.enrich.symbols),
@@ -36,13 +36,13 @@ transfer_tracer::transfer_tracer(transfer_config config)
   }
 }
 
-void transfer_tracer::on_thread_start(w1::trace_context& ctx, const w1::thread_event& event) {
+void transfer_recorder::on_thread_start(w1::trace_context& ctx, const w1::thread_event& event) {
   (void) event;
   if (initialized_) {
     return;
   }
 
-  log_.inf("initializing transfer tracer");
+  log_.inf("initializing transfer recorder");
   const bool needs_modules = config_.enrich.modules || config_.enrich.symbols || config_.enrich.analyze_apis ||
                              (config_.output.emit_metadata && !config_.output.path.empty());
   if (needs_modules) {
@@ -53,15 +53,15 @@ void transfer_tracer::on_thread_start(w1::trace_context& ctx, const w1::thread_e
     log_.inf("module tracking initialized");
   }
   if (config_.verbose > 0) {
-    log_.inf("transfer tracer initialized successfully");
+    log_.inf("transfer recorder initialized successfully");
   }
   initialized_ = true;
 }
 
-void transfer_tracer::on_thread_stop(w1::trace_context& ctx, const w1::thread_event& event) {
+void transfer_recorder::on_thread_stop(w1::trace_context& ctx, const w1::thread_event& event) {
   (void) ctx;
   (void) event;
-  log_.inf("shutting down transfer tracer");
+  log_.inf("shutting down transfer recorder");
   const auto& stats = pipeline_.stats();
   log_.inf(
       "transfer collection completed", redlog::field("total_calls", stats.total_calls),
@@ -70,7 +70,7 @@ void transfer_tracer::on_thread_stop(w1::trace_context& ctx, const w1::thread_ev
   );
 }
 
-void transfer_tracer::on_exec_transfer_call(
+void transfer_recorder::on_exec_transfer_call(
     w1::trace_context& ctx, const w1::exec_transfer_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state,
     QBDI::GPRState* gpr, QBDI::FPRState* fpr
 ) {
@@ -127,7 +127,7 @@ void transfer_tracer::on_exec_transfer_call(
   }
 }
 
-void transfer_tracer::on_exec_transfer_return(
+void transfer_recorder::on_exec_transfer_return(
     w1::trace_context& ctx, const w1::exec_transfer_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state,
     QBDI::GPRState* gpr, QBDI::FPRState* fpr
 ) {

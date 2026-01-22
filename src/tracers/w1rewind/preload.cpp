@@ -11,13 +11,13 @@
 #include "rewind_tracer.hpp"
 
 #include "w1rewind/trace/trace_file_writer.hpp"
-#include "w1instrument/tracer/trace_session.hpp"
+#include "w1instrument/tracer/vm_session.hpp"
 #include "w1instrument/self_exclude.hpp"
 
 namespace {
 
-using rewind_instruction_session = w1::trace_session<w1rewind::rewind_instruction_tracer>;
-using rewind_block_session = w1::trace_session<w1rewind::rewind_block_tracer>;
+using rewind_instruction_session = w1::vm_session<w1rewind::rewind_instruction_tracer>;
+using rewind_block_session = w1::vm_session<w1rewind::rewind_block_tracer>;
 
 std::unique_ptr<rewind_instruction_session> g_instruction_session;
 std::unique_ptr<rewind_block_session> g_block_session;
@@ -98,7 +98,7 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
     return QBDIPRELOAD_ERR_STARTUP_FAILED;
   }
 
-  w1::trace_session_config session_config;
+  w1::vm_session_config session_config;
   session_config.instrumentation = g_config.instrumentation;
   session_config.thread_id = 1;
   session_config.thread_name = "main";

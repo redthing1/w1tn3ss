@@ -5,12 +5,12 @@
 namespace w1::tracers::script::runtime {
 
 script_context::script_context(
-    QBDI::VM* vm, const script_config& config, w1::runtime::module_registry* modules,
+    QBDI::VM* vm, const script_config& config, w1::runtime::module_catalog* modules,
     const w1::util::memory_reader* memory, uint64_t thread_id, std::string thread_name
 )
     : config_(config), vm_(vm), modules_(modules), memory_(memory), thread_id_(thread_id),
       thread_name_(std::move(thread_name)), logger_(redlog::get_logger("w1script.context")) {
-  symbol_lookup_.set_module_registry(modules_);
+  symbol_lookup_.set_module_catalog(modules_);
 }
 
 bool script_context::refresh_modules() {

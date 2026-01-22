@@ -8,13 +8,13 @@
 #include <w1base/windows_console.hpp>
 #endif
 
-#include "w1instrument/tracer/trace_session.hpp"
+#include "w1instrument/tracer/vm_session.hpp"
 #include "w1instrument/self_exclude.hpp"
 
 #include "dump_config.hpp"
 #include "dump_tracer.hpp"
 
-static std::unique_ptr<w1::trace_session<w1dump::dump_tracer>> g_session;
+static std::unique_ptr<w1::vm_session<w1dump::dump_tracer>> g_session;
 static w1dump::dump_config g_config;
 
 namespace {
@@ -48,12 +48,12 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
     w1::util::append_self_excludes(g_config.instrumentation, reinterpret_cast<const void*>(&qbdipreload_on_run));
   }
 
-  w1::trace_session_config session_config;
+  w1::vm_session_config session_config;
   session_config.instrumentation = g_config.instrumentation;
   session_config.thread_id = 1;
   session_config.thread_name = "main";
 
-  g_session = std::make_unique<w1::trace_session<w1dump::dump_tracer>>(session_config, vm, std::in_place, g_config);
+  g_session = std::make_unique<w1::vm_session<w1dump::dump_tracer>>(session_config, vm, std::in_place, g_config);
 
   log.inf(
       "starting dump session", redlog::field("start", "0x%llx", static_cast<unsigned long long>(start)),

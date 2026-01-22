@@ -5,7 +5,7 @@
 
 #include "w1analysis/abi_dispatcher.hpp"
 #include "w1analysis/symbol_lookup.hpp"
-#include "w1runtime/module_registry.hpp"
+#include "w1runtime/module_catalog.hpp"
 #include "w1runtime/memory_reader.hpp"
 
 #include <QBDI.h>
@@ -18,13 +18,13 @@ namespace w1::tracers::script::runtime {
 class script_context {
 public:
   script_context(
-      QBDI::VM* vm, const script_config& config, w1::runtime::module_registry* modules,
+      QBDI::VM* vm, const script_config& config, w1::runtime::module_catalog* modules,
       const w1::util::memory_reader* memory, uint64_t thread_id, std::string thread_name
   );
 
   QBDI::VM* vm() const { return vm_; }
   const script_config& config() const { return config_; }
-  w1::runtime::module_registry& modules() const { return *modules_; }
+  w1::runtime::module_catalog& modules() const { return *modules_; }
   const w1::util::memory_reader& memory() const { return *memory_; }
   w1::analysis::symbol_lookup& symbols() { return symbol_lookup_; }
   const w1::analysis::symbol_lookup& symbols() const { return symbol_lookup_; }
@@ -39,7 +39,7 @@ public:
 private:
   script_config config_{};
   QBDI::VM* vm_ = nullptr;
-  w1::runtime::module_registry* modules_ = nullptr;
+  w1::runtime::module_catalog* modules_ = nullptr;
   const w1::util::memory_reader* memory_ = nullptr;
   w1::analysis::symbol_lookup symbol_lookup_{};
   w1::analysis::abi_dispatcher abi_dispatcher_{};

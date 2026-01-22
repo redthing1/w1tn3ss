@@ -6,7 +6,7 @@
 #include <QBDI.h>
 
 #include "w1instrument/core/event_router.hpp"
-#include "w1runtime/module_registry.hpp"
+#include "w1runtime/module_catalog.hpp"
 #include "w1instrument/tracer/event.hpp"
 #include "w1instrument/tracer/trace_context.hpp"
 #include "w1runtime/memory_reader.hpp"
@@ -243,7 +243,7 @@ struct exec_transfer_tracer {
 TEST_CASE("event_router registers instruction_pre callbacks") {
   QBDI::VM vm;
 
-  w1::runtime::module_registry modules;
+  w1::runtime::module_catalog modules;
   w1::util::memory_reader memory(&vm, modules);
   w1::trace_context ctx(0, &vm, &modules, &memory);
 
@@ -265,7 +265,7 @@ TEST_CASE("event_router registers instruction_pre callbacks") {
 TEST_CASE("event_router skips callbacks when event mask is empty") {
   QBDI::VM vm;
 
-  w1::runtime::module_registry modules;
+  w1::runtime::module_catalog modules;
   w1::util::memory_reader memory(&vm, modules);
   w1::trace_context ctx(0, &vm, &modules, &memory);
 
@@ -287,7 +287,7 @@ TEST_CASE("event_router skips callbacks when event mask is empty") {
 TEST_CASE("event_router registers instruction_post callbacks") {
   QBDI::VM vm;
 
-  w1::runtime::module_registry modules;
+  w1::runtime::module_catalog modules;
   w1::util::memory_reader memory(&vm, modules);
   w1::trace_context ctx(0, &vm, &modules, &memory);
 
@@ -310,7 +310,7 @@ TEST_CASE("event_router registers instruction_post callbacks") {
 TEST_CASE("event_router registers basic block callbacks") {
   QBDI::VM vm;
 
-  w1::runtime::module_registry modules;
+  w1::runtime::module_catalog modules;
   w1::util::memory_reader memory(&vm, modules);
   w1::trace_context ctx(0, &vm, &modules, &memory);
 
@@ -333,7 +333,7 @@ TEST_CASE("event_router registers basic block callbacks") {
 TEST_CASE("event_router registers vm start and stop callbacks") {
   QBDI::VM vm;
 
-  w1::runtime::module_registry modules;
+  w1::runtime::module_catalog modules;
   w1::util::memory_reader memory(&vm, modules);
   w1::trace_context ctx(0, &vm, &modules, &memory);
 
@@ -356,7 +356,7 @@ TEST_CASE("event_router registers vm start and stop callbacks") {
 TEST_CASE("event_router registers memory callbacks") {
   QBDI::VM vm;
 
-  w1::runtime::module_registry modules;
+  w1::runtime::module_catalog modules;
   w1::util::memory_reader memory(&vm, modules);
   w1::trace_context ctx(0, &vm, &modules, &memory);
 
@@ -382,7 +382,7 @@ TEST_CASE("event_router registers memory callbacks") {
 TEST_CASE("event_router registers exec transfer callbacks") {
   QBDI::VM vm;
 
-  w1::runtime::module_registry modules;
+  w1::runtime::module_catalog modules;
   w1::util::memory_reader memory(&vm, modules);
   w1::trace_context ctx(0, &vm, &modules, &memory);
 

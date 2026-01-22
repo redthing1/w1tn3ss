@@ -13,9 +13,9 @@
 
 namespace w1xfer {
 
-class transfer_tracer {
+class transfer_recorder {
 public:
-  explicit transfer_tracer(transfer_config config);
+  explicit transfer_recorder(transfer_config config);
 
   const char* name() const { return "w1xfer"; }
   static constexpr w1::event_mask requested_events() {
@@ -47,7 +47,7 @@ public:
 private:
   transfer_config config_{};
   transfer_pipeline pipeline_;
-  redlog::logger log_ = redlog::get_logger("w1xfer.tracer");
+  redlog::logger log_ = redlog::get_logger("w1xfer.recorder");
   bool initialized_ = false;
 };
 

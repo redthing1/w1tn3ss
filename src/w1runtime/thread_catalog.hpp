@@ -16,7 +16,7 @@ struct thread_info {
   bool alive = false;
 };
 
-class thread_registry {
+class thread_catalog {
 public:
   void apply(const w1::monitor::thread_event& event);
   std::vector<thread_info> list_threads() const;

@@ -12,7 +12,7 @@
 #include "w1base/arch_spec.hpp"
 #include "w1instrument/tracer/trace_context.hpp"
 #include "w1runtime/memory_reader.hpp"
-#include "w1runtime/module_registry.hpp"
+#include "w1runtime/module_catalog.hpp"
 #include "w1runtime/register_capture.hpp"
 
 namespace {
@@ -99,7 +99,7 @@ TEST_CASE("snapshot builder emits register snapshots on interval") {
   config.stack_snapshots.interval = 0;
   config.stack_window.mode = w1rewind::rewind_config::stack_window_options::mode::none;
 
-  w1::runtime::module_registry modules;
+  w1::runtime::module_catalog modules;
   w1::util::memory_reader reader(nullptr, modules);
   w1::trace_context ctx(1, nullptr, &modules, &reader);
 
@@ -126,7 +126,7 @@ TEST_CASE("memory access builder captures inline values and truncation") {
   config.memory.values = true;
   config.memory.max_value_bytes = 4;
 
-  w1::runtime::module_registry modules;
+  w1::runtime::module_catalog modules;
   w1::util::memory_reader reader(nullptr, modules);
   w1::trace_context ctx(1, nullptr, &modules, &reader);
 

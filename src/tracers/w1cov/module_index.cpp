@@ -4,7 +4,7 @@ namespace w1cov {
 
 module_index::module_index(coverage_config config) : config_(std::move(config)) {}
 
-void module_index::configure(const w1::runtime::module_registry& modules) {
+void module_index::configure(const w1::runtime::module_catalog& modules) {
   modules_ = &modules;
   {
     std::unique_lock<std::shared_mutex> lock(mutex_);
@@ -51,7 +51,7 @@ void module_index::seed_from_registry() {
   );
 }
 
-std::optional<uint16_t> module_index::find_module_id(uint64_t address) const {
+std::optional<w1::core::module_lookup<uint16_t>> module_index::find_module(uint64_t address) const {
   if (!modules_ || address == 0) {
     return std::nullopt;
   }
@@ -61,26 +61,28 @@ std::optional<uint16_t> module_index::find_module_id(uint64_t address) const {
     return std::nullopt;
   }
 
+  const uint64_t version = modules_->version();
   const uint64_t base = module->base_address;
+  const uint64_t end = module->base_address + module->size;
   const std::string_view identity = module_identity_view(*module);
 
   {
     std::shared_lock<std::shared_mutex> lock(mutex_);
     auto it = module_map_.find(base);
     if (it != module_map_.end() && it->second.identity == identity && it->second.size == module->size) {
-      return it->second.id;
+      return w1::core::module_lookup<uint16_t>{it->second.id, base, end, version};
     }
   }
 
   std::unique_lock<std::shared_mutex> lock(mutex_);
   auto it = module_map_.find(base);
   if (it != module_map_.end() && it->second.identity == identity && it->second.size == module->size) {
-    return it->second.id;
+    return w1::core::module_lookup<uint16_t>{it->second.id, base, end, version};
   }
 
   uint16_t id = register_module_locked(*module);
   module_map_[base] = module_entry{id, std::string(identity), module->size};
-  return id;
+  return w1::core::module_lookup<uint16_t>{id, base, end, version};
 }
 
 std::vector<w1::runtime::module_info> module_index::snapshot_modules() const {
@@ -91,6 +93,10 @@ std::vector<w1::runtime::module_info> module_index::snapshot_modules() const {
 size_t module_index::tracked_module_count() const {
   std::shared_lock<std::shared_mutex> lock(mutex_);
   return modules_by_id_.size();
+}
+
+uint64_t module_index::registry_version() const {
+  return modules_ ? modules_->version() : 0;
 }
 
 bool module_index::should_trace_module(const w1::runtime::module_info& module) const {

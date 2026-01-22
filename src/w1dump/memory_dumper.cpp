@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-#include "w1runtime/module_registry.hpp"
+#include "w1runtime/module_catalog.hpp"
 
 namespace w1::dump {
 
@@ -57,7 +57,7 @@ std::vector<memory_region> memory_dumper::dump_memory_regions(
 std::vector<module_info> memory_dumper::dump_modules() {
   log_.vrb("dumping module information");
 
-  runtime::module_registry registry;
+  runtime::module_catalog registry;
   registry.refresh();
   auto runtime_modules = registry.list_modules();
 

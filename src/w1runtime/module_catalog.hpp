@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <shared_mutex>
@@ -22,11 +23,12 @@ struct module_info {
   std::vector<address_range> exec_ranges;
 };
 
-class module_registry {
+class module_catalog {
 public:
   void refresh();
   const module_info* find_containing(uint64_t address) const;
   std::vector<module_info> list_modules() const;
+  uint64_t version() const { return version_.load(std::memory_order_acquire); }
 
 private:
   struct range_index_entry {
@@ -37,6 +39,7 @@ private:
   mutable std::shared_mutex mutex_{};
   std::vector<module_info> modules_;
   std::vector<range_index_entry> range_index_;
+  std::atomic<uint64_t> version_{0};
 };
 
 } // namespace w1::runtime

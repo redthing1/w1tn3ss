@@ -10,7 +10,8 @@
 
 #include <redlog.hpp>
 
-#include "w1runtime/module_registry.hpp"
+#include "w1instrument/core/module_cache.hpp"
+#include "w1runtime/module_catalog.hpp"
 
 #include "coverage_config.hpp"
 
@@ -20,9 +21,10 @@ class module_index {
 public:
   explicit module_index(coverage_config config);
 
-  void configure(const w1::runtime::module_registry& modules);
+  void configure(const w1::runtime::module_catalog& modules);
 
-  std::optional<uint16_t> find_module_id(uint64_t address) const;
+  std::optional<w1::core::module_lookup<uint16_t>> find_module(uint64_t address) const;
+  uint64_t registry_version() const;
 
   std::vector<w1::runtime::module_info> snapshot_modules() const;
   size_t tracked_module_count() const;
@@ -40,7 +42,7 @@ private:
   uint16_t register_module_locked(const w1::runtime::module_info& module) const;
 
   coverage_config config_{};
-  const w1::runtime::module_registry* modules_ = nullptr;
+  const w1::runtime::module_catalog* modules_ = nullptr;
 
   mutable std::shared_mutex mutex_{};
   mutable std::vector<w1::runtime::module_info> modules_by_id_{};

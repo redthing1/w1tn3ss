@@ -40,7 +40,7 @@ public:
 
 private:
   void ensure_executor(QBDI::VMInstanceRef vm);
-  void resolve_main_base(const w1::runtime::module_registry& modules);
+  void resolve_main_base(const w1::runtime::module_catalog& modules);
   void run_immediate_test();
   void run_demo();
 

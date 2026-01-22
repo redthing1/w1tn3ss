@@ -8,16 +8,16 @@
 #include <vector>
 
 #include "tracers/w1cov/coverage_engine.hpp"
-#include "tracers/w1cov/coverage_tracer.hpp"
+#include "tracers/w1cov/coverage_recorder.hpp"
 #include "w1base/thread_utils.hpp"
 #include "w1formats/drcov.hpp"
-#include "w1instrument/process_tracer.hpp"
-#include "w1runtime/process_monitor.hpp"
+#include "w1instrument/process_instrumentor.hpp"
+#include "w1runtime/process_observer.hpp"
 
 #include "w1cov_demo_lib.hpp"
 
 int main() {
-  using tracer_t = w1cov::coverage_tracer<w1cov::coverage_mode::basic_block>;
+  using tracer_t = w1cov::coverage_recorder<w1cov::coverage_mode::basic_block>;
   using w1::test_helpers::demo_library;
   using w1::test_helpers::load_demo_library;
   using w1::test_helpers::run_demo_thread;
@@ -27,19 +27,19 @@ int main() {
   config.output_file = "test_w1cov_multithread.drcov";
   config.instrumentation.include_modules = {"w1cov_demo_lib"};
 
-  w1::runtime::process_monitor monitor;
+  w1::runtime::process_observer monitor;
   monitor.modules().refresh();
 
   auto engine = std::make_shared<w1cov::coverage_engine>(config);
   engine->configure(monitor.modules());
 
-  w1::instrument::process_tracer<tracer_t>::config process_config{};
+  w1::instrument::process_instrumentor<tracer_t>::config process_config{};
   process_config.instrumentation = config.instrumentation;
   process_config.attach_new_threads = true;
   process_config.refresh_on_module_events = true;
-  process_config.owns_monitor = true;
+  process_config.owns_observer = true;
 
-  w1::instrument::process_tracer<tracer_t> process(
+  w1::instrument::process_instrumentor<tracer_t> process(
       monitor, process_config, [engine](const w1::runtime::thread_info&) { return tracer_t(engine); }
   );
   process.start();

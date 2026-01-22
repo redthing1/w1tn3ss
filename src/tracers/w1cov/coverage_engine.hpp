@@ -2,9 +2,7 @@
 
 #include <atomic>
 #include <memory>
-#include <unordered_map>
-
-#include <QBDI.h>
+#include <optional>
 
 #include <w1formats/drcov.hpp>
 
@@ -17,28 +15,12 @@ namespace w1cov {
 
 class coverage_engine {
 public:
-  class thread_writer {
-  public:
-    thread_writer() = default;
-
-    void record(QBDI::rword address, uint16_t size);
-    void flush();
-    bool active() const { return engine_ != nullptr; }
-
-  private:
-    friend class coverage_engine;
-
-    thread_writer(coverage_engine* engine, size_t reserve);
-
-    coverage_engine* engine_ = nullptr;
-    coverage_buffer buffer_{};
-  };
-
   explicit coverage_engine(coverage_config config);
 
-  void configure(const w1::runtime::module_registry& modules);
-
-  thread_writer begin_thread();
+  void configure(const w1::runtime::module_catalog& modules);
+  uint64_t module_epoch() const;
+  std::optional<w1::core::module_lookup<uint16_t>> find_module(uint64_t address) const;
+  void merge_buffer(const coverage_buffer& buffer);
 
   bool export_coverage();
   drcov::coverage_data build_drcov_data() const;
@@ -51,11 +33,6 @@ public:
   const coverage_config& config() const { return config_; }
 
 private:
-  friend class thread_writer;
-
-  bool resolve_module_id(uint64_t address, uint16_t& module_id) const;
-  void merge_buffer(const coverage_buffer& buffer);
-
   coverage_config config_{};
   module_index modules_;
   coverage_store store_{};

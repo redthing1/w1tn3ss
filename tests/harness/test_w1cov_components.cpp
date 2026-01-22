@@ -3,7 +3,7 @@
 
 #include "tracers/w1cov/coverage_exporter.hpp"
 #include "tracers/w1cov/coverage_store.hpp"
-#include "w1runtime/module_registry.hpp"
+#include "w1runtime/module_catalog.hpp"
 
 int main() {
   w1cov::coverage_store store;

@@ -72,7 +72,7 @@ void transfer_pipeline::initialize(const w1::trace_context& ctx) {
   memory_ = &ctx.memory();
 
   if (config_.enrich.modules || config_.enrich.symbols || config_.output.emit_metadata || config_.enrich.analyze_apis) {
-    symbol_lookup_.set_module_registry(modules_);
+    symbol_lookup_.set_module_catalog(modules_);
   }
 
   if (config_.enrich.analyze_apis) {

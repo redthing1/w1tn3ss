@@ -12,7 +12,7 @@
 #include "w1instrument/core/event_router.hpp"
 #include "w1instrument/core/instrumentation_policy.hpp"
 #include "w1instrument/core/vm_controller.hpp"
-#include "w1runtime/module_registry.hpp"
+#include "w1runtime/module_catalog.hpp"
 #include "w1instrument/tracer/event.hpp"
 #include "w1instrument/tracer/trace_context.hpp"
 #include "w1instrument/tracer/tracer.hpp"
@@ -22,24 +22,24 @@ namespace w1 {
 
 using instrumentation_policy = core::instrumentation_policy;
 
-struct trace_session_config {
+struct vm_session_config {
   instrumentation_policy instrumentation{};
   uint64_t thread_id = 0;
   std::string thread_name = "main";
   QBDI::Options vm_options = QBDI::Options::NO_OPT;
-  runtime::module_registry* shared_modules = nullptr;
+  runtime::module_catalog* shared_modules = nullptr;
 };
 
-template <tracer tracer_t> class trace_session {
+template <tracer tracer_t> class vm_session {
 public:
-  explicit trace_session(trace_session_config config, tracer_t tracer_instance)
+  explicit vm_session(vm_session_config config, tracer_t tracer_instance)
       : config_(std::move(config)), tracer_(std::move(tracer_instance)), vm_controller_(),
         event_router_(vm_controller_.vm()) {
     init_shared_state();
     apply_options();
   }
 
-  trace_session(trace_session_config config, tracer_t tracer_instance, QBDI::VM* borrowed_vm)
+  vm_session(vm_session_config config, tracer_t tracer_instance, QBDI::VM* borrowed_vm)
       : config_(std::move(config)), tracer_(std::move(tracer_instance)), vm_controller_(borrowed_vm),
         event_router_(vm_controller_.vm()) {
     init_shared_state();
@@ -47,7 +47,7 @@ public:
   }
 
   template <typename... Args>
-  explicit trace_session(trace_session_config config, std::in_place_t, Args&&... args)
+  explicit vm_session(vm_session_config config, std::in_place_t, Args&&... args)
       : config_(std::move(config)), tracer_(std::forward<Args>(args)...), vm_controller_(),
         event_router_(vm_controller_.vm()) {
     init_shared_state();
@@ -55,19 +55,19 @@ public:
   }
 
   template <typename... Args>
-  trace_session(trace_session_config config, QBDI::VM* borrowed_vm, std::in_place_t, Args&&... args)
+  vm_session(vm_session_config config, QBDI::VM* borrowed_vm, std::in_place_t, Args&&... args)
       : config_(std::move(config)), tracer_(std::forward<Args>(args)...), vm_controller_(borrowed_vm),
         event_router_(vm_controller_.vm()) {
     init_shared_state();
     apply_options();
   }
 
-  trace_session(const trace_session&) = delete;
-  trace_session& operator=(const trace_session&) = delete;
-  trace_session(trace_session&&) = delete;
-  trace_session& operator=(trace_session&&) = delete;
+  vm_session(const vm_session&) = delete;
+  vm_session& operator=(const vm_session&) = delete;
+  vm_session(vm_session&&) = delete;
+  vm_session& operator=(vm_session&&) = delete;
 
-  ~trace_session() { shutdown(); }
+  ~vm_session() { shutdown(); }
 
   tracer_t& tracer() { return tracer_; }
   const tracer_t& tracer() const { return tracer_; }
@@ -111,7 +111,7 @@ public:
       refresh_callback_id_ = vm->addCodeCB(
           QBDI::PREINST,
           [](QBDI::VMInstanceRef, QBDI::GPRState*, QBDI::FPRState*, void* data) -> QBDI::VMAction {
-            auto* session = static_cast<trace_session*>(data);
+            auto* session = static_cast<vm_session*>(data);
             if (session->refresh_requested_.exchange(false, std::memory_order_acq_rel)) {
               session->refresh_instrumentation();
             }
@@ -227,7 +227,7 @@ private:
     if (config_.shared_modules) {
       modules_ = config_.shared_modules;
     } else {
-      owned_modules_ = std::make_unique<runtime::module_registry>();
+      owned_modules_ = std::make_unique<runtime::module_catalog>();
       modules_ = owned_modules_.get();
     }
 
@@ -277,11 +277,11 @@ private:
     }
   }
 
-  trace_session_config config_{};
+  vm_session_config config_{};
   tracer_t tracer_{};
   core::vm_controller vm_controller_{};
-  std::unique_ptr<runtime::module_registry> owned_modules_{};
-  runtime::module_registry* modules_ = nullptr;
+  std::unique_ptr<runtime::module_catalog> owned_modules_{};
+  runtime::module_catalog* modules_ = nullptr;
   std::unique_ptr<util::memory_reader> memory_reader_{};
   std::unique_ptr<trace_context> context_{};
   core::event_router<tracer_t> event_router_;

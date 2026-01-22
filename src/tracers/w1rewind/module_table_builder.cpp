@@ -286,7 +286,7 @@ std::vector<w1::rewind::memory_region_record> collect_memory_map(
 }
 
 std::vector<w1::rewind::module_record> build_module_table(
-    const w1::runtime::module_registry& modules, const w1::arch::arch_spec& arch
+    const w1::runtime::module_catalog& modules, const w1::arch::arch_spec& arch
 ) {
   std::vector<w1::rewind::module_record> table;
   auto list = modules.list_modules();

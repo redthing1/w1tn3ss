@@ -5,7 +5,7 @@
 #include <string>
 #include <utility>
 
-#include "w1runtime/module_registry.hpp"
+#include "w1runtime/module_catalog.hpp"
 
 namespace gadgetdemo {
 
@@ -108,7 +108,7 @@ void gadgetdemo_tracer::ensure_executor(QBDI::VMInstanceRef vm) {
   executor_ = std::make_unique<w1::gadget::gadget_executor>(qbdi_vm, cfg);
 }
 
-void gadgetdemo_tracer::resolve_main_base(const w1::runtime::module_registry& modules) {
+void gadgetdemo_tracer::resolve_main_base(const w1::runtime::module_catalog& modules) {
   if (main_base_ != 0) {
     return;
   }

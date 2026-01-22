@@ -5,7 +5,7 @@
 
 namespace w1::runtime {
 
-struct monitor_event {
+struct process_event {
   enum class kind { module_loaded, module_unloaded, thread_started, thread_stopped, thread_renamed };
   kind type = kind::module_loaded;
   w1::monitor::module_event module{};

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -14,6 +15,7 @@ struct coverage_config {
   int verbose = 0;
   std::string output_file = "coverage.drcov";
   bool inst_trace = false;
+  uint64_t thread_buffer_max = 0;
 
   static coverage_config from_environment() {
     w1::util::env_config loader("W1COV");
@@ -44,6 +46,7 @@ struct coverage_config {
     config.verbose = loader.get<int>("VERBOSE", 0);
     config.output_file = loader.get<std::string>("OUTPUT", "coverage.drcov");
     config.inst_trace = loader.get<bool>("INST_TRACE", false);
+    config.thread_buffer_max = loader.get<uint64_t>("THREAD_BUFFER_MAX", 0);
     auto module_filter_env = loader.get_list("MODULE_FILTER");
     if (!module_filter_env.empty()) {
       config.instrumentation.include_modules.insert(

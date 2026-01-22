@@ -10,7 +10,7 @@
 #include <redlog.hpp>
 
 #include "w1formats/jsonl_writer.hpp"
-#include "w1runtime/module_registry.hpp"
+#include "w1runtime/module_catalog.hpp"
 
 #include "instruction_config.hpp"
 
@@ -35,7 +35,7 @@ public:
   ~mnemonic_collector();
 
   void record_mnemonic(
-      const w1::runtime::module_registry& modules, uint64_t address, std::string_view mnemonic,
+      const w1::runtime::module_catalog& modules, uint64_t address, std::string_view mnemonic,
       std::string_view disassembly
   );
 
@@ -43,10 +43,10 @@ public:
   void shutdown();
 
 private:
-  void ensure_metadata_written(const w1::runtime::module_registry& modules);
+  void ensure_metadata_written(const w1::runtime::module_catalog& modules);
   void write_metadata();
   void write_event(const mnemonic_entry& entry);
-  std::string get_module_name(const w1::runtime::module_registry& modules, uint64_t address) const;
+  std::string get_module_name(const w1::runtime::module_catalog& modules, uint64_t address) const;
 
   instruction_config config_{};
   mnemonic_stats stats_;

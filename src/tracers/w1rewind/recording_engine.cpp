@@ -298,7 +298,7 @@ bool recording_engine::ensure_builder_ready(w1::trace_context& ctx, const w1::ut
   return true;
 }
 
-void recording_engine::update_module_table(const w1::runtime::module_registry& modules) {
+void recording_engine::update_module_table(const w1::runtime::module_catalog& modules) {
   module_table_ = build_module_table(modules, arch_spec_);
 }
 

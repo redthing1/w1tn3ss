@@ -6,17 +6,17 @@
 
 #include <QBDI.h>
 
-#include "w1instrument/tracer/trace_session.hpp"
-#include "w1runtime/thread_registry.hpp"
+#include "w1instrument/tracer/vm_session.hpp"
+#include "w1runtime/thread_catalog.hpp"
 
 namespace w1::instrument {
 
-template <tracer tracer_t> class session_manager {
+template <tracer tracer_t> class session_pool {
 public:
-  using session_type = trace_session<tracer_t>;
+  using session_type = vm_session<tracer_t>;
   using tracer_factory = std::function<tracer_t(const runtime::thread_info&)>;
 
-  session_manager(trace_session_config base_config, tracer_factory factory)
+  session_pool(vm_session_config base_config, tracer_factory factory)
       : base_config_(std::move(base_config)), factory_(std::move(factory)) {}
 
   std::shared_ptr<session_type> attach(const runtime::thread_info& info, QBDI::VM* borrowed_vm = nullptr) {
@@ -87,7 +87,7 @@ private:
       return {};
     }
 
-    trace_session_config config = base_config_;
+    vm_session_config config = base_config_;
     config.thread_id = info.tid;
     config.thread_name = info.name.empty() ? "thread" : info.name;
 
@@ -110,7 +110,7 @@ private:
     return it->second;
   }
 
-  trace_session_config base_config_{};
+  vm_session_config base_config_{};
   tracer_factory factory_{};
 
   mutable std::mutex mutex_{};

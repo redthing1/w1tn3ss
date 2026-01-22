@@ -8,7 +8,7 @@
 
 #include "w1analysis/abi_dispatcher.hpp"
 #include "w1analysis/symbol_lookup.hpp"
-#include "w1runtime/module_registry.hpp"
+#include "w1runtime/module_catalog.hpp"
 #include "w1instrument/tracer/trace_context.hpp"
 #include "w1instrument/tracer/types.hpp"
 #include "w1runtime/memory_reader.hpp"
@@ -59,7 +59,7 @@ private:
   uint64_t instruction_index_ = 0;
   bool initialized_ = false;
 
-  const w1::runtime::module_registry* modules_ = nullptr;
+  const w1::runtime::module_catalog* modules_ = nullptr;
   const w1::util::memory_reader* memory_ = nullptr;
 
   w1::analysis::symbol_lookup symbol_lookup_{};

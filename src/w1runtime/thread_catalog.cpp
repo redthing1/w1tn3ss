@@ -1,8 +1,8 @@
-#include "w1runtime/thread_registry.hpp"
+#include "w1runtime/thread_catalog.hpp"
 
 namespace w1::runtime {
 
-void thread_registry::apply(const w1::monitor::thread_event& event) {
+void thread_catalog::apply(const w1::monitor::thread_event& event) {
   if (event.tid == 0) {
     return;
   }
@@ -26,7 +26,7 @@ void thread_registry::apply(const w1::monitor::thread_event& event) {
   }
 }
 
-std::vector<thread_info> thread_registry::list_threads() const {
+std::vector<thread_info> thread_catalog::list_threads() const {
   std::shared_lock lock(mutex_);
   std::vector<thread_info> result;
   result.reserve(threads_.size());
@@ -36,7 +36,7 @@ std::vector<thread_info> thread_registry::list_threads() const {
   return result;
 }
 
-const thread_info* thread_registry::find(uint64_t tid) const {
+const thread_info* thread_catalog::find(uint64_t tid) const {
   std::shared_lock lock(mutex_);
   auto it = threads_.find(tid);
   if (it == threads_.end()) {

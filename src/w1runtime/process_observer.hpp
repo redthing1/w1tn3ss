@@ -8,19 +8,19 @@
 #include <vector>
 
 #include "w1monitor/monitor_factory.hpp"
-#include "w1runtime/module_registry.hpp"
-#include "w1runtime/monitor_event.hpp"
-#include "w1runtime/thread_registry.hpp"
+#include "w1runtime/module_catalog.hpp"
+#include "w1runtime/process_event.hpp"
+#include "w1runtime/thread_catalog.hpp"
 
 namespace w1::runtime {
 
-class process_monitor {
+class process_observer {
 public:
   using subscription_id = uint64_t;
-  using event_callback = std::function<void(const monitor_event&)>;
+  using event_callback = std::function<void(const process_event&)>;
 
-  process_monitor();
-  ~process_monitor();
+  process_observer();
+  ~process_observer();
 
   void start();
   void stop();
@@ -30,14 +30,14 @@ public:
   void unsubscribe(subscription_id id);
   void set_thread_entry_callback(w1::monitor::thread_entry_callback callback);
 
-  module_registry& modules() { return modules_; }
-  thread_registry& threads() { return threads_; }
+  module_catalog& modules() { return modules_; }
+  thread_catalog& threads() { return threads_; }
 
   bool running() const { return running_.load(std::memory_order_acquire); }
 
 private:
   void pump();
-  void emit_event(const monitor_event& event);
+  void emit_event(const process_event& event);
   void handle_module_event(const w1::monitor::module_event& event);
   void handle_thread_event(const w1::monitor::thread_event& event);
 
@@ -53,8 +53,8 @@ private:
   std::unique_ptr<w1::monitor::thread_monitor> thread_monitor_{};
   w1::monitor::thread_entry_callback entry_callback_{};
 
-  module_registry modules_{};
-  thread_registry threads_{};
+  module_catalog modules_{};
+  thread_catalog threads_{};
 };
 
 } // namespace w1::runtime

@@ -4,7 +4,7 @@
 #include <string>
 
 #include "w1formats/jsonl_writer.hpp"
-#include "w1runtime/module_registry.hpp"
+#include "w1runtime/module_catalog.hpp"
 
 #include "transfer_types.hpp"
 
@@ -16,7 +16,7 @@ public:
 
   bool is_open() const;
 
-  void ensure_metadata(const w1::runtime::module_registry& modules);
+  void ensure_metadata(const w1::runtime::module_catalog& modules);
   void write_record(const transfer_record& record);
 
 private:
@@ -24,7 +24,7 @@ private:
   bool emit_metadata_ = true;
   bool metadata_written_ = false;
 
-  void write_metadata(const w1::runtime::module_registry& modules);
+  void write_metadata(const w1::runtime::module_catalog& modules);
   void write_event(const transfer_record& record);
 };
 

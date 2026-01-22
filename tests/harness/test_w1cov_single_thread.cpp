@@ -5,11 +5,11 @@
 #include <vector>
 
 #include "tracers/w1cov/coverage_engine.hpp"
-#include "tracers/w1cov/coverage_tracer.hpp"
+#include "tracers/w1cov/coverage_recorder.hpp"
 #include "w1base/thread_utils.hpp"
 #include "w1formats/drcov.hpp"
-#include "w1instrument/tracer/trace_session.hpp"
-#include "w1runtime/module_registry.hpp"
+#include "w1instrument/tracer/vm_session.hpp"
+#include "w1runtime/module_catalog.hpp"
 
 extern "C" uint64_t test_coverage_control_flow(uint64_t value);
 
@@ -20,20 +20,20 @@ int main() {
   config.output_file = "test_w1cov_single_thread.drcov";
   config.instrumentation.include_modules = {"test_w1cov_single_thread"};
 
-  w1::runtime::module_registry modules;
+  w1::runtime::module_catalog modules;
   modules.refresh();
 
   auto engine = std::make_shared<w1cov::coverage_engine>(config);
   engine->configure(modules);
 
-  w1::trace_session_config session_config;
+  w1::vm_session_config session_config;
   session_config.instrumentation = config.instrumentation;
   session_config.thread_id = w1::util::current_thread_id();
   session_config.thread_name = "main";
   session_config.shared_modules = &modules;
 
-  w1::trace_session<w1cov::coverage_tracer<w1cov::coverage_mode::basic_block>> session(
-      session_config, w1cov::coverage_tracer<w1cov::coverage_mode::basic_block>(engine)
+  w1::vm_session<w1cov::coverage_recorder<w1cov::coverage_mode::basic_block>> session(
+      session_config, w1cov::coverage_recorder<w1cov::coverage_mode::basic_block>(engine)
   );
 
   if (!session.initialize()) {

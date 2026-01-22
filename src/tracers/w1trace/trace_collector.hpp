@@ -9,7 +9,7 @@
 #include <redlog.hpp>
 
 #include "w1formats/jsonl_writer.hpp"
-#include "w1runtime/module_registry.hpp"
+#include "w1runtime/module_catalog.hpp"
 
 #include "trace_config.hpp"
 
@@ -40,7 +40,7 @@ public:
   explicit trace_collector(const trace_config& config);
   ~trace_collector();
 
-  void record_instruction(const w1::runtime::module_registry& modules, uint64_t address);
+  void record_instruction(const w1::runtime::module_catalog& modules, uint64_t address);
   void record_branch(const branch_event& event);
 
   void shutdown();
@@ -49,7 +49,7 @@ public:
   const trace_stats& get_stats() const { return stats_; }
 
 private:
-  void ensure_metadata_written(const w1::runtime::module_registry& modules);
+  void ensure_metadata_written(const w1::runtime::module_catalog& modules);
   void write_metadata();
   void write_insn_event(const insn_event& event);
   void write_branch_event(const branch_event& event);

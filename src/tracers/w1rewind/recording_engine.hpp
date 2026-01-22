@@ -54,7 +54,7 @@ private:
   };
 
   bool ensure_builder_ready(w1::trace_context& ctx, const w1::util::register_state* regs);
-  void update_module_table(const w1::runtime::module_registry& modules);
+  void update_module_table(const w1::runtime::module_catalog& modules);
   uint32_t resolve_block_flags(const w1::util::register_state* regs) const;
   uint32_t resolve_instruction_flags(const w1::util::register_state* regs) const;
   bool build_thread_start(thread_state& state);

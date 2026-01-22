@@ -9,7 +9,7 @@
 #include <redlog.hpp>
 
 #include "w1formats/jsonl_writer.hpp"
-#include "w1runtime/module_registry.hpp"
+#include "w1runtime/module_catalog.hpp"
 
 #include "memory_config.hpp"
 
@@ -43,7 +43,7 @@ public:
 
   void record_instruction();
   void record_memory_access(
-      const w1::runtime::module_registry& modules, uint64_t instruction_addr, uint64_t memory_addr, uint32_t size,
+      const w1::runtime::module_catalog& modules, uint64_t instruction_addr, uint64_t memory_addr, uint32_t size,
       uint8_t access_type, uint64_t value, bool value_valid
   );
 
@@ -51,10 +51,10 @@ public:
   uint32_t get_instruction_count() const { return instruction_count_; }
 
 private:
-  void ensure_metadata_written(const w1::runtime::module_registry& modules);
+  void ensure_metadata_written(const w1::runtime::module_catalog& modules);
   void write_metadata();
   void write_event(const memory_access_entry& entry);
-  std::string get_module_name(const w1::runtime::module_registry& modules, uint64_t address) const;
+  std::string get_module_name(const w1::runtime::module_catalog& modules, uint64_t address) const;
 
   memory_config config_{};
   memory_stats stats_{};

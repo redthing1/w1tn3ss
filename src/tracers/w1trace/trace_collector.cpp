@@ -32,7 +32,7 @@ trace_collector::~trace_collector() {
   }
 }
 
-void trace_collector::record_instruction(const w1::runtime::module_registry& modules, uint64_t address) {
+void trace_collector::record_instruction(const w1::runtime::module_catalog& modules, uint64_t address) {
   stats_.total_instructions++;
 
   insn_event event{};
@@ -87,7 +87,7 @@ void trace_collector::shutdown() {
   shutdown_called_ = true;
 }
 
-void trace_collector::ensure_metadata_written(const w1::runtime::module_registry& modules) {
+void trace_collector::ensure_metadata_written(const w1::runtime::module_catalog& modules) {
   if (metadata_written_) {
     return;
   }

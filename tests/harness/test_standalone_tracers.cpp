@@ -18,7 +18,7 @@
 #include "w1base/cli/verbosity.hpp"
 
 #include "tracers/w1xfer/session.hpp"
-#include "w1instrument/tracer/trace_session.hpp"
+#include "w1instrument/tracer/vm_session.hpp"
 #ifdef WITNESS_SCRIPT_ENABLED
 #include "tracers/w1script/session.hpp"
 #endif
@@ -77,7 +77,7 @@ int test_w1xfer(int verbose_level = 0) {
 
   config.instrumentation.include_modules = {"test_standalone_tracers"};
 
-  w1::trace_session_config session_config;
+  w1::vm_session_config session_config;
   session_config.instrumentation = config.instrumentation;
   session_config.thread_id = 1;
   session_config.thread_name = "main";
@@ -180,7 +180,7 @@ int test_w1script(int verbose_level = 0) {
   config.script_path = script_path;
   config.verbose = verbose_level;
 
-  w1::trace_session_config session_config;
+  w1::vm_session_config session_config;
   session_config.instrumentation.include_modules = {"test_standalone_tracers"};
   session_config.thread_id = 1;
   session_config.thread_name = "main";

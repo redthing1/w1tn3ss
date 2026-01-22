@@ -26,7 +26,7 @@ void memory_collector::record_instruction() {
 }
 
 void memory_collector::record_memory_access(
-    const w1::runtime::module_registry& modules, uint64_t instruction_addr, uint64_t memory_addr, uint32_t size,
+    const w1::runtime::module_catalog& modules, uint64_t instruction_addr, uint64_t memory_addr, uint32_t size,
     uint8_t access_type, uint64_t value, bool value_valid
 ) {
   if (access_type == 1) {
@@ -60,7 +60,7 @@ void memory_collector::record_memory_access(
   }
 }
 
-void memory_collector::ensure_metadata_written(const w1::runtime::module_registry& modules) {
+void memory_collector::ensure_metadata_written(const w1::runtime::module_catalog& modules) {
   if (metadata_written_) {
     return;
   }
@@ -123,7 +123,7 @@ void memory_collector::write_event(const memory_access_entry& entry) {
   jsonl_writer_->write_line(json.str());
 }
 
-std::string memory_collector::get_module_name(const w1::runtime::module_registry& modules, uint64_t address) const {
+std::string memory_collector::get_module_name(const w1::runtime::module_catalog& modules, uint64_t address) const {
   if (address == 0) {
     return "null";
   }

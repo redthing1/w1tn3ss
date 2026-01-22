@@ -7,7 +7,7 @@
 #include "tracers/w1rewind/rewind_tracer.hpp"
 #include "w1rewind/trace/trace_reader.hpp"
 #include "w1rewind/trace/trace_file_writer.hpp"
-#include "w1instrument/tracer/trace_session.hpp"
+#include "w1instrument/tracer/vm_session.hpp"
 
 namespace {
 
@@ -50,15 +50,15 @@ TEST_CASE("w1rewind records instruction flow, memory, and snapshots") {
   config.memory.values = true;
   config.memory.max_value_bytes = 4;
 
-  w1::trace_session_config session_config;
+  w1::vm_session_config session_config;
   session_config.instrumentation.include_modules = {"w1rewind_unit_tests"};
   session_config.thread_id = 1;
   session_config.thread_name = "unit_main";
 
-  w1::trace_session<w1rewind::rewind_instruction_tracer> session(session_config, std::in_place, config, writer);
+  w1::vm_session<w1rewind::rewind_instruction_tracer> session(session_config, std::in_place, config, writer);
 
   if (!session.instrument()) {
-    WARN("trace_session could not instrument modules; module scanning may be blocked");
+    WARN("vm_session could not instrument modules; module scanning may be blocked");
     return;
   }
 

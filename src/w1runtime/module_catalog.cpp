@@ -1,4 +1,4 @@
-#include "w1runtime/module_registry.hpp"
+#include "w1runtime/module_catalog.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -81,7 +81,7 @@ bool is_system_library(const std::string& path) {
 
 } // namespace
 
-void module_registry::refresh() {
+void module_catalog::refresh() {
   auto maps = QBDI::getCurrentProcessMaps(true);
   std::unordered_map<std::string, module_span> spans;
   spans.reserve(maps.size());
@@ -179,9 +179,10 @@ void module_registry::refresh() {
   std::unique_lock lock(mutex_);
   modules_ = std::move(modules);
   range_index_ = std::move(range_index);
+  version_.fetch_add(1, std::memory_order_release);
 }
 
-const module_info* module_registry::find_containing(uint64_t address) const {
+const module_info* module_catalog::find_containing(uint64_t address) const {
   std::shared_lock lock(mutex_);
   if (modules_.empty() || range_index_.empty()) {
     return nullptr;
@@ -204,7 +205,7 @@ const module_info* module_registry::find_containing(uint64_t address) const {
   return nullptr;
 }
 
-std::vector<module_info> module_registry::list_modules() const {
+std::vector<module_info> module_catalog::list_modules() const {
   std::shared_lock lock(mutex_);
   return modules_;
 }

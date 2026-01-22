@@ -71,7 +71,7 @@ transfer_writer_jsonl::transfer_writer_jsonl(const std::string& output_path, boo
 
 bool transfer_writer_jsonl::is_open() const { return writer_ && writer_->is_open(); }
 
-void transfer_writer_jsonl::ensure_metadata(const w1::runtime::module_registry& modules) {
+void transfer_writer_jsonl::ensure_metadata(const w1::runtime::module_catalog& modules) {
   if (!emit_metadata_ || metadata_written_ || !is_open()) {
     return;
   }
@@ -88,7 +88,7 @@ void transfer_writer_jsonl::write_record(const transfer_record& record) {
   write_event(record);
 }
 
-void transfer_writer_jsonl::write_metadata(const w1::runtime::module_registry& modules) {
+void transfer_writer_jsonl::write_metadata(const w1::runtime::module_catalog& modules) {
   if (!is_open()) {
     return;
   }
