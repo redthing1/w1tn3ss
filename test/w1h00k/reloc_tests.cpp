@@ -75,6 +75,12 @@ uint32_t read_u32_le(const uint8_t* bytes) {
   return value;
 }
 
+uint64_t read_u64_le(const uint8_t* bytes) {
+  uint64_t value = 0;
+  std::memcpy(&value, bytes, sizeof(value));
+  return value;
+}
+
 int64_t sign_extend(uint64_t value, unsigned bits) {
   if (bits == 0 || bits >= 64) {
     return static_cast<int64_t>(value);
@@ -285,7 +291,7 @@ TEST_CASE("w1h00k relocator adjusts arm64 branch targets") {
   CHECK(relocated_target == target_addr + 8);
 }
 
-TEST_CASE("w1h00k relocator rejects arm64 branch out of range") {
+TEST_CASE("w1h00k relocator emits arm64 branch stub when out of range") {
   auto spec = w1::arch::detect_host_arch_spec();
   if (spec.arch_mode != w1::arch::mode::aarch64) {
     CHECK(true);
@@ -300,9 +306,20 @@ TEST_CASE("w1h00k relocator rejects arm64 branch out of range") {
   const uint64_t tramp = origin + 0x20000000ULL; // beyond +/-128MB branch range
   auto result = w1::h00k::reloc::relocate(buffer.data(), branch.size(), tramp);
 
-  CHECK(result.patch_size == 0);
-  CHECK(result.trampoline_bytes.empty());
-  CHECK(result.error == w1::h00k::reloc::reloc_error::out_of_range);
+  CHECK(result.ok());
+  REQUIRE(result.patch_size == branch.size());
+  REQUIRE(result.trampoline_bytes.size() == 16);
+
+  const uint32_t ldr = read_u32_le(result.trampoline_bytes.data());
+  CHECK((ldr & 0xFF000000u) == 0x58000000u);
+  CHECK((ldr & 0x1Fu) == 16u);
+  CHECK(((ldr >> 5) & 0x7FFFFu) == 2u);
+
+  const uint32_t br = read_u32_le(result.trampoline_bytes.data() + 4);
+  CHECK(br == 0xD61F0200u);
+
+  const uint64_t literal = read_u64_le(result.trampoline_bytes.data() + 8);
+  CHECK(literal == origin + 8);
 }
 
 TEST_CASE("w1h00k relocator adjusts arm64 conditional branches") {
@@ -326,6 +343,43 @@ TEST_CASE("w1h00k relocator adjusts arm64 conditional branches") {
   const uint64_t relocated_target = arm64_decode_target(relocated, tramp);
 
   CHECK(relocated_target == target_addr + 8);
+}
+
+TEST_CASE("w1h00k relocator emits arm64 conditional stub when out of range") {
+  auto spec = w1::arch::detect_host_arch_spec();
+  if (spec.arch_mode != w1::arch::mode::aarch64) {
+    CHECK(true);
+    return;
+  }
+
+  auto bcond = arm64_bcond_bytes();
+  auto filler = nop_bytes_for_arch(spec);
+  auto buffer = make_filled_buffer(bcond, 64, filler);
+
+  const uint64_t origin = reinterpret_cast<uint64_t>(buffer.data());
+  const uint64_t tramp = origin + 0x20000000ULL;
+  auto result = w1::h00k::reloc::relocate(buffer.data(), bcond.size(), tramp);
+
+  CHECK(result.ok());
+  REQUIRE(result.patch_size == bcond.size());
+  REQUIRE(result.trampoline_bytes.size() == 20);
+
+  const uint32_t skip = read_u32_le(result.trampoline_bytes.data());
+  CHECK((skip & 0xFF000010u) == 0x54000000u);
+  CHECK((skip & 0xFu) == 0x1u);
+  const uint64_t skip_target = arm64_decode_target(skip, tramp);
+  CHECK(skip_target == tramp + 16);
+
+  const uint32_t ldr = read_u32_le(result.trampoline_bytes.data() + 4);
+  CHECK((ldr & 0xFF000000u) == 0x58000000u);
+  CHECK((ldr & 0x1Fu) == 16u);
+  CHECK(((ldr >> 5) & 0x7FFFFu) == 2u);
+
+  const uint32_t br = read_u32_le(result.trampoline_bytes.data() + 8);
+  CHECK(br == 0xD61F0200u);
+
+  const uint64_t literal = read_u64_le(result.trampoline_bytes.data() + 12);
+  CHECK(literal == origin + 8);
 }
 
 TEST_CASE("w1h00k relocator adjusts arm64 ADR/ADRP") {
@@ -362,6 +416,62 @@ TEST_CASE("w1h00k relocator adjusts arm64 ADR/ADRP") {
   CHECK((adrp_target & ~0xFFFULL) == (target_addr2 & ~0xFFFULL));
 }
 
+TEST_CASE("w1h00k relocator emits arm64 ADR stub when out of range") {
+  auto spec = w1::arch::detect_host_arch_spec();
+  if (spec.arch_mode != w1::arch::mode::aarch64) {
+    CHECK(true);
+    return;
+  }
+
+  auto adr = pc_relative_bytes_for_arch(spec);
+  auto filler = nop_bytes_for_arch(spec);
+  auto buffer = make_filled_buffer(adr, 64, filler);
+
+  const uint64_t origin = reinterpret_cast<uint64_t>(buffer.data());
+  const uint64_t tramp = origin + 0x200000ULL;
+  auto result = w1::h00k::reloc::relocate(buffer.data(), adr.size(), tramp);
+
+  CHECK(result.ok());
+  REQUIRE(result.patch_size == adr.size());
+  REQUIRE(result.trampoline_bytes.size() == 12);
+
+  const uint32_t ldr = read_u32_le(result.trampoline_bytes.data());
+  CHECK((ldr & 0xFF000000u) == 0x58000000u);
+  CHECK((ldr & 0x1Fu) == 0u);
+  CHECK(((ldr >> 5) & 0x7FFFFu) == 1u);
+
+  const uint64_t literal = read_u64_le(result.trampoline_bytes.data() + 4);
+  CHECK(literal == origin);
+}
+
+TEST_CASE("w1h00k relocator emits arm64 ADRP stub when out of range") {
+  auto spec = w1::arch::detect_host_arch_spec();
+  if (spec.arch_mode != w1::arch::mode::aarch64) {
+    CHECK(true);
+    return;
+  }
+
+  auto adrp = arm64_adrp_bytes();
+  auto filler = nop_bytes_for_arch(spec);
+  auto buffer = make_filled_buffer(adrp, 64, filler);
+
+  const uint64_t origin = reinterpret_cast<uint64_t>(buffer.data());
+  const uint64_t tramp = origin + 0x200000000ULL;
+  auto result = w1::h00k::reloc::relocate(buffer.data(), adrp.size(), tramp);
+
+  CHECK(result.ok());
+  REQUIRE(result.patch_size == adrp.size());
+  REQUIRE(result.trampoline_bytes.size() == 12);
+
+  const uint32_t ldr = read_u32_le(result.trampoline_bytes.data());
+  CHECK((ldr & 0xFF000000u) == 0x58000000u);
+  CHECK((ldr & 0x1Fu) == 0u);
+  CHECK(((ldr >> 5) & 0x7FFFFu) == 1u);
+
+  const uint64_t literal = read_u64_le(result.trampoline_bytes.data() + 4);
+  CHECK(literal == (origin & ~0xFFFULL));
+}
+
 TEST_CASE("w1h00k relocator enforces max patch size") {
   auto spec = w1::arch::detect_host_arch_spec();
   auto nop = nop_bytes_for_arch(spec);
@@ -377,4 +487,66 @@ TEST_CASE("w1h00k relocator enforces max patch size") {
   CHECK(result.patch_size == 0);
   CHECK(result.trampoline_bytes.empty());
   CHECK(result.error == w1::h00k::reloc::reloc_error::invalid_request);
+}
+
+TEST_CASE("w1h00k relocator emits x86_64 jmp stub when out of range") {
+  auto spec = parse_arch_or("x86_64", w1::arch::detect_host_arch_spec());
+  if (spec.arch_mode != w1::arch::mode::x86_64 || !disasm_supported(spec)) {
+    CHECK(true);
+    return;
+  }
+
+  const std::vector<uint8_t> jmp = {0xE9, 0x05, 0x00, 0x00, 0x00};
+  const std::vector<uint8_t> filler = {0x90};
+  auto buffer = make_filled_buffer(jmp, 64, filler);
+
+  const uint64_t origin = reinterpret_cast<uint64_t>(buffer.data());
+  const uint64_t tramp = origin + 0x100000000ULL;
+  auto result = w1::h00k::reloc::relocate(buffer.data(), jmp.size(), tramp, spec);
+
+  CHECK(result.ok());
+  REQUIRE(result.patch_size == jmp.size());
+  REQUIRE(result.trampoline_bytes.size() == 14);
+
+  CHECK(result.trampoline_bytes[0] == 0xFF);
+  CHECK(result.trampoline_bytes[1] == 0x25);
+  CHECK(result.trampoline_bytes[2] == 0x00);
+  CHECK(result.trampoline_bytes[3] == 0x00);
+  CHECK(result.trampoline_bytes[4] == 0x00);
+  CHECK(result.trampoline_bytes[5] == 0x00);
+
+  const uint64_t literal = read_u64_le(result.trampoline_bytes.data() + 6);
+  CHECK(literal == origin + 10);
+}
+
+TEST_CASE("w1h00k relocator emits x86_64 jcc stub when out of range") {
+  auto spec = parse_arch_or("x86_64", w1::arch::detect_host_arch_spec());
+  if (spec.arch_mode != w1::arch::mode::x86_64 || !disasm_supported(spec)) {
+    CHECK(true);
+    return;
+  }
+
+  const std::vector<uint8_t> je = {0x74, 0x02};
+  const std::vector<uint8_t> filler = {0x90};
+  auto buffer = make_filled_buffer(je, 64, filler);
+
+  const uint64_t origin = reinterpret_cast<uint64_t>(buffer.data());
+  const uint64_t tramp = origin + 0x100000000ULL;
+  auto result = w1::h00k::reloc::relocate(buffer.data(), je.size(), tramp, spec);
+
+  CHECK(result.ok());
+  REQUIRE(result.patch_size == je.size());
+  REQUIRE(result.trampoline_bytes.size() == 16);
+
+  CHECK(result.trampoline_bytes[0] == 0x75);
+  CHECK(result.trampoline_bytes[1] == 0x0E);
+  CHECK(result.trampoline_bytes[2] == 0xFF);
+  CHECK(result.trampoline_bytes[3] == 0x25);
+  CHECK(result.trampoline_bytes[4] == 0x00);
+  CHECK(result.trampoline_bytes[5] == 0x00);
+  CHECK(result.trampoline_bytes[6] == 0x00);
+  CHECK(result.trampoline_bytes[7] == 0x00);
+
+  const uint64_t literal = read_u64_le(result.trampoline_bytes.data() + 8);
+  CHECK(literal == origin + 4);
 }

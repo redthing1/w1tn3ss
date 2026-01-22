@@ -18,6 +18,18 @@ void write_u32_le(std::vector<uint8_t>& out, size_t offset, uint32_t value) {
   std::memcpy(out.data() + offset, &value, sizeof(value));
 }
 
+void append_u32(std::vector<uint8_t>& out, uint32_t value) {
+  const size_t offset = out.size();
+  out.resize(offset + sizeof(value));
+  std::memcpy(out.data() + offset, &value, sizeof(value));
+}
+
+void append_u64(std::vector<uint8_t>& out, uint64_t value) {
+  const size_t offset = out.size();
+  out.resize(offset + sizeof(value));
+  std::memcpy(out.data() + offset, &value, sizeof(value));
+}
+
 bool arm64_is_b(uint32_t inst) { return (inst & 0xFC000000u) == 0x14000000u; }
 bool arm64_is_bl(uint32_t inst) { return (inst & 0xFC000000u) == 0x94000000u; }
 bool arm64_is_bcond(uint32_t inst) { return (inst & 0xFF000010u) == 0x54000000u; }
@@ -120,6 +132,60 @@ bool arm64_patch_adrp(uint32_t& inst, int64_t page_delta) {
   return true;
 }
 
+uint32_t arm64_encode_ldr_literal(uint8_t rt, int32_t imm19) {
+  return 0x58000000u | ((static_cast<uint32_t>(imm19) & 0x7FFFFu) << 5) | (rt & 0x1Fu);
+}
+
+uint32_t arm64_encode_br(uint8_t rn) { return 0xD61F0000u | ((rn & 0x1Fu) << 5); }
+uint32_t arm64_encode_blr(uint8_t rn) { return 0xD63F0000u | ((rn & 0x1Fu) << 5); }
+
+bool emit_arm64_ldr_literal(std::vector<uint8_t>& out, uint8_t rt, uint64_t value) {
+  const int32_t imm19 = 1; // literal at +4 bytes
+  if (!detail::fits_signed(imm19, 19)) {
+    return false;
+  }
+  append_u32(out, arm64_encode_ldr_literal(rt, imm19));
+  append_u64(out, value);
+  return true;
+}
+
+bool emit_arm64_abs_branch(std::vector<uint8_t>& out, uint64_t target, bool is_call) {
+  constexpr uint8_t scratch = 16;
+  const int32_t imm19 = 2; // literal at +8 bytes
+  append_u32(out, arm64_encode_ldr_literal(scratch, imm19));
+  append_u32(out, is_call ? arm64_encode_blr(scratch) : arm64_encode_br(scratch));
+  append_u64(out, target);
+  return true;
+}
+
+bool emit_arm64_cond_stub(std::vector<uint8_t>& out, uint32_t inst, uint64_t target) {
+  constexpr int64_t stub_len = 16;
+  constexpr int64_t skip = stub_len;
+  uint32_t skip_inst = inst;
+  if (arm64_is_bcond(inst)) {
+    const uint32_t cond = inst & 0xFu;
+    skip_inst = (inst & ~0xFu) | ((cond ^ 1u) & 0xFu);
+    if (!arm64_patch_imm19(skip_inst, skip)) {
+      return false;
+    }
+  } else if (arm64_is_cbz(inst) || arm64_is_cbnz(inst)) {
+    skip_inst = inst ^ 0x01000000u;
+    if (!arm64_patch_imm19(skip_inst, skip)) {
+      return false;
+    }
+  } else if (arm64_is_tbz(inst) || arm64_is_tbnz(inst)) {
+    skip_inst = inst ^ 0x01000000u;
+    if (!arm64_patch_imm14(skip_inst, skip)) {
+      return false;
+    }
+  } else {
+    return false;
+  }
+
+  append_u32(out, skip_inst);
+  return emit_arm64_abs_branch(out, target, false);
+}
+
 } // namespace
 
 reloc_result relocate_arm64(const w1::asmr::disasm_context& disasm, const void* target, size_t min_patch_size,
@@ -169,29 +235,71 @@ reloc_result relocate_arm64(const w1::asmr::disasm_context& disasm, const void* 
       if (arm64_is_b(inst) || arm64_is_bl(inst)) {
         const int64_t offset = static_cast<int64_t>(target_addr) - static_cast<int64_t>(new_addr);
         if (!arm64_patch_imm26(inst, offset)) {
-          return fail(reloc_error::out_of_range);
+          result.trampoline_bytes.resize(out_base);
+          if (!emit_arm64_abs_branch(result.trampoline_bytes, target_addr, arm64_is_bl(inst))) {
+            return fail(reloc_error::out_of_range);
+          }
+          consumed += insn_len;
+          if (consumed >= min_patch_size) {
+            break;
+          }
+          continue;
         }
       } else if (arm64_is_bcond(inst) || arm64_is_cbz(inst) || arm64_is_cbnz(inst)) {
         const int64_t offset = static_cast<int64_t>(target_addr) - static_cast<int64_t>(new_addr);
         if (!arm64_patch_imm19(inst, offset)) {
-          return fail(reloc_error::out_of_range);
+          result.trampoline_bytes.resize(out_base);
+          if (!emit_arm64_cond_stub(result.trampoline_bytes, inst, target_addr)) {
+            return fail(reloc_error::out_of_range);
+          }
+          consumed += insn_len;
+          if (consumed >= min_patch_size) {
+            break;
+          }
+          continue;
         }
       } else if (arm64_is_tbz(inst) || arm64_is_tbnz(inst)) {
         const int64_t offset = static_cast<int64_t>(target_addr) - static_cast<int64_t>(new_addr);
         if (!arm64_patch_imm14(inst, offset)) {
-          return fail(reloc_error::out_of_range);
+          result.trampoline_bytes.resize(out_base);
+          if (!emit_arm64_cond_stub(result.trampoline_bytes, inst, target_addr)) {
+            return fail(reloc_error::out_of_range);
+          }
+          consumed += insn_len;
+          if (consumed >= min_patch_size) {
+            break;
+          }
+          continue;
         }
       } else if (arm64_is_adr(inst)) {
         const int64_t offset = static_cast<int64_t>(target_addr) - static_cast<int64_t>(new_addr);
         if (!arm64_patch_adr(inst, offset)) {
-          return fail(reloc_error::out_of_range);
+          result.trampoline_bytes.resize(out_base);
+          const uint8_t rt = static_cast<uint8_t>(inst & 0x1Fu);
+          if (!emit_arm64_ldr_literal(result.trampoline_bytes, rt, target_addr)) {
+            return fail(reloc_error::out_of_range);
+          }
+          consumed += insn_len;
+          if (consumed >= min_patch_size) {
+            break;
+          }
+          continue;
         }
       } else if (arm64_is_adrp(inst)) {
         const uint64_t target_page = target_addr & ~0xFFFULL;
         const uint64_t new_page = new_addr & ~0xFFFULL;
         const int64_t page_delta = static_cast<int64_t>(target_page) - static_cast<int64_t>(new_page);
         if (!arm64_patch_adrp(inst, page_delta)) {
-          return fail(reloc_error::out_of_range);
+          result.trampoline_bytes.resize(out_base);
+          const uint8_t rt = static_cast<uint8_t>(inst & 0x1Fu);
+          if (!emit_arm64_ldr_literal(result.trampoline_bytes, rt, target_page)) {
+            return fail(reloc_error::out_of_range);
+          }
+          consumed += insn_len;
+          if (consumed >= min_patch_size) {
+            break;
+          }
+          continue;
         }
       }
 
