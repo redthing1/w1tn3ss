@@ -40,6 +40,8 @@ w1_add_static_library(w1h00k_backend
     backend/registry.cpp
     backend/inline/inline_backend.cpp
     backend/inline/inline_detour.cpp
+    backend/inline/inline_instrumentation.cpp
+    backend/import_table/import_table_backend.cpp
 )
 
 w1_add_static_library(w1h00k_core

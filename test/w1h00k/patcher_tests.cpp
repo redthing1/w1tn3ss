@@ -40,3 +40,16 @@ TEST_CASE("w1h00k patcher handles zero-sized restore") {
   uint8_t data[1] = {0x90};
   CHECK_FALSE(patcher.restore(data, data, 0));
 }
+
+TEST_CASE("w1h00k data patcher writes and restores values") {
+  uint32_t value = 0x11111111u;
+  w1::h00k::data_patcher patcher;
+
+  const uint32_t patch = 0x22222222u;
+  CHECK(patcher.write(&value, reinterpret_cast<const uint8_t*>(&patch), sizeof(patch)));
+  CHECK(value == patch);
+
+  const uint32_t restore = 0x11111111u;
+  CHECK(patcher.restore(&value, reinterpret_cast<const uint8_t*>(&restore), sizeof(restore)));
+  CHECK(value == restore);
+}

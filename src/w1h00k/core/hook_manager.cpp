@@ -2,6 +2,7 @@
 
 #include <utility>
 
+#include "w1h00k/backend/import_table/import_table_backend.hpp"
 #include "w1h00k/backend/inline/inline_backend.hpp"
 #include "w1h00k/memory/memory.hpp"
 #include "w1h00k/resolve/resolve.hpp"
@@ -20,6 +21,7 @@ void free_trampoline(const backend::hook_plan& plan) {
 
 hook_manager::hook_manager() {
   registry_.register_backend(backend::make_inline_trampoline_backend());
+  registry_.register_backend(backend::make_import_table_backend());
 }
 
 bool hook_manager::is_valid_target(const hook_target& target) const {

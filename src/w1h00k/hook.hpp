@@ -50,7 +50,12 @@ enum class hook_call_abi {
   native,
   sysv,
   win64,
-  aapcs64
+  aapcs64,
+  win64_vectorcall,
+  win32_cdecl,
+  win32_stdcall,
+  win32_fastcall,
+  win32_thiscall
 };
 
 enum class hook_error {
