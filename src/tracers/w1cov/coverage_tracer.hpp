@@ -3,18 +3,17 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <memory>
 
 #include <QBDI.h>
-#include <redlog.hpp>
 
 #include "w1instrument/tracer/event.hpp"
 #include "w1instrument/tracer/trace_context.hpp"
 #include "w1instrument/tracer/tracer.hpp"
 #include "w1instrument/tracer/types.hpp"
 
-#include "coverage_collector.hpp"
 #include "coverage_config.hpp"
-#include "coverage_module_tracker.hpp"
+#include "coverage_engine.hpp"
 
 namespace w1cov {
 
@@ -22,7 +21,7 @@ enum class coverage_mode : uint8_t { basic_block, instruction };
 
 template <coverage_mode mode> class coverage_tracer {
 public:
-  explicit coverage_tracer(coverage_config config);
+  explicit coverage_tracer(std::shared_ptr<coverage_engine> engine);
 
   const char* name() const { return "w1cov"; }
   static constexpr w1::event_mask requested_events() {
@@ -47,22 +46,15 @@ public:
       QBDI::FPRState* fpr
   );
 
-  size_t get_coverage_unit_count() const { return collector_.get_coverage_unit_count(); }
-  size_t get_module_count() const { return collector_.get_module_count(); }
-  uint64_t get_total_hits() const { return collector_.get_total_hits(); }
-
-  const coverage_collector& get_collector() const { return collector_; }
+  size_t get_coverage_unit_count() const;
+  size_t get_module_count() const;
+  uint64_t get_total_hits() const;
 
 private:
-  void record_coverage(w1::trace_context& ctx, uint64_t address, uint32_t size);
-  void export_coverage();
+  void record_coverage(uint64_t address, uint32_t size);
 
-  coverage_config config_{};
-  coverage_collector collector_;
-  coverage_module_tracker module_tracker_;
-  redlog::logger log_ = redlog::get_logger("w1cov.tracer");
-  bool initialized_ = false;
-  bool exported_ = false;
+  std::shared_ptr<coverage_engine> engine_;
+  coverage_engine::thread_writer writer_{};
 };
 
 } // namespace w1cov

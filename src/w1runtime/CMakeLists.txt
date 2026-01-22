@@ -5,7 +5,9 @@ w1_add_static_library(w1runtime
     memory_reader.cpp
     register_capture.cpp
     stack_capture.cpp
+    thread_registry.cpp
+    process_monitor.cpp
 )
 add_library(w1::runtime ALIAS w1runtime)
 
-target_link_libraries(w1runtime PUBLIC QBDI::QBDI)
+target_link_libraries(w1runtime PUBLIC QBDI::QBDI w1monitor)

@@ -40,6 +40,35 @@ w1_add_harness_test(test_monitor_demo
     OUTPUT_SUBDIR harness
 )
 
+w1_add_harness_test(test_w1cov_multithread_demo
+    SOURCES test_w1cov_multithread_demo.cpp
+    INCLUDE_DIRS
+        ${W1_SOURCE_DIR}/src
+        ${W1_SOURCE_DIR}/test/common
+    LIBS w1cov_static ${CMAKE_DL_LIBS}
+    OUTPUT_SUBDIR harness
+)
+
+if(TARGET w1cov_demo_lib)
+    add_dependencies(test_w1cov_multithread_demo w1cov_demo_lib)
+endif()
+
+w1_add_harness_test(test_w1cov_components
+    SOURCES test_w1cov_components.cpp
+    INCLUDE_DIRS ${W1_SOURCE_DIR}/src
+    LIBS w1cov_static
+    OUTPUT_SUBDIR harness
+)
+
+w1_add_harness_test(test_w1cov_single_thread
+    SOURCES
+        test_w1cov_single_thread.cpp
+        w1cov_test_targets.cpp
+    INCLUDE_DIRS ${W1_SOURCE_DIR}/src
+    LIBS w1cov_static
+    OUTPUT_SUBDIR harness
+)
+
 set_tests_properties(test_gadget_executor PROPERTIES
     LABELS "unit;gadget;executor"
 )

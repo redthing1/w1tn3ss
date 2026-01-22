@@ -4,6 +4,7 @@
 #include <cstring>
 #include <fstream>
 #include <iostream>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -16,64 +17,11 @@
 #include <redlog.hpp>
 #include "w1base/cli/verbosity.hpp"
 
-#include "tracers/w1cov/session.hpp"
 #include "tracers/w1xfer/session.hpp"
 #include "w1instrument/tracer/trace_session.hpp"
 #ifdef WITNESS_SCRIPT_ENABLED
 #include "tracers/w1script/session.hpp"
 #endif
-
-// test function for w1cov - demonstrates control flow coverage
-extern "C" uint64_t test_coverage_control_flow(uint64_t value) {
-  uint64_t result = 0;
-
-  // multiple branches
-  if (value < 10) {
-    result = value * 2;
-  } else if (value < 20) {
-    result = value * 3;
-    if (value % 2 == 0) {
-      result += 5;
-    } else {
-      result -= 3;
-    }
-  } else if (value < 50) {
-    // loop with early exit
-    for (int i = 0; i < 10; i++) {
-      result += i;
-      if (result > 100) {
-        break;
-      }
-    }
-  } else {
-    // switch statement
-    switch (value % 4) {
-    case 0:
-      result = value / 2;
-      break;
-    case 1:
-      result = value * value;
-      break;
-    case 2:
-      result = value + 100;
-      break;
-    default:
-      result = value - 50;
-      break;
-    }
-  }
-
-  // nested conditions
-  if (result > 0) {
-    if (result % 2 == 0) {
-      result = result / 2;
-    } else {
-      result = result * 3 + 1;
-    }
-  }
-
-  return result;
-}
 
 // test function for w1xfer - demonstrates library calls and transfers
 extern "C" void* test_xfer_library_calls(void* arg) {
@@ -111,60 +59,6 @@ extern "C" void* test_xfer_library_calls(void* arg) {
   return reinterpret_cast<void*>(size);
 }
 
-// test w1cov tracer
-int test_w1cov(int verbose_level = 0) {
-  std::cout << "\n=== testing w1cov tracer ===\n";
-
-  w1cov::coverage_config config;
-  config.output_file = "test_w1cov.drcov";
-  config.instrumentation.include_modules = {"test_standalone_tracers"};
-
-  w1::trace_session_config session_config;
-  session_config.instrumentation = config.instrumentation;
-  session_config.thread_id = 1;
-  session_config.thread_name = "main";
-
-  w1cov::coverage_basic_session session(session_config, std::in_place, config);
-
-  if (!session.initialize()) {
-    std::cout << "failed to initialize w1cov tracer\n";
-    return 1;
-  }
-
-  // trace function multiple times with different paths to demonstrate coverage
-  uint64_t result1, result2, result3, result4;
-
-  // test different branches
-  if (!session.call(reinterpret_cast<uint64_t>(test_coverage_control_flow), {5}, &result1)) {
-    std::cout << "failed to trace function (value < 10)\n";
-    return 1;
-  }
-
-  if (!session.call(reinterpret_cast<uint64_t>(test_coverage_control_flow), {15}, &result2)) {
-    std::cout << "failed to trace function (10 <= value < 20)\n";
-    return 1;
-  }
-
-  if (!session.call(reinterpret_cast<uint64_t>(test_coverage_control_flow), {30}, &result3)) {
-    std::cout << "failed to trace function (20 <= value < 50)\n";
-    return 1;
-  }
-
-  if (!session.call(reinterpret_cast<uint64_t>(test_coverage_control_flow), {100}, &result4)) {
-    std::cout << "failed to trace function (value >= 50)\n";
-    return 1;
-  }
-
-  session.shutdown();
-
-  std::cout << "function results: " << result1 << ", " << result2 << ", " << result3 << ", " << result4 << "\n";
-  std::cout << "unique blocks: " << session.tracer().get_coverage_unit_count() << "\n";
-  std::cout << "total hits: " << session.tracer().get_total_hits() << "\n";
-  std::cout << "coverage output: " << config.output_file << "\n";
-
-  std::cout << "w1cov test completed\n";
-  return 0;
-}
 
 // test w1xfer tracer
 int test_w1xfer(int verbose_level = 0) {
@@ -320,7 +214,6 @@ int test_w1script(int verbose_level = 0) {
 void print_usage(const char* program_name) {
   std::cout << "usage: " << program_name << " [-v...] <tracer>\n";
   std::cout << "\navailable tracers:\n";
-  std::cout << "  w1cov    - coverage tracer\n";
   std::cout << "  w1xfer   - transfer/call tracer\n";
 #ifdef WITNESS_SCRIPT_ENABLED
   std::cout << "  w1script - scripted tracer\n";
@@ -363,9 +256,7 @@ int main(int argc, char* argv[]) {
 
   w1::cli::apply_verbosity(verbose);
 
-  if (tracer_name == "w1cov") {
-    return test_w1cov(verbose);
-  } else if (tracer_name == "w1xfer") {
+  if (tracer_name == "w1xfer") {
     return test_w1xfer(verbose);
 #ifdef WITNESS_SCRIPT_ENABLED
   } else if (tracer_name == "w1script") {
@@ -373,7 +264,6 @@ int main(int argc, char* argv[]) {
 #endif
   } else if (tracer_name == "all") {
     int result = 0;
-    result |= test_w1cov(verbose);
     result |= test_w1xfer(verbose);
 #ifdef WITNESS_SCRIPT_ENABLED
     result |= test_w1script(verbose);

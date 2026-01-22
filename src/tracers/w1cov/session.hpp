@@ -6,7 +6,7 @@
 
 namespace w1cov {
 
-using coverage_basic_session = w1::trace_session<coverage_tracer<coverage_mode::basic_block>>;
+using coverage_block_session = w1::trace_session<coverage_tracer<coverage_mode::basic_block>>;
 using coverage_inst_session = w1::trace_session<coverage_tracer<coverage_mode::instruction>>;
 
 } // namespace w1cov
