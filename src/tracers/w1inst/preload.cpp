@@ -10,30 +10,13 @@
 
 #include "w1instrument/tracer/vm_session.hpp"
 #include "w1instrument/self_exclude.hpp"
+#include "w1instrument/logging.hpp"
 
 #include "instruction_config.hpp"
 #include "instruction_tracer.hpp"
 
 static std::unique_ptr<w1::vm_session<w1inst::instruction_tracer>> g_session;
 static w1inst::instruction_config g_config;
-
-namespace {
-
-void configure_logging(int verbose) {
-  if (verbose >= 4) {
-    redlog::set_level(redlog::level::pedantic);
-  } else if (verbose >= 3) {
-    redlog::set_level(redlog::level::debug);
-  } else if (verbose >= 2) {
-    redlog::set_level(redlog::level::trace);
-  } else if (verbose >= 1) {
-    redlog::set_level(redlog::level::verbose);
-  } else {
-    redlog::set_level(redlog::level::info);
-  }
-}
-
-} // namespace
 
 extern "C" {
 
@@ -49,7 +32,7 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
     return QBDIPRELOAD_ERR_STARTUP_FAILED;
   }
 
-  configure_logging(g_config.verbose);
+  w1::instrument::configure_redlog_verbosity(g_config.verbose);
   if (g_config.exclude_self) {
     w1::util::append_self_excludes(g_config.instrumentation, reinterpret_cast<const void*>(&qbdipreload_on_run));
   }

@@ -7,9 +7,9 @@
 
 #include <w1formats/drcov.hpp>
 
-#include "coverage_config.hpp"
-#include "coverage_exporter.hpp"
-#include "coverage_store.hpp"
+#include "config/coverage_config.hpp"
+#include "engine/coverage_exporter.hpp"
+#include "engine/coverage_store.hpp"
 #include "w1instrument/core/module_id_map.hpp"
 
 namespace w1cov {

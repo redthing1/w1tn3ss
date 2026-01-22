@@ -10,30 +10,15 @@
 #endif
 
 #include "w1instrument/self_exclude.hpp"
+#include "w1instrument/logging.hpp"
 
-#include "coverage_config.hpp"
-#include "coverage_runtime.hpp"
+#include "config/coverage_config.hpp"
+#include "instrument/coverage_runtime.hpp"
 
 namespace {
 
 std::unique_ptr<w1cov::coverage_runtime> g_runtime;
 w1cov::coverage_config g_config;
-
-void configure_logging(int verbose) {
-  if (verbose >= 5) {
-    redlog::set_level(redlog::level::annoying);
-  } else if (verbose >= 4) {
-    redlog::set_level(redlog::level::pedantic);
-  } else if (verbose >= 3) {
-    redlog::set_level(redlog::level::debug);
-  } else if (verbose >= 2) {
-    redlog::set_level(redlog::level::trace);
-  } else if (verbose >= 1) {
-    redlog::set_level(redlog::level::verbose);
-  } else {
-    redlog::set_level(redlog::level::info);
-  }
-}
 
 void shutdown_runtime() {
   if (g_runtime) {
@@ -52,7 +37,7 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
   auto log = redlog::get_logger("w1cov.preload");
 
   g_config = w1cov::coverage_config::from_environment();
-  configure_logging(g_config.verbose);
+  w1::instrument::configure_redlog_verbosity(g_config.verbose, true);
   if (g_config.exclude_self) {
     w1::util::append_self_excludes(g_config.instrumentation, reinterpret_cast<const void*>(&qbdipreload_on_run));
   }

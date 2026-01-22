@@ -13,6 +13,7 @@
 #include "w1rewind/trace/trace_file_writer.hpp"
 #include "w1instrument/tracer/vm_session.hpp"
 #include "w1instrument/self_exclude.hpp"
+#include "w1instrument/logging.hpp"
 
 namespace {
 
@@ -22,22 +23,6 @@ using rewind_block_session = w1::vm_session<w1rewind::rewind_block_tracer>;
 std::unique_ptr<rewind_instruction_session> g_instruction_session;
 std::unique_ptr<rewind_block_session> g_block_session;
 w1rewind::rewind_config g_config;
-
-void configure_logging(int verbose) {
-  if (verbose >= 5) {
-    redlog::set_level(redlog::level::annoying);
-  } else if (verbose >= 4) {
-    redlog::set_level(redlog::level::pedantic);
-  } else if (verbose >= 3) {
-    redlog::set_level(redlog::level::debug);
-  } else if (verbose >= 2) {
-    redlog::set_level(redlog::level::trace);
-  } else if (verbose >= 1) {
-    redlog::set_level(redlog::level::verbose);
-  } else {
-    redlog::set_level(redlog::level::info);
-  }
-}
 
 void shutdown_tracer() {
   auto log = redlog::get_logger("w1rewind.preload");
@@ -76,7 +61,7 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
 
   std::string config_error;
   g_config = w1rewind::rewind_config::from_environment(config_error);
-  configure_logging(g_config.verbose);
+  w1::instrument::configure_redlog_verbosity(g_config.verbose, true);
   if (!config_error.empty()) {
     log.err("invalid rewind config", redlog::field("error", config_error));
     return QBDIPRELOAD_ERR_STARTUP_FAILED;

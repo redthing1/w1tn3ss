@@ -14,9 +14,8 @@
 #include "w1instrument/tracer/tracer.hpp"
 #include "w1instrument/tracer/types.hpp"
 
-#include "coverage_config.hpp"
-#include "coverage_engine.hpp"
-#include "coverage_store.hpp"
+#include "engine/coverage_engine.hpp"
+#include "engine/coverage_store.hpp"
 
 namespace w1cov {
 

@@ -8,9 +8,9 @@
 #include "w1instrument/process_instrumentor.hpp"
 #include "w1runtime/process_observer.hpp"
 
-#include "coverage_config.hpp"
-#include "coverage_engine.hpp"
-#include "coverage_recorder.hpp"
+#include "config/coverage_config.hpp"
+#include "engine/coverage_engine.hpp"
+#include "instrument/coverage_recorder.hpp"
 
 namespace w1cov {
 

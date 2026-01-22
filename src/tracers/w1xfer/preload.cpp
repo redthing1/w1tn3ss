@@ -11,25 +11,12 @@
 #include "w1instrument/self_exclude.hpp"
 #include "w1instrument/preload_driver.hpp"
 #include "w1instrument/tracer/vm_session.hpp"
+#include "w1instrument/logging.hpp"
 
 #include "transfer_config.hpp"
 #include "transfer_recorder.hpp"
 
 namespace {
-
-void configure_logging(int verbose) {
-  if (verbose >= 4) {
-    redlog::set_level(redlog::level::pedantic);
-  } else if (verbose >= 3) {
-    redlog::set_level(redlog::level::debug);
-  } else if (verbose >= 2) {
-    redlog::set_level(redlog::level::trace);
-  } else if (verbose >= 1) {
-    redlog::set_level(redlog::level::verbose);
-  } else {
-    redlog::set_level(redlog::level::info);
-  }
-}
 
 struct transfer_preload_policy {
   using config_type = w1xfer::transfer_config;
@@ -37,7 +24,9 @@ struct transfer_preload_policy {
 
   static config_type load_config() { return config_type::from_environment(); }
 
-  static void configure_logging(const config_type& config) { ::configure_logging(config.verbose); }
+  static void configure_logging(const config_type& config) {
+    w1::instrument::configure_redlog_verbosity(config.verbose);
+  }
 
   static bool should_exclude_self(const config_type& config) { return config.exclude_self; }
 
