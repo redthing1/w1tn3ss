@@ -1,15 +1,12 @@
 #include <chrono>
 #include <cstdint>
-#include <cstdlib>
 #include <iostream>
 #include <memory>
 #include <string>
 #include <thread>
-#include <vector>
 
 #include "tracers/w1cov/coverage_engine.hpp"
 #include "tracers/w1cov/coverage_tracer.hpp"
-#include "w1base/thread_utils.hpp"
 #include "w1formats/drcov.hpp"
 #include "w1instrument/process_tracer.hpp"
 #include "w1runtime/process_monitor.hpp"
@@ -20,11 +17,12 @@ int main() {
   using tracer_t = w1cov::coverage_tracer<w1cov::coverage_mode::basic_block>;
   using w1::test_helpers::demo_library;
   using w1::test_helpers::load_demo_library;
-  using w1::test_helpers::run_demo_thread;
   using w1::test_helpers::unload_demo_library;
 
+  std::cout << "\n=== testing w1cov module filtering ===\n";
+
   w1cov::coverage_config config;
-  config.output_file = "test_w1cov_multithread.drcov";
+  config.output_file = "test_w1cov_module_filtering.drcov";
   config.instrumentation.include_modules = {"w1cov_demo_lib"};
 
   w1::runtime::process_monitor monitor;
@@ -35,7 +33,7 @@ int main() {
 
   w1::instrument::process_tracer<tracer_t>::config process_config{};
   process_config.instrumentation = config.instrumentation;
-  process_config.attach_new_threads = true;
+  process_config.attach_new_threads = false;
   process_config.refresh_on_module_events = true;
   process_config.owns_monitor = true;
 
@@ -62,17 +60,12 @@ int main() {
   }
 
   uint64_t result = 0;
-  if (!main_session->call(reinterpret_cast<uint64_t>(lib.add), {1, 2}, &result)) {
+  if (!main_session->call(reinterpret_cast<uint64_t>(lib.add), {4, 7}, &result)) {
     std::cerr << "failed to trace demo add\n";
     return 1;
   }
-  if (!main_session->call(reinterpret_cast<uint64_t>(lib.branch), {42}, &result)) {
+  if (!main_session->call(reinterpret_cast<uint64_t>(lib.branch), {9}, &result)) {
     std::cerr << "failed to trace demo branch\n";
-    return 1;
-  }
-
-  if (!run_demo_thread(lib.thread_proc, 25)) {
-    std::cerr << "failed to run demo thread\n";
     return 1;
   }
 
@@ -103,6 +96,11 @@ int main() {
     return 1;
   }
 
-  std::cout << "w1cov multithread demo completed\n";
+  if (engine->module_count() == 0 || engine->coverage_unit_count() == 0) {
+    std::cerr << "engine did not record filtered module coverage\n";
+    return 1;
+  }
+
+  std::cout << "w1cov module filtering test completed\n";
   return 0;
 }
