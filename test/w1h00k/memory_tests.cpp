@@ -3,7 +3,7 @@
 #include <cstdint>
 
 #include "w1h00k/memory/memory.hpp"
-#include "w1h00k/patcher.hpp"
+#include "w1h00k/patcher/patcher.hpp"
 
 TEST_CASE("w1h00k executable allocation basics") {
   const size_t request_size = 64;

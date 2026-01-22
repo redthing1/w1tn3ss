@@ -3,9 +3,9 @@
 #include "w1asmr/asmr.hpp"
 #include "w1asmr/result.hpp"
 #include "w1base/arch_spec.hpp"
-#include "w1h00k/reloc/reloc_arm64.hpp"
-#include "w1h00k/reloc/reloc_common.hpp"
-#include "w1h00k/reloc/reloc_x86.hpp"
+#include "w1h00k/reloc/arm64.hpp"
+#include "w1h00k/reloc/common.hpp"
+#include "w1h00k/reloc/x86.hpp"
 
 namespace w1::h00k::reloc {
 
@@ -49,6 +49,42 @@ reloc_result relocate(const void* target, size_t min_patch_size, uint64_t trampo
     default:
       return fail(reloc_error::unsupported_arch);
   }
+}
+
+size_t max_trampoline_size(size_t min_patch_size, const w1::arch::arch_spec& arch) {
+  if (min_patch_size == 0 || min_patch_size > detail::kMaxPatchBytes) {
+    return 0;
+  }
+
+  constexpr size_t kX86MinRelocInsn = 2;
+  constexpr size_t kX86MaxStubX64 = 16;
+  constexpr size_t kX86MaxStubX86 = 12;
+  constexpr size_t kArm64InsnBytes = 4;
+  constexpr size_t kArm64MaxStub = 20;
+
+  const size_t patch_bytes = detail::kMaxPatchBytes;
+  auto ceil_div = [](size_t num, size_t den) {
+    return (num + den - 1) / den;
+  };
+
+  switch (arch.arch_mode) {
+    case w1::arch::mode::x86_32: {
+      const size_t max_insns = ceil_div(patch_bytes, kX86MinRelocInsn);
+      return max_insns * kX86MaxStubX86;
+    }
+    case w1::arch::mode::x86_64: {
+      const size_t max_insns = ceil_div(patch_bytes, kX86MinRelocInsn);
+      return max_insns * kX86MaxStubX64;
+    }
+    case w1::arch::mode::aarch64: {
+      const size_t max_insns = ceil_div(patch_bytes, kArm64InsnBytes);
+      return max_insns * kArm64MaxStub;
+    }
+    default:
+      break;
+  }
+
+  return 0;
 }
 
 } // namespace w1::h00k::reloc

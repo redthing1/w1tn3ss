@@ -2,7 +2,7 @@
 
 #include <cstring>
 
-#include "w1h00k/reloc/reloc_common.hpp"
+#include "w1h00k/reloc/common.hpp"
 
 namespace w1::h00k::backend::inline_hook {
 namespace {

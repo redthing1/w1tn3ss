@@ -28,7 +28,7 @@ hook_result hook_transaction::attach(const hook_request& request, void** origina
     if (original) {
       *original = nullptr;
     }
-    return {{}, last_error_};
+    return {{}, {last_error_}};
   }
 
   std::lock_guard lock(manager_->mutex());
@@ -36,19 +36,19 @@ hook_result hook_transaction::attach(const hook_request& request, void** origina
   auto err = manager_->prepare_attach(request, prepared, original);
   if (err != hook_error::ok) {
     last_error_ = err;
-    return {{}, err};
+    return {{}, {err}};
   }
 
   for (const auto& existing : pending_attaches_) {
     if (existing.plan.resolved_target == prepared.plan.resolved_target) {
       last_error_ = hook_error::already_hooked;
-      return {{}, last_error_};
+      return {{}, {last_error_}};
     }
   }
 
   prepared.handle = manager_->reserve_handle();
   pending_attaches_.push_back(std::move(prepared));
-  return {pending_attaches_.back().handle, hook_error::ok};
+  return {pending_attaches_.back().handle, {hook_error::ok}};
 }
 
 hook_error hook_transaction::detach(hook_handle handle) {

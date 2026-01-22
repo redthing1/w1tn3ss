@@ -1,10 +1,10 @@
-#include "w1h00k/reloc/reloc_x86.hpp"
+#include "w1h00k/reloc/x86.hpp"
 
 #include <span>
 
 #include "w1asmr/asmr.hpp"
 #include "w1base/arch_spec.hpp"
-#include "w1h00k/reloc/reloc_common.hpp"
+#include "w1h00k/reloc/common.hpp"
 
 namespace w1::h00k::reloc::detail {
 namespace {

@@ -2,8 +2,9 @@
 
 #include <utility>
 
-#include "w1h00k/backend/inline_backend.hpp"
+#include "w1h00k/backend/inline/inline_backend.hpp"
 #include "w1h00k/memory/memory.hpp"
+#include "w1h00k/resolve/resolve.hpp"
 
 namespace w1::h00k::core {
 namespace {
@@ -22,19 +23,39 @@ hook_manager::hook_manager() {
 }
 
 bool hook_manager::is_valid_target(const hook_target& target) const {
-  return target.address != nullptr || target.symbol != nullptr;
+  switch (target.kind) {
+    case hook_target_kind::address:
+      return target.address != nullptr;
+    case hook_target_kind::symbol:
+      return target.symbol != nullptr;
+    case hook_target_kind::import_slot:
+      return target.slot != nullptr;
+    case hook_target_kind::table_slot:
+      return target.table != nullptr;
+  }
+  return false;
 }
 
-hook_technique_mask hook_manager::normalize_allowed(hook_technique_mask allowed) const {
-  if (allowed == 0) {
-    return technique_mask(hook_technique::inline_trampoline);
+hook_technique_mask hook_manager::normalize_allowed(const hook_request& request) const {
+  if (request.allowed == 0) {
+    return technique_mask(request.preferred);
   }
-  return allowed;
+  return request.allowed;
 }
 
 void* hook_manager::resolve_target(const hook_target& target) const {
-  if (target.address != nullptr) {
-    return target.address;
+  switch (target.kind) {
+    case hook_target_kind::address:
+      return target.address;
+    case hook_target_kind::symbol:
+      return resolve::symbol_address(target.symbol, target.module);
+    case hook_target_kind::import_slot:
+      return target.slot;
+    case hook_target_kind::table_slot:
+      if (!target.table) {
+        return nullptr;
+      }
+      return static_cast<void*>(target.table + target.index);
   }
   return nullptr;
 }
@@ -52,9 +73,10 @@ hook_error hook_manager::prepare_attach(const hook_request& request, prepared_ho
   }
 
   hook_request normalized = request;
-  normalized.allowed = normalize_allowed(request.allowed);
+  normalized.allowed = normalize_allowed(request);
 
-  if ((normalized.allowed & technique_mask(hook_technique::inline_trampoline)) == 0) {
+  auto* backend = registry_.select(normalized);
+  if (!backend) {
     if (original) {
       *original = nullptr;
     }
@@ -76,15 +98,7 @@ hook_error hook_manager::prepare_attach(const hook_request& request, prepared_ho
     return hook_error::already_hooked;
   }
 
-  auto* backend = registry_.select(normalized);
-  if (!backend) {
-    if (original) {
-      *original = nullptr;
-    }
-    return hook_error::unsupported;
-  }
-
-  auto prepared = backend->prepare(normalized);
+  auto prepared = backend->prepare(normalized, resolved);
   if (prepared.error != hook_error::ok) {
     if (original) {
       *original = nullptr;
@@ -168,7 +182,7 @@ hook_result hook_manager::attach(const hook_request& request, void** original) {
   prepared_hook prepared{};
   auto err = prepare_attach(request, prepared, original);
   if (err != hook_error::ok) {
-    return {{}, err};
+    return {{}, {err}};
   }
 
   err = commit_attach(prepared);
@@ -177,10 +191,10 @@ hook_result hook_manager::attach(const hook_request& request, void** original) {
       *original = nullptr;
     }
     rollback_attach(prepared);
-    return {{}, err};
+    return {{}, {err}};
   }
 
-  return {prepared.handle, hook_error::ok};
+  return {prepared.handle, {hook_error::ok}};
 }
 
 hook_error hook_manager::detach(hook_handle handle) {
@@ -206,7 +220,7 @@ bool hook_manager::supports(const hook_request& request) const {
     return false;
   }
   hook_request normalized = request;
-  normalized.allowed = normalize_allowed(request.allowed);
+  normalized.allowed = normalize_allowed(request);
   auto* backend = registry_.select(normalized);
   return backend != nullptr;
 }

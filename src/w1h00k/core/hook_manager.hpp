@@ -4,7 +4,7 @@
 #include <mutex>
 #include <unordered_map>
 
-#include "w1h00k/backend/backend_registry.hpp"
+#include "w1h00k/backend/registry.hpp"
 #include "w1h00k/hook.hpp"
 
 namespace w1::h00k::core {
@@ -37,7 +37,7 @@ public:
 
 private:
   bool is_valid_target(const hook_target& target) const;
-  hook_technique_mask normalize_allowed(hook_technique_mask allowed) const;
+  hook_technique_mask normalize_allowed(const hook_request& request) const;
   void* resolve_target(const hook_target& target) const;
 
   mutable std::mutex mutex_{};

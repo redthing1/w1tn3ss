@@ -4,7 +4,7 @@
 #include <cstring>
 
 #include "w1h00k/memory/memory.hpp"
-#include "w1h00k/patcher.hpp"
+#include "w1h00k/patcher/patcher.hpp"
 
 TEST_CASE("w1h00k patcher writes and restores bytes") {
   auto block = w1::h00k::memory::allocate_executable(w1::h00k::memory::page_size());

@@ -38,6 +38,15 @@ W1_NO_INLINE int mul_three(int value) {
   return result;
 }
 
+w1::h00k::hook_request make_inline_request(void* target, void* replacement) {
+  w1::h00k::hook_request request{};
+  request.target.kind = w1::h00k::hook_target_kind::address;
+  request.target.address = target;
+  request.replacement = replacement;
+  request.allowed = w1::h00k::technique_mask(w1::h00k::hook_technique::inline_trampoline);
+  return request;
+}
+
 } // namespace
 
 TEST_CASE("w1h00k inline hook replaces and detaches") {
@@ -45,14 +54,11 @@ TEST_CASE("w1h00k inline hook replaces and detaches") {
   fn_t target = &add_one;
   fn_t replacement = &add_ten;
 
-  w1::h00k::hook_request request{};
-  request.target.address = reinterpret_cast<void*>(target);
-  request.replacement = reinterpret_cast<void*>(replacement);
-  request.allowed = w1::h00k::technique_mask(w1::h00k::hook_technique::inline_trampoline);
+  auto request = make_inline_request(reinterpret_cast<void*>(target), reinterpret_cast<void*>(replacement));
 
   void* original = nullptr;
   auto result = w1::h00k::attach(request, &original);
-  REQUIRE(result.error == w1::h00k::hook_error::ok);
+  REQUIRE(result.error.ok());
   REQUIRE(original != nullptr);
 
   CHECK(target(1) == 11);
@@ -69,34 +75,68 @@ TEST_CASE("w1h00k inline hook rejects invalid target") {
 
   void* original = nullptr;
   auto result = w1::h00k::attach(request, &original);
-  CHECK(result.error == w1::h00k::hook_error::invalid_target);
+  CHECK(result.error.code == w1::h00k::hook_error::invalid_target);
   CHECK(original == nullptr);
 }
 
 TEST_CASE("w1h00k inline hook respects allowed mask") {
-  w1::h00k::hook_request request{};
-  request.target.address = reinterpret_cast<void*>(&add_one);
-  request.replacement = reinterpret_cast<void*>(&add_ten);
+  auto request = make_inline_request(reinterpret_cast<void*>(&add_one), reinterpret_cast<void*>(&add_ten));
   request.allowed = w1::h00k::technique_mask(w1::h00k::hook_technique::interpose);
 
   void* original = nullptr;
   auto result = w1::h00k::attach(request, &original);
-  CHECK(result.error == w1::h00k::hook_error::unsupported);
+  CHECK(result.error.code == w1::h00k::hook_error::unsupported);
   CHECK(original == nullptr);
 }
 
-TEST_CASE("w1h00k inline hook rejects duplicate attach") {
+TEST_CASE("w1h00k inline hook rejects missing preferred backend") {
+  auto request = make_inline_request(reinterpret_cast<void*>(&add_one), reinterpret_cast<void*>(&add_ten));
+  request.preferred = w1::h00k::hook_technique::interpose;
+  request.allowed = w1::h00k::technique_mask(w1::h00k::hook_technique::interpose) |
+                    w1::h00k::technique_mask(w1::h00k::hook_technique::inline_trampoline);
+
+  void* original = nullptr;
+  auto result = w1::h00k::attach(request, &original);
+  CHECK(result.error.code == w1::h00k::hook_error::unsupported);
+  CHECK(original == nullptr);
+}
+
+TEST_CASE("w1h00k inline hook falls back when allowed") {
+  auto request = make_inline_request(reinterpret_cast<void*>(&add_one), reinterpret_cast<void*>(&add_ten));
+  request.preferred = w1::h00k::hook_technique::interpose;
+  request.allowed = w1::h00k::technique_mask(w1::h00k::hook_technique::interpose) |
+                    w1::h00k::technique_mask(w1::h00k::hook_technique::inline_trampoline);
+  request.selection = w1::h00k::hook_selection::allow_fallback;
+
+  void* original = nullptr;
+  auto result = w1::h00k::attach(request, &original);
+  REQUIRE(result.error.ok());
+  CHECK(original != nullptr);
+  CHECK(w1::h00k::detach(result.handle) == w1::h00k::hook_error::ok);
+}
+
+TEST_CASE("w1h00k inline hook reports unresolved symbol") {
   w1::h00k::hook_request request{};
-  request.target.address = reinterpret_cast<void*>(&add_one);
+  request.target.kind = w1::h00k::hook_target_kind::symbol;
+  request.target.symbol = "w1h00k_missing_symbol";
   request.replacement = reinterpret_cast<void*>(&add_ten);
   request.allowed = w1::h00k::technique_mask(w1::h00k::hook_technique::inline_trampoline);
 
   void* original = nullptr;
   auto result = w1::h00k::attach(request, &original);
-  REQUIRE(result.error == w1::h00k::hook_error::ok);
+  CHECK(result.error.code == w1::h00k::hook_error::not_found);
+  CHECK(original == nullptr);
+}
+
+TEST_CASE("w1h00k inline hook rejects duplicate attach") {
+  auto request = make_inline_request(reinterpret_cast<void*>(&add_one), reinterpret_cast<void*>(&add_ten));
+
+  void* original = nullptr;
+  auto result = w1::h00k::attach(request, &original);
+  REQUIRE(result.error.ok());
 
   auto duplicate = w1::h00k::attach(request, nullptr);
-  CHECK(duplicate.error == w1::h00k::hook_error::already_hooked);
+  CHECK(duplicate.error.code == w1::h00k::hook_error::already_hooked);
 
   CHECK(w1::h00k::detach(result.handle) == w1::h00k::hook_error::ok);
 }
@@ -112,15 +152,12 @@ TEST_CASE("w1h00k inline hook transaction attach") {
   fn_t target = &mul_two;
   fn_t replacement = &mul_three;
 
-  w1::h00k::hook_request request{};
-  request.target.address = reinterpret_cast<void*>(target);
-  request.replacement = reinterpret_cast<void*>(replacement);
-  request.allowed = w1::h00k::technique_mask(w1::h00k::hook_technique::inline_trampoline);
+  auto request = make_inline_request(reinterpret_cast<void*>(target), reinterpret_cast<void*>(replacement));
 
   w1::h00k::hook_transaction txn;
   void* original = nullptr;
   auto result = txn.attach(request, &original);
-  REQUIRE(result.error == w1::h00k::hook_error::ok);
+  REQUIRE(result.error.ok());
   REQUIRE(original != nullptr);
   REQUIRE(result.handle.id != 0);
 
@@ -136,16 +173,13 @@ TEST_CASE("w1h00k inline transaction abort leaves target untouched") {
   fn_t target = &add_one;
   fn_t replacement = &add_ten;
 
-  w1::h00k::hook_request request{};
-  request.target.address = reinterpret_cast<void*>(target);
-  request.replacement = reinterpret_cast<void*>(replacement);
-  request.allowed = w1::h00k::technique_mask(w1::h00k::hook_technique::inline_trampoline);
+  auto request = make_inline_request(reinterpret_cast<void*>(target), reinterpret_cast<void*>(replacement));
 
   w1::h00k::hook_handle handle{};
   {
     w1::h00k::hook_transaction txn;
     auto result = txn.attach(request, nullptr);
-    REQUIRE(result.error == w1::h00k::hook_error::ok);
+    REQUIRE(result.error.ok());
     handle = result.handle;
   }
 
@@ -158,14 +192,11 @@ TEST_CASE("w1h00k inline hook stress") {
   fn_t target = &add_one;
   fn_t replacement = &add_ten;
 
-  w1::h00k::hook_request request{};
-  request.target.address = reinterpret_cast<void*>(target);
-  request.replacement = reinterpret_cast<void*>(replacement);
-  request.allowed = w1::h00k::technique_mask(w1::h00k::hook_technique::inline_trampoline);
+  auto request = make_inline_request(reinterpret_cast<void*>(target), reinterpret_cast<void*>(replacement));
 
   void* original = nullptr;
   auto result = w1::h00k::attach(request, &original);
-  REQUIRE(result.error == w1::h00k::hook_error::ok);
+  REQUIRE(result.error.ok());
 
   int sum = 0;
   for (int i = 0; i < 10000; ++i) {

@@ -9,6 +9,7 @@
 
 #include "w1asmr/asmr.hpp"
 #include "w1base/arch_spec.hpp"
+#include "w1h00k/reloc/common.hpp"
 #include "w1h00k/reloc/relocator.hpp"
 
 namespace {
@@ -201,6 +202,38 @@ TEST_CASE("w1h00k relocator rejects unsupported arch") {
   auto result = w1::h00k::reloc::relocate(filler.data(), 4, 0, spec);
   CHECK(result.patch_size == 0);
   CHECK(result.error == w1::h00k::reloc::reloc_error::unsupported_arch);
+}
+
+TEST_CASE("w1h00k relocator reports conservative trampoline bound") {
+  auto spec = w1::arch::detect_host_arch_spec();
+  const size_t bound = w1::h00k::reloc::max_trampoline_size(4, spec);
+  CHECK(bound > 0);
+
+  const size_t patch_bytes = w1::h00k::reloc::detail::kMaxPatchBytes;
+  auto ceil_div = [](size_t num, size_t den) {
+    return (num + den - 1) / den;
+  };
+
+  switch (spec.arch_mode) {
+    case w1::arch::mode::x86_32: {
+      const size_t max_insns = ceil_div(patch_bytes, 2);
+      CHECK(bound >= max_insns * 12);
+      break;
+    }
+    case w1::arch::mode::x86_64: {
+      const size_t max_insns = ceil_div(patch_bytes, 2);
+      CHECK(bound >= max_insns * 16);
+      break;
+    }
+    case w1::arch::mode::aarch64: {
+      const size_t max_insns = ceil_div(patch_bytes, 4);
+      CHECK(bound >= max_insns * 20);
+      break;
+    }
+    default:
+      CHECK(true);
+      break;
+  }
 }
 
 TEST_CASE("w1h00k relocator requires trampoline address for pc-relative") {

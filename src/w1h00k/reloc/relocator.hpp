@@ -31,5 +31,6 @@ reloc_result relocate(const void* target, size_t min_patch_size);
 reloc_result relocate(const void* target, size_t min_patch_size, uint64_t trampoline_address);
 reloc_result relocate(const void* target, size_t min_patch_size, uint64_t trampoline_address,
                       const w1::arch::arch_spec& arch);
+size_t max_trampoline_size(size_t min_patch_size, const w1::arch::arch_spec& arch);
 
 } // namespace w1::h00k::reloc

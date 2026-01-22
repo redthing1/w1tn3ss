@@ -1,7 +1,7 @@
 w1_add_static_library(w1h00k_reloc
     reloc/relocator.cpp
-    reloc/reloc_x86.cpp
-    reloc/reloc_arm64.cpp
+    reloc/x86.cpp
+    reloc/arm64.cpp
 )
 target_link_libraries(w1h00k_reloc PUBLIC w1asmr)
 
@@ -15,25 +15,25 @@ w1_add_static_library(w1h00k_resolve
 
 set(W1H00K_MEMORY_SOURCES "")
 if(WIN32)
-    list(APPEND W1H00K_MEMORY_SOURCES memory/memory_windows.cpp)
+    list(APPEND W1H00K_MEMORY_SOURCES memory/windows.cpp)
 else()
-    list(APPEND W1H00K_MEMORY_SOURCES memory/memory_posix.cpp)
+    list(APPEND W1H00K_MEMORY_SOURCES memory/posix.cpp)
 endif()
 
 w1_add_static_library(w1h00k_memory ${W1H00K_MEMORY_SOURCES})
 
 set(W1H00K_PATCHER_SOURCES "")
 if(WIN32)
-    list(APPEND W1H00K_PATCHER_SOURCES patcher/patcher_windows.cpp)
+    list(APPEND W1H00K_PATCHER_SOURCES patcher/windows.cpp)
 else()
-    list(APPEND W1H00K_PATCHER_SOURCES patcher/patcher_posix.cpp)
+    list(APPEND W1H00K_PATCHER_SOURCES patcher/posix.cpp)
 endif()
 
 w1_add_static_library(w1h00k_patcher ${W1H00K_PATCHER_SOURCES})
 
 w1_add_static_library(w1h00k_backend
-    backend/backend_registry.cpp
-    backend/inline_backend.cpp
+    backend/registry.cpp
+    backend/inline/inline_backend.cpp
     backend/inline/inline_detour.cpp
 )
 

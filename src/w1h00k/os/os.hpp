@@ -1,7 +1,7 @@
-#include "w1h00k/os/os.hpp"
+#pragma once
 
 namespace w1::h00k::os {
 
-void stub() {}
+void stub();
 
 } // namespace w1::h00k::os

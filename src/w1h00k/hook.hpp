@@ -8,11 +8,12 @@
 namespace w1::h00k {
 
 enum class hook_technique {
-  inline_trampoline,
+  inline_trampoline = 0,
   interpose,
   plt_got,
   iat,
-  table_swap
+  table_swap,
+  count
 };
 
 enum class hook_kind {
@@ -23,8 +24,34 @@ enum class hook_kind {
 using hook_technique_mask = uint32_t;
 
 constexpr hook_technique_mask technique_mask(hook_technique technique) {
+  if (technique == hook_technique::count) {
+    return 0;
+  }
   return static_cast<hook_technique_mask>(1u << static_cast<uint32_t>(technique));
 }
+
+constexpr bool technique_allowed(hook_technique_mask mask, hook_technique technique) {
+  return (mask & technique_mask(technique)) != 0;
+}
+
+enum class hook_selection {
+  strict,
+  allow_fallback
+};
+
+enum class hook_target_kind {
+  address,
+  symbol,
+  import_slot,
+  table_slot
+};
+
+enum class hook_call_abi {
+  native,
+  sysv,
+  win64,
+  aapcs64
+};
 
 enum class hook_error {
   ok,
@@ -39,9 +66,13 @@ enum class hook_error {
 };
 
 struct hook_target {
+  hook_target_kind kind = hook_target_kind::address;
   void* address = nullptr;
   const char* symbol = nullptr;
   const char* module = nullptr;
+  void** slot = nullptr;
+  void** table = nullptr;
+  size_t index = 0;
 };
 
 struct hook_arg_handle;
@@ -60,8 +91,11 @@ using prehook_fn = void (*)(hook_info*);
 struct hook_request {
   hook_target target{};
   void* replacement = nullptr;
+  hook_technique preferred = hook_technique::inline_trampoline;
   hook_technique_mask allowed = 0;
+  hook_selection selection = hook_selection::strict;
   hook_kind kind = hook_kind::replace;
+  hook_call_abi call_abi = hook_call_abi::native;
   prehook_fn prehook = nullptr;
   void* user_data = nullptr;
 };
@@ -70,9 +104,17 @@ struct hook_handle {
   uintptr_t id = 0;
 };
 
+struct hook_error_info {
+  hook_error code = hook_error::unsupported;
+  int os_error = 0;
+  const char* detail = nullptr;
+
+  constexpr bool ok() const { return code == hook_error::ok; }
+};
+
 struct hook_result {
   hook_handle handle{};
-  hook_error error = hook_error::unsupported;
+  hook_error_info error{};
 };
 
 class hook_transaction {

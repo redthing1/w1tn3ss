@@ -23,8 +23,9 @@ struct prepare_result {
 class hook_backend {
 public:
   virtual ~hook_backend() = default;
+  virtual hook_technique technique() const = 0;
   virtual bool supports(const hook_request& request) const = 0;
-  virtual prepare_result prepare(const hook_request& request) = 0;
+  virtual prepare_result prepare(const hook_request& request, void* resolved_target) = 0;
   virtual hook_error commit(const hook_plan& plan) = 0;
   virtual hook_error revert(const hook_plan& plan) = 0;
 };
