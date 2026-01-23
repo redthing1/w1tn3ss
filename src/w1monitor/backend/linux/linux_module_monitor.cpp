@@ -73,15 +73,17 @@ private:
 
   void install_hooks() {
     if (dlopen_handle_.id == 0) {
-      (void)hook_helpers::attach_interpose_symbol(
+      (void)hook_helpers::attach_symbol_replace_prefer_inline(
           "dlopen",
+          nullptr,
           &linux_module_monitor::replacement_dlopen,
           dlopen_handle_, original_dlopen_);
     }
 
     if (dlclose_handle_.id == 0) {
-      (void)hook_helpers::attach_interpose_symbol(
+      (void)hook_helpers::attach_symbol_replace_prefer_inline(
           "dlclose",
+          nullptr,
           &linux_module_monitor::replacement_dlclose,
           dlclose_handle_, original_dlclose_);
     }
