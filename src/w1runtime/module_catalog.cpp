@@ -263,6 +263,7 @@ void module_catalog::refresh() {
   if (main_path && !main_path->empty()) {
     const std::string normalized_main = normalize_path(*main_path);
     const std::string main_basename = extract_basename(normalized_main.empty() ? *main_path : normalized_main);
+    const std::string canonical_main = normalized_main.empty() ? *main_path : normalized_main;
     std::optional<size_t> main_index;
     for (size_t index = 0; index < modules.size(); ++index) {
       const auto& candidate = modules[index];
@@ -280,7 +281,12 @@ void module_catalog::refresh() {
       }
     }
     if (main_index) {
-      modules[*main_index].is_main = true;
+      auto& entry = modules[*main_index];
+      entry.is_main = true;
+      entry.path = canonical_main;
+      if (entry.name.empty()) {
+        entry.name = extract_basename(entry.path);
+      }
     }
   }
 
