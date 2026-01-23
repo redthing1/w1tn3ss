@@ -51,6 +51,12 @@ python .\tools\windows\run_cmd.py --arch x86 --host-arch amd64 -- cmake -G Ninja
 python .\tools\windows\run_cmd.py --arch x86 --host-arch amd64 -- cmake --build build-win32 --parallel
 ```
 
+## windows tips
+
+- use `tools/windows/run_cmd.py` for cmake/ctest invocations in the dev shell
+- if using `--prepend-path`, pass a single value with `;` separators
+- lldb tests need `LLDB_PATH` and may depend on a python dll they were built against (e.g. `python310.dll`). if it fails with missing `python310.dll`, install and prepend to `PATH`
+
 ## tests
 
 ```sh
@@ -59,6 +65,13 @@ ctest --test-dir build-release --output-on-failure
 
 ```powershell
 python .\tools\windows\run_cmd.py --arch x86 --host-arch amd64 -- ctest --test-dir build-win32 --output-on-failure
+```
+
+```powershell
+python .\tools\windows\run_cmd.py --arch x86 --host-arch amd64 `
+  --env "LLDB_PATH=C:\Program Files\LLVM\bin\lldb.exe" `
+  --prepend-path "C:\Program Files\LLVM\bin;\Path\To\Python\Python310" `
+  -- ctest -R lldb --test-dir build-win32 --output-on-failure
 ```
 
 ## packaging
