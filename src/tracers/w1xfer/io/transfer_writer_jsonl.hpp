@@ -6,7 +6,7 @@
 #include "w1formats/jsonl_writer.hpp"
 #include "w1runtime/module_catalog.hpp"
 
-#include "transfer_types.hpp"
+#include "model/transfer_types.hpp"
 
 namespace w1xfer {
 

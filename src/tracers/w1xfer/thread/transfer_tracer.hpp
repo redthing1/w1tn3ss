@@ -1,5 +1,7 @@
 #pragma once
 
+#include <memory>
+
 #include <QBDI.h>
 #include <redlog.hpp>
 
@@ -8,14 +10,14 @@
 #include "w1instrument/tracer/tracer.hpp"
 #include "w1instrument/tracer/types.hpp"
 
-#include "transfer_config.hpp"
-#include "transfer_pipeline.hpp"
+#include "config/transfer_config.hpp"
+#include "engine/transfer_engine.hpp"
 
 namespace w1xfer {
 
-class transfer_recorder {
+class transfer_tracer {
 public:
-  explicit transfer_recorder(transfer_config config);
+  transfer_tracer(std::shared_ptr<transfer_engine> engine, transfer_config config);
 
   const char* name() const { return "w1xfer"; }
   static constexpr w1::event_mask requested_events() {
@@ -42,12 +44,10 @@ public:
       QBDI::GPRState* gpr, QBDI::FPRState* fpr
   );
 
-  const transfer_stats& get_stats() const { return pipeline_.stats(); }
-
 private:
+  std::shared_ptr<transfer_engine> engine_{};
   transfer_config config_{};
-  transfer_pipeline pipeline_;
-  redlog::logger log_ = redlog::get_logger("w1xfer.recorder");
+  redlog::logger log_ = redlog::get_logger("w1xfer.thread");
   bool initialized_ = false;
 };
 

@@ -5,6 +5,7 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include <QBDI.h>
 
@@ -146,6 +147,27 @@ public:
     }
 
     const bool ok = session_->run(start, stop_address);
+    stop();
+    return ok;
+  }
+
+  bool call(
+      uint64_t function_ptr, const std::vector<uint64_t>& args, uint64_t* result = nullptr,
+      std::string name = "thread"
+  ) {
+    configure_engine();
+
+    thread_session_config session_config = Traits::make_thread_config(config_);
+    if (session_config.thread_id == 0) {
+      session_config.thread_id = w1::util::current_thread_id();
+    }
+    session_config.thread_name = name.empty() ? "thread" : std::move(name);
+    session_config.shared_modules = &modules_;
+
+    ThreadTracer tracer_instance = Traits::make_tracer(engine_, config_);
+    session_ = std::make_unique<session_type>(session_config, std::move(tracer_instance));
+
+    const bool ok = session_->call(function_ptr, args, result);
     stop();
     return ok;
   }

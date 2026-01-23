@@ -1,20 +1,29 @@
 include(${W1_SOURCE_DIR}/cmake/TestConfig.cmake)
 
-w1_add_harness_test(test_standalone_tracers
-    SOURCES test_standalone_tracers.cpp
-    INCLUDE_DIRS ${W1_SOURCE_DIR}/src
+w1_add_harness_test(test_w1xfer
+    SOURCES test_w1xfer.cpp
+    INCLUDE_DIRS
+        ${W1_SOURCE_DIR}/src
+        ${W1_SOURCE_DIR}/src/tracers/w1xfer
     LIBS w1xfer_static
     OUTPUT_SUBDIR harness
-    ARGS all
 )
 
-if(WITNESS_SCRIPT)
-    target_link_libraries(test_standalone_tracers PRIVATE w1script_static)
+if(WITNESS_SCRIPT AND TARGET w1script_static)
+    w1_add_harness_test(test_w1script
+        SOURCES test_w1script.cpp
+        INCLUDE_DIRS ${W1_SOURCE_DIR}/src
+        LIBS w1script_static
+        OUTPUT_SUBDIR harness
+    )
 endif()
 
 if(WIN32 AND MSVC)
     include(${W1_SOURCE_DIR}/cmake/WindowsSymbolConfig.cmake)
-    configure_windows_symbol_resolution(test_standalone_tracers)
+    configure_windows_symbol_resolution(test_w1xfer)
+    if(TARGET test_w1script)
+        configure_windows_symbol_resolution(test_w1script)
+    endif()
 endif()
 
 w1_add_harness_test(test_gadget_executor
@@ -92,9 +101,15 @@ set_tests_properties(test_gadget_executor PROPERTIES
     LABELS "harness;unit;gadget;executor"
 )
 
-set_tests_properties(test_standalone_tracers PROPERTIES
-    LABELS "harness;tracers;w1xfer;w1script"
+set_tests_properties(test_w1xfer PROPERTIES
+    LABELS "harness;tracers;w1xfer"
 )
+
+if(TARGET test_w1script)
+    set_tests_properties(test_w1script PROPERTIES
+        LABELS "harness;tracers;w1script"
+    )
+endif()
 
 set_tests_properties(test_rewind_format PROPERTIES
     LABELS "harness;rewind"
