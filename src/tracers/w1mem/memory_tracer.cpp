@@ -70,6 +70,14 @@ void memory_tracer::on_thread_stop(w1::trace_context& ctx, const w1::thread_even
   (void) ctx;
   (void) event;
   log_.inf("shutting down memory tracer");
+  const auto& stats = collector_.get_stats();
+  log_.inf(
+      "memory stats", redlog::field("instructions", stats.total_instructions),
+      redlog::field("reads", stats.total_reads), redlog::field("writes", stats.total_writes),
+      redlog::field("bytes_read", stats.total_bytes_read), redlog::field("bytes_written", stats.total_bytes_written)
+  );
+  collector_.shutdown();
+  log_.inf("memory collection completed");
 }
 
 } // namespace w1mem

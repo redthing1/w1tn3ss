@@ -62,6 +62,7 @@ void transfer_recorder::on_thread_stop(w1::trace_context& ctx, const w1::thread_
   (void) ctx;
   (void) event;
   log_.inf("shutting down transfer recorder");
+  pipeline_.shutdown();
   const auto& stats = pipeline_.stats();
   log_.inf(
       "transfer collection completed", redlog::field("total_calls", stats.total_calls),

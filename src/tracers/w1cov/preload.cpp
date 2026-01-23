@@ -11,21 +11,62 @@
 
 #include "w1instrument/self_exclude.hpp"
 #include "w1instrument/logging.hpp"
+#include "w1instrument/preload_driver.hpp"
 
 #include "config/coverage_config.hpp"
 #include "instrument/coverage_runtime.hpp"
 
 namespace {
 
-std::unique_ptr<w1cov::coverage_runtime> g_runtime;
-w1cov::coverage_config g_config;
+struct coverage_preload_policy {
+  using config_type = w1cov::coverage_config;
+  using runtime_type = w1cov::coverage_runtime;
 
-void shutdown_runtime() {
-  if (g_runtime) {
-    g_runtime->stop();
-    g_runtime.reset();
+  static config_type load_config() { return config_type::from_environment(); }
+
+  static void configure_logging(const config_type& config) {
+    w1::instrument::configure_redlog_verbosity(config.verbose, true);
   }
-}
+
+  static bool should_exclude_self(const config_type& config) { return config.exclude_self; }
+
+  static void apply_self_excludes(config_type& config, const void* anchor) {
+    w1::util::append_self_excludes(config.instrumentation, anchor);
+  }
+
+  static std::unique_ptr<runtime_type> create_runtime(const config_type& config, QBDI::VMInstanceRef) {
+    return std::make_unique<runtime_type>(config);
+  }
+
+  static bool run(runtime_type& runtime, QBDI::VMInstanceRef vm, QBDI::rword start, QBDI::rword stop) {
+    auto* vm_ptr = static_cast<QBDI::VM*>(vm);
+    return runtime.run_main(vm_ptr, static_cast<uint64_t>(start), static_cast<uint64_t>(stop), "main");
+  }
+
+  static void shutdown(runtime_type& runtime, int status, const config_type& config) {
+    auto log = redlog::get_logger("w1cov.preload");
+    log.inf("qbdipreload_on_exit called", redlog::field("status", status));
+
+    if (!runtime.export_coverage()) {
+      log.wrn("coverage export produced no output", redlog::field("output_file", config.output_file));
+    } else {
+      log.inf("coverage data export completed", redlog::field("output_file", config.output_file));
+    }
+
+    auto& engine = runtime.engine();
+    log.inf(
+        "coverage collection completed", redlog::field("coverage_units", engine.coverage_unit_count()),
+        redlog::field("modules", engine.module_count()), redlog::field("total_hits", engine.total_hits())
+    );
+
+    runtime.stop();
+    log.inf("qbdipreload_on_exit completed");
+  }
+};
+
+using preload_state = w1::instrument::preload_state<coverage_preload_policy>;
+
+preload_state g_state;
 
 } // namespace
 
@@ -34,17 +75,8 @@ extern "C" {
 QBDIPRELOAD_INIT;
 
 QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QBDI::rword stop) {
-  auto log = redlog::get_logger("w1cov.preload");
-
-  g_config = w1cov::coverage_config::from_environment();
-  w1::instrument::configure_redlog_verbosity(g_config.verbose, true);
-  if (g_config.exclude_self) {
-    w1::util::append_self_excludes(g_config.instrumentation, reinterpret_cast<const void*>(&qbdipreload_on_run));
-  }
-
-  g_runtime = std::make_unique<w1cov::coverage_runtime>(g_config);
-  auto* vm_ptr = static_cast<QBDI::VM*>(vm);
-  if (!g_runtime->run_main(vm_ptr, static_cast<uint64_t>(start), static_cast<uint64_t>(stop), "main")) {
+  if (!w1::instrument::preload_run(g_state, reinterpret_cast<const void*>(&qbdipreload_on_run), vm, start, stop)) {
+    auto log = redlog::get_logger("w1cov.preload");
     log.err("coverage session run failed");
     return QBDIPRELOAD_ERR_STARTUP_FAILED;
   }
@@ -53,26 +85,7 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
 }
 
 QBDI_EXPORT int qbdipreload_on_exit(int status) {
-  auto log = redlog::get_logger("w1cov.preload");
-  log.inf("qbdipreload_on_exit called", redlog::field("status", status));
-
-  if (g_runtime) {
-    if (!g_runtime->export_coverage()) {
-      log.wrn("coverage export produced no output", redlog::field("output_file", g_config.output_file));
-    } else {
-      log.inf("coverage data export completed", redlog::field("output_file", g_config.output_file));
-    }
-
-    auto& engine = g_runtime->engine();
-    log.inf(
-        "coverage collection completed", redlog::field("coverage_units", engine.coverage_unit_count()),
-        redlog::field("modules", engine.module_count()), redlog::field("total_hits", engine.total_hits())
-    );
-  }
-
-  shutdown_runtime();
-
-  log.inf("qbdipreload_on_exit completed");
+  w1::instrument::preload_shutdown(g_state, status);
   return QBDIPRELOAD_NO_ERROR;
 }
 

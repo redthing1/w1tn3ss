@@ -47,6 +47,8 @@ public:
       uint8_t access_type, uint64_t value, bool value_valid
   );
 
+  void shutdown();
+
   const memory_stats& get_stats() const { return stats_; }
   uint32_t get_instruction_count() const { return instruction_count_; }
 
@@ -65,6 +67,7 @@ private:
 
   std::unique_ptr<w1::io::jsonl_writer> jsonl_writer_;
   bool metadata_written_ = false;
+  bool shutdown_called_ = false;
 
   std::vector<w1::runtime::module_info> modules_{};
   bool modules_cached_ = false;

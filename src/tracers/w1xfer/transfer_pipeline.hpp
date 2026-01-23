@@ -34,6 +34,8 @@ public:
       const w1::trace_context& ctx, const w1::exec_transfer_event& event, QBDI::GPRState* gpr, QBDI::FPRState* fpr
   );
 
+  void shutdown();
+
   std::optional<transfer_endpoint> resolve_endpoint(uint64_t address) const;
 
   const transfer_stats& stats() const { return stats_; }

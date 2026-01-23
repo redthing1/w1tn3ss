@@ -1,6 +1,3 @@
-#include <memory>
-#include <utility>
-
 #include "QBDIPreload.h"
 #include <redlog.hpp>
 
@@ -8,50 +5,40 @@
 #include <w1base/windows_console.hpp>
 #endif
 
-#include "w1instrument/tracer/vm_session.hpp"
-#include "w1instrument/self_exclude.hpp"
-#include "w1instrument/logging.hpp"
+#include "w1instrument/preload_vm_session.hpp"
 
 #include "instruction_config.hpp"
 #include "instruction_tracer.hpp"
 
-static std::unique_ptr<w1::vm_session<w1inst::instruction_tracer>> g_session;
-static w1inst::instruction_config g_config;
+namespace {
+
+struct instruction_preload_policy
+    : w1::instrument::
+          vm_session_preload_policy<instruction_preload_policy, w1inst::instruction_config, w1inst::instruction_tracer> {
+  static constexpr const char* kLoggerName = "w1inst.preload";
+  static constexpr const char* kSessionLabel = "instruction";
+  static constexpr const char* kRunFailedMessage = "instruction session run failed";
+};
+
+using preload_state = w1::instrument::preload_state<instruction_preload_policy>;
+
+preload_state g_state;
+
+} // namespace
 
 extern "C" {
 
 QBDIPRELOAD_INIT;
 
 QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QBDI::rword stop) {
-  auto log = redlog::get_logger("w1inst.preload");
-
   try {
-    g_config = w1inst::instruction_config::from_environment();
+    if (!w1::instrument::preload_run_or_log(g_state, reinterpret_cast<const void*>(&qbdipreload_on_run), vm, start,
+                                            stop)) {
+      return QBDIPRELOAD_ERR_STARTUP_FAILED;
+    }
   } catch (const std::exception& error) {
+    auto log = redlog::get_logger(instruction_preload_policy::logger_name());
     log.err("failed to load instruction config", redlog::field("error", error.what()));
-    return QBDIPRELOAD_ERR_STARTUP_FAILED;
-  }
-
-  w1::instrument::configure_redlog_verbosity(g_config.verbose);
-  if (g_config.exclude_self) {
-    w1::util::append_self_excludes(g_config.instrumentation, reinterpret_cast<const void*>(&qbdipreload_on_run));
-  }
-
-  w1::vm_session_config session_config;
-  session_config.instrumentation = g_config.instrumentation;
-  session_config.thread_id = 1;
-  session_config.thread_name = "main";
-
-  g_session =
-      std::make_unique<w1::vm_session<w1inst::instruction_tracer>>(session_config, vm, std::in_place, g_config);
-
-  log.inf(
-      "starting instruction session", redlog::field("start", "0x%llx", static_cast<unsigned long long>(start)),
-      redlog::field("stop", "0x%llx", static_cast<unsigned long long>(stop))
-  );
-
-  if (!g_session->run(static_cast<uint64_t>(start), static_cast<uint64_t>(stop))) {
-    log.err("instruction session run failed");
     return QBDIPRELOAD_ERR_STARTUP_FAILED;
   }
 
@@ -59,15 +46,7 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
 }
 
 QBDI_EXPORT int qbdipreload_on_exit(int status) {
-  auto log = redlog::get_logger("w1inst.preload");
-  log.inf("qbdipreload_on_exit called", redlog::field("status", status));
-
-  if (g_session) {
-    g_session->shutdown(false);
-    g_session.reset();
-  }
-
-  log.inf("qbdipreload_on_exit completed");
+  w1::instrument::preload_shutdown(g_state, status);
   return QBDIPRELOAD_NO_ERROR;
 }
 

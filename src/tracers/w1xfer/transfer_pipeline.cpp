@@ -115,6 +115,13 @@ void transfer_pipeline::record_return(
   record_transfer(transfer_type::RETURN, ctx, event, gpr, fpr);
 }
 
+void transfer_pipeline::shutdown() {
+  if (writer_) {
+    writer_->flush();
+    writer_->close();
+  }
+}
+
 std::optional<transfer_endpoint> transfer_pipeline::resolve_endpoint(uint64_t address) const {
   return build_endpoint(address);
 }

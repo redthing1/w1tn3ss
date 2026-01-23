@@ -123,6 +123,26 @@ void memory_collector::write_event(const memory_access_entry& entry) {
   jsonl_writer_->write_line(json.str());
 }
 
+void memory_collector::shutdown() {
+  if (shutdown_called_) {
+    return;
+  }
+
+  log_.inf("shutting down memory collector");
+
+  if (jsonl_writer_) {
+    jsonl_writer_->flush();
+    jsonl_writer_.reset();
+  }
+
+  log_.inf(
+      "memory collector shutdown complete", redlog::field("total_reads", stats_.total_reads),
+      redlog::field("total_writes", stats_.total_writes), redlog::field("total_instructions", stats_.total_instructions)
+  );
+
+  shutdown_called_ = true;
+}
+
 std::string memory_collector::get_module_name(const w1::runtime::module_catalog& modules, uint64_t address) const {
   if (address == 0) {
     return "null";

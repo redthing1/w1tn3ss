@@ -88,6 +88,22 @@ void transfer_writer_jsonl::write_record(const transfer_record& record) {
   write_event(record);
 }
 
+void transfer_writer_jsonl::flush() {
+  if (writer_) {
+    writer_->flush();
+  }
+}
+
+void transfer_writer_jsonl::close() {
+  if (!writer_) {
+    return;
+  }
+
+  writer_->close();
+  writer_.reset();
+  metadata_written_ = false;
+}
+
 void transfer_writer_jsonl::write_metadata(const w1::runtime::module_catalog& modules) {
   if (!is_open()) {
     return;

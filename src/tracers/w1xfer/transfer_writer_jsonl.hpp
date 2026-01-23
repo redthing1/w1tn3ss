@@ -18,6 +18,8 @@ public:
 
   void ensure_metadata(const w1::runtime::module_catalog& modules);
   void write_record(const transfer_record& record);
+  void flush();
+  void close();
 
 private:
   std::unique_ptr<w1::io::jsonl_writer> writer_;
