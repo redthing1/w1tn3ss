@@ -6,6 +6,10 @@ project(w1tn3ss
     LANGUAGES C CXX ASM
 )
 
+if(CMAKE_C_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    message(FATAL_ERROR "GCC is not supported. Configure with Clang instead.")
+endif()
+
 include(cmake/W1Init.cmake)
 include(cmake/WindowsSymbolConfig.cmake)
 
