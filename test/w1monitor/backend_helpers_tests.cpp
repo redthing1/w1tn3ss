@@ -105,6 +105,7 @@ TEST_CASE("w1monitor module_snapshot_tracker untrack removes entry") {
 
 TEST_CASE("w1monitor thread_stop_tracker emits once per reset") {
   thread_stop_tracker tracker;
+  tracker.reset();
   CHECK(tracker.should_emit());
   CHECK_FALSE(tracker.should_emit());
   tracker.reset();

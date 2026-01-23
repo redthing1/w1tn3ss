@@ -1,6 +1,7 @@
-#include "doctest/doctest.hpp"
-
+#include <ostream>
 #include <string_view>
+
+#include "doctest/doctest.hpp"
 
 #include "w1h00k/resolve/module_match.hpp"
 

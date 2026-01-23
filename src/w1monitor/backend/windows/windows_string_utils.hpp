@@ -4,6 +4,7 @@
 #include <cwchar>
 
 #include <windows.h>
+#include <winternl.h>
 
 namespace w1::monitor::backend::windows {
 

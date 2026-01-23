@@ -4,6 +4,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <mutex>
 #include <string>
 #include <thread>
 
@@ -19,6 +20,50 @@ namespace {
 
 using w1::monitor::test::wait_for_event;
 
+struct thread_name_params {
+  std::atomic<uint64_t>* tid_out = nullptr;
+  const wchar_t* name = nullptr;
+  DWORD sleep_ms = 0;
+};
+
+DWORD WINAPI thread_start_with_name(LPVOID param) {
+  auto* params = static_cast<thread_name_params*>(param);
+  if (params && params->tid_out) {
+    params->tid_out->store(static_cast<uint64_t>(GetCurrentThreadId()), std::memory_order_release);
+  }
+  if (params && params->name) {
+    HMODULE kernel32 = GetModuleHandleW(L"kernel32.dll");
+    if (kernel32) {
+      auto set_desc = reinterpret_cast<HRESULT(WINAPI*)(HANDLE, PCWSTR)>(
+          GetProcAddress(kernel32, "SetThreadDescription"));
+      if (set_desc) {
+        set_desc(GetCurrentThread(), params->name);
+      }
+    }
+  }
+  if (params && params->sleep_ms > 0) {
+    Sleep(params->sleep_ms);
+  }
+  return 0;
+}
+
+DWORD WINAPI thread_start_record_tid(LPVOID param) {
+  auto* tid_ptr = static_cast<std::atomic<uint64_t>*>(param);
+  if (tid_ptr) {
+    tid_ptr->store(static_cast<uint64_t>(GetCurrentThreadId()), std::memory_order_release);
+  }
+  Sleep(25);
+  return 0;
+}
+
+DWORD WINAPI thread_start_set_flag(LPVOID param) {
+  auto* flag = static_cast<std::atomic<bool>*>(param);
+  if (flag) {
+    flag->store(true, std::memory_order_release);
+  }
+  return 7;
+}
+
 } // namespace
 
 TEST_CASE("w1monitor windows module monitor reports load/unload") {
@@ -33,6 +78,7 @@ TEST_CASE("w1monitor windows module monitor reports load/unload") {
 
   w1::monitor::module_event event{};
   void* loaded_base = nullptr;
+  size_t loaded_size = 0;
   const auto saw_loaded = wait_for_event(
       *monitor, event,
       [&](const w1::monitor::module_event& e) {
@@ -43,6 +89,9 @@ TEST_CASE("w1monitor windows module monitor reports load/unload") {
   CHECK(saw_loaded);
   if (saw_loaded) {
     loaded_base = event.base;
+    loaded_size = event.size;
+    CHECK(loaded_base != nullptr);
+    CHECK(loaded_size > 0);
   }
 
   FreeLibrary(handle);
@@ -60,6 +109,9 @@ TEST_CASE("w1monitor windows module monitor reports load/unload") {
       },
       std::chrono::milliseconds(1000));
   CHECK(saw_unloaded);
+  if (saw_unloaded && loaded_base && event.base == loaded_base) {
+    CHECK(event.size == loaded_size);
+  }
 
   monitor->stop();
 }
@@ -70,23 +122,13 @@ TEST_CASE("w1monitor windows thread monitor reports start/stop/rename") {
   monitor->start();
 
   std::atomic<uint64_t> worker_tid{0};
-  auto thread_fn = [](LPVOID param) -> DWORD {
-    auto* tid_ptr = static_cast<std::atomic<uint64_t>*>(param);
-    tid_ptr->store(static_cast<uint64_t>(GetCurrentThreadId()), std::memory_order_release);
-    HMODULE kernel32 = GetModuleHandleW(L"kernel32.dll");
-    if (kernel32) {
-      auto set_desc = reinterpret_cast<HRESULT(WINAPI*)(HANDLE, PCWSTR)>(
-          GetProcAddress(kernel32, "SetThreadDescription"));
-      if (set_desc) {
-        set_desc(GetCurrentThread(), L"w1mon_worker");
-      }
-    }
-    Sleep(50);
-    return 0;
-  };
+  thread_name_params params{};
+  params.tid_out = &worker_tid;
+  params.name = L"w1mon_worker";
+  params.sleep_ms = 50;
 
   DWORD thread_id = 0;
-  HANDLE thread = CreateThread(nullptr, 0, thread_fn, &worker_tid, 0, &thread_id);
+  HANDLE thread = CreateThread(nullptr, 0, thread_start_with_name, &params, 0, &thread_id);
   REQUIRE(thread != nullptr);
 
   while (worker_tid.load(std::memory_order_acquire) == 0) {
@@ -138,12 +180,6 @@ TEST_CASE("w1monitor windows thread monitor captures GetProcAddress thread start
   monitor->start();
 
   std::atomic<uint64_t> worker_tid{0};
-  auto thread_fn = [](LPVOID param) -> DWORD {
-    auto* tid_ptr = static_cast<std::atomic<uint64_t>*>(param);
-    tid_ptr->store(static_cast<uint64_t>(GetCurrentThreadId()), std::memory_order_release);
-    Sleep(25);
-    return 0;
-  };
 
   HMODULE kernel32 = GetModuleHandleW(L"kernel32.dll");
   REQUIRE(kernel32 != nullptr);
@@ -151,7 +187,7 @@ TEST_CASE("w1monitor windows thread monitor captures GetProcAddress thread start
   REQUIRE(create_thread != nullptr);
 
   DWORD thread_id = 0;
-  HANDLE thread = create_thread(nullptr, 0, thread_fn, &worker_tid, 0, &thread_id);
+  HANDLE thread = create_thread(nullptr, 0, thread_start_record_tid, &worker_tid, 0, &thread_id);
   REQUIRE(thread != nullptr);
 
   while (worker_tid.load(std::memory_order_acquire) == 0) {
@@ -178,6 +214,51 @@ TEST_CASE("w1monitor windows thread monitor captures GetProcAddress thread start
       },
       std::chrono::milliseconds(1000));
   CHECK(saw_stopped);
+
+  monitor->stop();
+}
+
+TEST_CASE("w1monitor windows thread monitor entry callback can override") {
+  auto monitor = w1::monitor::make_thread_monitor();
+  REQUIRE(monitor != nullptr);
+  monitor->start();
+
+  std::atomic<bool> start_called{false};
+  std::atomic<bool> callback_called{false};
+  std::mutex capture_mutex;
+  w1::monitor::thread_entry_context captured{};
+
+  monitor->set_entry_callback([&](const w1::monitor::thread_entry_context& ctx, uint64_t& result) {
+    {
+      std::lock_guard<std::mutex> lock(capture_mutex);
+      captured = ctx;
+    }
+    callback_called.store(true, std::memory_order_release);
+    result = 0xBEEF;
+    return true;
+  });
+
+  DWORD thread_id = 0;
+  HANDLE thread = CreateThread(nullptr, 0, thread_start_set_flag, &start_called, 0, &thread_id);
+  REQUIRE(thread != nullptr);
+
+  WaitForSingleObject(thread, INFINITE);
+
+  DWORD exit_code = 0;
+  CHECK(GetExitCodeThread(thread, &exit_code));
+  CloseHandle(thread);
+
+  CHECK(callback_called.load(std::memory_order_acquire));
+  CHECK_FALSE(start_called.load(std::memory_order_acquire));
+  CHECK(exit_code == 0xBEEF);
+
+  {
+    std::lock_guard<std::mutex> lock(capture_mutex);
+    CHECK(captured.kind == w1::monitor::thread_entry_kind::win32);
+    CHECK(captured.tid == static_cast<uint64_t>(thread_id));
+    CHECK(captured.start_routine == reinterpret_cast<void*>(&thread_start_set_flag));
+    CHECK(captured.arg == &start_called);
+  }
 
   monitor->stop();
 }

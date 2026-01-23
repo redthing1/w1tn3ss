@@ -56,7 +56,8 @@ inline bool module_matches(const char* requested,
     return full_lower == req_lower;
   }
   const std::string_view base = basename_view(full_lower);
-  return base == std::string_view(req_lower);
+  const std::string_view req_base = basename_view(req_lower);
+  return base == req_base;
 }
 #else
 inline bool module_matches(const char* requested,

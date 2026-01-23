@@ -39,6 +39,17 @@ struct demo_library {
   demo_thread_fn thread_proc = nullptr;
 };
 
+#if defined(_WIN32) || defined(WIN32)
+inline FARPROC load_demo_proc(HMODULE handle, std::initializer_list<const char*> names) {
+  for (const char* name : names) {
+    if (auto proc = GetProcAddress(handle, name)) {
+      return proc;
+    }
+  }
+  return nullptr;
+}
+#endif
+
 inline bool load_demo_library(demo_library& out) {
   const std::string path = w1::test_paths::test_library_path(demo_library_name);
 
@@ -48,9 +59,11 @@ inline bool load_demo_library(demo_library& out) {
     std::cerr << "LoadLibrary failed for " << path << "\n";
     return false;
   }
-  auto add = reinterpret_cast<demo_add_fn>(GetProcAddress(handle, "w1cov_demo_add"));
-  auto branch = reinterpret_cast<demo_branch_fn>(GetProcAddress(handle, "w1cov_demo_branch"));
-  auto thread_proc = reinterpret_cast<demo_thread_fn>(GetProcAddress(handle, "w1cov_demo_thread_proc"));
+  auto add = reinterpret_cast<demo_add_fn>(load_demo_proc(handle, {"w1cov_demo_add", "_w1cov_demo_add"}));
+  auto branch = reinterpret_cast<demo_branch_fn>(load_demo_proc(handle, {"w1cov_demo_branch", "_w1cov_demo_branch"}));
+  auto thread_proc = reinterpret_cast<demo_thread_fn>(
+      load_demo_proc(handle, {"w1cov_demo_thread_proc", "_w1cov_demo_thread_proc@4"})
+  );
   if (!add || !branch || !thread_proc) {
     std::cerr << "GetProcAddress failed for demo library exports\n";
     FreeLibrary(handle);
