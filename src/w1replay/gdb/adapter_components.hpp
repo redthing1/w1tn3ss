@@ -101,9 +101,13 @@ public:
   explicit libraries_component(const adapter_services& services);
 
   std::vector<gdbstub::library_entry> libraries() const;
+  std::optional<uint64_t> libraries_generation() const;
 
 private:
+  std::optional<uint64_t> resolve_main_module_id() const;
+
   const adapter_services& services_;
+  mutable std::optional<uint64_t> main_module_id_;
 };
 
 class loaded_libraries_component {
@@ -126,6 +130,20 @@ public:
 
 private:
   const adapter_services& services_;
+};
+
+class auxv_component {
+public:
+  explicit auxv_component(const adapter_services& services);
+
+  std::optional<std::vector<std::byte>> auxv_data() const;
+
+private:
+  std::optional<std::vector<std::byte>> build_auxv() const;
+
+  const adapter_services& services_;
+  mutable bool auxv_cached_ = false;
+  mutable std::optional<std::vector<std::byte>> auxv_data_;
 };
 
 class offsets_component {
