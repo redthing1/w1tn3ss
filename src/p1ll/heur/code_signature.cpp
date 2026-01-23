@@ -221,9 +221,6 @@ void append_pattern(std::string& output, const std::vector<uint8_t>& bytes, cons
 std::string format_pretty_line(const instruction& inst, const std::vector<uint8_t>& mask) {
   std::string line;
   for (size_t i = 0; i < inst.bytes.size(); ++i) {
-    if (!line.empty()) {
-      line += " ";
-    }
     if (i < mask.size() && mask[i] == 0) {
       line += "??";
     } else {
