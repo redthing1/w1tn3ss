@@ -13,6 +13,31 @@ void flow_cursor::set_observer(flow_record_observer* observer) { observer_ = obs
 
 void flow_cursor::set_history_enabled(bool enabled) { history_enabled_ = enabled; }
 
+void flow_cursor::set_history_size(uint32_t size) {
+  history_size_ = size == 0 ? 1 : size;
+  if (history_.size() <= history_size_) {
+    return;
+  }
+
+  size_t desired = history_size_;
+  size_t current_index = history_pos_;
+  size_t remove_front = std::min(history_.size() - desired, current_index);
+  for (size_t i = 0; i < remove_front; ++i) {
+    history_.pop_front();
+  }
+  current_index -= remove_front;
+
+  while (history_.size() > desired) {
+    history_.pop_back();
+  }
+
+  if (history_.empty()) {
+    history_pos_ = 0;
+    return;
+  }
+  history_pos_ = std::min(current_index, history_.size() - 1);
+}
+
 void flow_cursor::clear_error() {
   error_.clear();
   error_kind_ = flow_error_kind::none;
@@ -237,12 +262,7 @@ bool flow_cursor::step_backward(flow_step& out) {
     return step_forward(out);
   }
 
-  if (history_.empty()) {
-    set_error(flow_error_kind::other, "history empty");
-    return false;
-  }
-
-  if (history_pos_ > 0) {
+  if (!history_.empty() && history_pos_ > 0) {
     history_pos_ -= 1;
     const auto& entry = history_[history_pos_];
     if (!seek_to_history(history_pos_)) {
@@ -254,10 +274,7 @@ bool flow_cursor::step_backward(flow_step& out) {
     return true;
   }
 
-  if (!seek(active_thread_id_, target)) {
-    return false;
-  }
-  return step_forward(out);
+  return prefill_history_window(target, out);
 }
 
 bool flow_cursor::scan_until_sequence(uint64_t thread_id, uint64_t sequence) {
@@ -472,6 +489,39 @@ bool flow_cursor::seek_to_history(size_t index) {
   }
 
   return true;
+}
+
+uint64_t flow_cursor::window_start_sequence(uint64_t target) const {
+  if (history_size_ <= 1) {
+    return target;
+  }
+  uint64_t window = static_cast<uint64_t>(history_size_);
+  if (target + 1 <= window) {
+    return 0;
+  }
+  return target + 1 - window;
+}
+
+bool flow_cursor::prefill_history_window(uint64_t target, flow_step& out) {
+  uint64_t start = window_start_sequence(target);
+  if (!seek(active_thread_id_, start)) {
+    return false;
+  }
+
+  flow_step step{};
+  while (true) {
+    if (!step_forward(step)) {
+      return false;
+    }
+    if (step.sequence == target) {
+      out = step;
+      return true;
+    }
+    if (step.sequence > target) {
+      set_error(flow_error_kind::other, "flow sequence not found");
+      return false;
+    }
+  }
 }
 
 } // namespace w1::rewind

@@ -45,6 +45,7 @@ public:
 
   void set_observer(flow_record_observer* observer);
   void set_history_enabled(bool enabled);
+  void set_history_size(uint32_t size);
 
   bool open();
   void close();
@@ -78,6 +79,8 @@ private:
   void push_history(const flow_step& step, const trace_record_location& location);
   bool seek_to_history(size_t index);
   bool handle_non_flow(const trace_record& record);
+  uint64_t window_start_sequence(uint64_t target) const;
+  bool prefill_history_window(uint64_t target, flow_step& out);
 
   flow_cursor_config config_;
   std::shared_ptr<trace_record_stream> stream_;
