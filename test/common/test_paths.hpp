@@ -57,4 +57,18 @@ inline std::string test_library_path(const char* name) {
 #endif
 }
 
+inline const char* interpose_library_name() {
+#if defined(_WIN32)
+  return "w1h00k_interpose_lib.dll";
+#elif defined(__APPLE__)
+  return "w1h00k_interpose_lib.dylib";
+#else
+  return "w1h00k_interpose_lib.so";
+#endif
+}
+
+inline std::string interpose_library_path() {
+  return test_library_path(interpose_library_name());
+}
+
 } // namespace w1::test_paths

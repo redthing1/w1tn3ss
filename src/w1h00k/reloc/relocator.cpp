@@ -87,4 +87,28 @@ size_t max_trampoline_size(size_t min_patch_size, const w1::arch::arch_spec& arc
   return 0;
 }
 
+const char* to_string(reloc_error error) {
+  switch (error) {
+    case reloc_error::ok:
+      return "ok";
+    case reloc_error::invalid_target:
+      return "invalid_target";
+    case reloc_error::invalid_request:
+      return "invalid_request";
+    case reloc_error::unsupported_arch:
+      return "unsupported_arch";
+    case reloc_error::decode_failed:
+      return "decode_failed";
+    case reloc_error::insufficient_bytes:
+      return "insufficient_bytes";
+    case reloc_error::missing_trampoline:
+      return "missing_trampoline";
+    case reloc_error::unsupported_instruction:
+      return "unsupported_instruction";
+    case reloc_error::out_of_range:
+      return "out_of_range";
+  }
+  return "unknown";
+}
+
 } // namespace w1::h00k::reloc

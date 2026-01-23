@@ -436,6 +436,12 @@ stub_layout make_layout(const w1::arch::arch_spec& arch, hook_call_abi abi, bool
 
   layout.shadow_size = plan.shadow_size;
   layout.stack_size = align_up(offset, plan.stack_align);
+  if (arch.arch_mode == w1::arch::mode::x86_64) {
+    // Keep RSP 16-byte aligned before the prehook call (entry RSP is 8 mod 16).
+    if ((layout.stack_size % 16) == 0) {
+      layout.stack_size += 8;
+    }
+  }
   return layout;
 }
 

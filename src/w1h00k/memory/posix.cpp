@@ -83,14 +83,14 @@ exec_block allocate_near(void* target, size_t size, size_t range) {
 #endif
 
   auto try_map = [&](uintptr_t hint) -> void* {
+    void* addr = nullptr;
 #if defined(MAP_FIXED_NOREPLACE)
-    void* addr = mmap(reinterpret_cast<void*>(hint), aligned, prot, flags | MAP_FIXED_NOREPLACE, -1, 0);
-    if (addr == MAP_FAILED) {
-      return nullptr;
+    addr = mmap(reinterpret_cast<void*>(hint), aligned, prot, flags | MAP_FIXED_NOREPLACE, -1, 0);
+    if (addr != MAP_FAILED) {
+      return addr;
     }
-    return addr;
-#else
-    void* addr = mmap(reinterpret_cast<void*>(hint), aligned, prot, flags, -1, 0);
+#endif
+    addr = mmap(reinterpret_cast<void*>(hint), aligned, prot, flags, -1, 0);
     if (addr == MAP_FAILED) {
       return nullptr;
     }
@@ -100,7 +100,6 @@ exec_block allocate_near(void* target, size_t size, size_t range) {
       return nullptr;
     }
     return addr;
-#endif
   };
 
   constexpr size_t kMaxAttempts = 4096;

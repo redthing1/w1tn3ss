@@ -14,6 +14,23 @@ inline std::string_view basename_view(std::string_view path) {
   return path.substr(pos + 1);
 }
 
+enum class module_match_mode {
+  auto_detect,
+  basename,
+  full_path,
+};
+
+inline bool has_path_separator(std::string_view value) {
+  return value.find('/') != std::string_view::npos || value.find('\\') != std::string_view::npos;
+}
+
+inline module_match_mode normalize_match_mode(std::string_view requested, module_match_mode mode) {
+  if (mode == module_match_mode::auto_detect) {
+    return has_path_separator(requested) ? module_match_mode::full_path : module_match_mode::basename;
+  }
+  return mode;
+}
+
 #if defined(_WIN32)
 inline std::string to_lower(std::string_view value) {
   std::string out(value.begin(), value.end());
@@ -23,23 +40,28 @@ inline std::string to_lower(std::string_view value) {
   return out;
 }
 
-inline bool module_matches(const char* requested, const std::string& path) {
+inline bool module_matches(const char* requested,
+                           std::string_view path,
+                           module_match_mode mode = module_match_mode::auto_detect) {
   if (!requested || requested[0] == '\0') {
     return true;
   }
   if (path.empty()) {
     return false;
   }
-  const std::string req = to_lower(requested);
-  const std::string full = to_lower(path);
-  const bool has_sep = req.find('/') != std::string::npos || req.find('\\') != std::string::npos;
-  if (has_sep) {
-    return full == req;
+  const std::string req_lower = to_lower(requested);
+  const std::string full_lower = to_lower(path);
+  const auto match_mode = normalize_match_mode(std::string_view(requested), mode);
+  if (match_mode == module_match_mode::full_path) {
+    return full_lower == req_lower;
   }
-  return to_lower(std::string(basename_view(full))) == req;
+  const std::string_view base = basename_view(full_lower);
+  return base == std::string_view(req_lower);
 }
 #else
-inline bool module_matches(const char* requested, const std::string& path) {
+inline bool module_matches(const char* requested,
+                           std::string_view path,
+                           module_match_mode mode = module_match_mode::auto_detect) {
   if (!requested || requested[0] == '\0') {
     return true;
   }
@@ -47,12 +69,11 @@ inline bool module_matches(const char* requested, const std::string& path) {
     return false;
   }
   const std::string_view req_view(requested);
-  const bool has_sep = req_view.find('/') != std::string_view::npos ||
-                       req_view.find('\\') != std::string_view::npos;
-  if (has_sep) {
-    return path == requested;
+  const auto match_mode = normalize_match_mode(req_view, mode);
+  if (match_mode == module_match_mode::full_path) {
+    return path == req_view;
   }
-  return basename_view(path) == req_view;
+  return basename_view(path) == basename_view(req_view);
 }
 #endif
 

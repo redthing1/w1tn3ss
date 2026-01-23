@@ -1,15 +1,14 @@
 #include "w1monitor/backend/windows/windows_module_monitor.hpp"
 
 #include <memory>
-#include <mutex>
-#include <string>
-#include <unordered_map>
-
 #include <windows.h>
 #include <tlhelp32.h>
 #include <winternl.h>
 
 #include "w1h00k/hook.hpp"
+#include "w1monitor/backend/module_snapshot.hpp"
+#include "w1monitor/backend/hook_helpers.hpp"
+#include "w1monitor/backend/windows/windows_string_utils.hpp"
 #include "w1monitor/event_queue.hpp"
 
 namespace w1::monitor::backend::windows {
@@ -17,18 +16,20 @@ namespace {
 
 struct ldr_dll_notification_data {
   ULONG Flags;
-  struct {
-    const UNICODE_STRING* FullDllName;
-    const UNICODE_STRING* BaseDllName;
-    PVOID DllBase;
-    ULONG SizeOfImage;
-  } Loaded;
-  struct {
-    const UNICODE_STRING* FullDllName;
-    const UNICODE_STRING* BaseDllName;
-    PVOID DllBase;
-    ULONG SizeOfImage;
-  } Unloaded;
+  union {
+    struct {
+      const UNICODE_STRING* FullDllName;
+      const UNICODE_STRING* BaseDllName;
+      PVOID DllBase;
+      ULONG SizeOfImage;
+    } Loaded;
+    struct {
+      const UNICODE_STRING* FullDllName;
+      const UNICODE_STRING* BaseDllName;
+      PVOID DllBase;
+      ULONG SizeOfImage;
+    } Unloaded;
+  };
 };
 
 using ldr_dll_notify_fn = VOID (CALLBACK*)(ULONG reason, const ldr_dll_notification_data* data, void* context);
@@ -44,22 +45,25 @@ using loadlibraryexa_fn = HMODULE(WINAPI*)(LPCSTR, HANDLE, DWORD);
 using loadlibraryexw_fn = HMODULE(WINAPI*)(LPCWSTR, HANDLE, DWORD);
 using freelibrary_fn = BOOL(WINAPI*)(HMODULE);
 
-std::string utf16_to_utf8(const UNICODE_STRING* value) {
-  if (!value || !value->Buffer || value->Length == 0) {
-    return {};
+static thread_local bool g_snapshot_active = false;
+static thread_local bool g_loader_hook_active = false;
+
+struct loader_hook_guard {
+  bool& flag;
+  bool active = false;
+
+  explicit loader_hook_guard(bool& flag_ref) : flag(flag_ref), active(!flag_ref) {
+    if (active) {
+      flag = true;
+    }
   }
-  const int wchar_len = static_cast<int>(value->Length / sizeof(WCHAR));
-  if (wchar_len <= 0) {
-    return {};
+
+  ~loader_hook_guard() {
+    if (active) {
+      flag = false;
+    }
   }
-  const int required = WideCharToMultiByte(CP_UTF8, 0, value->Buffer, wchar_len, nullptr, 0, nullptr, nullptr);
-  if (required <= 0) {
-    return {};
-  }
-  std::string out(static_cast<size_t>(required), '\0');
-  WideCharToMultiByte(CP_UTF8, 0, value->Buffer, wchar_len, out.data(), required, nullptr, nullptr);
-  return out;
-}
+};
 
 class windows_module_monitor final : public module_monitor {
 public:
@@ -90,8 +94,7 @@ public:
     detach_hooks();
 
     queue_.clear();
-    std::lock_guard<std::mutex> lock(modules_mutex_);
-    modules_.clear();
+    snapshot_.clear();
   }
 
   bool poll(module_event& out) override { return queue_.poll(out); }
@@ -117,9 +120,15 @@ private:
     auto* monitor = active_monitor;
     HMODULE handle = nullptr;
     if (monitor && monitor->original_loadlibrarya_) {
+      loader_hook_guard guard(g_loader_hook_active);
+      if (!guard.active) {
+        return monitor->original_loadlibrarya_(name);
+      }
       handle = monitor->original_loadlibrarya_(name);
-      if (monitor->active_) {
+      if (monitor->active_ && !g_snapshot_active) {
+        g_snapshot_active = true;
         monitor->refresh_snapshot(true);
+        g_snapshot_active = false;
       }
     }
     return handle;
@@ -129,9 +138,15 @@ private:
     auto* monitor = active_monitor;
     HMODULE handle = nullptr;
     if (monitor && monitor->original_loadlibraryw_) {
+      loader_hook_guard guard(g_loader_hook_active);
+      if (!guard.active) {
+        return monitor->original_loadlibraryw_(name);
+      }
       handle = monitor->original_loadlibraryw_(name);
-      if (monitor->active_) {
+      if (monitor->active_ && !g_snapshot_active) {
+        g_snapshot_active = true;
         monitor->refresh_snapshot(true);
+        g_snapshot_active = false;
       }
     }
     return handle;
@@ -141,9 +156,15 @@ private:
     auto* monitor = active_monitor;
     HMODULE handle = nullptr;
     if (monitor && monitor->original_loadlibraryexa_) {
+      loader_hook_guard guard(g_loader_hook_active);
+      if (!guard.active) {
+        return monitor->original_loadlibraryexa_(name, file, flags);
+      }
       handle = monitor->original_loadlibraryexa_(name, file, flags);
-      if (monitor->active_) {
+      if (monitor->active_ && !g_snapshot_active) {
+        g_snapshot_active = true;
         monitor->refresh_snapshot(true);
+        g_snapshot_active = false;
       }
     }
     return handle;
@@ -153,9 +174,15 @@ private:
     auto* monitor = active_monitor;
     HMODULE handle = nullptr;
     if (monitor && monitor->original_loadlibraryexw_) {
+      loader_hook_guard guard(g_loader_hook_active);
+      if (!guard.active) {
+        return monitor->original_loadlibraryexw_(name, file, flags);
+      }
       handle = monitor->original_loadlibraryexw_(name, file, flags);
-      if (monitor->active_) {
+      if (monitor->active_ && !g_snapshot_active) {
+        g_snapshot_active = true;
         monitor->refresh_snapshot(true);
+        g_snapshot_active = false;
       }
     }
     return handle;
@@ -165,9 +192,15 @@ private:
     auto* monitor = active_monitor;
     BOOL result = FALSE;
     if (monitor && monitor->original_freelibrary_) {
+      loader_hook_guard guard(g_loader_hook_active);
+      if (!guard.active) {
+        return monitor->original_freelibrary_(module);
+      }
       result = monitor->original_freelibrary_(module);
-      if (monitor->active_) {
+      if (monitor->active_ && !g_snapshot_active) {
+        g_snapshot_active = true;
         monitor->refresh_snapshot(true);
+        g_snapshot_active = false;
       }
     }
     return result;
@@ -195,84 +228,52 @@ private:
   }
 
   void install_hooks() {
-    if (loadlibrarya_handle_.id != 0 || loadlibraryw_handle_.id != 0) {
-      return;
+    if (loadlibrarya_handle_.id == 0) {
+      (void)hook_helpers::attach_interpose_symbol(
+          "LoadLibraryA", &windows_module_monitor::replacement_loadlibrarya,
+          loadlibrarya_handle_, original_loadlibrarya_);
     }
 
-    auto attach_symbol = [&](const char* symbol, void* replacement, w1::h00k::hook_handle& handle_out,
-                             void*& original_out) {
-      w1::h00k::hook_request request{};
-      request.target.kind = w1::h00k::hook_target_kind::symbol;
-      request.target.symbol = symbol;
-      request.replacement = replacement;
-      request.preferred = w1::h00k::hook_technique::interpose;
-      request.allowed = w1::h00k::technique_mask(w1::h00k::hook_technique::interpose);
-      request.selection = w1::h00k::hook_selection::strict;
+    if (loadlibraryw_handle_.id == 0) {
+      (void)hook_helpers::attach_interpose_symbol(
+          "LoadLibraryW", &windows_module_monitor::replacement_loadlibraryw,
+          loadlibraryw_handle_, original_loadlibraryw_);
+    }
 
-      void* original = nullptr;
-      auto result = w1::h00k::attach(request, &original);
-      if (result.error.ok()) {
-        handle_out = result.handle;
-        original_out = original;
-      }
-    };
+    if (loadlibraryexa_handle_.id == 0) {
+      (void)hook_helpers::attach_interpose_symbol(
+          "LoadLibraryExA", &windows_module_monitor::replacement_loadlibraryexa,
+          loadlibraryexa_handle_, original_loadlibraryexa_);
+    }
 
-    void* original = nullptr;
-    attach_symbol("LoadLibraryA", reinterpret_cast<void*>(&windows_module_monitor::replacement_loadlibrarya),
-                  loadlibrarya_handle_, original);
-    original_loadlibrarya_ = reinterpret_cast<loadlibrarya_fn>(original);
+    if (loadlibraryexw_handle_.id == 0) {
+      (void)hook_helpers::attach_interpose_symbol(
+          "LoadLibraryExW", &windows_module_monitor::replacement_loadlibraryexw,
+          loadlibraryexw_handle_, original_loadlibraryexw_);
+    }
 
-    original = nullptr;
-    attach_symbol("LoadLibraryW", reinterpret_cast<void*>(&windows_module_monitor::replacement_loadlibraryw),
-                  loadlibraryw_handle_, original);
-    original_loadlibraryw_ = reinterpret_cast<loadlibraryw_fn>(original);
-
-    original = nullptr;
-    attach_symbol("LoadLibraryExA", reinterpret_cast<void*>(&windows_module_monitor::replacement_loadlibraryexa),
-                  loadlibraryexa_handle_, original);
-    original_loadlibraryexa_ = reinterpret_cast<loadlibraryexa_fn>(original);
-
-    original = nullptr;
-    attach_symbol("LoadLibraryExW", reinterpret_cast<void*>(&windows_module_monitor::replacement_loadlibraryexw),
-                  loadlibraryexw_handle_, original);
-    original_loadlibraryexw_ = reinterpret_cast<loadlibraryexw_fn>(original);
-
-    original = nullptr;
-    attach_symbol("FreeLibrary", reinterpret_cast<void*>(&windows_module_monitor::replacement_freelibrary),
-                  freelibrary_handle_, original);
-    original_freelibrary_ = reinterpret_cast<freelibrary_fn>(original);
+    if (freelibrary_handle_.id == 0) {
+      (void)hook_helpers::attach_interpose_symbol(
+          "FreeLibrary", &windows_module_monitor::replacement_freelibrary,
+          freelibrary_handle_, original_freelibrary_);
+    }
   }
 
   void detach_hooks() {
-    if (loadlibrarya_handle_.id != 0) {
-      (void)w1::h00k::detach(loadlibrarya_handle_);
-      loadlibrarya_handle_ = {};
-      original_loadlibrarya_ = nullptr;
-    }
-    if (loadlibraryw_handle_.id != 0) {
-      (void)w1::h00k::detach(loadlibraryw_handle_);
-      loadlibraryw_handle_ = {};
-      original_loadlibraryw_ = nullptr;
-    }
-    if (loadlibraryexa_handle_.id != 0) {
-      (void)w1::h00k::detach(loadlibraryexa_handle_);
-      loadlibraryexa_handle_ = {};
-      original_loadlibraryexa_ = nullptr;
-    }
-    if (loadlibraryexw_handle_.id != 0) {
-      (void)w1::h00k::detach(loadlibraryexw_handle_);
-      loadlibraryexw_handle_ = {};
-      original_loadlibraryexw_ = nullptr;
-    }
-    if (freelibrary_handle_.id != 0) {
-      (void)w1::h00k::detach(freelibrary_handle_);
-      freelibrary_handle_ = {};
-      original_freelibrary_ = nullptr;
-    }
+    hook_helpers::detach_if_attached(loadlibrarya_handle_);
+    original_loadlibrarya_ = nullptr;
+    hook_helpers::detach_if_attached(loadlibraryw_handle_);
+    original_loadlibraryw_ = nullptr;
+    hook_helpers::detach_if_attached(loadlibraryexa_handle_);
+    original_loadlibraryexa_ = nullptr;
+    hook_helpers::detach_if_attached(loadlibraryexw_handle_);
+    original_loadlibraryexw_ = nullptr;
+    hook_helpers::detach_if_attached(freelibrary_handle_);
+    original_freelibrary_ = nullptr;
   }
 
   void refresh_snapshot(bool emit_events) {
-    std::unordered_map<void*, module_event> next;
+    std::vector<module_snapshot_entry> next;
 
     HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE | TH32CS_SNAPMODULE32, GetCurrentProcessId());
     if (snapshot == INVALID_HANDLE_VALUE) {
@@ -283,13 +284,12 @@ private:
     entry.dwSize = sizeof(entry);
     if (Module32First(snapshot, &entry)) {
       do {
-        module_event event{};
-        event.type = module_event::kind::loaded;
+        module_snapshot_entry event{};
         event.path = entry.szExePath;
         event.base = entry.modBaseAddr;
         event.size = entry.modBaseSize;
         if (event.base) {
-          next[event.base] = event;
+          next.push_back(std::move(event));
         }
         entry.dwSize = sizeof(entry);
       } while (Module32Next(snapshot, &entry));
@@ -297,22 +297,9 @@ private:
 
     CloseHandle(snapshot);
 
-    std::lock_guard<std::mutex> lock(modules_mutex_);
-    if (emit_events) {
-      for (const auto& [base, event] : next) {
-        if (modules_.find(base) == modules_.end()) {
-          queue_.push(event);
-        }
-      }
-      for (const auto& [base, event] : modules_) {
-        if (next.find(base) == next.end()) {
-          module_event out = event;
-          out.type = module_event::kind::unloaded;
-          queue_.push(out);
-        }
-      }
-    }
-    modules_ = std::move(next);
+    snapshot_.refresh(next, emit_events, [&](const module_event& event) {
+      queue_.push(event);
+    });
   }
 
   void emit_module(const UNICODE_STRING* full_name, void* base, size_t size, module_event::kind kind) {
@@ -324,35 +311,22 @@ private:
     event.path = utf16_to_utf8(full_name);
     event.base = base;
     event.size = size;
+    snapshot_.fill_missing(event);
     queue_.push(event);
   }
 
   void track_module(void* base, const UNICODE_STRING* full_name, size_t size) {
-    if (!base) {
-      return;
-    }
-    module_event event{};
-    event.type = module_event::kind::loaded;
-    event.path = utf16_to_utf8(full_name);
-    event.base = base;
-    event.size = size;
-    std::lock_guard<std::mutex> lock(modules_mutex_);
-    modules_[base] = event;
+    snapshot_.track(base, utf16_to_utf8(full_name), size);
   }
 
   void untrack_module(void* base) {
-    if (!base) {
-      return;
-    }
-    std::lock_guard<std::mutex> lock(modules_mutex_);
-    modules_.erase(base);
+    snapshot_.untrack(base);
   }
 
   static inline windows_module_monitor* active_monitor = nullptr;
   bool active_ = false;
   event_queue queue_{};
-  std::mutex modules_mutex_{};
-  std::unordered_map<void*, module_event> modules_{};
+  module_snapshot_tracker snapshot_{};
 
   void* cookie_ = nullptr;
   ldr_unregister_fn unregister_fn_ = nullptr;

@@ -8,6 +8,7 @@ set(W1H00K_TEST_SOURCES
     patcher_tests.cpp
     memory_tests.cpp
     resolve_tests.cpp
+    module_match_tests.cpp
     inline_tests.cpp
     inline_detour_tests.cpp
     arg_access_tests.cpp

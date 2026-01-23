@@ -24,7 +24,7 @@ struct hook_plan {
 
 struct prepare_result {
   hook_plan plan{};
-  hook_error error = hook_error::unsupported;
+  hook_error_info error{};
 };
 
 class hook_backend {

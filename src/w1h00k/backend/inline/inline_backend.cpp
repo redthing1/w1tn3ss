@@ -9,11 +9,16 @@
 #include "w1h00k/patcher/patcher.hpp"
 #include "w1h00k/reloc/relocator.hpp"
 
+#ifndef __has_feature
+#define __has_feature(x) 0
+#endif
+
 #if defined(__APPLE__) && __has_feature(ptrauth_calls)
 #include <ptrauth.h>
 #endif
 
 namespace w1::h00k::backend {
+
 class inline_trampoline_backend final : public hook_backend {
 public:
   hook_technique technique() const override { return hook_technique::inline_trampoline; }
@@ -43,12 +48,17 @@ public:
 
   prepare_result prepare(const hook_request& request, void* resolved_target) override {
     prepare_result result{};
+    auto set_error = [&](hook_error code, const char* detail = nullptr) {
+      result.error.code = code;
+      result.error.detail = detail;
+    };
+
     if (!supports(request)) {
-      result.error = hook_error::unsupported;
+      set_error(hook_error::unsupported);
       return result;
     }
     if (resolved_target == nullptr) {
-      result.error = hook_error::not_found;
+      set_error(hook_error::not_found);
       return result;
     }
 
@@ -57,7 +67,7 @@ public:
     if (wants_instrument) {
       const auto abi = instrument::resolve_call_abi(request.call_abi, arch);
       if (!instrument::abi_supported(abi, arch)) {
-        result.error = hook_error::unsupported;
+        set_error(hook_error::unsupported);
         return result;
       }
 
@@ -77,21 +87,21 @@ public:
           min_patch = 16;
           break;
         default:
-          result.error = hook_error::unsupported;
+          set_error(hook_error::unsupported);
           return result;
       }
 
       const size_t reloc_size = reloc::max_trampoline_size(max_patch, arch);
       if (reloc_size == 0) {
-        result.error = hook_error::unsupported;
+        set_error(hook_error::unsupported);
         return result;
       }
 
       const size_t stub_reserve = instrument::stub_reserve_size(arch, abi);
       const size_t alloc_size = reloc_size + stub_reserve;
-      auto block = memory::allocate_executable(alloc_size);
+      auto block = memory::allocate_trampoline(resolved_target, alloc_size, arch);
       if (!block.ok()) {
-        result.error = hook_error::near_alloc_failed;
+        set_error(hook_error::near_alloc_failed);
         return result;
       }
 
@@ -99,7 +109,7 @@ public:
           reloc::relocate(resolved_target, min_patch, reinterpret_cast<uint64_t>(block.address), arch);
       if (!reloc_result.ok()) {
         memory::free_executable(block);
-        result.error = hook_error::relocation_failed;
+        set_error(hook_error::relocation_failed, reloc::to_string(reloc_result.error));
         return result;
       }
 
@@ -107,7 +117,7 @@ public:
                                              reinterpret_cast<uint64_t>(resolved_target));
       if (plan_hint.arch == inline_hook::arch_kind::unknown || plan_hint.tail_size == 0) {
         memory::free_executable(block);
-        result.error = hook_error::unsupported;
+        set_error(hook_error::unsupported);
         return result;
       }
 
@@ -116,7 +126,7 @@ public:
       auto plan = inline_hook::plan_for(arch, reinterpret_cast<uint64_t>(resolved_target), stub_addr);
       if (plan.arch == inline_hook::arch_kind::unknown || plan.min_patch == 0 || plan.tail_size == 0) {
         memory::free_executable(block);
-        result.error = hook_error::unsupported;
+        set_error(hook_error::unsupported);
         return result;
       }
 
@@ -125,7 +135,7 @@ public:
             reloc::relocate(resolved_target, plan.min_patch, reinterpret_cast<uint64_t>(block.address), arch);
         if (!reloc_result.ok()) {
           memory::free_executable(block);
-          result.error = hook_error::relocation_failed;
+          set_error(hook_error::relocation_failed, reloc::to_string(reloc_result.error));
           return result;
         }
         stub_addr =
@@ -134,7 +144,7 @@ public:
         if (plan.arch == inline_hook::arch_kind::unknown || plan.min_patch == 0 || plan.tail_size == 0 ||
             plan.min_patch > reloc_result.patch_size) {
           memory::free_executable(block);
-          result.error = hook_error::unsupported;
+          set_error(hook_error::unsupported);
           return result;
         }
       }
@@ -142,7 +152,7 @@ public:
       auto* original_bytes = reinterpret_cast<const uint8_t*>(resolved_target);
       if (!inline_hook::prologue_safe(plan, original_bytes, reloc_result.patch_size)) {
         memory::free_executable(block);
-        result.error = hook_error::relocation_failed;
+        set_error(hook_error::relocation_failed);
         return result;
       }
 
@@ -151,7 +161,7 @@ public:
       const uint64_t tramp_end = reinterpret_cast<uint64_t>(block.address) + trampoline_bytes.size();
       if (!inline_hook::append_trampoline_tail(plan, tramp_end, resume_addr, trampoline_bytes)) {
         memory::free_executable(block);
-        result.error = hook_error::relocation_failed;
+        set_error(hook_error::relocation_failed);
         return result;
       }
 
@@ -160,7 +170,7 @@ public:
       code_patcher patcher;
       if (!patcher.write(block.address, trampoline_bytes.data(), trampoline_bytes.size())) {
         memory::free_executable(block);
-        result.error = hook_error::patch_failed;
+        set_error(hook_error::patch_failed);
         return result;
       }
 
@@ -168,7 +178,7 @@ public:
       const auto layout = instrument::make_layout(arch, abi, layout_ok);
       if (!layout_ok) {
         memory::free_executable(block);
-        result.error = hook_error::unsupported;
+        set_error(hook_error::unsupported);
         return result;
       }
 
@@ -190,19 +200,19 @@ public:
       std::vector<uint8_t> stub_bytes;
       if (!instrument::build_stub(stub_req, layout, stub_bytes)) {
         memory::free_executable(block);
-        result.error = hook_error::unsupported;
+        set_error(hook_error::unsupported);
         return result;
       }
 
       if (trampoline_bytes.size() + stub_bytes.size() > block.size) {
         memory::free_executable(block);
-        result.error = hook_error::patch_failed;
+        set_error(hook_error::patch_failed);
         return result;
       }
 
       if (!patcher.write(reinterpret_cast<void*>(stub_addr), stub_bytes.data(), stub_bytes.size())) {
         memory::free_executable(block);
-        result.error = hook_error::patch_failed;
+        set_error(hook_error::patch_failed);
         return result;
       }
 
@@ -210,7 +220,7 @@ public:
       if (!inline_hook::build_detour_patch(plan, reinterpret_cast<uint64_t>(resolved_target), stub_addr,
                                            reloc_result.patch_size, patch_bytes)) {
         memory::free_executable(block);
-        result.error = hook_error::patch_failed;
+        set_error(hook_error::patch_failed);
         return result;
       }
 
@@ -223,27 +233,27 @@ public:
       result.plan.restore_bytes = std::move(restore_bytes);
       result.plan.trampoline = block.address;
       result.plan.trampoline_size = block.size;
-      result.error = hook_error::ok;
+      set_error(hook_error::ok);
       return result;
     }
 
     const auto plan = inline_hook::plan_for(arch, reinterpret_cast<uint64_t>(resolved_target),
                                             reinterpret_cast<uint64_t>(request.replacement));
     if (plan.arch == inline_hook::arch_kind::unknown || plan.min_patch == 0 || plan.tail_size == 0) {
-      result.error = hook_error::unsupported;
+      set_error(hook_error::unsupported);
       return result;
     }
 
     const size_t reloc_size = reloc::max_trampoline_size(plan.min_patch, arch);
     if (reloc_size == 0) {
-      result.error = hook_error::unsupported;
+      set_error(hook_error::unsupported);
       return result;
     }
 
     const size_t alloc_size = reloc_size + plan.tail_size;
-    auto block = memory::allocate_executable(alloc_size);
+    auto block = memory::allocate_trampoline(resolved_target, alloc_size, arch);
     if (!block.ok()) {
-      result.error = hook_error::near_alloc_failed;
+      set_error(hook_error::near_alloc_failed);
       return result;
     }
 
@@ -251,14 +261,14 @@ public:
                                         arch);
     if (!reloc_result.ok()) {
       memory::free_executable(block);
-      result.error = hook_error::relocation_failed;
+      set_error(hook_error::relocation_failed, reloc::to_string(reloc_result.error));
       return result;
     }
 
     auto* original_bytes = reinterpret_cast<const uint8_t*>(resolved_target);
     if (!inline_hook::prologue_safe(plan, original_bytes, reloc_result.patch_size)) {
       memory::free_executable(block);
-      result.error = hook_error::relocation_failed;
+      set_error(hook_error::relocation_failed);
       return result;
     }
 
@@ -267,14 +277,14 @@ public:
     const uint64_t tramp_end = reinterpret_cast<uint64_t>(block.address) + trampoline_bytes.size();
     if (!inline_hook::append_trampoline_tail(plan, tramp_end, resume_addr, trampoline_bytes)) {
       memory::free_executable(block);
-      result.error = hook_error::relocation_failed;
+      set_error(hook_error::relocation_failed);
       return result;
     }
 
     code_patcher patcher;
     if (!patcher.write(block.address, trampoline_bytes.data(), trampoline_bytes.size())) {
       memory::free_executable(block);
-      result.error = hook_error::patch_failed;
+      set_error(hook_error::patch_failed);
       return result;
     }
 
@@ -283,7 +293,7 @@ public:
                                          reinterpret_cast<uint64_t>(request.replacement), reloc_result.patch_size,
                                          patch_bytes)) {
       memory::free_executable(block);
-      result.error = hook_error::patch_failed;
+      set_error(hook_error::patch_failed);
       return result;
     }
 
@@ -296,7 +306,7 @@ public:
     result.plan.restore_bytes = std::move(restore_bytes);
     result.plan.trampoline = block.address;
     result.plan.trampoline_size = block.size;
-    result.error = hook_error::ok;
+    set_error(hook_error::ok);
     return result;
   }
 

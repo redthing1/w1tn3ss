@@ -45,8 +45,26 @@ std::string find_module_path(const char* module) {
     return {};
   }
   auto modules = enumerate_modules();
+  const std::string_view requested(module);
+  if (has_path_separator(requested)) {
+    for (const auto& entry : modules) {
+      if (module_matches(module, entry.path, module_match_mode::full_path)) {
+        return entry.path;
+      }
+    }
+    std::string fallback{};
+    for (const auto& entry : modules) {
+      if (module_matches(module, entry.path, module_match_mode::basename)) {
+        if (!fallback.empty()) {
+          return {};
+        }
+        fallback = entry.path;
+      }
+    }
+    return fallback;
+  }
   for (const auto& entry : modules) {
-    if (module_matches(module, entry.path)) {
+    if (module_matches(module, entry.path, module_match_mode::basename)) {
       return entry.path;
     }
   }
@@ -59,6 +77,86 @@ struct elf_module_snapshot {
   std::string path{};
   uintptr_t base = 0;
   size_t size = 0;
+};
+
+struct elf_snapshot_view {
+  const elf_module_snapshot* snapshot = nullptr;
+
+  bool contains(const void* address, size_t size) const {
+    if (!snapshot || !address || size == 0 || snapshot->base == 0 || snapshot->size == 0) {
+      return false;
+    }
+    const uintptr_t start = reinterpret_cast<uintptr_t>(address);
+    const uintptr_t base = snapshot->base;
+    const uintptr_t end = base + snapshot->size;
+    if (start < base || start >= end) {
+      return false;
+    }
+    const uintptr_t last = start + size;
+    if (last < start || last > end) {
+      return false;
+    }
+    return true;
+  }
+
+  size_t max_span_from(const void* address) const {
+    if (!contains(address, 1)) {
+      return 0;
+    }
+    const uintptr_t start = reinterpret_cast<uintptr_t>(address);
+    const uintptr_t end = snapshot->base + snapshot->size;
+    return end > start ? static_cast<size_t>(end - start) : 0;
+  }
+
+  bool string_view_at(const char* name, std::string_view& out) const {
+    return string_view_at(name, 0, out);
+  }
+
+  bool string_view_at(const char* name, size_t max_len, std::string_view& out) const {
+    if (!name) {
+      return false;
+    }
+    size_t limit = max_len;
+    if (limit == 0) {
+      limit = max_span_from(name);
+    } else if (!contains(name, limit)) {
+      return false;
+    }
+    if (limit == 0) {
+      return false;
+    }
+    const void* terminator = std::memchr(name, '\0', limit);
+    if (!terminator) {
+      return false;
+    }
+    out = std::string_view(name, static_cast<const char*>(terminator) - name);
+    return true;
+  }
+
+  uintptr_t resolve_ptr(ElfW(Addr) value) const {
+    const uintptr_t addr = static_cast<uintptr_t>(value);
+    if (contains(reinterpret_cast<const void*>(addr), 1)) {
+      return addr;
+    }
+    if (!snapshot || !snapshot->info) {
+      return addr;
+    }
+    return static_cast<uintptr_t>(snapshot->info->dlpi_addr) + addr;
+  }
+
+  uintptr_t module_offset(ElfW(Addr) value) const {
+    if (!snapshot || !snapshot->info) {
+      return static_cast<uintptr_t>(value);
+    }
+    return static_cast<uintptr_t>(snapshot->info->dlpi_addr) + static_cast<uintptr_t>(value);
+  }
+
+  bool table_in_module(const void* table, size_t bytes) const {
+    if (!table || bytes == 0) {
+      return false;
+    }
+    return contains(table, bytes);
+  }
 };
 
 std::string resolve_linux_main_path() {
@@ -118,19 +216,18 @@ uint32_t elf_r_type(ElfW(Xword) info) {
 #endif
 }
 
-bool elf_symbol_matches(const char* candidate, const char* target) {
-  if (!candidate || !target) {
+bool elf_symbol_matches(std::string_view candidate, std::string_view target) {
+  if (candidate.empty() || target.empty()) {
     return false;
   }
-  if (std::strcmp(candidate, target) == 0) {
+  if (candidate == target) {
     return true;
   }
-  const char* version = std::strchr(candidate, '@');
-  if (!version) {
+  const size_t at = candidate.find('@');
+  if (at == std::string_view::npos) {
     return false;
   }
-  const size_t len = static_cast<size_t>(version - candidate);
-  return std::strlen(target) == len && std::strncmp(candidate, target, len) == 0;
+  return candidate.substr(0, at) == target;
 }
 
 bool elf_import_type_supported(uint32_t type) {
@@ -148,17 +245,42 @@ bool elf_import_type_supported(uint32_t type) {
 #endif
 }
 
-bool elf_module_has_needed(const ElfW(Dyn)* dyn, const char* strtab, const char* needed) {
+bool elf_module_has_needed(const elf_snapshot_view& view, const ElfW(Dyn)* dyn, size_t dyn_count,
+                           const char* strtab, size_t strtab_size, const char* needed) {
   if (!needed || needed[0] == '\0') {
     return true;
   }
-  if (!dyn || !strtab) {
+  if (!dyn || !strtab || dyn_count == 0) {
     return false;
   }
-  for (const ElfW(Dyn)* entry = dyn; entry->d_tag != DT_NULL; ++entry) {
-    if (entry->d_tag == DT_NEEDED) {
-      const char* name = strtab + entry->d_un.d_val;
-      if (name && module_matches(needed, name)) {
+  if (!view.contains(strtab, 1)) {
+    return false;
+  }
+  if (strtab_size != 0 && !view.contains(strtab, strtab_size)) {
+    return false;
+  }
+  if (!view.contains(dyn, dyn_count * sizeof(ElfW(Dyn)))) {
+    return false;
+  }
+  for (size_t i = 0; i < dyn_count; ++i) {
+    const ElfW(Dyn)& entry = dyn[i];
+    if (entry.d_tag == DT_NULL) {
+      break;
+    }
+    if (entry.d_tag == DT_NEEDED) {
+      const size_t offset = entry.d_un.d_val;
+      std::string_view name{};
+      if (strtab_size != 0) {
+        if (offset >= strtab_size) {
+          continue;
+        }
+        if (!view.string_view_at(strtab + offset, strtab_size - offset, name)) {
+          continue;
+        }
+      } else if (!view.string_view_at(strtab + offset, name)) {
+        continue;
+      }
+      if (module_matches(needed, name, module_match_mode::basename)) {
         return true;
       }
     }
@@ -167,9 +289,19 @@ bool elf_module_has_needed(const ElfW(Dyn)* dyn, const char* strtab, const char*
 }
 
 template <typename Reloc>
-void** elf_find_import_slot(const elf_module_snapshot& snapshot, const Reloc* relocs, size_t count,
-                            const ElfW(Sym)* symtab, const char* strtab, const char* symbol) {
-  if (!relocs || !symtab || !strtab || !symbol) {
+void** elf_find_import_slot(const elf_snapshot_view& view, const Reloc* relocs, size_t count,
+                            const ElfW(Sym)* symtab, const char* strtab, size_t strtab_size,
+                            const char* symbol, size_t sym_entry_size) {
+  if (!relocs || !symtab || !strtab || !symbol || sym_entry_size == 0) {
+    return nullptr;
+  }
+  if (!view.contains(relocs, count * sizeof(Reloc))) {
+    return nullptr;
+  }
+  if (!view.contains(symtab, sym_entry_size) || !view.contains(strtab, 1)) {
+    return nullptr;
+  }
+  if (strtab_size != 0 && !view.contains(strtab, strtab_size)) {
     return nullptr;
   }
   for (size_t i = 0; i < count; ++i) {
@@ -179,12 +311,31 @@ void** elf_find_import_slot(const elf_module_snapshot& snapshot, const Reloc* re
       continue;
     }
     const uint32_t sym_index = elf_r_sym(reloc.r_info);
-    const ElfW(Sym)& sym = symtab[sym_index];
-    const char* name = strtab + sym.st_name;
-    if (!elf_symbol_matches(name, symbol)) {
+    const uintptr_t sym_offset = static_cast<uintptr_t>(sym_index) * sym_entry_size;
+    if (sym_offset / sym_entry_size != sym_index) {
       continue;
     }
-    const uintptr_t addr = static_cast<uintptr_t>(snapshot.info->dlpi_addr) + reloc.r_offset;
+    const uintptr_t sym_addr = reinterpret_cast<uintptr_t>(symtab) + sym_offset;
+    if (!view.contains(reinterpret_cast<const void*>(sym_addr), sym_entry_size)) {
+      continue;
+    }
+    const auto* sym = reinterpret_cast<const ElfW(Sym)*>(sym_addr);
+    const size_t name_offset = sym->st_name;
+    std::string_view candidate{};
+    if (strtab_size != 0) {
+      if (name_offset >= strtab_size) {
+        continue;
+      }
+      if (!view.string_view_at(strtab + name_offset, strtab_size - name_offset, candidate)) {
+        continue;
+      }
+    } else if (!view.string_view_at(strtab + name_offset, candidate)) {
+      continue;
+    }
+    if (!elf_symbol_matches(candidate, std::string_view(symbol))) {
+      continue;
+    }
+    const uintptr_t addr = view.module_offset(reloc.r_offset);
     return reinterpret_cast<void**>(addr);
   }
   return nullptr;
@@ -211,6 +362,7 @@ import_resolution resolve_import_elf(const char* symbol, const char* module, con
   auto callback = [](struct dl_phdr_info* info, size_t, void* data) -> int {
     auto* ctx = static_cast<context*>(data);
     const elf_module_snapshot snapshot = snapshot_module(info);
+    const elf_snapshot_view view{&snapshot};
     const bool want_main = (!ctx->module || ctx->module[0] == '\0');
     if (want_main) {
       if (info->dlpi_name && info->dlpi_name[0] != '\0') {
@@ -234,6 +386,11 @@ import_resolution resolve_import_elf(const char* symbol, const char* module, con
     }
 
     const ElfW(Dyn)* dyn = reinterpret_cast<const ElfW(Dyn)*>(info->dlpi_addr + dynamic_phdr->p_vaddr);
+    const size_t dyn_bytes = dynamic_phdr->p_memsz;
+    const size_t dyn_count = dyn_bytes / sizeof(ElfW(Dyn));
+    if (dyn_count == 0 || !view.contains(dyn, dyn_bytes)) {
+      return 0;
+    }
     const ElfW(Sym)* symtab = nullptr;
     const char* strtab = nullptr;
     const void* jmprel = nullptr;
@@ -242,75 +399,116 @@ import_resolution resolve_import_elf(const char* symbol, const char* module, con
     const ElfW(Rela)* rela = nullptr;
     size_t relasz = 0;
     size_t relaent = sizeof(ElfW(Rela));
+    size_t syment = sizeof(ElfW(Sym));
+    size_t strsz = 0;
     const ElfW(Rel)* rel = nullptr;
     size_t relsz = 0;
     size_t relent = sizeof(ElfW(Rel));
 
-    for (const ElfW(Dyn)* entry = dyn; entry->d_tag != DT_NULL; ++entry) {
-      switch (entry->d_tag) {
+    for (size_t i = 0; i < dyn_count; ++i) {
+      const ElfW(Dyn)& entry = dyn[i];
+      if (entry.d_tag == DT_NULL) {
+        break;
+      }
+      switch (entry.d_tag) {
         case DT_SYMTAB:
-          symtab = reinterpret_cast<const ElfW(Sym)*>(info->dlpi_addr + entry->d_un.d_ptr);
+          symtab = reinterpret_cast<const ElfW(Sym)*>(view.resolve_ptr(entry.d_un.d_ptr));
           break;
         case DT_STRTAB:
-          strtab = reinterpret_cast<const char*>(info->dlpi_addr + entry->d_un.d_ptr);
+          strtab = reinterpret_cast<const char*>(view.resolve_ptr(entry.d_un.d_ptr));
           break;
         case DT_JMPREL:
-          jmprel = reinterpret_cast<const void*>(info->dlpi_addr + entry->d_un.d_ptr);
+          jmprel = reinterpret_cast<const void*>(view.resolve_ptr(entry.d_un.d_ptr));
           break;
         case DT_PLTRELSZ:
-          pltrelsz = entry->d_un.d_val;
+          pltrelsz = entry.d_un.d_val;
           break;
         case DT_PLTREL:
-          pltrel_rela = (entry->d_un.d_val == DT_RELA);
+          pltrel_rela = (entry.d_un.d_val == DT_RELA);
           break;
         case DT_RELA:
-          rela = reinterpret_cast<const ElfW(Rela)*>(info->dlpi_addr + entry->d_un.d_ptr);
+          rela = reinterpret_cast<const ElfW(Rela)*>(view.resolve_ptr(entry.d_un.d_ptr));
           break;
         case DT_RELASZ:
-          relasz = entry->d_un.d_val;
+          relasz = entry.d_un.d_val;
           break;
         case DT_RELAENT:
-          relaent = entry->d_un.d_val;
+          relaent = entry.d_un.d_val;
+          break;
+        case DT_SYMENT:
+          syment = entry.d_un.d_val;
+          break;
+        case DT_STRSZ:
+          strsz = entry.d_un.d_val;
           break;
         case DT_REL:
-          rel = reinterpret_cast<const ElfW(Rel)*>(info->dlpi_addr + entry->d_un.d_ptr);
+          rel = reinterpret_cast<const ElfW(Rel)*>(view.resolve_ptr(entry.d_un.d_ptr));
           break;
         case DT_RELSZ:
-          relsz = entry->d_un.d_val;
+          relsz = entry.d_un.d_val;
           break;
         case DT_RELENT:
-          relent = entry->d_un.d_val;
+          relent = entry.d_un.d_val;
           break;
         default:
           break;
       }
     }
 
-    if (!elf_module_has_needed(dyn, strtab, ctx->import_module)) {
-      return 0;
+    if (relaent == 0) {
+      relaent = sizeof(ElfW(Rela));
+    }
+    if (relent == 0) {
+      relent = sizeof(ElfW(Rel));
+    }
+    if (syment < sizeof(ElfW(Sym))) {
+      syment = sizeof(ElfW(Sym));
     }
 
-    void** slot = nullptr;
-    if (jmprel && pltrelsz > 0 && symtab && strtab) {
-      if (pltrel_rela) {
-        const size_t count = pltrelsz / relaent;
-        slot = elf_find_import_slot(snapshot, reinterpret_cast<const ElfW(Rela)*>(jmprel), count, symtab, strtab,
-                                    ctx->symbol);
-      } else {
-        const size_t count = pltrelsz / relent;
-        slot = elf_find_import_slot(snapshot, reinterpret_cast<const ElfW(Rel)*>(jmprel), count, symtab, strtab,
-                                    ctx->symbol);
+    if (ctx->import_module && ctx->import_module[0] != '\0') {
+      if (!strtab || !view.contains(strtab, 1)) {
+        return 0;
+      }
+      if (!elf_module_has_needed(view, dyn, dyn_count, strtab, strsz, ctx->import_module)) {
+        return 0;
       }
     }
 
-    if (!slot && rela && relasz > 0 && symtab && strtab) {
-      const size_t count = relasz / relaent;
-      slot = elf_find_import_slot(snapshot, rela, count, symtab, strtab, ctx->symbol);
+    if (!symtab || !strtab) {
+      return 0;
+    }
+    if (!view.contains(symtab, syment) || !view.contains(strtab, 1)) {
+      return 0;
+    }
+    if (strsz != 0 && !view.contains(strtab, strsz)) {
+      return 0;
     }
 
-    if (!slot && rel && relsz > 0 && symtab && strtab) {
+    auto table_in_module = [&](const void* table, size_t bytes) {
+      return view.table_in_module(table, bytes);
+    };
+
+    void** slot = nullptr;
+    if (jmprel && pltrelsz > 0 && table_in_module(jmprel, pltrelsz)) {
+      if (pltrel_rela) {
+        const size_t count = pltrelsz / relaent;
+        slot = elf_find_import_slot(view, reinterpret_cast<const ElfW(Rela)*>(jmprel), count, symtab, strtab, strsz,
+                                    ctx->symbol, syment);
+      } else {
+        const size_t count = pltrelsz / relent;
+        slot = elf_find_import_slot(view, reinterpret_cast<const ElfW(Rel)*>(jmprel), count, symtab, strtab, strsz,
+                                    ctx->symbol, syment);
+      }
+    }
+
+    if (!slot && rela && relasz > 0 && table_in_module(rela, relasz)) {
+      const size_t count = relasz / relaent;
+      slot = elf_find_import_slot(view, rela, count, symtab, strtab, strsz, ctx->symbol, syment);
+    }
+
+    if (!slot && rel && relsz > 0 && table_in_module(rel, relsz)) {
       const size_t count = relsz / relent;
-      slot = elf_find_import_slot(snapshot, rel, count, symtab, strtab, ctx->symbol);
+      slot = elf_find_import_slot(view, rel, count, symtab, strtab, strsz, ctx->symbol, syment);
     }
 
     if (slot) {
@@ -474,7 +672,7 @@ import_resolution resolve_import_macho(const char* symbol, const char* module) {
       if (i != 0) {
         continue;
       }
-    } else if (!module_matches(module, name ? std::string(name) : std::string{})) {
+    } else if (!module_matches(module, name ? std::string_view(name) : std::string_view{})) {
       continue;
     }
     const mach_header* header = _dyld_get_image_header(i);

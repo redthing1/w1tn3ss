@@ -1,13 +1,14 @@
 #include "w1h00k/resolve/resolve.hpp"
 
 #include <algorithm>
+#include <cstring>
 #include <string_view>
 
 #include "w1h00k/resolve/module_match.hpp"
 
 #if defined(_WIN32)
-#include <tlhelp32.h>
 #include <windows.h>
+#include <tlhelp32.h>
 #endif
 
 namespace w1::h00k::resolve {
@@ -86,7 +87,9 @@ void** resolve_import_from_module(HMODULE module, const char* symbol, const char
   auto* import_desc = reinterpret_cast<IMAGE_IMPORT_DESCRIPTOR*>(base + directory.VirtualAddress);
   for (; import_desc->Name != 0; ++import_desc) {
     const char* name = reinterpret_cast<const char*>(base + import_desc->Name);
-    if (!module_matches(import_module, name ? std::string(name) : std::string{})) {
+    if (!module_matches(import_module,
+                        name ? std::string_view(name) : std::string_view{},
+                        module_match_mode::basename)) {
       continue;
     }
 

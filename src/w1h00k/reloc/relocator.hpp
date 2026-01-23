@@ -19,6 +19,8 @@ enum class reloc_error {
   out_of_range
 };
 
+const char* to_string(reloc_error error);
+
 struct reloc_result {
   std::vector<uint8_t> trampoline_bytes{};
   size_t patch_size = 0;

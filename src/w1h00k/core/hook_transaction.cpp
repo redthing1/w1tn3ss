@@ -36,10 +36,11 @@ hook_result hook_transaction::attach(const hook_request& request, void** origina
 
   std::lock_guard lock(manager_->mutex());
   prepared_hook prepared{};
-  auto err = manager_->prepare_attach(request, prepared, original);
+  hook_error_info error_info{};
+  auto err = manager_->prepare_attach(request, prepared, original, &error_info);
   if (err != hook_error::ok) {
     last_error_ = err;
-    return {{}, {err}};
+    return {{}, error_info};
   }
 
   std::unordered_set<void*> new_targets;
@@ -66,7 +67,9 @@ hook_result hook_transaction::attach(const hook_request& request, void** origina
 
   prepared.handle = manager_->reserve_handle();
   pending_attaches_.push_back(std::move(prepared));
-  return {pending_attaches_.back().handle, {hook_error::ok}};
+  hook_error_info ok_info{};
+  ok_info.code = hook_error::ok;
+  return {pending_attaches_.back().handle, ok_info};
 }
 
 hook_error hook_transaction::detach(hook_handle handle) {

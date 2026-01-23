@@ -15,7 +15,6 @@
 namespace {
 
 #if defined(_WIN32)
-constexpr const char* kInterposeLibName = "w1h00k_interpose_lib.dll";
 using interpose_lib_fn = HMODULE (*)();
 static HMODULE g_expected_handle = nullptr;
 
@@ -23,11 +22,6 @@ static HMODULE WINAPI replacement_get_module_handle(LPCSTR) {
   return g_expected_handle;
 }
 #else
-#if defined(__APPLE__)
-constexpr const char* kInterposeLibName = "w1h00k_interpose_lib.dylib";
-#else
-constexpr const char* kInterposeLibName = "w1h00k_interpose_lib.so";
-#endif
 using interpose_lib_fn = pid_t (*)();
 static pid_t g_expected_pid = 0;
 
@@ -37,7 +31,7 @@ static pid_t replacement_getpid() {
 #endif
 
 std::string interpose_library_path() {
-  return w1::test_paths::test_library_path(kInterposeLibName);
+  return w1::test_paths::interpose_library_path();
 }
 
 struct interpose_library {
@@ -169,7 +163,7 @@ TEST_CASE("w1h00k interpose respects module filter") {
   auto request = make_interpose_request("getpid", reinterpret_cast<void*>(&replacement_getpid));
 #endif
 
-  request.target.module = kInterposeLibName;
+  request.target.module = w1::test_paths::interpose_library_name();
 
   auto result = w1::h00k::attach(request, nullptr);
   REQUIRE(result.error.ok());

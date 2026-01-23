@@ -1,5 +1,9 @@
 #pragma once
 
+#ifndef __has_feature
+#define __has_feature(x) 0
+#endif
+
 #if defined(__APPLE__) && __has_feature(ptrauth_calls)
 #include <ptrauth.h>
 #endif

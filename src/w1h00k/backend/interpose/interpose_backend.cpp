@@ -26,11 +26,11 @@ public:
   prepare_result prepare(const hook_request& request, void* resolved_target) override {
     prepare_result result{};
     if (!supports(request)) {
-      result.error = hook_error::unsupported;
+      result.error.code = hook_error::unsupported;
       return result;
     }
     if (!request.target.symbol || request.target.symbol[0] == '\0') {
-      result.error = hook_error::invalid_target;
+      result.error.code = hook_error::invalid_target;
       return result;
     }
 
@@ -38,7 +38,7 @@ public:
     auto resolutions =
         resolve::resolve_imports(request.target.symbol, request.target.module, request.target.import_module);
     if (resolutions.empty()) {
-      result.error = hook_error::not_found;
+      result.error.code = hook_error::not_found;
       return result;
     }
 
@@ -74,15 +74,16 @@ public:
     }
 
     if (patches.empty()) {
-      result.error = hook_error::not_found;
+      result.error.code = hook_error::not_found;
       return result;
     }
 
     result.plan.request = request;
     result.plan.patches = std::move(patches);
     result.plan.resolved_target = resolved_target ? resolved_target : result.plan.patches.front().target;
-    result.plan.trampoline = first_original ? first_original : resolved_target;
-    result.error = hook_error::ok;
+    void* resolved_trampoline = resolved_target ? sanitize_original_pointer(resolved_target) : nullptr;
+    result.plan.trampoline = resolved_trampoline ? resolved_trampoline : first_original;
+    result.error.code = hook_error::ok;
     return result;
   }
 

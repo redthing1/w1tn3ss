@@ -6,6 +6,9 @@
 #include <pthread/introspection.h>
 
 #include "w1h00k/hook.hpp"
+#include "w1monitor/backend/hook_helpers.hpp"
+#include "w1monitor/backend/thread_entry.hpp"
+#include "w1monitor/backend/thread_event_helpers.hpp"
 #include "w1monitor/event_queue.hpp"
 
 namespace w1::monitor::backend::darwin {
@@ -48,16 +51,10 @@ public:
       previous_hook_ = nullptr;
     }
 
-    if (setname_handle_.id != 0) {
-      (void)w1::h00k::detach(setname_handle_);
-      setname_handle_ = {};
-      original_setname_ = nullptr;
-    }
-    if (create_handle_.id != 0) {
-      (void)w1::h00k::detach(create_handle_);
-      create_handle_ = {};
-      original_create_ = nullptr;
-    }
+    hook_helpers::detach_if_attached(setname_handle_);
+    original_setname_ = nullptr;
+    hook_helpers::detach_if_attached(create_handle_);
+    original_create_ = nullptr;
 
     queue_.clear();
   }
@@ -79,13 +76,8 @@ private:
   static int replacement_setname(const char* name) {
     darwin_thread_monitor* monitor = active_monitor;
     if (monitor && monitor->active_) {
-      thread_event event{};
-      event.type = thread_event::kind::renamed;
-      event.tid = static_cast<uint64_t>(pthread_mach_thread_np(pthread_self()));
-      if (name) {
-        event.name = name;
-      }
-      monitor->queue_.push(event);
+      monitor->emitter_.renamed(static_cast<uint64_t>(pthread_mach_thread_np(pthread_self())),
+                                name ? std::string_view(name) : std::string_view{});
     }
 
     if (monitor && monitor->original_setname_) {
@@ -101,18 +93,20 @@ private:
     void* start_arg = payload->arg;
 
     void* result = nullptr;
-    if (monitor && monitor->entry_callback_) {
-      thread_entry_context ctx{};
-      ctx.kind = thread_entry_kind::posix;
-      ctx.tid = static_cast<uint64_t>(pthread_mach_thread_np(pthread_self()));
-      ctx.start_routine = reinterpret_cast<void*>(start_routine);
-      ctx.arg = start_arg;
-      uint64_t callback_result = 0;
-      if (monitor->entry_callback_(ctx, callback_result)) {
-        result = reinterpret_cast<void*>(callback_result);
-      } else if (start_routine) {
-        result = start_routine(start_arg);
-      }
+    if (monitor) {
+      const uint64_t result_value = backend::dispatch_thread_entry(
+          monitor->entry_callback_,
+          thread_entry_kind::posix,
+          static_cast<uint64_t>(pthread_mach_thread_np(pthread_self())),
+          reinterpret_cast<void*>(start_routine),
+          start_arg,
+          [&]() -> uint64_t {
+            if (start_routine) {
+              return static_cast<uint64_t>(reinterpret_cast<uintptr_t>(start_routine(start_arg)));
+            }
+            return 0;
+          });
+      result = reinterpret_cast<void*>(static_cast<uintptr_t>(result_value));
     } else if (start_routine) {
       result = start_routine(start_arg);
     }
@@ -140,63 +134,40 @@ private:
   }
 
   void handle_thread_event(unsigned int event, pthread_t thread) {
-    thread_event out{};
     switch (event) {
       case PTHREAD_INTROSPECTION_THREAD_START:
-        out.type = thread_event::kind::started;
+        emitter_.started(static_cast<uint64_t>(pthread_mach_thread_np(thread)));
         break;
       case PTHREAD_INTROSPECTION_THREAD_TERMINATE:
-        out.type = thread_event::kind::stopped;
+        emitter_.stopped(static_cast<uint64_t>(pthread_mach_thread_np(thread)));
         break;
       default:
         return;
     }
-    out.tid = static_cast<uint64_t>(pthread_mach_thread_np(thread));
-    queue_.push(out);
   }
 
   void install_setname_hook() {
     if (setname_handle_.id != 0) {
       return;
     }
-    w1::h00k::hook_request request{};
-    request.target.kind = w1::h00k::hook_target_kind::symbol;
-    request.target.symbol = "pthread_setname_np";
-    request.replacement = reinterpret_cast<void*>(&darwin_thread_monitor::replacement_setname);
-    request.preferred = w1::h00k::hook_technique::interpose;
-    request.allowed = w1::h00k::technique_mask(w1::h00k::hook_technique::interpose);
-    request.selection = w1::h00k::hook_selection::strict;
-
-    void* original = nullptr;
-    auto result = w1::h00k::attach(request, &original);
-    if (!result.error.ok()) {
+    if (!hook_helpers::attach_interpose_symbol(
+            "pthread_setname_np",
+            &darwin_thread_monitor::replacement_setname,
+            setname_handle_, original_setname_)) {
       return;
     }
-
-    setname_handle_ = result.handle;
-    original_setname_ = reinterpret_cast<pthread_setname_fn>(original);
   }
 
   void install_create_hook() {
     if (create_handle_.id != 0) {
       return;
     }
-    w1::h00k::hook_request request{};
-    request.target.kind = w1::h00k::hook_target_kind::symbol;
-    request.target.symbol = "pthread_create";
-    request.replacement = reinterpret_cast<void*>(&darwin_thread_monitor::replacement_pthread_create);
-    request.preferred = w1::h00k::hook_technique::interpose;
-    request.allowed = w1::h00k::technique_mask(w1::h00k::hook_technique::interpose);
-    request.selection = w1::h00k::hook_selection::strict;
-
-    void* original = nullptr;
-    auto result = w1::h00k::attach(request, &original);
-    if (!result.error.ok()) {
+    if (!hook_helpers::attach_interpose_symbol(
+            "pthread_create",
+            &darwin_thread_monitor::replacement_pthread_create,
+            create_handle_, original_create_)) {
       return;
     }
-
-    create_handle_ = result.handle;
-    original_create_ = reinterpret_cast<pthread_create_fn>(original);
   }
 
   static inline darwin_thread_monitor* active_monitor = nullptr;
@@ -207,6 +178,7 @@ private:
   pthread_setname_fn original_setname_ = nullptr;
   pthread_create_fn original_create_ = nullptr;
   event_queue queue_{};
+  thread_event_emitter emitter_{queue_};
   thread_entry_callback entry_callback_{};
 };
 

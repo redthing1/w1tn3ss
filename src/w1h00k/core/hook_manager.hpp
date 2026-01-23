@@ -23,7 +23,8 @@ public:
   hook_error detach(hook_handle handle);
   bool supports(const hook_request& request) const;
 
-  hook_error prepare_attach(const hook_request& request, prepared_hook& out, void** original);
+  hook_error prepare_attach(const hook_request& request, prepared_hook& out, void** original,
+                            hook_error_info* out_error = nullptr);
   hook_error prepare_detach(hook_handle handle, prepared_hook& out);
   hook_error commit_attach(prepared_hook& prepared);
   hook_error commit_detach(const prepared_hook& prepared);

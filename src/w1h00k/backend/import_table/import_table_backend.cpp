@@ -36,11 +36,11 @@ public:
   prepare_result prepare(const hook_request& request, void* resolved_target) override {
     prepare_result result{};
     if (!supports(request)) {
-      result.error = hook_error::unsupported;
+      result.error.code = hook_error::unsupported;
       return result;
     }
     if (!resolved_target) {
-      result.error = hook_error::not_found;
+      result.error.code = hook_error::not_found;
       return result;
     }
 
@@ -59,7 +59,7 @@ public:
     result.plan.patch_bytes = std::move(patch_bytes);
     result.plan.restore_bytes = std::move(restore_bytes);
     result.plan.trampoline = sanitize_original_pointer(original);
-    result.error = hook_error::ok;
+    result.error.code = hook_error::ok;
     return result;
   }
 

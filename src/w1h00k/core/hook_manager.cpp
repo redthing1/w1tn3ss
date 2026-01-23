@@ -76,11 +76,21 @@ hook_handle hook_manager::reserve_handle() {
   return {next_id_++};
 }
 
-hook_error hook_manager::prepare_attach(const hook_request& request, prepared_hook& out, void** original) {
+hook_error hook_manager::prepare_attach(const hook_request& request, prepared_hook& out, void** original,
+                                        hook_error_info* out_error) {
+  auto set_error = [&](hook_error code, const char* detail = nullptr) {
+    if (out_error) {
+      *out_error = {};
+      out_error->code = code;
+      out_error->detail = detail;
+    }
+  };
+
   if (!is_valid_target(request.target)) {
     if (original) {
       *original = nullptr;
     }
+    set_error(hook_error::invalid_target);
     return hook_error::invalid_target;
   }
 
@@ -92,6 +102,7 @@ hook_error hook_manager::prepare_attach(const hook_request& request, prepared_ho
     if (original) {
       *original = nullptr;
     }
+    set_error(hook_error::unsupported);
     return hook_error::unsupported;
   }
 
@@ -102,16 +113,20 @@ hook_error hook_manager::prepare_attach(const hook_request& request, prepared_ho
       if (original) {
         *original = nullptr;
       }
+      set_error(hook_error::already_hooked);
       return hook_error::already_hooked;
     }
   }
 
   auto prepared = backend->prepare(normalized, resolved);
-  if (prepared.error != hook_error::ok) {
+  if (!prepared.error.ok()) {
     if (original) {
       *original = nullptr;
     }
-    return prepared.error;
+    if (out_error) {
+      *out_error = prepared.error;
+    }
+    return prepared.error.code;
   }
 
   if (!prepared.plan.resolved_target) {
@@ -130,6 +145,7 @@ hook_error hook_manager::prepare_attach(const hook_request& request, prepared_ho
       *original = nullptr;
     }
     free_trampoline(prepared.plan);
+    set_error(hook_error::invalid_target);
     return hook_error::invalid_target;
   }
   if (collision) {
@@ -137,6 +153,7 @@ hook_error hook_manager::prepare_attach(const hook_request& request, prepared_ho
       *original = nullptr;
     }
     free_trampoline(prepared.plan);
+    set_error(hook_error::already_hooked);
     return hook_error::already_hooked;
   }
 
@@ -145,6 +162,7 @@ hook_error hook_manager::prepare_attach(const hook_request& request, prepared_ho
   if (original) {
     *original = out.plan.trampoline;
   }
+  set_error(hook_error::ok);
   return hook_error::ok;
 }
 
@@ -215,9 +233,10 @@ hook_result hook_manager::attach(const hook_request& request, void** original) {
   std::lock_guard lock(mutex_);
 
   prepared_hook prepared{};
-  auto err = prepare_attach(request, prepared, original);
+  hook_error_info error_info{};
+  auto err = prepare_attach(request, prepared, original, &error_info);
   if (err != hook_error::ok) {
-    return {{}, {err}};
+    return {{}, error_info};
   }
 
   err = commit_attach(prepared);
@@ -229,7 +248,9 @@ hook_result hook_manager::attach(const hook_request& request, void** original) {
     return {{}, {err}};
   }
 
-  return {prepared.handle, {hook_error::ok}};
+  hook_error_info ok_info{};
+  ok_info.code = hook_error::ok;
+  return {prepared.handle, ok_info};
 }
 
 hook_error hook_manager::detach(hook_handle handle) {
