@@ -1,8 +1,17 @@
 #include "doctest/doctest.hpp"
 
 #include <cstdint>
+#include <string>
+
+#if defined(_WIN32)
+#include <windows.h>
+#else
+#include <dlfcn.h>
+#include <unistd.h>
+#endif
 
 #include "w1h00k/hook.hpp"
+#include "test_paths.hpp"
 
 namespace {
 
@@ -36,6 +45,70 @@ W1_NO_INLINE int mul_three(int value) {
   int result = value * 3;
   g_sink = result;
   return result;
+}
+
+#if defined(_WIN32)
+using interpose_lib_fn = HMODULE (*)();
+static HMODULE g_expected_handle = nullptr;
+
+static HMODULE WINAPI replacement_interpose() {
+  return g_expected_handle;
+}
+#else
+using interpose_lib_fn = pid_t (*)();
+static pid_t g_expected_pid = 0;
+
+static pid_t replacement_interpose() {
+  return g_expected_pid;
+}
+#endif
+
+struct interpose_library {
+#if defined(_WIN32)
+  HMODULE handle = nullptr;
+#else
+  void* handle = nullptr;
+#endif
+
+  explicit interpose_library(const std::string& path) {
+#if defined(_WIN32)
+    handle = LoadLibraryA(path.c_str());
+#else
+    handle = dlopen(path.c_str(), RTLD_NOW);
+#endif
+  }
+
+  ~interpose_library() {
+#if defined(_WIN32)
+    if (handle) {
+      FreeLibrary(handle);
+    }
+#else
+    if (handle) {
+      dlclose(handle);
+    }
+#endif
+  }
+
+  interpose_library(const interpose_library&) = delete;
+  interpose_library& operator=(const interpose_library&) = delete;
+};
+
+interpose_lib_fn load_interpose_symbol(
+#if defined(_WIN32)
+    HMODULE handle
+#else
+    void* handle
+#endif
+) {
+  if (!handle) {
+    return nullptr;
+  }
+#if defined(_WIN32)
+  return reinterpret_cast<interpose_lib_fn>(GetProcAddress(handle, "w1h00k_interpose_get_module_handle"));
+#else
+  return reinterpret_cast<interpose_lib_fn>(dlsym(handle, "w1h00k_interpose_getpid"));
+#endif
 }
 
 w1::h00k::hook_request make_inline_request(void* target, void* replacement) {
@@ -205,4 +278,57 @@ TEST_CASE("w1h00k inline hook stress") {
   CHECK(sum > 0);
 
   CHECK(w1::h00k::detach(result.handle) == w1::h00k::hook_error::ok);
+}
+
+TEST_CASE("w1h00k inline hook resolves symbols in loaded modules") {
+  const auto lib_path = w1::test_paths::interpose_library_path();
+  interpose_library lib(lib_path);
+  REQUIRE(lib.handle != nullptr);
+  auto entry = load_interpose_symbol(lib.handle);
+  REQUIRE(entry != nullptr);
+
+#if defined(_WIN32)
+  const HMODULE original = entry();
+  g_expected_handle = reinterpret_cast<HMODULE>(0x12345678);
+  REQUIRE(original != g_expected_handle);
+
+  w1::h00k::hook_request request{};
+  request.target.kind = w1::h00k::hook_target_kind::symbol;
+  request.target.symbol = "w1h00k_interpose_get_module_handle";
+  request.target.module = w1::test_paths::interpose_library_name();
+  request.replacement = reinterpret_cast<void*>(&replacement_interpose);
+  request.preferred = w1::h00k::hook_technique::inline_trampoline;
+  request.allowed = w1::h00k::technique_mask(w1::h00k::hook_technique::inline_trampoline);
+  request.selection = w1::h00k::hook_selection::strict;
+#else
+  const pid_t original = entry();
+  g_expected_pid = original + 1;
+
+  w1::h00k::hook_request request{};
+  request.target.kind = w1::h00k::hook_target_kind::symbol;
+  request.target.symbol = "w1h00k_interpose_getpid";
+  request.target.module = w1::test_paths::interpose_library_name();
+  request.replacement = reinterpret_cast<void*>(&replacement_interpose);
+  request.preferred = w1::h00k::hook_technique::inline_trampoline;
+  request.allowed = w1::h00k::technique_mask(w1::h00k::hook_technique::inline_trampoline);
+  request.selection = w1::h00k::hook_selection::strict;
+#endif
+
+  void* original_ptr = nullptr;
+  auto result = w1::h00k::attach(request, &original_ptr);
+  REQUIRE(result.error.ok());
+  REQUIRE(original_ptr != nullptr);
+
+#if defined(_WIN32)
+  CHECK(entry() == g_expected_handle);
+  auto orig_fn = reinterpret_cast<interpose_lib_fn>(original_ptr);
+  CHECK(orig_fn() == original);
+#else
+  CHECK(entry() == g_expected_pid);
+  auto orig_fn = reinterpret_cast<interpose_lib_fn>(original_ptr);
+  CHECK(orig_fn() == original);
+#endif
+
+  CHECK(w1::h00k::detach(result.handle) == w1::h00k::hook_error::ok);
+  CHECK(entry() == original);
 }
