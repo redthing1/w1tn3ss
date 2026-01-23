@@ -19,6 +19,7 @@ set(W1REPLAY_TEST_SOURCES
     gdb_stepper_test.cpp
     gdb_value_codec_test.cpp
     gdb_loaded_libraries_test.cpp
+    gdb_libraries_component_test.cpp
     module_image_test.cpp
     module_address_index_test.cpp
     module_path_resolver_test.cpp
@@ -43,6 +44,7 @@ set(W1REPLAY_TEST_SOURCES
     ${W1_SOURCE_DIR}/src/w1replay/gdb/components/libraries_component.cpp
     ${W1_SOURCE_DIR}/src/w1replay/gdb/components/loaded_libraries_component.cpp
     ${W1_SOURCE_DIR}/src/w1replay/gdb/components/process_info_component.cpp
+    ${W1_SOURCE_DIR}/src/w1replay/gdb/components/auxv_component.cpp
     ${W1_SOURCE_DIR}/src/w1replay/gdb/components/offsets_component.cpp
     ${W1_SOURCE_DIR}/src/w1replay/gdb/components/register_info_component.cpp
     ${W1_SOURCE_DIR}/src/w1replay/gdb/lldb/darwin_loaded_libraries.cpp

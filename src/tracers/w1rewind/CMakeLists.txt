@@ -16,4 +16,5 @@ w1_add_tracer(w1rewind
     LIBS
         w1rewind_record
         w1rewind_trace
+        w1::lief
 )
