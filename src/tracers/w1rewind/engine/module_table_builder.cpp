@@ -156,109 +156,148 @@ std::optional<uint64_t> read_macho_link_base(const std::string& path, const w1::
   return macho_link_base(*selected);
 }
 
-void populate_module_identity(w1::rewind::module_record& record, const w1::arch::arch_spec& arch) {
-  if (record.path.empty()) {
-    return;
+w1rewind::module_metadata resolve_module_metadata(const std::string& path, const w1::arch::arch_spec& arch) {
+  w1rewind::module_metadata meta{};
+  if (path.empty()) {
+    return meta;
   }
-  auto binary = LIEF::Parser::parse(record.path);
+  auto binary = LIEF::Parser::parse(path);
   if (!binary) {
-    return;
+    return meta;
   }
 
   switch (binary->format()) {
   case LIEF::Binary::FORMATS::ELF: {
-    record.format = w1::rewind::module_format::elf;
+    meta.format = w1::rewind::module_format::elf;
     auto* elf = dynamic_cast<LIEF::ELF::Binary*>(binary.get());
     if (!elf) {
-      return;
+      return meta;
     }
     if (auto link_base = elf_link_base(*elf)) {
-      record.link_base = *link_base;
-      record.flags |= w1::rewind::module_record_flag_link_base_valid;
+      meta.link_base = *link_base;
+      meta.flags |= w1::rewind::module_record_flag_link_base_valid;
     }
     const auto* note = elf->get(LIEF::ELF::Note::TYPE::GNU_BUILD_ID);
     if (!note) {
-      return;
+      return meta;
     }
     auto desc = note->description();
     if (desc.empty()) {
-      return;
+      return meta;
     }
-    record.identity = hex_encode(desc);
-    return;
+    meta.identity = hex_encode(desc);
+    return meta;
   }
   case LIEF::Binary::FORMATS::MACHO: {
-    record.format = w1::rewind::module_format::macho;
-    auto uuid = read_macho_uuid(record.path, arch);
+    meta.format = w1::rewind::module_format::macho;
+    auto uuid = read_macho_uuid(path, arch);
     if (uuid.has_value()) {
-      record.identity = *uuid;
+      meta.identity = *uuid;
     }
-    if (auto link_base = read_macho_link_base(record.path, arch)) {
-      record.link_base = *link_base;
-      record.flags |= w1::rewind::module_record_flag_link_base_valid;
+    if (auto link_base = read_macho_link_base(path, arch)) {
+      meta.link_base = *link_base;
+      meta.flags |= w1::rewind::module_record_flag_link_base_valid;
     }
     auto* macho = dynamic_cast<LIEF::MachO::Binary*>(binary.get());
     if (!macho) {
-      return;
+      return meta;
     }
     if (!macho->has_uuid()) {
-      if ((record.flags & w1::rewind::module_record_flag_link_base_valid) == 0) {
+      if ((meta.flags & w1::rewind::module_record_flag_link_base_valid) == 0) {
         if (auto link_base = macho_link_base(*macho)) {
-          record.link_base = *link_base;
-          record.flags |= w1::rewind::module_record_flag_link_base_valid;
+          meta.link_base = *link_base;
+          meta.flags |= w1::rewind::module_record_flag_link_base_valid;
         }
       }
-      return;
+      return meta;
     }
-    if ((record.flags & w1::rewind::module_record_flag_link_base_valid) == 0) {
+    if ((meta.flags & w1::rewind::module_record_flag_link_base_valid) == 0) {
       if (auto link_base = macho_link_base(*macho)) {
-        record.link_base = *link_base;
-        record.flags |= w1::rewind::module_record_flag_link_base_valid;
+        meta.link_base = *link_base;
+        meta.flags |= w1::rewind::module_record_flag_link_base_valid;
       }
     }
     const auto* uuid_cmd = macho->uuid();
     if (!uuid_cmd) {
-      return;
+      return meta;
     }
     const auto& uuid_bytes = uuid_cmd->uuid();
     if (w1::util::is_all_zero_uuid(uuid_bytes)) {
-      return;
+      return meta;
     }
-    record.identity = w1::util::format_uuid(uuid_bytes);
-    return;
+    meta.identity = w1::util::format_uuid(uuid_bytes);
+    return meta;
   }
   case LIEF::Binary::FORMATS::PE: {
-    record.format = w1::rewind::module_format::pe;
+    meta.format = w1::rewind::module_format::pe;
     auto* pe = dynamic_cast<LIEF::PE::Binary*>(binary.get());
     if (!pe) {
-      return;
+      return meta;
     }
     if (auto link_base = pe_link_base(*pe)) {
-      record.link_base = *link_base;
-      record.flags |= w1::rewind::module_record_flag_link_base_valid;
+      meta.link_base = *link_base;
+      meta.flags |= w1::rewind::module_record_flag_link_base_valid;
     }
     const auto* pdb = pe->codeview_pdb();
     if (!pdb) {
-      return;
+      return meta;
     }
     auto guid = pdb->guid();
     if (!guid.empty()) {
-      record.identity = std::move(guid);
-      record.identity_age = pdb->age();
+      meta.identity = std::move(guid);
+      meta.identity_age = pdb->age();
     }
-    return;
+    return meta;
   }
   default:
     break;
   }
+  return meta;
 }
 #else
-void populate_module_identity(w1::rewind::module_record&, const w1::arch::arch_spec&) {}
+w1rewind::module_metadata resolve_module_metadata(const std::string&, const w1::arch::arch_spec&) {
+  return w1rewind::module_metadata{};
+}
 #endif
 
 } // namespace
 
 namespace w1rewind {
+
+module_metadata module_metadata_cache::lookup(const std::string& path) {
+  if (path.empty()) {
+    return module_metadata{};
+  }
+
+  std::lock_guard<std::mutex> lock(mutex_);
+  auto it = cache_.find(path);
+  if (it != cache_.end()) {
+    return it->second;
+  }
+
+  module_metadata meta = resolve_module_metadata(path, arch_);
+  cache_.emplace(path, meta);
+  return meta;
+}
+
+w1::rewind::module_record build_module_record(
+    const w1::runtime::module_info& module, uint64_t id, module_metadata_cache& cache
+) {
+  w1::rewind::module_record record{};
+  record.id = id;
+  record.base = module.base_address;
+  record.size = module.size;
+  record.permissions = module_perm_from_qbdi(module.permissions);
+  record.path = module.path.empty() ? module.name : module.path;
+
+  const module_metadata meta = cache.lookup(record.path);
+  record.format = meta.format;
+  record.identity = meta.identity;
+  record.identity_age = meta.identity_age;
+  record.flags = meta.flags;
+  record.link_base = meta.link_base;
+  return record;
+}
 
 std::vector<w1::rewind::memory_region_record> collect_memory_map(
     const std::vector<w1::rewind::module_record>& modules
@@ -283,27 +322,6 @@ std::vector<w1::rewind::memory_region_record> collect_memory_map(
   w1::rewind::assign_memory_map_image_ids(regions, modules);
   std::sort(regions.begin(), regions.end(), [](const auto& left, const auto& right) { return left.base < right.base; });
   return regions;
-}
-
-std::vector<w1::rewind::module_record> build_module_table(
-    const w1::runtime::module_catalog& modules, const w1::arch::arch_spec& arch
-) {
-  std::vector<w1::rewind::module_record> table;
-  auto list = modules.list_modules();
-  table.reserve(list.size());
-
-  uint64_t next_id = 1;
-  for (const auto& module : list) {
-    w1::rewind::module_record record{};
-    record.id = next_id++;
-    record.base = module.base_address;
-    record.size = module.size;
-    record.permissions = module_perm_from_qbdi(module.permissions);
-    record.path = module.path.empty() ? module.name : module.path;
-    populate_module_identity(record, arch);
-    table.push_back(std::move(record));
-  }
-  return table;
 }
 
 } // namespace w1rewind

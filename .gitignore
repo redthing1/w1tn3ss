@@ -8,6 +8,8 @@
 /*.bin
 /*.w1dump
 /*.dmp
+/*.trace
+/*.w1r
 
 temp/
 /notes

@@ -4,11 +4,11 @@
 
 #include "doctest/doctest.hpp"
 
-#include "tracers/w1rewind/memory_access_builder.hpp"
-#include "tracers/w1rewind/register_delta_builder.hpp"
-#include "tracers/w1rewind/register_schema.hpp"
-#include "tracers/w1rewind/rewind_config.hpp"
-#include "tracers/w1rewind/snapshot_builder.hpp"
+#include "tracers/w1rewind/thread/memory_access_builder.hpp"
+#include "tracers/w1rewind/thread/register_delta_builder.hpp"
+#include "tracers/w1rewind/engine/register_schema.hpp"
+#include "tracers/w1rewind/config/rewind_config.hpp"
+#include "tracers/w1rewind/thread/snapshot_builder.hpp"
 #include "w1base/arch_spec.hpp"
 #include "w1instrument/tracer/trace_context.hpp"
 #include "w1runtime/memory_reader.hpp"
@@ -97,7 +97,7 @@ TEST_CASE("snapshot builder emits register snapshots on interval") {
   w1rewind::rewind_config config;
   config.registers.snapshot_interval = 2;
   config.stack_snapshots.interval = 0;
-  config.stack_window.mode = w1rewind::rewind_config::stack_window_options::mode::none;
+  config.stack_window.mode = w1rewind::rewind_config::stack_window_options::window_mode::none;
 
   w1::runtime::module_catalog modules;
   w1::util::memory_reader reader(nullptr, modules);

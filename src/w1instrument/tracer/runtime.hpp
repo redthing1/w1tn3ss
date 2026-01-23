@@ -36,6 +36,11 @@ concept thread_runtime_traits = requires(Engine& engine, const Config& config) {
   { Traits::export_output(engine) } -> std::same_as<bool>;
 };
 
+template <typename Traits, typename Engine, typename ThreadTracer, typename Config>
+concept process_runtime_session_config = requires(process_session<ThreadTracer>& session, Engine& engine, const Config& config) {
+  { Traits::configure_session(session, engine, config) } -> std::same_as<void>;
+};
+
 template <typename Engine, typename ThreadTracer, typename Config, typename Traits>
 requires process_runtime_traits<Traits, Engine, ThreadTracer, Config>
 class tracer_runtime {
@@ -51,6 +56,7 @@ public:
               return Traits::make_tracer(engine, *config_ptr, info);
             }
         ) {
+    configure_session();
     configure_engine();
   }
 
@@ -62,6 +68,7 @@ public:
               return Traits::make_tracer(engine, *config_ptr, info);
             }
         ) {
+    configure_session();
     configure_engine();
   }
 
@@ -104,6 +111,12 @@ public:
   }
 
 private:
+  void configure_session() {
+    if constexpr (process_runtime_session_config<Traits, Engine, ThreadTracer, Config>) {
+      Traits::configure_session(session_, *engine_, config_);
+    }
+  }
+
   void configure_engine() {
     if (!observer_ || !engine_) {
       return;

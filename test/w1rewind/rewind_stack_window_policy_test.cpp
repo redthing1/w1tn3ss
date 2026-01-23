@@ -3,7 +3,7 @@
 #include <QBDI.h>
 #include "doctest/doctest.hpp"
 
-#include "tracers/w1rewind/stack_window_policy.hpp"
+#include "tracers/w1rewind/thread/stack_window_policy.hpp"
 #include "w1runtime/register_capture.hpp"
 
 TEST_CASE("stack window policy clamps fixed window size") {
@@ -22,7 +22,7 @@ TEST_CASE("stack window policy clamps fixed window size") {
 
   auto regs = w1::util::register_capturer::capture(&gpr);
   w1rewind::rewind_config::stack_window_options options{};
-  options.mode = w1rewind::rewind_config::stack_window_options::mode::fixed;
+  options.mode = w1rewind::rewind_config::stack_window_options::window_mode::fixed;
   options.above_bytes = 16;
   options.below_bytes = 32;
   options.max_total_bytes = 40;
@@ -66,7 +66,7 @@ TEST_CASE("stack window policy emits frame window segment") {
 
   auto regs = w1::util::register_capturer::capture(&gpr);
   w1rewind::rewind_config::stack_window_options options{};
-  options.mode = w1rewind::rewind_config::stack_window_options::mode::frame;
+  options.mode = w1rewind::rewind_config::stack_window_options::window_mode::frame;
   options.above_bytes = 16;
   options.below_bytes = 32;
   options.max_total_bytes = 128;

@@ -42,6 +42,8 @@ private:
   bool ensure_chunk_info(uint32_t chunk_index);
 
   bool parse_record(const record_header& header, const std::vector<uint8_t>& payload, trace_record& record);
+  void apply_module_load(module_record module);
+  void apply_module_unload(const module_unload_record& record);
 
   std::string path_;
   std::ifstream stream_;

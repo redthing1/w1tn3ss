@@ -14,7 +14,7 @@ std::vector<w1::rewind::stack_segment> capture_stack_segments(
 ) {
   std::vector<w1::rewind::stack_segment> out;
   if (config.stack_snapshots.interval == 0 ||
-      config.stack_window.mode == rewind_config::stack_window_options::mode::none) {
+      config.stack_window.mode == rewind_config::stack_window_options::window_mode::none) {
     return out;
   }
   if (regs.get_register_map().empty()) {

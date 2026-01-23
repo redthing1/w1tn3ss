@@ -19,6 +19,48 @@ std::optional<uint16_t> find_register_with_flag(const std::vector<register_spec>
   return std::nullopt;
 }
 
+void apply_module_load(std::vector<module_record>& modules, module_record module) {
+  auto it = std::find_if(modules.begin(), modules.end(), [&](const module_record& entry) {
+    return entry.id == module.id;
+  });
+  if (it != modules.end()) {
+    *it = std::move(module);
+    return;
+  }
+  modules.push_back(std::move(module));
+}
+
+void apply_module_unload(std::vector<module_record>& modules, const module_unload_record& record) {
+  auto it = std::find_if(modules.begin(), modules.end(), [&](const module_record& entry) {
+    return entry.id == record.module_id;
+  });
+  if (it != modules.end()) {
+    modules.erase(it);
+    return;
+  }
+
+  if (record.base == 0 && record.size == 0 && record.path.empty()) {
+    return;
+  }
+
+  auto fallback = std::find_if(modules.begin(), modules.end(), [&](const module_record& entry) {
+    if (record.base != 0 && entry.base != record.base) {
+      return false;
+    }
+    if (record.size != 0 && entry.size != record.size) {
+      return false;
+    }
+    if (!record.path.empty() && entry.path != record.path) {
+      return false;
+    }
+    return true;
+  });
+
+  if (fallback != modules.end()) {
+    modules.erase(fallback);
+  }
+}
+
 } // namespace
 
 bool build_replay_context(trace_record_stream& stream, replay_context& out, std::string& error) {
@@ -39,6 +81,10 @@ bool build_replay_context(trace_record_stream& stream, replay_context& out, std:
       context.register_specs = std::get<register_spec_record>(record).registers;
     } else if (std::holds_alternative<module_table_record>(record)) {
       context.modules = std::get<module_table_record>(record).modules;
+    } else if (std::holds_alternative<module_load_record>(record)) {
+      apply_module_load(context.modules, std::get<module_load_record>(record).module);
+    } else if (std::holds_alternative<module_unload_record>(record)) {
+      apply_module_unload(context.modules, std::get<module_unload_record>(record));
     } else if (std::holds_alternative<memory_map_record>(record)) {
       context.memory_map = std::get<memory_map_record>(record).regions;
     } else if (std::holds_alternative<block_definition_record>(record)) {

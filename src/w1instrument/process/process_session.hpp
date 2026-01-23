@@ -51,6 +51,17 @@ public:
 
   ~process_session() { stop(); }
 
+  void set_callbacks(hooks callbacks) { config_.callbacks = std::move(callbacks); }
+  void set_on_event(std::function<void(const runtime::process_event&)> callback) {
+    config_.callbacks.on_event = std::move(callback);
+  }
+  void set_on_thread_attach(std::function<void(const runtime::thread_info&)> callback) {
+    config_.callbacks.on_thread_attach = std::move(callback);
+  }
+  void set_on_thread_detach(std::function<void(const runtime::thread_info&)> callback) {
+    config_.callbacks.on_thread_detach = std::move(callback);
+  }
+
   void start() {
     if (started_.exchange(true, std::memory_order_acq_rel)) {
       return;

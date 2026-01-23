@@ -4,7 +4,7 @@
 #include <span>
 #include <vector>
 
-#include "rewind_config.hpp"
+#include "config/rewind_config.hpp"
 #include "stack_window_policy.hpp"
 #include "w1base/types.hpp"
 

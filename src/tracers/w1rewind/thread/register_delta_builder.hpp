@@ -3,7 +3,7 @@
 #include <optional>
 #include <vector>
 
-#include "register_schema.hpp"
+#include "engine/register_schema.hpp"
 #include "w1runtime/register_capture.hpp"
 #include "w1rewind/format/trace_format.hpp"
 

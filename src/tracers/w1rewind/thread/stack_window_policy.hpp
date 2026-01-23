@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "rewind_config.hpp"
+#include "config/rewind_config.hpp"
 #include "w1runtime/register_capture.hpp"
 
 namespace w1rewind {

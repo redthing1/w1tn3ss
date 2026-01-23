@@ -5,9 +5,9 @@
 #include <string>
 #include <vector>
 
-#include "memory_access_builder.hpp"
-#include "rewind_config.hpp"
-#include "snapshot_builder.hpp"
+#include "config/rewind_config.hpp"
+#include "thread/memory_access_builder.hpp"
+#include "thread/snapshot_builder.hpp"
 #include "w1rewind/record/trace_builder.hpp"
 
 namespace w1rewind {

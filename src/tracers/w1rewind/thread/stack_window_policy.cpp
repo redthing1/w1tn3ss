@@ -159,7 +159,7 @@ stack_window_result compute_stack_window_segments(
 ) {
   stack_window_result result{};
 
-  if (options.mode == rewind_config::stack_window_options::mode::none) {
+  if (options.mode == rewind_config::stack_window_options::window_mode::none) {
     return result;
   }
 
@@ -170,7 +170,7 @@ stack_window_result compute_stack_window_segments(
 
   sp_window sp_seg = compute_sp_window(sp, options.above_bytes, options.below_bytes);
 
-  if (options.mode == rewind_config::stack_window_options::mode::fixed) {
+  if (options.mode == rewind_config::stack_window_options::window_mode::fixed) {
     sp_seg = clamp_sp_window(sp_seg, options.max_total_bytes);
     if (sp_seg.size > 0) {
       result.segments.push_back(stack_window_segment{sp_seg.base, sp_seg.size});

@@ -10,7 +10,7 @@
 
 namespace w1::rewind {
 
-constexpr uint16_t k_trace_version = 15;
+constexpr uint16_t k_trace_version = 16;
 constexpr std::array<uint8_t, 8> k_trace_magic = {'W', '1', 'R', 'W', 'N', 'D', '1', '1'};
 constexpr uint32_t k_trace_chunk_bytes = 8 * 1024 * 1024;
 constexpr uint32_t k_register_regnum_unknown = 0xFFFFFFFFu;
@@ -67,6 +67,8 @@ enum class record_kind : uint16_t {
   memory_map = 13,
   register_bytes = 14,
   target_environment = 15,
+  module_load = 16,
+  module_unload = 17,
 };
 
 struct trace_header {
@@ -156,6 +158,17 @@ struct module_record {
 
 struct module_table_record {
   std::vector<module_record> modules;
+};
+
+struct module_load_record {
+  module_record module;
+};
+
+struct module_unload_record {
+  uint64_t module_id = 0;
+  uint64_t base = 0;
+  uint64_t size = 0;
+  std::string path;
 };
 
 struct memory_region_record {
@@ -263,8 +276,9 @@ struct thread_end_record {
 };
 
 using trace_record = std::variant<
-    target_info_record, target_environment_record, register_spec_record, module_table_record, memory_map_record,
-    thread_start_record, instruction_record, block_definition_record, block_exec_record, register_delta_record,
-    register_bytes_record, memory_access_record, snapshot_record, thread_end_record>;
+    target_info_record, target_environment_record, register_spec_record, module_table_record, module_load_record,
+    module_unload_record, memory_map_record, thread_start_record, instruction_record, block_definition_record,
+    block_exec_record, register_delta_record, register_bytes_record, memory_access_record, snapshot_record,
+    thread_end_record>;
 
 } // namespace w1::rewind

@@ -4,7 +4,7 @@
 #include <span>
 #include <vector>
 
-#include "rewind_config.hpp"
+#include "config/rewind_config.hpp"
 #include "w1base/types.hpp"
 #include "w1instrument/tracer/trace_context.hpp"
 #include "w1instrument/tracer/types.hpp"

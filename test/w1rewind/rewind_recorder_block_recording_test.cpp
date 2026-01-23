@@ -4,10 +4,8 @@
 
 #include "doctest/doctest.hpp"
 
-#include "tracers/w1rewind/rewind_tracer.hpp"
+#include "tracers/w1rewind/runtime/rewind_runtime.hpp"
 #include "w1rewind/trace/trace_reader.hpp"
-#include "w1rewind/trace/trace_file_writer.hpp"
-#include "w1instrument/tracer/vm_session.hpp"
 
 namespace {
 
@@ -31,43 +29,29 @@ TEST_CASE("w1rewind records block flow and snapshots") {
 
   fs::path path = fs::temp_directory_path() / "w1rewind_recorder_blocks.trace";
 
-  w1::rewind::trace_file_writer_config writer_config;
-  writer_config.path = path.string();
-  writer_config.log = redlog::get_logger("test.w1rewind.recorder");
-
-  auto writer = w1::rewind::make_trace_file_writer(writer_config);
-  REQUIRE(writer);
-  REQUIRE(writer->open());
-
   w1rewind::rewind_config config;
   config.output_path = path.string();
-  config.flow.mode = w1rewind::rewind_config::flow_options::mode::block;
+  config.flow.mode = w1rewind::rewind_config::flow_options::flow_mode::block;
   config.registers.deltas = false;
   config.registers.snapshot_interval = 1;
-  config.stack_window.mode = w1rewind::rewind_config::stack_window_options::mode::none;
+  config.stack_window.mode = w1rewind::rewind_config::stack_window_options::window_mode::none;
   config.stack_snapshots.interval = 0;
   config.memory.access = w1rewind::rewind_config::memory_access::none;
+  config.common.instrumentation.include_modules = {"w1rewind_unit_tests"};
 
-  w1::vm_session_config session_config;
-  session_config.instrumentation.include_modules = {"w1rewind_unit_tests"};
-  session_config.thread_id = 1;
-  session_config.thread_name = "unit_main";
-
-  w1::vm_session<w1rewind::rewind_block_tracer> session(session_config, std::in_place, config, writer);
-
-  if (!session.instrument()) {
-    WARN("vm_session could not instrument modules; module scanning may be blocked");
-    return;
-  }
-
+  auto runtime = w1rewind::make_thread_runtime(config);
   std::vector<uint64_t> args;
   args.push_back(64);
   uint64_t result = 0;
-  REQUIRE(session.call(reinterpret_cast<uint64_t>(&rewind_block_test_worker), args, &result));
-
-  session.shutdown();
-  writer->flush();
-  writer->close();
+  bool ok = w1rewind::with_runtime(
+      runtime,
+      [&](auto& active) { return active.call(reinterpret_cast<uint64_t>(&rewind_block_test_worker), args, &result, "unit_main"); }
+  );
+  if (!ok) {
+    WARN("thread runtime could not instrument modules; module scanning may be blocked");
+    return;
+  }
+  REQUIRE(w1rewind::with_runtime(runtime, [](auto& active) { return active.export_output(); }));
 
   w1::rewind::trace_reader reader(path.string());
   REQUIRE(reader.open());

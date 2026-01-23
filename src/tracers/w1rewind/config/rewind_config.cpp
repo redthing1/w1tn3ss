@@ -111,40 +111,15 @@ rewind_config rewind_config::from_environment(std::string& error) {
   using memory_filter_kind = rewind_config::memory_filter_kind;
 
   rewind_config config;
-  using system_policy = w1::core::system_module_policy;
-  system_policy policy = system_policy::exclude_all;
-  policy = loader.get_enum<system_policy>(
-      {
-          {"exclude", system_policy::exclude_all},
-          {"exclude_all", system_policy::exclude_all},
-          {"none", system_policy::exclude_all},
-          {"critical", system_policy::include_critical},
-          {"include_critical", system_policy::include_critical},
-          {"all", system_policy::include_all},
-          {"include_all", system_policy::include_all},
-          {"include", system_policy::include_all},
-      },
-      "SYSTEM_POLICY", policy
+  config.common = w1::instrument::config::load_common(loader);
+  config.threads = w1::instrument::config::load_thread_attach_policy(
+      loader, w1::instrument::config::thread_attach_policy::main_only
   );
-  config.instrumentation.system_policy = policy;
-  config.instrumentation.include_unnamed_modules = loader.get<bool>("INCLUDE_UNNAMED", false);
-  config.instrumentation.use_default_excludes = loader.get<bool>("USE_DEFAULT_EXCLUDES", true);
-  config.instrumentation.include_modules = loader.get_list("INCLUDE");
-  config.instrumentation.exclude_modules = loader.get_list("EXCLUDE");
-  auto module_filter_env = loader.get_list("MODULE_FILTER");
-  if (!module_filter_env.empty()) {
-    config.instrumentation.include_modules.insert(
-        config.instrumentation.include_modules.end(), module_filter_env.begin(), module_filter_env.end()
-    );
-  }
-
-  config.exclude_self = loader.get<bool>("EXCLUDE_SELF", true);
-  config.verbose = loader.get<int>("VERBOSE", 0);
 
   std::string flow_value = loader.get<std::string>("FLOW", "");
   if (!flow_value.empty()) {
     if (!parse_enum_value(
-            flow_value, {{"instruction", flow_options::mode::instruction}, {"block", flow_options::mode::block}},
+            flow_value, {{"instruction", flow_options::flow_mode::instruction}, {"block", flow_options::flow_mode::block}},
             config.flow.mode
         )) {
       error = "invalid W1REWIND_FLOW value";
@@ -169,9 +144,9 @@ rewind_config rewind_config::from_environment(std::string& error) {
   if (!stack_mode.empty()) {
     if (!parse_enum_value(
             stack_mode,
-            {{"none", stack_window_options::mode::none},
-             {"fixed", stack_window_options::mode::fixed},
-             {"frame", stack_window_options::mode::frame}},
+            {{"none", stack_window_options::window_mode::none},
+             {"fixed", stack_window_options::window_mode::fixed},
+             {"frame", stack_window_options::window_mode::frame}},
             config.stack_window.mode
         )) {
       error = "invalid W1REWIND_STACK_WINDOW_MODE value";
@@ -254,10 +229,16 @@ rewind_config rewind_config::from_environment(std::string& error) {
     merge_ranges(config.memory.ranges);
   }
 
-  config.modules.dynamic_events = loader.get<bool>("MODULE_EVENTS", config.modules.dynamic_events);
   config.output_path = loader.get<std::string>("OUTPUT", "");
   config.compress_trace = loader.get<bool>("COMPRESS", config.compress_trace);
   config.chunk_size = loader.get<uint32_t>("CHUNK_SIZE", config.chunk_size);
+
+  auto module_filter_env = loader.get_list("MODULE_FILTER");
+  if (!module_filter_env.empty()) {
+    config.common.instrumentation.include_modules.insert(
+        config.common.instrumentation.include_modules.end(), module_filter_env.begin(), module_filter_env.end()
+    );
+  }
 
   if (!config.validate(error)) {
     return config;
@@ -284,7 +265,7 @@ bool rewind_config::validate(std::string& error) const {
     return false;
   }
 
-  if (flow.mode == flow_options::mode::block) {
+  if (flow.mode == flow_options::flow_mode::block) {
     if (registers.deltas) {
       error = "flow=block incompatible with reg_deltas";
       return false;
@@ -295,23 +276,23 @@ bool rewind_config::validate(std::string& error) const {
     }
   }
 
-  if (stack_snapshots.interval > 0 && stack_window.mode == stack_window_options::mode::none) {
+  if (stack_snapshots.interval > 0 && stack_window.mode == stack_window_options::window_mode::none) {
     error = "stack snapshots require stack window mode";
     return false;
   }
 
-  if (stack_window.mode != stack_window_options::mode::none && stack_window.max_total_bytes == 0) {
+  if (stack_window.mode != stack_window_options::window_mode::none && stack_window.max_total_bytes == 0) {
     error = "stack window max_total_bytes must be non-zero";
     return false;
   }
 
-  if (stack_window.mode == stack_window_options::mode::fixed &&
+  if (stack_window.mode == stack_window_options::window_mode::fixed &&
       (stack_window.above_bytes + stack_window.below_bytes) == 0) {
     error = "fixed stack window requires above or below bytes";
     return false;
   }
 
-  if (stack_window.mode == stack_window_options::mode::frame && stack_window.max_total_bytes < 16) {
+  if (stack_window.mode == stack_window_options::window_mode::frame && stack_window.max_total_bytes < 16) {
     error = "frame stack window requires max_total_bytes >= 16";
     return false;
   }
@@ -335,13 +316,8 @@ bool rewind_config::validate(std::string& error) const {
     return false;
   }
 
-  if (filter_stack && stack_window.mode == stack_window_options::mode::none) {
+  if (filter_stack && stack_window.mode == stack_window_options::window_mode::none) {
     error = "memory.filter=stack_window requires stack window mode";
-    return false;
-  }
-
-  if (modules.dynamic_events) {
-    error = "dynamic module events are not supported yet";
     return false;
   }
 

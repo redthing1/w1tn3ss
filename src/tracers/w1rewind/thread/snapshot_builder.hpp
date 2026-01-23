@@ -7,8 +7,8 @@
 
 #include <redlog.hpp>
 
-#include "register_schema.hpp"
-#include "rewind_config.hpp"
+#include "engine/register_schema.hpp"
+#include "config/rewind_config.hpp"
 #include "w1instrument/tracer/trace_context.hpp"
 #include "w1runtime/register_capture.hpp"
 #include "w1rewind/format/trace_format.hpp"

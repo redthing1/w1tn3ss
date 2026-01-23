@@ -11,6 +11,7 @@ set(W1REWIND_TEST_SOURCES
     rewind_config_validation_test.cpp
     rewind_memory_filter_test.cpp
     rewind_memory_map_mapping_test.cpp
+    rewind_module_event_test.cpp
     rewind_snapshot_codec_test.cpp
     rewind_stack_window_policy_test.cpp
     rewind_trace_index_test.cpp
@@ -39,6 +40,7 @@ w1_add_doctest_suite(w1rewind_unit_tests
     INCLUDE_DIRS
         ${W1_SOURCE_DIR}/src
         ${W1_SOURCE_DIR}/src/third_party
+        ${W1_SOURCE_DIR}/src/tracers/w1rewind
         ${W1_SOURCE_DIR}/test
     LIBS
         ${W1REWIND_TEST_LIBS}

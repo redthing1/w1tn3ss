@@ -4,20 +4,20 @@
 #include <string>
 #include <vector>
 
-#include "w1instrument/core/instrumentation_policy.hpp"
+#include "w1instrument/config/tracer_common_config.hpp"
 #include "w1rewind/format/trace_format.hpp"
 #include "w1base/types.hpp"
 
 namespace w1rewind {
 
 struct rewind_config {
-  w1::core::instrumentation_policy instrumentation{};
-  bool exclude_self = true;
-  int verbose = 0;
+  w1::instrument::config::tracer_common_config common{};
+  w1::instrument::config::thread_attach_policy threads =
+      w1::instrument::config::thread_attach_policy::main_only;
 
   struct flow_options {
-    enum class mode { instruction, block };
-    mode mode = mode::block;
+    enum class flow_mode { instruction, block };
+    flow_mode mode = flow_mode::block;
   };
 
   struct register_options {
@@ -29,8 +29,8 @@ struct rewind_config {
   };
 
   struct stack_window_options {
-    enum class mode { none, fixed, frame };
-    mode mode = mode::none;
+    enum class window_mode { none, fixed, frame };
+    window_mode mode = window_mode::none;
     uint64_t above_bytes = 512;
     uint64_t below_bytes = 2048;
     uint64_t max_total_bytes = 4096;
@@ -51,16 +51,11 @@ struct rewind_config {
     std::vector<w1::address_range> ranges{};
   };
 
-  struct module_options {
-    bool dynamic_events = false;
-  };
-
   flow_options flow{};
   register_options registers{};
   stack_window_options stack_window{};
   stack_snapshot_options stack_snapshots{};
   memory_options memory{};
-  module_options modules{};
   std::string output_path;
   bool compress_trace = false;
   uint32_t chunk_size = w1::rewind::k_trace_chunk_bytes;

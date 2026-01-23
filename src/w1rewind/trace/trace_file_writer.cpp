@@ -173,6 +173,24 @@ bool trace_file_writer::write_module_table(const module_table_record& record) {
   return write_record(record_kind::module_table, 0, payload);
 }
 
+bool trace_file_writer::write_module_load(const module_load_record& record) {
+  std::vector<uint8_t> payload;
+  trace_buffer_writer writer(payload);
+  if (!encode_module_load(record, writer, config_.log)) {
+    return false;
+  }
+  return write_record(record_kind::module_load, 0, payload);
+}
+
+bool trace_file_writer::write_module_unload(const module_unload_record& record) {
+  std::vector<uint8_t> payload;
+  trace_buffer_writer writer(payload);
+  if (!encode_module_unload(record, writer, config_.log)) {
+    return false;
+  }
+  return write_record(record_kind::module_unload, 0, payload);
+}
+
 bool trace_file_writer::write_memory_map(const memory_map_record& record) {
   std::vector<uint8_t> payload;
   trace_buffer_writer writer(payload);
@@ -392,7 +410,11 @@ void trace_file_writer::write_bytes(const void* data, size_t size) {
 void trace_file_writer::mark_failure() { good_ = false; }
 
 std::string trace_file_writer::make_default_path() const {
-  std::filesystem::path base = std::filesystem::current_path();
+#if defined(_WIN32)
+  std::filesystem::path base = std::filesystem::temp_directory_path();
+#else
+  std::filesystem::path base = std::filesystem::path("/tmp");
+#endif
 #if defined(_WIN32)
   int pid = static_cast<int>(_getpid());
 #else
@@ -400,7 +422,7 @@ std::string trace_file_writer::make_default_path() const {
 #endif
 
   std::ostringstream name;
-  name << "w1rewind_" << pid << ".trace";
+  name << "w1rewind_" << pid << ".w1r";
   base /= name.str();
   return base.string();
 }
