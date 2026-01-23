@@ -3,11 +3,11 @@
 #include <cstdint>
 #include <vector>
 
-#include "w1instrument/tracer/vm_session.hpp"
+#include "w1instrument/trace/thread_session.hpp"
 
 namespace {
 
-int vm_session_add(int value) { return value + 1; }
+int thread_session_add(int value) { return value + 1; }
 
 struct simple_tracer {
   size_t count = 0;
@@ -30,12 +30,12 @@ struct simple_tracer {
 
 } // namespace
 
-TEST_CASE("vm_session runs a minimal tracer") {
-  w1::vm_session_config config;
+TEST_CASE("thread_session runs a minimal tracer") {
+  w1::instrument::thread_session_config config;
   config.thread_id = 1;
   config.thread_name = "unit_main";
 
-  w1::vm_session<simple_tracer> session(config, simple_tracer{});
+  w1::instrument::thread_session<simple_tracer> session(config, simple_tracer{});
 
   if (!session.instrument()) {
     WARN("vm_session could not instrument modules; module scanning may be blocked");
@@ -46,7 +46,7 @@ TEST_CASE("vm_session runs a minimal tracer") {
   args.push_back(1);
   uint64_t result = 0;
 
-  REQUIRE(session.call(reinterpret_cast<uint64_t>(&vm_session_add), args, &result));
+  REQUIRE(session.call(reinterpret_cast<uint64_t>(&thread_session_add), args, &result));
   CHECK(result == 2);
   CHECK(session.tracer().count > 0);
 

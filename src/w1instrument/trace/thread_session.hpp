@@ -10,6 +10,7 @@
 #include <redlog.hpp>
 
 #include "w1base/thread_utils.hpp"
+#include "w1instrument/core/instrumentation_policy.hpp"
 #include "w1instrument/core/vm_controller.hpp"
 #include "w1instrument/trace/event_dispatcher.hpp"
 #include "w1instrument/tracer/event.hpp"
