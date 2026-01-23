@@ -34,6 +34,10 @@ function(build_luajit_from_source)
     
     # add luajit-cmake subdirectory with unique binary directory
     add_subdirectory(${W1_SOURCE_DIR}/src/third_party/luajit_cmake ${CMAKE_BINARY_DIR}/witness_luajit)
+
+    if(TARGET libluajit)
+        set_target_properties(libluajit PROPERTIES POSITION_INDEPENDENT_CODE ON)
+    endif()
     
     # ensure generated headers are available (luajit.h, etc.)
     if(TARGET luajit-header)
