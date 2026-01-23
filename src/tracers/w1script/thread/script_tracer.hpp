@@ -2,7 +2,7 @@
 
 #include "runtime/lua_runtime.hpp"
 #include "runtime/script_context.hpp"
-#include "script_config.hpp"
+#include "config/script_config.hpp"
 
 #include "w1instrument/tracer/event.hpp"
 #include "w1instrument/tracer/trace_context.hpp"
@@ -13,10 +13,12 @@
 
 namespace w1::tracers::script {
 
+class script_engine;
+
 class script_tracer {
 public:
   script_tracer();
-  explicit script_tracer(script_config config);
+  script_tracer(std::shared_ptr<script_engine> engine, script_config config);
 
   const char* name() const { return "w1script"; }
   static constexpr w1::event_mask requested_events() {

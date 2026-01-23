@@ -6,10 +6,12 @@
 
 namespace w1::tracers::script {
 
-script_tracer::script_tracer() : logger_(redlog::get_logger("w1script.tracer")) {}
+script_tracer::script_tracer() : logger_(redlog::get_logger("w1script.thread")) {}
 
-script_tracer::script_tracer(script_config config)
-    : config_(std::move(config)), logger_(redlog::get_logger("w1script.tracer")) {}
+script_tracer::script_tracer(std::shared_ptr<script_engine> engine, script_config config)
+    : config_(std::move(config)), logger_(redlog::get_logger("w1script.thread")) {
+  (void) engine;
+}
 
 bool script_tracer::ensure_initialized(w1::trace_context& ctx, const w1::thread_event* event) {
   if (initialized_) {
@@ -70,6 +72,7 @@ QBDI::VMAction script_tracer::on_thread_start(w1::trace_context& ctx, const w1::
 }
 
 QBDI::VMAction script_tracer::on_thread_stop(w1::trace_context& ctx, const w1::thread_event& event) {
+  (void) ctx;
   if (!initialized_ || !runtime_) {
     return QBDI::VMAction::CONTINUE;
   }
@@ -99,6 +102,7 @@ QBDI::VMAction script_tracer::on_vm_stop(
     w1::trace_context& ctx, const w1::sequence_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state,
     QBDI::GPRState* gpr, QBDI::FPRState* fpr
 ) {
+  (void) ctx;
   if (!initialized_ || !runtime_) {
     return QBDI::VMAction::CONTINUE;
   }

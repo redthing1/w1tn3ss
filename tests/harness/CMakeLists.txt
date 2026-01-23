@@ -12,7 +12,9 @@ w1_add_harness_test(test_w1xfer
 if(WITNESS_SCRIPT AND TARGET w1script_static)
     w1_add_harness_test(test_w1script
         SOURCES test_w1script.cpp
-        INCLUDE_DIRS ${W1_SOURCE_DIR}/src
+        INCLUDE_DIRS
+            ${W1_SOURCE_DIR}/src
+            ${W1_SOURCE_DIR}/src/tracers/w1script
         LIBS w1script_static
         OUTPUT_SUBDIR harness
     )

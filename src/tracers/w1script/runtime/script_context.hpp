@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../script_config.hpp"
+#include "../config/script_config.hpp"
 #include "output_state.hpp"
 
 #include "w1analysis/abi_dispatcher.hpp"
