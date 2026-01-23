@@ -20,7 +20,21 @@ inline bool is_flags_name(std::string_view name) {
   return name == "eflags" || name == "rflags" || name == "nzcv" || name == "cpsr";
 }
 
-inline uint16_t register_flags_for_name(std::string_view name) {
+inline bool is_fp_name(const w1::arch::arch_spec& arch, std::string_view name) {
+  switch (arch.arch_mode) {
+  case w1::arch::mode::x86_64:
+    return name == "rbp";
+  case w1::arch::mode::x86_32:
+    return name == "ebp";
+  case w1::arch::mode::aarch64:
+    return name == "x29" || name == "fp";
+  default:
+    break;
+  }
+  return false;
+}
+
+inline uint16_t register_flags_for_name(const w1::arch::arch_spec& arch, std::string_view name) {
   uint16_t flags = 0;
   if (is_pc_name(name)) {
     flags |= register_flag_pc;
@@ -30,6 +44,9 @@ inline uint16_t register_flags_for_name(std::string_view name) {
   }
   if (is_flags_name(name)) {
     flags |= register_flag_flags;
+  }
+  if (is_fp_name(arch, name)) {
+    flags |= register_flag_fp;
   }
   return flags;
 }
@@ -147,7 +164,7 @@ inline register_spec build_register_spec(
   spec.reg_id = reg_id;
   spec.name = std::string(name);
   spec.bits = static_cast<uint16_t>(register_bitsize(arch, spec.name, pointer_size_bytes));
-  spec.flags = register_flags_for_name(spec.name);
+  spec.flags = register_flags_for_name(arch, spec.name);
   spec.gdb_name = gdb_name_for_register(spec.name, arch);
   spec.reg_class = register_class_for_name(spec.name);
   spec.value_kind = register_value_kind_for_name(spec.name);
