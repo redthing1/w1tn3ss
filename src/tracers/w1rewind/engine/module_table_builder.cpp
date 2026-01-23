@@ -1,6 +1,7 @@
 #include "module_table_builder.hpp"
 
 #include <algorithm>
+#include <filesystem>
 #include <limits>
 #include <optional>
 
@@ -34,6 +35,14 @@ w1::rewind::module_perm module_perm_from_qbdi(uint32_t perms) {
     out = out | w1::rewind::module_perm::exec;
   }
   return out;
+}
+
+bool path_exists(const std::string& path) {
+  if (path.empty()) {
+    return false;
+  }
+  std::error_code ec;
+  return std::filesystem::exists(std::filesystem::path(path), ec);
 }
 
 #if defined(WITNESS_LIEF_ENABLED)
@@ -295,6 +304,12 @@ w1::rewind::module_record build_module_record(
   record.identity = meta.identity;
   record.identity_age = meta.identity_age;
   record.flags = meta.flags;
+  if (module.is_main) {
+    record.flags |= w1::rewind::module_record_flag_main;
+  }
+  if (meta.format != w1::rewind::module_format::unknown || path_exists(record.path)) {
+    record.flags |= w1::rewind::module_record_flag_file_backed;
+  }
   record.link_base = meta.link_base;
   return record;
 }
