@@ -51,16 +51,12 @@ W1_NO_INLINE int mul_three(int value) {
 using interpose_lib_fn = HMODULE (*)();
 static HMODULE g_expected_handle = nullptr;
 
-static HMODULE WINAPI replacement_interpose() {
-  return g_expected_handle;
-}
+static HMODULE WINAPI replacement_interpose() { return g_expected_handle; }
 #else
 using interpose_lib_fn = pid_t (*)();
 static pid_t g_expected_pid = 0;
 
-static pid_t replacement_interpose() {
-  return g_expected_pid;
-}
+static pid_t replacement_interpose() { return g_expected_pid; }
 #endif
 
 struct interpose_library {
@@ -105,9 +101,9 @@ interpose_lib_fn load_interpose_symbol(
     return nullptr;
   }
 #if defined(_WIN32)
-  return reinterpret_cast<interpose_lib_fn>(GetProcAddress(handle, "w1h00k_interpose_get_module_handle"));
+  return reinterpret_cast<interpose_lib_fn>(GetProcAddress(handle, "w1h00k_interpose_get_module_handle_inline"));
 #else
-  return reinterpret_cast<interpose_lib_fn>(dlsym(handle, "w1h00k_interpose_getpid"));
+  return reinterpret_cast<interpose_lib_fn>(dlsym(handle, "w1h00k_interpose_getpid_inline"));
 #endif
 }
 
@@ -294,7 +290,7 @@ TEST_CASE("w1h00k inline hook resolves symbols in loaded modules") {
 
   w1::h00k::hook_request request{};
   request.target.kind = w1::h00k::hook_target_kind::symbol;
-  request.target.symbol = "w1h00k_interpose_get_module_handle";
+  request.target.symbol = "w1h00k_interpose_get_module_handle_inline";
   request.target.module = w1::test_paths::interpose_library_name();
   request.replacement = reinterpret_cast<void*>(&replacement_interpose);
   request.preferred = w1::h00k::hook_technique::inline_trampoline;
@@ -306,7 +302,7 @@ TEST_CASE("w1h00k inline hook resolves symbols in loaded modules") {
 
   w1::h00k::hook_request request{};
   request.target.kind = w1::h00k::hook_target_kind::symbol;
-  request.target.symbol = "w1h00k_interpose_getpid";
+  request.target.symbol = "w1h00k_interpose_getpid_inline";
   request.target.module = w1::test_paths::interpose_library_name();
   request.replacement = reinterpret_cast<void*>(&replacement_interpose);
   request.preferred = w1::h00k::hook_technique::inline_trampoline;
@@ -316,6 +312,10 @@ TEST_CASE("w1h00k inline hook resolves symbols in loaded modules") {
 
   void* original_ptr = nullptr;
   auto result = w1::h00k::attach(request, &original_ptr);
+  std::string error_detail = result.error.detail ? result.error.detail : "(none)";
+  CAPTURE(static_cast<int>(result.error.code));
+  CAPTURE(error_detail);
+  CAPTURE(result.error.os_error);
   REQUIRE(result.error.ok());
   REQUIRE(original_ptr != nullptr);
 
