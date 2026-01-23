@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "w1monitor/backend/module_snapshot.hpp"

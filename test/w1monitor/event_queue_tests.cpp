@@ -1,5 +1,7 @@
 #include "doctest/doctest.hpp"
 
+#include <thread>
+
 #include "w1monitor/event_queue.hpp"
 
 TEST_CASE("w1monitor event_queue stores module events") {
