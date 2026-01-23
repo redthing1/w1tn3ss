@@ -77,6 +77,14 @@ public:
     return session_.run_main(vm, start, stop, std::move(name));
   }
 
+  bool call_current_thread(
+      uint64_t function_ptr, const std::vector<uint64_t>& args, uint64_t* result = nullptr,
+      std::string name = "main"
+  ) {
+    configure_engine();
+    return session_.call_current_thread(function_ptr, args, result, std::move(name));
+  }
+
   void stop() { session_.stop(); }
 
   bool export_output() { return engine_ ? Traits::export_output(*engine_) : false; }

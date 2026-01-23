@@ -18,7 +18,7 @@ int main() {
 
   w1cov::coverage_config config;
   config.output_file = "test_w1cov_single_thread.drcov";
-  config.instrumentation.include_modules = {"test_w1cov_single_thread"};
+  config.common.instrumentation.include_modules = {"test_w1cov_single_thread"};
 
   w1::runtime::module_catalog modules;
   modules.refresh();
@@ -29,7 +29,7 @@ int main() {
   using tracer_t = w1cov::coverage_thread_tracer<w1cov::coverage_mode::basic_block>;
 
   w1::instrument::thread_session_config session_config;
-  session_config.instrumentation = config.instrumentation;
+  session_config.instrumentation = config.common.instrumentation;
   session_config.thread_id = w1::util::current_thread_id();
   session_config.thread_name = "main";
   session_config.shared_modules = &modules;

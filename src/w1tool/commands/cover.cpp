@@ -17,9 +17,9 @@ int cover(
     args::ValueFlag<std::string>& library_flag, args::Flag& spawn_flag, args::ValueFlag<int>& pid_flag,
     args::ValueFlag<std::string>& name_flag, args::ValueFlag<std::string>& output_flag,
     args::ValueFlag<std::string>& system_policy_flag, args::Flag& inst_trace_flag,
-    args::ValueFlag<std::string>& module_filter_flag, args::ValueFlag<int>& debug_level_flag,
-    args::ValueFlag<std::string>& format_flag, args::Flag& suspended_flag, args::Flag& no_aslr_flag,
-    args::PositionalList<std::string>& args_list, const std::string& executable_path
+    args::ValueFlagList<std::string>& config_flags, args::ValueFlag<std::string>& module_filter_flag,
+    args::ValueFlag<int>& debug_level_flag, args::ValueFlag<std::string>& format_flag, args::Flag& suspended_flag,
+    args::Flag& no_aslr_flag, args::PositionalList<std::string>& args_list, const std::string& executable_path
 ) {
   auto log = redlog::get_logger("w1tool.cover");
 
@@ -97,6 +97,13 @@ int cover(
     params.debug_level = args::get(debug_level_flag);
   } else {
     params.debug_level = args::get(cli::verbosity_flag);
+  }
+
+  // process config
+  std::string config_error;
+  if (!apply_config_flags(config_flags, params.config_map, &config_error)) {
+    log.err("invalid config format, expected key=value", redlog::field("config", config_error));
+    return 1;
   }
 
   // translate cover flags to w1cov config

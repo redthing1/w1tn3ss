@@ -24,21 +24,23 @@ struct coverage_recipe {
   static config_t load_config() { return coverage_config::from_environment(); }
 
   static void configure_logging(const config_t& config) {
-    w1::instrument::configure_redlog_verbosity(config.verbose, true);
+    w1::instrument::configure_redlog_verbosity(config.common.verbose, true);
   }
 
   static void apply_self_excludes(config_t& config, const void* anchor) {
-    if (config.exclude_self) {
-      w1::util::append_self_excludes(config.instrumentation, anchor);
+    if (config.common.exclude_self) {
+      w1::util::append_self_excludes(config.common.instrumentation, anchor);
     }
   }
 
   static void log_config(const config_t& config) {
     auto log = redlog::get_logger("w1cov.preload");
+    const char* threads =
+        config.threads == w1::instrument::config::thread_attach_policy::auto_attach ? "auto" : "main";
     log.inf(
         "qbdipreload_on_run configured", redlog::field("mode", coverage_mode_name(config.mode)),
         redlog::field("output_file", config.output_file),
-        redlog::field("buffer_flush_threshold", config.buffer_flush_threshold)
+        redlog::field("buffer_flush_threshold", config.buffer_flush_threshold), redlog::field("threads", threads)
     );
   }
 

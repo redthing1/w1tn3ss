@@ -81,8 +81,8 @@ int main(int argc, char* argv[]) {
   config.enrich.modules = true;
   config.enrich.symbols = true;
   config.enrich.analyze_apis = true;
-  config.verbose = verbose;
-  config.instrumentation.include_modules = {"test_w1xfer"};
+  config.common.verbose = verbose;
+  config.common.instrumentation.include_modules = {"test_w1xfer"};
 
   auto runtime = w1xfer::make_transfer_runtime(config);
   if (!runtime.session) {
@@ -91,14 +91,14 @@ int main(int argc, char* argv[]) {
   }
 
   uint64_t result = 0;
-  if (!runtime.session->call(reinterpret_cast<uint64_t>(test_xfer_library_calls), {1024}, &result)) {
+  if (!runtime.session->call_current_thread(reinterpret_cast<uint64_t>(test_xfer_library_calls), {1024}, &result)) {
     std::cerr << "failed to trace function\n";
     return 1;
   }
 
   runtime.session->export_output();
 
-  const auto& stats = runtime.session->engine().stats();
+  const auto stats = runtime.session->engine().stats();
   if (stats.total_calls == 0 || stats.total_returns == 0) {
     std::cerr << "unexpected empty transfer stats\n";
     return 1;

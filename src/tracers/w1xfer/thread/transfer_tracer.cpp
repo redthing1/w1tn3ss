@@ -3,6 +3,8 @@
 #include <sstream>
 #include <utility>
 
+#include "w1runtime/thread_catalog.hpp"
+
 namespace w1xfer {
 namespace {
 
@@ -73,11 +75,14 @@ void log_transfer_event(
 
 } // namespace
 
-transfer_tracer::transfer_tracer(std::shared_ptr<transfer_engine> engine, transfer_config config)
+transfer_tracer::transfer_tracer(
+    std::shared_ptr<transfer_engine> engine, transfer_config config, const w1::runtime::thread_info& info
+)
     : engine_(std::move(engine)), config_(std::move(config)) {
-  if (config_.verbose > 0) {
+  if (config_.common.verbose > 0) {
     log_.inf(
-        "transfer tracer created", redlog::field("output", config_.output.path),
+        "transfer tracer created", redlog::field("thread_id", info.tid),
+        redlog::field("thread_name", info.name), redlog::field("output", config_.output.path),
         redlog::field("capture_registers", config_.capture.registers),
         redlog::field("capture_stack", config_.capture.stack), redlog::field("enrich_modules", config_.enrich.modules),
         redlog::field("enrich_symbols", config_.enrich.symbols),
@@ -92,18 +97,9 @@ void transfer_tracer::on_thread_start(w1::trace_context& ctx, const w1::thread_e
     return;
   }
 
-  log_.inf("initializing transfer tracer");
-
-  const bool needs_modules = config_.enrich.modules || config_.enrich.symbols ||
-                             (config_.output.emit_metadata && !config_.output.path.empty());
-  if (needs_modules) {
-    log_.inf("module tracking enabled");
-  }
-
-  engine_->attach(ctx);
-
-  if (config_.verbose > 0) {
-    log_.inf("transfer tracer initialized successfully");
+  state_ = engine_->make_thread_state();
+  if (config_.common.verbose > 0) {
+    log_.inf("transfer tracer initialized", redlog::field("thread_id", ctx.thread_id()));
   }
   initialized_ = true;
 }
@@ -115,15 +111,16 @@ void transfer_tracer::on_thread_stop(w1::trace_context& ctx, const w1::thread_ev
     return;
   }
 
-  log_.inf("shutting down transfer tracer");
-  engine_->shutdown();
-
-  const auto& stats = engine_->stats();
-  log_.inf(
-      "transfer collection completed", redlog::field("total_calls", stats.total_calls),
-      redlog::field("total_returns", stats.total_returns), redlog::field("unique_targets", stats.unique_call_targets),
-      redlog::field("max_depth", stats.max_call_depth)
-  );
+  engine_->merge_thread_stats(state_);
+  if (config_.common.verbose > 0) {
+    log_.inf(
+        "transfer thread completed", redlog::field("thread_id", ctx.thread_id()),
+        redlog::field("total_calls", state_.stats.total_calls),
+        redlog::field("total_returns", state_.stats.total_returns),
+        redlog::field("unique_targets", state_.stats.unique_call_targets),
+        redlog::field("max_depth", state_.stats.max_call_depth)
+    );
+  }
 }
 
 void transfer_tracer::on_exec_transfer_call(
@@ -136,9 +133,13 @@ void transfer_tracer::on_exec_transfer_call(
     return;
   }
 
-  engine_->record_call(ctx, event, gpr, fpr);
+  if (!initialized_) {
+    state_ = engine_->make_thread_state();
+    initialized_ = true;
+  }
+  engine_->record_call(state_, ctx, event, gpr, fpr);
 
-  if (config_.verbose > 0) {
+  if (config_.common.verbose > 0) {
     log_transfer_event(log_, "call transfer detected", *engine_, config_, event.source_address, event.target_address);
   }
 }
@@ -153,9 +154,13 @@ void transfer_tracer::on_exec_transfer_return(
     return;
   }
 
-  engine_->record_return(ctx, event, gpr, fpr);
+  if (!initialized_) {
+    state_ = engine_->make_thread_state();
+    initialized_ = true;
+  }
+  engine_->record_return(state_, ctx, event, gpr, fpr);
 
-  if (config_.verbose > 0) {
+  if (config_.common.verbose > 0) {
     log_transfer_event(log_, "return transfer detected", *engine_, config_, event.source_address, event.target_address);
   }
 }

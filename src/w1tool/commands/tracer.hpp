@@ -3,9 +3,29 @@
 #include "w1base/ext/args.hpp"
 #include <map>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace w1tool::commands {
+
+/**
+ * convert tracer config key to environment variable name
+ */
+std::string make_env_var_name(const std::string& tracer_name, const std::string& config_key);
+
+/**
+ * parse config string in format "key=value"
+ */
+std::pair<std::string, std::string> parse_config_string(const std::string& config_str);
+
+/**
+ * apply config key=value flags into config map
+ * returns false and sets error_out to the bad entry on parse failure
+ */
+bool apply_config_flags(
+    args::ValueFlagList<std::string>& config_flags, std::map<std::string, std::string>& config_map,
+    std::string* error_out = nullptr
+);
 
 /**
  * tracer execution parameters

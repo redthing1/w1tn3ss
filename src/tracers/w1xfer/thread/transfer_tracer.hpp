@@ -13,11 +13,15 @@
 #include "config/transfer_config.hpp"
 #include "engine/transfer_engine.hpp"
 
+namespace w1::runtime {
+struct thread_info;
+}
+
 namespace w1xfer {
 
 class transfer_tracer {
 public:
-  transfer_tracer(std::shared_ptr<transfer_engine> engine, transfer_config config);
+  transfer_tracer(std::shared_ptr<transfer_engine> engine, transfer_config config, const w1::runtime::thread_info& info);
 
   const char* name() const { return "w1xfer"; }
   static constexpr w1::event_mask requested_events() {
@@ -47,6 +51,7 @@ public:
 private:
   std::shared_ptr<transfer_engine> engine_{};
   transfer_config config_{};
+  transfer_engine::transfer_thread_state state_{};
   redlog::logger log_ = redlog::get_logger("w1xfer.thread");
   bool initialized_ = false;
 };

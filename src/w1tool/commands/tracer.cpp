@@ -50,6 +50,30 @@ std::pair<std::string, std::string> parse_config_string(const std::string& confi
   return {key, value};
 }
 
+bool apply_config_flags(
+    args::ValueFlagList<std::string>& config_flags, std::map<std::string, std::string>& config_map,
+    std::string* error_out
+) {
+  if (!config_flags) {
+    return true;
+  }
+
+  for (const std::string& config_str : args::get(config_flags)) {
+    auto [key, value] = parse_config_string(config_str);
+
+    if (key.empty() || value.empty()) {
+      if (error_out) {
+        *error_out = config_str;
+      }
+      return false;
+    }
+
+    config_map[key] = value;
+  }
+
+  return true;
+}
+
 int tracer(
     args::ValueFlag<std::string>& library_flag, args::ValueFlag<std::string>& name_flag, args::Flag& spawn_flag,
     args::ValueFlag<int>& pid_flag, args::ValueFlag<std::string>& process_name_flag,
@@ -130,17 +154,10 @@ int tracer(
   }
 
   // process config
-  if (config_flags) {
-    for (const std::string& config_str : args::get(config_flags)) {
-      auto [key, value] = parse_config_string(config_str);
-
-      if (key.empty() || value.empty()) {
-        log.err("invalid config format, expected key=value", redlog::field("config", config_str));
-        return 1;
-      }
-
-      params.config_map[key] = value;
-    }
+  std::string config_error;
+  if (!apply_config_flags(config_flags, params.config_map, &config_error)) {
+    log.err("invalid config format, expected key=value", redlog::field("config", config_error));
+    return 1;
   }
 
   // process output flag

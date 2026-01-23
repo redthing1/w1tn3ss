@@ -16,7 +16,7 @@ int main() {
 
   w1cov::coverage_config config;
   config.output_file = "test_w1cov_module_filtering.drcov";
-  config.instrumentation.include_modules = {"w1cov_demo_lib"};
+  config.common.instrumentation.include_modules = {"w1cov_demo_lib"};
 
   using process_runtime = w1cov::coverage_process_runtime<w1cov::coverage_mode::basic_block>;
   process_runtime runtime(config);

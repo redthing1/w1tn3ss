@@ -24,12 +24,12 @@ struct dump_recipe {
   static config_t load_config() { return dump_config::from_environment(); }
 
   static void configure_logging(const config_t& config) {
-    w1::instrument::configure_redlog_verbosity(config.verbose);
+    w1::instrument::configure_redlog_verbosity(config.common.verbose);
   }
 
   static void apply_self_excludes(config_t& config, const void* anchor) {
-    if (config.exclude_self) {
-      w1::util::append_self_excludes(config.instrumentation, anchor);
+    if (config.common.exclude_self) {
+      w1::util::append_self_excludes(config.common.instrumentation, anchor);
     }
   }
 

@@ -7,20 +7,28 @@
 #include "engine/transfer_engine.hpp"
 #include "thread/transfer_tracer.hpp"
 #include "w1instrument/tracer/runtime.hpp"
+#include "w1runtime/thread_catalog.hpp"
 
 namespace w1xfer {
 
 struct transfer_traits {
   using tracer_type = transfer_tracer;
+  using process_config = typename w1::instrument::process_session<tracer_type>::config;
 
-  static w1::instrument::thread_session_config make_thread_config(const transfer_config& config) {
-    w1::instrument::thread_session_config session_config{};
-    session_config.instrumentation = config.instrumentation;
+  static process_config make_process_config(const transfer_config& config, bool owns_observer) {
+    process_config session_config{};
+    session_config.instrumentation = config.common.instrumentation;
+    session_config.attach_new_threads =
+        config.threads == w1::instrument::config::thread_attach_policy::auto_attach;
+    session_config.refresh_on_module_events = true;
+    session_config.owns_observer = owns_observer;
     return session_config;
   }
 
-  static tracer_type make_tracer(std::shared_ptr<transfer_engine> engine, const transfer_config& config) {
-    return tracer_type(std::move(engine), config);
+  static tracer_type make_tracer(
+      std::shared_ptr<transfer_engine> engine, const transfer_config& config, const w1::runtime::thread_info& info
+  ) {
+    return tracer_type(std::move(engine), config, info);
   }
 
   static void configure_engine(transfer_engine& engine, w1::runtime::module_catalog& modules) {
@@ -32,7 +40,7 @@ struct transfer_traits {
 
 struct transfer_runtime {
   using session_type =
-      w1::instrument::thread_runtime<transfer_engine, transfer_tracer, transfer_config, transfer_traits>;
+      w1::instrument::tracer_runtime<transfer_engine, transfer_tracer, transfer_config, transfer_traits>;
 
   std::unique_ptr<session_type> session;
 };

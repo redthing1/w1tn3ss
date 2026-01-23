@@ -137,6 +137,7 @@ void cmd_cover(args::Subparser& parser) {
       parser, "policy", "system module policy (exclude_all, include_critical, include_all)", {"system-policy"}
   );
   args::Flag inst_trace(parser, "inst-trace", "enable instruction-level tracing (default: basic block)", {"inst"});
+  args::ValueFlagList<std::string> config(parser, "config", "configuration key=value pairs", {'c', "config"});
   args::ValueFlag<std::string> module_filter(
       parser, "modules", "comma-separated list of modules to filter", {'m', "module-filter"}
   );
@@ -148,8 +149,8 @@ void cmd_cover(args::Subparser& parser) {
   parser.Parse();
 
   w1tool::commands::cover(
-      library, spawn, pid, name, output, system_policy, inst_trace, module_filter, debug_level, format, suspended,
-      no_aslr, args, g_executable_path
+      library, spawn, pid, name, output, system_policy, inst_trace, config, module_filter, debug_level, format,
+      suspended, no_aslr, args, g_executable_path
   );
 }
 
@@ -174,6 +175,7 @@ void cmd_dump(args::Subparser& parser) {
   args::ValueFlag<std::string> name(parser, "name", "process name to attach to", {'n', "name"});
   args::ValueFlag<std::string> output(parser, "path", "output file path", {'o', "output"});
   args::Flag memory(parser, "memory", "dump memory content", {"memory"});
+  args::ValueFlagList<std::string> config(parser, "config", "configuration key=value pairs", {'c', "config"});
   args::ValueFlagList<std::string> filter(
       parser, "filter", "filter regions (format: type[:module1,module2])", {'f', "filter"}
   );
@@ -187,7 +189,7 @@ void cmd_dump(args::Subparser& parser) {
   parser.Parse();
 
   w1tool::commands::dump(
-      library, spawn, pid, name, output, memory, filter, max_region_size, debug_level, suspended, no_aslr, args,
+      library, spawn, pid, name, output, memory, config, filter, max_region_size, debug_level, suspended, no_aslr, args,
       g_executable_path
   );
 }

@@ -23,7 +23,7 @@ struct script_traits {
 
   static w1::instrument::thread_session_config make_thread_config(const script_config& config) {
     w1::instrument::thread_session_config session_config{};
-    session_config.instrumentation = config.instrumentation;
+    session_config.instrumentation = config.common.instrumentation;
     return session_config;
   }
 

@@ -148,6 +148,21 @@ public:
     return ok;
   }
 
+  bool call_current_thread(
+      uint64_t function_ptr, const std::vector<uint64_t>& args, uint64_t* result = nullptr,
+      std::string name = "main"
+  ) {
+    auto session = attach_current_thread(std::move(name));
+    if (!session) {
+      return false;
+    }
+
+    const uint64_t tid = w1::util::current_thread_id();
+    bool ok = session->call(function_ptr, args, result);
+    detach_thread(tid);
+    return ok;
+  }
+
   void detach_thread(uint64_t tid) {
     std::shared_ptr<session_type> session;
     {

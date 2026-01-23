@@ -3,7 +3,8 @@
 namespace w1cov {
 
 coverage_engine::coverage_engine(coverage_config config)
-    : config_(std::move(config)), registry_(w1::core::instrumented_module_policy{config_.instrumentation}) {}
+    : config_(std::move(config)),
+      registry_(w1::core::instrumented_module_policy{config_.common.instrumentation}) {}
 
 void coverage_engine::configure(w1::runtime::module_catalog& modules) {
   store_.reset();

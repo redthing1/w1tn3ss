@@ -9,7 +9,7 @@ namespace w1xfer {
 
 // public helpers for standalone usage
 template <typename Fn>
-decltype(auto) with_thread_runtime(transfer_config config, Fn&& fn) {
+decltype(auto) with_runtime(transfer_config config, Fn&& fn) {
   auto runtime = make_transfer_runtime(std::move(config));
   return fn(runtime);
 }

@@ -87,9 +87,8 @@ int main(int argc, char* argv[]) {
 
   w1::tracers::script::script_config config;
   config.script_path = script_path;
-  config.verbose = verbose;
-
-  config.instrumentation.include_modules = {"test_w1script"};
+  config.common.verbose = verbose;
+  config.common.instrumentation.include_modules = {"test_w1script"};
 
   auto runtime = w1::tracers::script::make_script_runtime(config);
   if (!runtime.session) {

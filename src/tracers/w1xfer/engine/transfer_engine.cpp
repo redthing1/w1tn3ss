@@ -68,12 +68,16 @@ transfer_engine::transfer_engine(transfer_config config) : config_(std::move(con
   if (!config_.output.path.empty()) {
     writer_ = std::make_unique<transfer_writer_jsonl>(config_.output.path, config_.output.emit_metadata);
   }
+}
 
+transfer_engine::transfer_thread_state transfer_engine::make_thread_state() const {
+  transfer_thread_state state;
   if (analyze_apis_) {
     w1::analysis::abi_dispatcher_config cfg;
     cfg.enable_stack_reads = true;
-    abi_dispatcher_ = std::make_unique<w1::analysis::abi_dispatcher>(cfg);
+    state.abi_dispatcher = std::make_unique<w1::analysis::abi_dispatcher>(cfg);
   }
+  return state;
 }
 
 void transfer_engine::configure(w1::runtime::module_catalog& modules) {
@@ -83,32 +87,8 @@ void transfer_engine::configure(w1::runtime::module_catalog& modules) {
   }
 }
 
-void transfer_engine::attach(const w1::trace_context& ctx) {
-  if (attached_) {
-    return;
-  }
-
-  modules_ = &ctx.modules();
-  memory_ = &ctx.memory();
-
-  if (enrich_modules_ || enrich_symbols_ || emit_metadata_) {
-    symbol_lookup_.set_module_catalog(modules_);
-  }
-
-  if (emit_metadata_ && writer_ && modules_) {
-    writer_->ensure_metadata(*modules_);
-  }
-
-  attached_ = true;
-}
-
-void transfer_engine::shutdown() {
-  if (writer_) {
-    writer_->flush();
-  }
-}
-
 bool transfer_engine::export_output() {
+  std::lock_guard<std::mutex> lock(writer_mutex_);
   const bool had_output = writer_ && writer_->is_open();
   if (writer_) {
     writer_->flush();
@@ -118,36 +98,63 @@ bool transfer_engine::export_output() {
   return had_output;
 }
 
-void transfer_engine::update_call_depth(transfer_type type) {
+void transfer_engine::update_call_depth(transfer_stats& stats, transfer_type type) {
   if (type == transfer_type::CALL) {
-    stats_.current_call_depth++;
-    if (stats_.current_call_depth > stats_.max_call_depth) {
-      stats_.max_call_depth = stats_.current_call_depth;
+    stats.current_call_depth++;
+    if (stats.current_call_depth > stats.max_call_depth) {
+      stats.max_call_depth = stats.current_call_depth;
     }
-  } else if (type == transfer_type::RETURN && stats_.current_call_depth > 0) {
-    stats_.current_call_depth--;
+  } else if (type == transfer_type::RETURN && stats.current_call_depth > 0) {
+    stats.current_call_depth--;
   }
 }
 
 void transfer_engine::record_call(
-    const w1::trace_context& ctx, const w1::exec_transfer_event& event, QBDI::GPRState* gpr, QBDI::FPRState* fpr
+    transfer_thread_state& state, const w1::trace_context& ctx, const w1::exec_transfer_event& event,
+    QBDI::GPRState* gpr, QBDI::FPRState* fpr
 ) {
   (void) fpr;
-  record_transfer(transfer_type::CALL, ctx, event, gpr, fpr);
+  record_transfer(state, transfer_type::CALL, ctx, event, gpr, fpr);
 }
 
 void transfer_engine::record_return(
-    const w1::trace_context& ctx, const w1::exec_transfer_event& event, QBDI::GPRState* gpr, QBDI::FPRState* fpr
+    transfer_thread_state& state, const w1::trace_context& ctx, const w1::exec_transfer_event& event,
+    QBDI::GPRState* gpr, QBDI::FPRState* fpr
 ) {
   (void) fpr;
-  record_transfer(transfer_type::RETURN, ctx, event, gpr, fpr);
+  record_transfer(state, transfer_type::RETURN, ctx, event, gpr, fpr);
 }
 
 std::optional<transfer_endpoint> transfer_engine::resolve_endpoint(uint64_t address) const {
   return build_endpoint(address);
 }
 
+void transfer_engine::merge_thread_stats(const transfer_thread_state& state) {
+  std::lock_guard<std::mutex> lock(stats_mutex_);
+
+  stats_.total_calls += state.stats.total_calls;
+  stats_.total_returns += state.stats.total_returns;
+  if (state.stats.max_call_depth > stats_.max_call_depth) {
+    stats_.max_call_depth = state.stats.max_call_depth;
+  }
+
+  if (!state.unique_call_targets.empty()) {
+    unique_call_targets_.insert(state.unique_call_targets.begin(), state.unique_call_targets.end());
+    stats_.unique_call_targets = unique_call_targets_.size();
+  }
+  if (!state.unique_return_sources.empty()) {
+    unique_return_sources_.insert(state.unique_return_sources.begin(), state.unique_return_sources.end());
+    stats_.unique_return_sources = unique_return_sources_.size();
+  }
+}
+
+transfer_stats transfer_engine::stats() const {
+  std::lock_guard<std::mutex> lock(stats_mutex_);
+  return stats_;
+}
+
 void transfer_engine::write_record(const transfer_record& record) {
+  std::lock_guard<std::mutex> lock(writer_mutex_);
   if (!writer_ || !writer_->is_open()) {
     return;
   }
@@ -155,26 +162,38 @@ void transfer_engine::write_record(const transfer_record& record) {
   writer_->write_record(record);
 }
 
-void transfer_engine::record_transfer(
-    transfer_type type, const w1::trace_context& ctx, const w1::exec_transfer_event& event, QBDI::GPRState* gpr,
-    QBDI::FPRState* fpr
-) {
-  (void) fpr;
-  if (type == transfer_type::CALL) {
-    stats_.total_calls++;
-    update_call_depth(transfer_type::CALL);
-    unique_call_targets_.insert(event.target_address);
-    stats_.unique_call_targets = unique_call_targets_.size();
-  } else {
-    stats_.total_returns++;
-    update_call_depth(transfer_type::RETURN);
-    unique_return_sources_.insert(event.source_address);
-    stats_.unique_return_sources = unique_return_sources_.size();
+void transfer_engine::ensure_metadata(const w1::runtime::module_catalog& modules) {
+  if (!emit_metadata_ || !writer_ || !writer_->is_open()) {
+    return;
   }
 
-  if (!attached_) [[unlikely]] {
-    attach(ctx);
+  std::call_once(metadata_once_, [&]() {
+    std::lock_guard<std::mutex> lock(writer_mutex_);
+    if (writer_) {
+      writer_->ensure_metadata(modules);
+    }
+  });
+}
+
+void transfer_engine::record_transfer(
+    transfer_thread_state& state, transfer_type type, const w1::trace_context& ctx,
+    const w1::exec_transfer_event& event, QBDI::GPRState* gpr, QBDI::FPRState* fpr
+) {
+  (void) fpr;
+
+  if (type == transfer_type::CALL) {
+    state.stats.total_calls++;
+    update_call_depth(state.stats, transfer_type::CALL);
+    state.unique_call_targets.insert(event.target_address);
+    state.stats.unique_call_targets = state.unique_call_targets.size();
+  } else {
+    state.stats.total_returns++;
+    update_call_depth(state.stats, transfer_type::RETURN);
+    state.unique_return_sources.insert(event.source_address);
+    state.stats.unique_return_sources = state.unique_return_sources.size();
   }
+
+  ensure_metadata(ctx.modules());
 
   std::optional<w1::util::register_state> regs;
   if (capture_registers_) {
@@ -182,9 +201,9 @@ void transfer_engine::record_transfer(
   }
 
   std::optional<w1::util::stack_info> stack_info;
-  if (capture_stack_ && regs && memory_ &&
+  if (capture_stack_ && regs &&
       regs->get_architecture() != w1::util::register_state::architecture::unknown) {
-    stack_info = w1::util::stack_capturer::capture(*memory_, *regs);
+    stack_info = w1::util::stack_capturer::capture(ctx.memory(), *regs);
   }
 
   uint64_t resolved_source = event.source_address;
@@ -199,10 +218,10 @@ void transfer_engine::record_transfer(
   record.event.type = type;
   record.event.source_address = resolved_source;
   record.event.target_address = event.target_address;
-  record.event.instruction_index = instruction_index_++;
+  record.event.instruction_index = instruction_index_.fetch_add(1, std::memory_order_relaxed);
   record.event.timestamp = current_timestamp();
   record.event.thread_id = ctx.thread_id();
-  record.event.call_depth = stats_.current_call_depth;
+  record.event.call_depth = state.stats.current_call_depth;
 
   if (config_.capture.registers && regs) {
     record.registers = to_registers(*regs);
@@ -218,7 +237,7 @@ void transfer_engine::record_transfer(
   }
 
   if (analyze_apis_) {
-    record.api = analyze_api_event(type, ctx, resolved_source, event.target_address, gpr);
+    record.api = analyze_api_event(type, state, ctx.memory(), resolved_source, event.target_address, gpr);
   }
 
   write_record(record);
@@ -270,13 +289,13 @@ std::optional<transfer_endpoint> transfer_engine::build_endpoint(uint64_t addres
 }
 
 std::optional<transfer_api_info> transfer_engine::analyze_api_event(
-    transfer_type type, const w1::trace_context& ctx, uint64_t source_addr, uint64_t target_addr, QBDI::GPRState* gpr
+    transfer_type type, transfer_thread_state& state, const w1::util::memory_reader& memory, uint64_t source_addr,
+    uint64_t target_addr, QBDI::GPRState* gpr
 ) {
-  (void) ctx;
   (void) source_addr;
   (void) target_addr;
 
-  if (!abi_dispatcher_ || !memory_ || !gpr) {
+  if (!state.abi_dispatcher || !gpr) {
     return std::nullopt;
   }
 
@@ -289,10 +308,10 @@ std::optional<transfer_api_info> transfer_engine::analyze_api_event(
   if (type == transfer_type::CALL) {
     size_t arg_count = config_.enrich.api_argument_count;
     if (arg_count == 0) {
-      arg_count = default_argument_count();
+      arg_count = default_argument_count(*state.abi_dispatcher);
     }
 
-    auto args = abi_dispatcher_->extract_arguments(*memory_, gpr, arg_count);
+    auto args = state.abi_dispatcher->extract_arguments(memory, gpr, arg_count);
     info.arguments.reserve(args.size());
     for (size_t i = 0; i < args.size(); ++i) {
       const auto& arg = args[i];
@@ -309,7 +328,7 @@ std::optional<transfer_api_info> transfer_engine::analyze_api_event(
     }
   } else {
     transfer_api_return ret;
-    ret.raw_value = abi_dispatcher_->extract_return_value(gpr);
+    ret.raw_value = state.abi_dispatcher->extract_return_value(gpr);
     ret.type = "raw";
     ret.interpreted_value = "";
     ret.is_pointer = false;
@@ -321,12 +340,8 @@ std::optional<transfer_api_info> transfer_engine::analyze_api_event(
   return info;
 }
 
-size_t transfer_engine::default_argument_count() const {
-  if (!abi_dispatcher_) {
-    return 0;
-  }
-
-  switch (abi_dispatcher_->kind()) {
+size_t transfer_engine::default_argument_count(const w1::analysis::abi_dispatcher& dispatcher) const {
+  switch (dispatcher.kind()) {
   case w1::analysis::abi_kind::system_v_amd64:
     return 6;
   case w1::analysis::abi_kind::windows_amd64:

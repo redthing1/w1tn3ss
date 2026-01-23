@@ -24,23 +24,25 @@ struct transfer_recipe {
   static config_t load_config() { return transfer_config::from_environment(); }
 
   static void configure_logging(const config_t& config) {
-    w1::instrument::configure_redlog_verbosity(config.verbose);
+    w1::instrument::configure_redlog_verbosity(config.common.verbose);
   }
 
   static void apply_self_excludes(config_t& config, const void* anchor) {
-    if (config.exclude_self) {
-      w1::util::append_self_excludes(config.instrumentation, anchor);
+    if (config.common.exclude_self) {
+      w1::util::append_self_excludes(config.common.instrumentation, anchor);
     }
   }
 
   static void log_config(const config_t& config) {
     auto log = redlog::get_logger("w1xfer.preload");
+    const char* threads =
+        config.threads == w1::instrument::config::thread_attach_policy::auto_attach ? "auto" : "main";
     log.inf(
         "qbdipreload_on_run configured", redlog::field("output", config.output.path),
         redlog::field("capture_registers", config.capture.registers),
         redlog::field("capture_stack", config.capture.stack), redlog::field("enrich_modules", config.enrich.modules),
         redlog::field("enrich_symbols", config.enrich.symbols),
-        redlog::field("analyze_apis", config.enrich.analyze_apis),
+        redlog::field("analyze_apis", config.enrich.analyze_apis), redlog::field("threads", threads),
         redlog::field("api_arg_count", static_cast<uint64_t>(config.enrich.api_argument_count))
     );
   }
@@ -58,7 +60,7 @@ struct transfer_recipe {
       return false;
     }
 
-    return runtime.session->run(vm, start, stop, "main");
+    return runtime.session->run_main(vm, start, stop, "main");
   }
 
   static void on_exit(runtime_t& runtime, const config_t& config, int status) {
@@ -70,8 +72,9 @@ struct transfer_recipe {
       return;
     }
 
+    runtime.session->stop();
     const bool exported = runtime.session->export_output();
-    const auto& stats = runtime.session->engine().stats();
+    const auto stats = runtime.session->engine().stats();
 
     if (!exported && !config.output.path.empty()) {
       log.wrn("transfer export produced no output", redlog::field("output", config.output.path));
