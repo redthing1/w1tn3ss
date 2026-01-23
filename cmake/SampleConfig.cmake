@@ -16,6 +16,7 @@ function(w1_add_sample_program target)
     endif()
 
     add_executable(${target} ${W1_SOURCES})
+    w1_register_target(${target})
     w1_target_defaults(${target})
 
     set(sample_output_dir "${W1_OUTPUT_SAMPLE_DIR}")

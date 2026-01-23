@@ -21,23 +21,67 @@ set(_W1_LIEF_LINK_HINTS
     "w1import"
 )
 
-function(_w1_target_links_hint TARGET_NAME OUT_VAR)
-    set(_patterns ${ARGN})
+function(_w1_normalize_link_item ITEM OUT_VAR)
+    set(_value "${ITEM}")
+    if(_value MATCHES "^\\$<LINK_ONLY:(.+)>$")
+        set(_value "${CMAKE_MATCH_1}")
+    elseif(_value MATCHES "^\\$<TARGET_NAME_IF_EXISTS:([^>]+)>$")
+        set(_value "${CMAKE_MATCH_1}")
+    elseif(_value MATCHES "^\\$<TARGET_OBJECTS:([^>]+)>$")
+        set(_value "${CMAKE_MATCH_1}")
+    endif()
+    set(${OUT_VAR} "${_value}" PARENT_SCOPE)
+endfunction()
+
+function(_w1_target_has_link_hint_impl TARGET_NAME OUT_VAR)
+    set(options)
+    set(one_value_args)
+    set(multi_value_args PATTERNS VISITED)
+    cmake_parse_arguments(W1 "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
+
+    if(TARGET_NAME IN_LIST W1_VISITED)
+        set(${OUT_VAR} FALSE PARENT_SCOPE)
+        return()
+    endif()
+    list(APPEND W1_VISITED ${TARGET_NAME})
+
     foreach(_prop IN ITEMS LINK_LIBRARIES INTERFACE_LINK_LIBRARIES)
         get_target_property(_libs ${TARGET_NAME} ${_prop})
         if(NOT _libs OR _libs STREQUAL "${_prop}-NOTFOUND")
             continue()
         endif()
         foreach(_lib IN LISTS _libs)
-            foreach(_pattern IN LISTS _patterns)
-                if(_lib MATCHES "${_pattern}")
+            _w1_normalize_link_item("${_lib}" _norm)
+            foreach(_pattern IN LISTS W1_PATTERNS)
+                if(_norm MATCHES "${_pattern}")
                     set(${OUT_VAR} TRUE PARENT_SCOPE)
                     return()
                 endif()
             endforeach()
+
+            if(TARGET ${_norm})
+                get_target_property(_aliased ${_norm} ALIASED_TARGET)
+                if(_aliased)
+                    set(_norm ${_aliased})
+                endif()
+                _w1_target_has_link_hint_impl(${_norm} _child
+                    PATTERNS ${W1_PATTERNS}
+                    VISITED ${W1_VISITED}
+                )
+                if(_child)
+                    set(${OUT_VAR} TRUE PARENT_SCOPE)
+                    return()
+                endif()
+            endif()
         endforeach()
     endforeach()
+
     set(${OUT_VAR} FALSE PARENT_SCOPE)
+endfunction()
+
+function(_w1_target_has_link_hint TARGET_NAME OUT_VAR)
+    _w1_target_has_link_hint_impl(${TARGET_NAME} _hint_found PATTERNS ${ARGN})
+    set(${OUT_VAR} ${_hint_found} PARENT_SCOPE)
 endfunction()
 
 # configure Windows-specific linker options to handle duplicate symbols
@@ -46,8 +90,8 @@ function(configure_windows_symbol_resolution TARGET_NAME)
         return()
     endif()
 
-    _w1_target_links_hint(${TARGET_NAME} _w1_has_qbdi ${_W1_QBDI_LINK_HINTS})
-    _w1_target_links_hint(${TARGET_NAME} _w1_has_lief ${_W1_LIEF_LINK_HINTS})
+    _w1_target_has_link_hint(${TARGET_NAME} _w1_has_qbdi ${_W1_QBDI_LINK_HINTS})
+    _w1_target_has_link_hint(${TARGET_NAME} _w1_has_lief ${_W1_LIEF_LINK_HINTS})
 
     if(_w1_has_qbdi AND _w1_has_lief)
         message(STATUS "applying fmt conflict resolution for ${TARGET_NAME}")
@@ -56,32 +100,17 @@ function(configure_windows_symbol_resolution TARGET_NAME)
     endif()
 endfunction()
 
-# apply Windows symbol resolution to all project targets
-function(_w1_collect_targets_recursive DIR OUT_VAR)
-    set(_targets "")
-    get_property(_dir_targets DIRECTORY "${DIR}" PROPERTY BUILDSYSTEM_TARGETS)
-    if(_dir_targets)
-        list(APPEND _targets ${_dir_targets})
-    endif()
-
-    get_property(_subdirs DIRECTORY "${DIR}" PROPERTY SUBDIRECTORIES)
-    foreach(_subdir IN LISTS _subdirs)
-        _w1_collect_targets_recursive("${_subdir}" _sub_targets)
-        if(_sub_targets)
-            list(APPEND _targets ${_sub_targets})
-        endif()
-    endforeach()
-
-    set(${OUT_VAR} "${_targets}" PARENT_SCOPE)
+function(w1_register_target_for_symbol_resolution TARGET_NAME)
+    set_property(GLOBAL APPEND PROPERTY W1_WINDOWS_SYMBOL_TARGETS ${TARGET_NAME})
 endfunction()
 
 function(apply_windows_symbol_resolution_to_all)
-    # get all targets in this build tree (including subdirectories)
-    _w1_collect_targets_recursive("${CMAKE_CURRENT_BINARY_DIR}" targets)
-    if(targets)
-        list(REMOVE_DUPLICATES targets)
+    get_property(targets GLOBAL PROPERTY W1_WINDOWS_SYMBOL_TARGETS)
+    if(NOT targets)
+        return()
     endif()
-    
+    list(REMOVE_DUPLICATES targets)
+
     foreach(target IN LISTS targets)
         # only apply to executable and library targets
         get_target_property(target_type ${target} TYPE)

@@ -20,14 +20,6 @@ if(WITNESS_SCRIPT AND TARGET w1script_static)
     )
 endif()
 
-if(WIN32 AND MSVC)
-    include(${W1_SOURCE_DIR}/cmake/WindowsSymbolConfig.cmake)
-    configure_windows_symbol_resolution(test_w1xfer)
-    if(TARGET test_w1script)
-        configure_windows_symbol_resolution(test_w1script)
-    endif()
-endif()
-
 w1_add_harness_test(test_gadget_executor
     SOURCES test_gadget_executor.cpp
     INCLUDE_DIRS ${W1_SOURCE_DIR}/src
