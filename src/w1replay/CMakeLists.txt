@@ -8,6 +8,7 @@ w1_add_executable(w1replay
     cli/commands/checkpoint.cpp
     cli/commands/inspect.cpp
     cli/commands/server.cpp
+    cli/commands/summary.cpp
     cli/commands/threads.cpp
     modules/asmr_block_decoder.cpp
     modules/address_index.cpp
