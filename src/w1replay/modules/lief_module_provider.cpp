@@ -153,6 +153,23 @@ std::optional<std::string> lief_module_provider::module_uuid(
 #endif
 }
 
+std::optional<uint64_t> lief_module_provider::module_entry_point(
+    const w1::rewind::module_record& module, std::string& error
+) {
+  error.clear();
+#if !defined(WITNESS_LIEF_ENABLED)
+  (void) module;
+  error = "module entrypoint unavailable (build with WITNESS_LIEF=ON)";
+  return std::nullopt;
+#else
+  auto* entry = get_or_load_entry(module, error);
+  if (!entry || !entry->binary) {
+    return std::nullopt;
+  }
+  return entry->binary->entrypoint();
+#endif
+}
+
 std::optional<macho_header_info> lief_module_provider::macho_header(
     const w1::rewind::module_record& module, std::string& error
 ) {
