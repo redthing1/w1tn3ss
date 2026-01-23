@@ -24,51 +24,21 @@ bool entry_in_module(const w1::rewind::module_record& module, uint64_t entry) {
   return entry < end;
 }
 
-std::optional<uint64_t> resolve_link_base(
-    const adapter_services& services, const w1::rewind::module_record& module,
-    const w1::rewind::module_record& resolved
-) {
-  if ((module.flags & w1::rewind::module_record_flag_link_base_valid) != 0) {
-    return module.link_base;
-  }
-  if (!services.module_reader) {
-    return std::nullopt;
-  }
-  std::string error;
-  if (const auto* layout = services.module_reader->module_layout(resolved, error)) {
-    return layout->link_base;
-  }
-  return std::nullopt;
-}
-
 std::optional<uint64_t> compute_runtime_entrypoint(
-    const adapter_services& services, const w1::rewind::module_record& module
+    const w1::rewind::module_record& module
 ) {
-  if (!services.module_metadata) {
+  if ((module.flags & w1::rewind::module_record_flag_entry_point_valid) == 0) {
     return std::nullopt;
   }
-
-  w1::rewind::module_record resolved = module;
-  if (services.module_resolver) {
-    if (auto resolved_path = services.module_resolver->resolve_module_path(module)) {
-      resolved.path = *resolved_path;
-    }
-  }
-
-  std::string error;
-  auto entry = services.module_metadata->module_entry_point(resolved, error);
-  if (!entry) {
+  if ((module.flags & w1::rewind::module_record_flag_link_base_valid) == 0) {
     return std::nullopt;
   }
-
-  auto link_base = resolve_link_base(services, module, resolved);
-  if (!link_base) {
+  const uint64_t entry = module.entry_point;
+  const uint64_t link_base = module.link_base;
+  if (entry < link_base) {
     return std::nullopt;
   }
-  if (*entry < *link_base) {
-    return std::nullopt;
-  }
-  uint64_t offset = *entry - *link_base;
+  uint64_t offset = entry - link_base;
   if (module.base > std::numeric_limits<uint64_t>::max() - offset) {
     return std::nullopt;
   }
@@ -97,14 +67,14 @@ std::optional<uint64_t> select_entrypoint(const adapter_services& services) {
     if (!is_elf_file_backed(module)) {
       return std::nullopt;
     }
-    return compute_runtime_entrypoint(services, module);
+    return compute_runtime_entrypoint(module);
   }
 
   if (services.session && services.module_index) {
     uint64_t pc = services.session->current_step().address;
     auto match = services.module_index->find(pc, 1);
     if (match && match->module && is_elf_file_backed(*match->module)) {
-      if (auto entry = compute_runtime_entrypoint(services, *match->module)) {
+      if (auto entry = compute_runtime_entrypoint(*match->module)) {
         return entry;
       }
     }
@@ -116,7 +86,7 @@ std::optional<uint64_t> select_entrypoint(const adapter_services& services) {
     if (!is_elf_file_backed(module)) {
       continue;
     }
-    auto entry = compute_runtime_entrypoint(services, module);
+    auto entry = compute_runtime_entrypoint(module);
     if (!entry) {
       continue;
     }
