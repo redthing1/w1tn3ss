@@ -7,6 +7,7 @@
 #include <vector>
 
 #include <QBDI.h>
+#include <redlog.hpp>
 
 #include "w1base/thread_utils.hpp"
 #include "w1instrument/core/vm_controller.hpp"
@@ -159,7 +160,19 @@ public:
       return false;
     }
 
-    return vm->run(static_cast<QBDI::rword>(start), static_cast<QBDI::rword>(stop));
+    bool ok = vm->run(static_cast<QBDI::rword>(start), static_cast<QBDI::rword>(stop));
+    if (!ok) {
+      auto log = redlog::get_logger("w1instrument.thread_session");
+      log.wrn(
+          "qbdi run returned false", redlog::field("thread_id", config_.thread_id), redlog::field("start", start),
+          redlog::field("stop", stop), redlog::field("include_filters", config_.instrumentation.include_modules.size()),
+          redlog::field("exclude_filters", config_.instrumentation.exclude_modules.size()),
+          redlog::field("use_default_excludes", config_.instrumentation.use_default_excludes),
+          redlog::field("include_unnamed", config_.instrumentation.include_unnamed_modules),
+          redlog::field("system_policy", static_cast<int>(config_.instrumentation.system_policy))
+      );
+    }
+    return ok;
   }
 
   bool call(uint64_t function_ptr, const std::vector<uint64_t>& args, uint64_t* result) {
@@ -247,11 +260,14 @@ private:
 
     auto modules = modules_->list_modules();
     size_t added = 0;
+    size_t eligible_modules = 0;
+    size_t eligible_ranges = 0;
 
     for (const auto& module : modules) {
       if (!config_.instrumentation.should_instrument(module)) {
         continue;
       }
+      ++eligible_modules;
 
       for (const auto& range : module.exec_ranges) {
         if (range.end <= range.start) {
@@ -259,12 +275,26 @@ private:
         }
         vm->addInstrumentedRange(range.start, range.end);
         ++added;
+        ++eligible_ranges;
       }
     }
 
     vm->clearAllCache();
 
     instrumented_ = added > 0;
+    if (!instrumented_) {
+      auto log = redlog::get_logger("w1instrument.thread_session");
+      log.wrn(
+          "no instrumented ranges; tracer may exit immediately", redlog::field("thread_id", config_.thread_id),
+          redlog::field("module_count", modules.size()), redlog::field("eligible_modules", eligible_modules),
+          redlog::field("eligible_ranges", eligible_ranges),
+          redlog::field("include_filters", config_.instrumentation.include_modules.size()),
+          redlog::field("exclude_filters", config_.instrumentation.exclude_modules.size()),
+          redlog::field("use_default_excludes", config_.instrumentation.use_default_excludes),
+          redlog::field("include_unnamed", config_.instrumentation.include_unnamed_modules),
+          redlog::field("system_policy", static_cast<int>(config_.instrumentation.system_policy))
+      );
+    }
     return added;
   }
 
