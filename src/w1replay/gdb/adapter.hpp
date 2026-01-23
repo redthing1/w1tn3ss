@@ -93,6 +93,7 @@ private:
   std::unique_ptr<libraries_component> libraries_component_;
   std::unique_ptr<loaded_libraries_component> loaded_libraries_component_;
   std::unique_ptr<process_info_component> process_info_component_;
+  std::unique_ptr<auxv_component> auxv_component_;
   std::unique_ptr<offsets_component> offsets_component_;
   std::unique_ptr<register_info_component> register_info_component_;
 };

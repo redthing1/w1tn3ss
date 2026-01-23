@@ -106,6 +106,7 @@ enum register_flags : uint16_t {
   register_flag_pc = 1u << 0,
   register_flag_sp = 1u << 1,
   register_flag_flags = 1u << 2,
+  register_flag_fp = 1u << 3,
 };
 
 enum class register_class : uint8_t {
@@ -141,6 +142,8 @@ struct register_spec_record {
 
 enum module_record_flags : uint32_t {
   module_record_flag_link_base_valid = 1u << 0,
+  module_record_flag_main = 1u << 1,
+  module_record_flag_file_backed = 1u << 2,
 };
 
 struct module_record {

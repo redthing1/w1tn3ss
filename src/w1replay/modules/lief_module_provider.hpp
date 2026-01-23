@@ -35,6 +35,7 @@ public:
   const image_layout* module_layout(const w1::rewind::module_record& module, std::string& error) override;
 
   std::optional<std::string> module_uuid(const w1::rewind::module_record& module, std::string& error) override;
+  std::optional<uint64_t> module_entry_point(const w1::rewind::module_record& module, std::string& error) override;
   std::optional<macho_header_info> macho_header(const w1::rewind::module_record& module, std::string& error) override;
   std::vector<macho_segment_info> macho_segments(const w1::rewind::module_record& module, std::string& error) override;
 
