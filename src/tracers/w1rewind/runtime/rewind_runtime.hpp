@@ -11,16 +11,14 @@
 
 namespace w1rewind {
 
-template <rewind_flow Mode, bool CaptureMemory>
-struct rewind_traits {
+template <rewind_flow Mode, bool CaptureMemory> struct rewind_traits {
   using tracer_type = rewind_thread_tracer<Mode, CaptureMemory>;
   using process_config = typename w1::instrument::process_session<tracer_type>::config;
 
   static process_config make_process_config(const rewind_config& config, bool owns_observer) {
     process_config tracer_config{};
     tracer_config.instrumentation = config.common.instrumentation;
-    tracer_config.attach_new_threads =
-        config.threads == w1::instrument::config::thread_attach_policy::auto_attach;
+    tracer_config.attach_new_threads = config.threads == w1::instrument::config::thread_attach_policy::auto_attach;
     tracer_config.refresh_on_module_events = true;
     tracer_config.owns_observer = owns_observer;
     return tracer_config;
@@ -56,14 +54,12 @@ struct rewind_traits {
 };
 
 template <rewind_flow Mode, bool CaptureMemory>
-using rewind_process_runtime =
-    w1::instrument::tracer_runtime<rewind_engine, rewind_thread_tracer<Mode, CaptureMemory>, rewind_config,
-                                   rewind_traits<Mode, CaptureMemory>>;
+using rewind_process_runtime = w1::instrument::tracer_runtime<
+    rewind_engine, rewind_thread_tracer<Mode, CaptureMemory>, rewind_config, rewind_traits<Mode, CaptureMemory>>;
 
 template <rewind_flow Mode, bool CaptureMemory>
-using rewind_thread_runtime =
-    w1::instrument::thread_runtime<rewind_engine, rewind_thread_tracer<Mode, CaptureMemory>, rewind_config,
-                                   rewind_traits<Mode, CaptureMemory>>;
+using rewind_thread_runtime = w1::instrument::thread_runtime<
+    rewind_engine, rewind_thread_tracer<Mode, CaptureMemory>, rewind_config, rewind_traits<Mode, CaptureMemory>>;
 
 using rewind_process_runtime_any = std::variant<
     std::unique_ptr<rewind_process_runtime<rewind_flow::instruction, true>>,

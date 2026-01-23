@@ -68,14 +68,8 @@ inline thread_attach_policy load_thread_attach_policy(
 
 inline constexpr std::array<std::string_view, 8> common_reserved_keys() {
   return {
-      "SYSTEM_POLICY",
-      "INCLUDE_UNNAMED",
-      "USE_DEFAULT_EXCLUDES",
-      "INCLUDE",
-      "EXCLUDE",
-      "EXCLUDE_SELF",
-      "VERBOSE",
-      "THREADS",
+      "SYSTEM_POLICY", "INCLUDE_UNNAMED", "USE_DEFAULT_EXCLUDES", "INCLUDE", "EXCLUDE", "EXCLUDE_SELF",
+      "VERBOSE",       "THREADS",
   };
 }
 

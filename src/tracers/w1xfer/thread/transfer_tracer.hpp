@@ -21,7 +21,9 @@ namespace w1xfer {
 
 class transfer_tracer {
 public:
-  transfer_tracer(std::shared_ptr<transfer_engine> engine, transfer_config config, const w1::runtime::thread_info& info);
+  transfer_tracer(
+      std::shared_ptr<transfer_engine> engine, transfer_config config, const w1::runtime::thread_info& info
+  );
 
   const char* name() const { return "w1xfer"; }
   static constexpr w1::event_mask requested_events() {

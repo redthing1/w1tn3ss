@@ -267,7 +267,8 @@ void module_catalog::refresh() {
     std::optional<size_t> main_index;
     for (size_t index = 0; index < modules.size(); ++index) {
       const auto& candidate = modules[index];
-      if (path_equal(candidate.path, *main_path) || (!normalized_main.empty() && path_equal(candidate.path, normalized_main))) {
+      if (path_equal(candidate.path, *main_path) ||
+          (!normalized_main.empty() && path_equal(candidate.path, normalized_main))) {
         main_index = index;
         break;
       }

@@ -17,8 +17,7 @@
 
 namespace w1::instrument {
 
-template <tracer tracer_t>
-class process_session {
+template <tracer tracer_t> class process_session {
 public:
   struct hooks {
     std::function<void(const runtime::process_event&)> on_event;
@@ -160,8 +159,7 @@ public:
   }
 
   bool call_current_thread(
-      uint64_t function_ptr, const std::vector<uint64_t>& args, uint64_t* result = nullptr,
-      std::string name = "main"
+      uint64_t function_ptr, const std::vector<uint64_t>& args, uint64_t* result = nullptr, std::string name = "main"
   ) {
     auto session = attach_current_thread(std::move(name));
     if (!session) {
@@ -291,17 +289,17 @@ private:
     }
 
     switch (event.type) {
-      case runtime::process_event::kind::module_loaded:
-      case runtime::process_event::kind::module_unloaded:
-        if (config_.refresh_on_module_events) {
-          refresh_all();
-        }
-        break;
-      case runtime::process_event::kind::thread_stopped:
-        detach_thread(event.thread.tid);
-        break;
-      default:
-        break;
+    case runtime::process_event::kind::module_loaded:
+    case runtime::process_event::kind::module_unloaded:
+      if (config_.refresh_on_module_events) {
+        refresh_all();
+      }
+      break;
+    case runtime::process_event::kind::thread_stopped:
+      detach_thread(event.thread.tid);
+      break;
+    default:
+      break;
     }
   }
 

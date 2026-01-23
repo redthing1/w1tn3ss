@@ -26,8 +26,7 @@ using module_load_record = w1::rewind::module_load_record;
 using module_unload_record = w1::rewind::module_unload_record;
 
 rewind_engine::rewind_engine(rewind_config config)
-    : config_(std::move(config)),
-      registry_(w1::core::instrumented_module_policy{config_.common.instrumentation}),
+    : config_(std::move(config)), registry_(w1::core::instrumented_module_policy{config_.common.instrumentation}),
       log_(redlog::get_logger("w1rewind.engine")),
       instruction_flow_(config_.flow.mode == rewind_config::flow_options::flow_mode::instruction) {}
 
@@ -118,8 +117,7 @@ bool rewind_engine::start_trace_locked(w1::trace_context& ctx, const w1::util::r
     return false;
   }
 
-  if (arch_spec_.arch_family == w1::arch::family::unknown ||
-      arch_spec_.arch_mode == w1::arch::mode::unknown) {
+  if (arch_spec_.arch_family == w1::arch::family::unknown || arch_spec_.arch_mode == w1::arch::mode::unknown) {
     log_.err("unsupported host architecture");
     return false;
   }
@@ -282,7 +280,9 @@ void rewind_engine::upsert_module_record(module_record record) {
   module_table_.push_back(std::move(record));
 }
 
-std::optional<module_record> rewind_engine::remove_module_record(uint64_t module_id, uint64_t base, const std::string& path) {
+std::optional<module_record> rewind_engine::remove_module_record(
+    uint64_t module_id, uint64_t base, const std::string& path
+) {
   auto it = module_table_.end();
   if (module_id != 0) {
     it = std::find_if(module_table_.begin(), module_table_.end(), [&](const module_record& entry) {
@@ -348,9 +348,8 @@ void rewind_engine::flush_pending(std::optional<pending_instruction>& pending) {
 }
 
 bool rewind_engine::emit_snapshot(
-    uint64_t thread_id, uint64_t sequence, uint64_t snapshot_id,
-    std::span<const w1::rewind::register_delta> registers, std::span<const w1::rewind::stack_segment> stack_segments,
-    std::string reason
+    uint64_t thread_id, uint64_t sequence, uint64_t snapshot_id, std::span<const w1::rewind::register_delta> registers,
+    std::span<const w1::rewind::stack_segment> stack_segments, std::string reason
 ) {
   std::lock_guard<std::mutex> lock(mutex_);
   if (!builder_ || !builder_->good()) {

@@ -31,8 +31,7 @@
 namespace {
 
 template <typename Event, typename Monitor, typename Predicate>
-bool wait_for_event(Monitor& monitor, Event& out, Predicate predicate,
-                    std::chrono::milliseconds timeout) {
+bool wait_for_event(Monitor& monitor, Event& out, Predicate predicate, std::chrono::milliseconds timeout) {
   const auto deadline = std::chrono::steady_clock::now() + timeout;
   while (std::chrono::steady_clock::now() < deadline) {
     while (monitor.poll(out)) {
@@ -88,10 +87,11 @@ int main(int argc, char** argv) {
     const bool loaded = wait_for_event(
         *module_monitor, event,
         [&](const w1::monitor::module_event& e) {
-          return e.type == w1::monitor::module_event::kind::loaded &&
-                 !e.path.empty() && e.path.find(kLibName) != std::string::npos;
+          return e.type == w1::monitor::module_event::kind::loaded && !e.path.empty() &&
+                 e.path.find(kLibName) != std::string::npos;
         },
-        std::chrono::milliseconds(1000));
+        std::chrono::milliseconds(1000)
+    );
     if (loaded) {
       std::cout << "module loaded: " << event.path << "\n";
     } else {
@@ -109,10 +109,11 @@ int main(int argc, char** argv) {
     const bool loaded = wait_for_event(
         *module_monitor, event,
         [&](const w1::monitor::module_event& e) {
-          return e.type == w1::monitor::module_event::kind::loaded &&
-                 !e.path.empty() && e.path.find(kLibName) != std::string::npos;
+          return e.type == w1::monitor::module_event::kind::loaded && !e.path.empty() &&
+                 e.path.find(kLibName) != std::string::npos;
         },
-        std::chrono::milliseconds(1000));
+        std::chrono::milliseconds(1000)
+    );
     if (loaded) {
       std::cout << "module loaded: " << event.path << "\n";
     } else {
@@ -130,8 +131,8 @@ int main(int argc, char** argv) {
     tid_ptr->store(static_cast<uint64_t>(GetCurrentThreadId()), std::memory_order_release);
     HMODULE kernel32 = GetModuleHandleW(L"kernel32.dll");
     if (kernel32) {
-      auto set_desc = reinterpret_cast<HRESULT(WINAPI*)(HANDLE, PCWSTR)>(
-          GetProcAddress(kernel32, "SetThreadDescription"));
+      auto set_desc =
+          reinterpret_cast<HRESULT(WINAPI*)(HANDLE, PCWSTR)>(GetProcAddress(kernel32, "SetThreadDescription"));
       if (set_desc) {
         set_desc(GetCurrentThread(), L"w1mon_worker");
       }
@@ -148,8 +149,7 @@ int main(int argc, char** argv) {
 #else
   std::thread worker([&]() {
 #if defined(__APPLE__)
-    worker_tid.store(static_cast<uint64_t>(pthread_mach_thread_np(pthread_self())),
-                     std::memory_order_release);
+    worker_tid.store(static_cast<uint64_t>(pthread_mach_thread_np(pthread_self())), std::memory_order_release);
     pthread_setname_np("w1mon_worker");
 #else
     worker_tid.store(static_cast<uint64_t>(syscall(SYS_gettid)), std::memory_order_release);
@@ -177,7 +177,8 @@ int main(int argc, char** argv) {
         [&](const w1::monitor::thread_event& e) {
           return e.type == w1::monitor::thread_event::kind::started && e.tid == tid;
         },
-        std::chrono::milliseconds(1000));
+        std::chrono::milliseconds(1000)
+    );
     if (saw_started) {
       std::cout << "thread started: " << thread_event.tid << "\n";
     } else {
@@ -195,10 +196,10 @@ int main(int argc, char** argv) {
       const bool saw_rename = wait_for_event(
           *thread_monitor, thread_event,
           [&](const w1::monitor::thread_event& e) {
-            return e.type == w1::monitor::thread_event::kind::renamed && e.tid == tid &&
-                   e.name == "w1mon_worker";
+            return e.type == w1::monitor::thread_event::kind::renamed && e.tid == tid && e.name == "w1mon_worker";
           },
-          std::chrono::milliseconds(1000));
+          std::chrono::milliseconds(1000)
+      );
       if (saw_rename) {
         std::cout << "thread renamed: " << thread_event.name << "\n";
       } else {
@@ -221,7 +222,8 @@ int main(int argc, char** argv) {
         [&](const w1::monitor::thread_event& e) {
           return e.type == w1::monitor::thread_event::kind::stopped && e.tid == tid;
         },
-        std::chrono::milliseconds(1000));
+        std::chrono::milliseconds(1000)
+    );
     if (saw_stopped) {
       std::cout << "thread stopped: " << thread_event.tid << "\n";
     } else {
@@ -239,10 +241,11 @@ int main(int argc, char** argv) {
     const bool unloaded = wait_for_event(
         *module_monitor, event,
         [&](const w1::monitor::module_event& e) {
-          return e.type == w1::monitor::module_event::kind::unloaded &&
-                 !e.path.empty() && e.path.find(kLibName) != std::string::npos;
+          return e.type == w1::monitor::module_event::kind::unloaded && !e.path.empty() &&
+                 e.path.find(kLibName) != std::string::npos;
         },
-        std::chrono::milliseconds(1000));
+        std::chrono::milliseconds(1000)
+    );
     if (unloaded) {
       std::cout << "module unloaded: " << event.path << "\n";
     } else {
@@ -257,10 +260,11 @@ int main(int argc, char** argv) {
     const bool unloaded = wait_for_event(
         *module_monitor, event,
         [&](const w1::monitor::module_event& e) {
-          return e.type == w1::monitor::module_event::kind::unloaded &&
-                 !e.path.empty() && e.path.find(kLibName) != std::string::npos;
+          return e.type == w1::monitor::module_event::kind::unloaded && !e.path.empty() &&
+                 e.path.find(kLibName) != std::string::npos;
         },
-        std::chrono::milliseconds(1000));
+        std::chrono::milliseconds(1000)
+    );
     if (unloaded) {
       std::cout << "module unloaded: " << event.path << "\n";
     } else {

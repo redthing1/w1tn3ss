@@ -119,7 +119,8 @@ rewind_config rewind_config::from_environment(std::string& error) {
   std::string flow_value = loader.get<std::string>("FLOW", "");
   if (!flow_value.empty()) {
     if (!parse_enum_value(
-            flow_value, {{"instruction", flow_options::flow_mode::instruction}, {"block", flow_options::flow_mode::block}},
+            flow_value,
+            {{"instruction", flow_options::flow_mode::instruction}, {"block", flow_options::flow_mode::block}},
             config.flow.mode
         )) {
       error = "invalid W1REWIND_FLOW value";

@@ -16,17 +16,9 @@ namespace {
 volatile int g_int_sink = 0;
 volatile double g_fp_sink = 0.0;
 
-W1_NO_INLINE double mixed_args(int a0,
-                               double f0,
-                               int a1,
-                               float f1,
-                               int a2,
-                               int a3,
-                               int a4,
-                               int a5,
-                               int a6,
-                               int a7,
-                               int a8) {
+W1_NO_INLINE double mixed_args(
+    int a0, double f0, int a1, float f1, int a2, int a3, int a4, int a5, int a6, int a7, int a8
+) {
   int sum = a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8;
   double fsum = f0 + static_cast<double>(f1);
   g_int_sink = sum;
@@ -146,8 +138,8 @@ TEST_CASE("w1h00k instrumentation prehook captures arguments") {
   REQUIRE(result.error.ok());
   REQUIRE(original != nullptr);
 
-  const double expected = static_cast<double>(a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8) +
-                          f0 + static_cast<double>(f1);
+  const double expected =
+      static_cast<double>(a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8) + f0 + static_cast<double>(f1);
 
   g_capture = {};
   double out = mixed_args(a0, f0, a1, f1, a2, a3, a4, a5, a6, a7, a8);

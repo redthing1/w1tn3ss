@@ -12,14 +12,10 @@ namespace {
 
 #if defined(_WIN32)
 static HMODULE g_expected_handle = nullptr;
-static HMODULE WINAPI replacement_get_module_handle(LPCSTR) {
-  return g_expected_handle;
-}
+static HMODULE WINAPI replacement_get_module_handle(LPCSTR) { return g_expected_handle; }
 #else
 static pid_t g_expected_pid = 0;
-static pid_t replacement_getpid() {
-  return g_expected_pid;
-}
+static pid_t replacement_getpid() { return g_expected_pid; }
 #endif
 
 w1::h00k::hook_request make_import_request(const char* symbol, void* replacement) {

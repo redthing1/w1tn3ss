@@ -35,8 +35,7 @@ struct transfer_recipe {
 
   static void log_config(const config_t& config) {
     auto log = redlog::get_logger("w1xfer.preload");
-    const char* threads =
-        config.threads == w1::instrument::config::thread_attach_policy::auto_attach ? "auto" : "main";
+    const char* threads = config.threads == w1::instrument::config::thread_attach_policy::auto_attach ? "auto" : "main";
     log.inf(
         "qbdipreload_on_run configured", redlog::field("output", config.output.path),
         redlog::field("capture_registers", config.capture.registers),
@@ -84,8 +83,7 @@ struct transfer_recipe {
 
     log.inf(
         "transfer collection completed", redlog::field("total_calls", stats.total_calls),
-        redlog::field("total_returns", stats.total_returns),
-        redlog::field("unique_targets", stats.unique_call_targets),
+        redlog::field("total_returns", stats.total_returns), redlog::field("unique_targets", stats.unique_call_targets),
         redlog::field("max_depth", stats.max_call_depth)
     );
 

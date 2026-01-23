@@ -41,7 +41,6 @@ TEST_CASE("rewind config rejects invalid combinations") {
   config.stack_window.mode = w1rewind::rewind_config::stack_window_options::window_mode::none;
   CHECK(!config.validate(error));
   CHECK(error.find("stack window") != std::string::npos);
-
 }
 
 TEST_CASE("rewind config accepts valid combinations") {

@@ -67,9 +67,7 @@ inline const char* interpose_library_name() {
 #endif
 }
 
-inline std::string interpose_library_path() {
-  return test_library_path(interpose_library_name());
-}
+inline std::string interpose_library_path() { return test_library_path(interpose_library_name()); }
 
 inline const char* monitor_thread_library_name() {
 #if defined(__linux__)

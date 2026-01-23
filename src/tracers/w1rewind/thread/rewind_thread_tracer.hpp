@@ -24,8 +24,7 @@ namespace w1rewind {
 
 enum class rewind_flow { instruction, block };
 
-template <rewind_flow Mode, bool CaptureMemory>
-class rewind_thread_tracer {
+template <rewind_flow Mode, bool CaptureMemory> class rewind_thread_tracer {
 public:
   explicit rewind_thread_tracer(std::shared_ptr<rewind_engine> engine, const rewind_config& config);
   rewind_thread_tracer(
@@ -36,9 +35,8 @@ public:
 
   static constexpr w1::event_mask requested_events() {
     using w1::event_kind;
-    w1::event_mask mask = w1::event_mask_or(
-        w1::event_mask_of(event_kind::thread_start), w1::event_mask_of(event_kind::thread_stop)
-    );
+    w1::event_mask mask =
+        w1::event_mask_or(w1::event_mask_of(event_kind::thread_start), w1::event_mask_of(event_kind::thread_stop));
 
     if constexpr (Mode == rewind_flow::instruction) {
       mask = w1::event_mask_or(mask, w1::event_mask_of(event_kind::instruction_post));
@@ -57,8 +55,8 @@ public:
   void on_thread_stop(w1::trace_context& ctx, const w1::thread_event& event);
 
   void on_basic_block_entry(
-      w1::trace_context& ctx, const w1::basic_block_event& event, QBDI::VMInstanceRef vm,
-      const QBDI::VMState* state, QBDI::GPRState* gpr, QBDI::FPRState* fpr
+      w1::trace_context& ctx, const w1::basic_block_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state,
+      QBDI::GPRState* gpr, QBDI::FPRState* fpr
   );
   void on_instruction_post(
       w1::trace_context& ctx, const w1::instruction_event& event, QBDI::VMInstanceRef vm, QBDI::GPRState* gpr,

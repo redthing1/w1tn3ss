@@ -108,7 +108,7 @@ void process_observer::emit_event(const process_event& event) {
     std::lock_guard<std::mutex> lock(callback_mutex_);
     callbacks_copy.reserve(callbacks_.size());
     for (const auto& [id, callback] : callbacks_) {
-      (void)id;
+      (void) id;
       callbacks_copy.push_back(callback);
     }
   }
@@ -125,9 +125,8 @@ void process_observer::handle_module_event(const w1::monitor::module_event& even
 
   process_event out{};
   out.module = event;
-  out.type = (event.type == w1::monitor::module_event::kind::loaded)
-                 ? process_event::kind::module_loaded
-                 : process_event::kind::module_unloaded;
+  out.type = (event.type == w1::monitor::module_event::kind::loaded) ? process_event::kind::module_loaded
+                                                                     : process_event::kind::module_unloaded;
   emit_event(out);
 }
 
@@ -137,17 +136,17 @@ void process_observer::handle_thread_event(const w1::monitor::thread_event& even
   process_event out{};
   out.thread = event;
   switch (event.type) {
-    case w1::monitor::thread_event::kind::started:
-      out.type = process_event::kind::thread_started;
-      break;
-    case w1::monitor::thread_event::kind::stopped:
-      out.type = process_event::kind::thread_stopped;
-      break;
-    case w1::monitor::thread_event::kind::renamed:
-      out.type = process_event::kind::thread_renamed;
-      break;
-    default:
-      return;
+  case w1::monitor::thread_event::kind::started:
+    out.type = process_event::kind::thread_started;
+    break;
+  case w1::monitor::thread_event::kind::stopped:
+    out.type = process_event::kind::thread_stopped;
+    break;
+  case w1::monitor::thread_event::kind::renamed:
+    out.type = process_event::kind::thread_renamed;
+    break;
+  default:
+    return;
   }
   emit_event(out);
 }

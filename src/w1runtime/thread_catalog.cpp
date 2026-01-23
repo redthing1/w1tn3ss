@@ -12,17 +12,17 @@ void thread_catalog::apply(const w1::monitor::thread_event& event) {
   entry.tid = event.tid;
 
   switch (event.type) {
-    case w1::monitor::thread_event::kind::started:
-      entry.alive = true;
-      break;
-    case w1::monitor::thread_event::kind::stopped:
-      entry.alive = false;
-      break;
-    case w1::monitor::thread_event::kind::renamed:
-      entry.name = event.name;
-      break;
-    default:
-      break;
+  case w1::monitor::thread_event::kind::started:
+    entry.alive = true;
+    break;
+  case w1::monitor::thread_event::kind::stopped:
+    entry.alive = false;
+    break;
+  case w1::monitor::thread_event::kind::renamed:
+    entry.name = event.name;
+    break;
+  default:
+    break;
   }
 }
 

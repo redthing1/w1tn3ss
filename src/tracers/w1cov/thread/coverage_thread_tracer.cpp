@@ -11,14 +11,13 @@ constexpr size_t kDefaultBufferReserve = 4096;
 
 template <coverage_mode mode>
 coverage_thread_tracer<mode>::coverage_thread_tracer(std::shared_ptr<coverage_engine> engine, uint64_t flush_threshold)
-    : engine_(std::move(engine)),
-      module_epoch_(engine_ ? engine_->module_epoch() : 0),
+    : engine_(std::move(engine)), module_epoch_(engine_ ? engine_->module_epoch() : 0),
       buffer_(buffer_merge{engine_.get()}, kDefaultBufferReserve, flush_threshold) {}
 
 template <coverage_mode mode>
 void coverage_thread_tracer<mode>::on_thread_start(w1::trace_context& ctx, const w1::thread_event& event) {
-  (void)ctx;
-  (void)event;
+  (void) ctx;
+  (void) event;
   if (engine_) {
     module_epoch_ = engine_->module_epoch();
   }
@@ -28,8 +27,8 @@ void coverage_thread_tracer<mode>::on_thread_start(w1::trace_context& ctx, const
 
 template <coverage_mode mode>
 void coverage_thread_tracer<mode>::on_thread_stop(w1::trace_context& ctx, const w1::thread_event& event) {
-  (void)ctx;
-  (void)event;
+  (void) ctx;
+  (void) event;
   if (!engine_) {
     return;
   }
@@ -39,14 +38,14 @@ void coverage_thread_tracer<mode>::on_thread_stop(w1::trace_context& ctx, const 
 
 template <coverage_mode mode>
 void coverage_thread_tracer<mode>::on_basic_block_entry(
-    w1::trace_context& ctx, const w1::basic_block_event& event, QBDI::VMInstanceRef vm,
-    const QBDI::VMState* state, QBDI::GPRState* gpr, QBDI::FPRState* fpr
+    w1::trace_context& ctx, const w1::basic_block_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state,
+    QBDI::GPRState* gpr, QBDI::FPRState* fpr
 ) {
-  (void)vm;
-  (void)state;
-  (void)gpr;
-  (void)fpr;
-  (void)ctx;
+  (void) vm;
+  (void) state;
+  (void) gpr;
+  (void) fpr;
+  (void) ctx;
 
   if constexpr (mode == coverage_mode::basic_block) {
     if (event.address == 0 || event.size == 0) {
@@ -63,10 +62,10 @@ void coverage_thread_tracer<mode>::on_instruction_pre(
     w1::trace_context& ctx, const w1::instruction_event& event, QBDI::VMInstanceRef vm, QBDI::GPRState* gpr,
     QBDI::FPRState* fpr
 ) {
-  (void)vm;
-  (void)gpr;
-  (void)fpr;
-  (void)ctx;
+  (void) vm;
+  (void) gpr;
+  (void) fpr;
+  (void) ctx;
 
   if constexpr (mode == coverage_mode::instruction) {
     if (event.address == 0) {
@@ -79,8 +78,7 @@ void coverage_thread_tracer<mode>::on_instruction_pre(
   }
 }
 
-template <coverage_mode mode>
-void coverage_thread_tracer<mode>::record_coverage(uint64_t address, uint32_t size) {
+template <coverage_mode mode> void coverage_thread_tracer<mode>::record_coverage(uint64_t address, uint32_t size) {
   if (!engine_ || size == 0 || address == 0) {
     return;
   }

@@ -34,8 +34,8 @@ DWORD WINAPI thread_start_with_name(LPVOID param) {
   if (params && params->name) {
     HMODULE kernel32 = GetModuleHandleW(L"kernel32.dll");
     if (kernel32) {
-      auto set_desc = reinterpret_cast<HRESULT(WINAPI*)(HANDLE, PCWSTR)>(
-          GetProcAddress(kernel32, "SetThreadDescription"));
+      auto set_desc =
+          reinterpret_cast<HRESULT(WINAPI*)(HANDLE, PCWSTR)>(GetProcAddress(kernel32, "SetThreadDescription"));
       if (set_desc) {
         set_desc(GetCurrentThread(), params->name);
       }
@@ -82,10 +82,11 @@ TEST_CASE("w1monitor windows module monitor reports load/unload") {
   const auto saw_loaded = wait_for_event(
       *monitor, event,
       [&](const w1::monitor::module_event& e) {
-        return e.type == w1::monitor::module_event::kind::loaded &&
-               !e.path.empty() && e.path.find(lib_name) != std::string::npos;
+        return e.type == w1::monitor::module_event::kind::loaded && !e.path.empty() &&
+               e.path.find(lib_name) != std::string::npos;
       },
-      std::chrono::milliseconds(1000));
+      std::chrono::milliseconds(1000)
+  );
   CHECK(saw_loaded);
   if (saw_loaded) {
     loaded_base = event.base;
@@ -107,7 +108,8 @@ TEST_CASE("w1monitor windows module monitor reports load/unload") {
         }
         return !e.path.empty() && e.path.find(lib_name) != std::string::npos;
       },
-      std::chrono::milliseconds(1000));
+      std::chrono::milliseconds(1000)
+  );
   CHECK(saw_unloaded);
   if (saw_unloaded && loaded_base && event.base == loaded_base) {
     CHECK(event.size == loaded_size);
@@ -142,21 +144,21 @@ TEST_CASE("w1monitor windows thread monitor reports start/stop/rename") {
       [&](const w1::monitor::thread_event& e) {
         return e.type == w1::monitor::thread_event::kind::started && e.tid == tid;
       },
-      std::chrono::milliseconds(1000));
+      std::chrono::milliseconds(1000)
+  );
   CHECK(saw_started);
 
   HMODULE kernel32 = GetModuleHandleW(L"kernel32.dll");
-  const bool has_set_description =
-      kernel32 && GetProcAddress(kernel32, "SetThreadDescription") != nullptr;
+  const bool has_set_description = kernel32 && GetProcAddress(kernel32, "SetThreadDescription") != nullptr;
 
   if (has_set_description) {
     const auto saw_rename = wait_for_event(
         *monitor, event,
         [&](const w1::monitor::thread_event& e) {
-          return e.type == w1::monitor::thread_event::kind::renamed && e.tid == tid &&
-                 e.name == "w1mon_worker";
+          return e.type == w1::monitor::thread_event::kind::renamed && e.tid == tid && e.name == "w1mon_worker";
         },
-        std::chrono::milliseconds(1000));
+        std::chrono::milliseconds(1000)
+    );
     CHECK(saw_rename);
   }
 
@@ -168,7 +170,8 @@ TEST_CASE("w1monitor windows thread monitor reports start/stop/rename") {
       [&](const w1::monitor::thread_event& e) {
         return e.type == w1::monitor::thread_event::kind::stopped && e.tid == tid;
       },
-      std::chrono::milliseconds(1000));
+      std::chrono::milliseconds(1000)
+  );
   CHECK(saw_stopped);
 
   monitor->stop();
@@ -201,7 +204,8 @@ TEST_CASE("w1monitor windows thread monitor captures GetProcAddress thread start
       [&](const w1::monitor::thread_event& e) {
         return e.type == w1::monitor::thread_event::kind::started && e.tid == tid;
       },
-      std::chrono::milliseconds(1000));
+      std::chrono::milliseconds(1000)
+  );
   CHECK(saw_started);
 
   WaitForSingleObject(thread, INFINITE);
@@ -212,7 +216,8 @@ TEST_CASE("w1monitor windows thread monitor captures GetProcAddress thread start
       [&](const w1::monitor::thread_event& e) {
         return e.type == w1::monitor::thread_event::kind::stopped && e.tid == tid;
       },
-      std::chrono::milliseconds(1000));
+      std::chrono::milliseconds(1000)
+  );
   CHECK(saw_stopped);
 
   monitor->stop();

@@ -17,7 +17,7 @@ void trim_in_place(std::string& value) {
   const auto end = value.find_last_not_of(" \t");
   value = value.substr(start, end - start + 1);
 }
-}
+} // namespace
 
 dump_engine::dump_engine(dump_config config) : config_(std::move(config)) {
   options_.dump_memory_content = config_.dump_memory_content;
@@ -26,14 +26,11 @@ dump_engine::dump_engine(dump_config config) : config_(std::move(config)) {
 
   log_.inf(
       "dump engine configured", redlog::field("output", config_.output),
-      redlog::field("dump_memory", config_.dump_memory_content),
-      redlog::field("filter_count", options_.filters.size())
+      redlog::field("dump_memory", config_.dump_memory_content), redlog::field("filter_count", options_.filters.size())
   );
 }
 
-bool dump_engine::dump_once(
-    w1::trace_context& ctx, QBDI::VMInstanceRef vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr
-) {
+bool dump_engine::dump_once(w1::trace_context& ctx, QBDI::VMInstanceRef vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr) {
   if (dumped_) {
     return false;
   }

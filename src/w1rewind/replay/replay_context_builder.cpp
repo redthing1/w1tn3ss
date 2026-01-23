@@ -20,9 +20,8 @@ std::optional<uint16_t> find_register_with_flag(const std::vector<register_spec>
 }
 
 void apply_module_load(std::vector<module_record>& modules, module_record module) {
-  auto it = std::find_if(modules.begin(), modules.end(), [&](const module_record& entry) {
-    return entry.id == module.id;
-  });
+  auto it =
+      std::find_if(modules.begin(), modules.end(), [&](const module_record& entry) { return entry.id == module.id; });
   if (it != modules.end()) {
     *it = std::move(module);
     return;

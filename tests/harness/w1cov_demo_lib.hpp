@@ -22,11 +22,11 @@ using demo_thread_fn = DWORD(WINAPI*)(LPVOID);
 #elif defined(__APPLE__)
 constexpr const char* demo_library_name = "w1cov_demo_lib.dylib";
 using demo_library_handle = void*;
-using demo_thread_fn = void* (*)(void*);
+using demo_thread_fn = void* (*) (void*);
 #else
 constexpr const char* demo_library_name = "w1cov_demo_lib.so";
 using demo_library_handle = void*;
-using demo_thread_fn = void* (*)(void*);
+using demo_thread_fn = void* (*) (void*);
 #endif
 
 using demo_add_fn = int (*)(int, int);
@@ -61,9 +61,8 @@ inline bool load_demo_library(demo_library& out) {
   }
   auto add = reinterpret_cast<demo_add_fn>(load_demo_proc(handle, {"w1cov_demo_add", "_w1cov_demo_add"}));
   auto branch = reinterpret_cast<demo_branch_fn>(load_demo_proc(handle, {"w1cov_demo_branch", "_w1cov_demo_branch"}));
-  auto thread_proc = reinterpret_cast<demo_thread_fn>(
-      load_demo_proc(handle, {"w1cov_demo_thread_proc", "_w1cov_demo_thread_proc@4"})
-  );
+  auto thread_proc =
+      reinterpret_cast<demo_thread_fn>(load_demo_proc(handle, {"w1cov_demo_thread_proc", "_w1cov_demo_thread_proc@4"}));
   if (!add || !branch || !thread_proc) {
     std::cerr << "GetProcAddress failed for demo library exports\n";
     FreeLibrary(handle);

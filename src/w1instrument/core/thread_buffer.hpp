@@ -7,8 +7,7 @@
 
 namespace w1::core {
 
-template <typename KeyT, typename EntryT, typename MergeT>
-class thread_buffer {
+template <typename KeyT, typename EntryT, typename MergeT> class thread_buffer {
 public:
   thread_buffer(MergeT merge, size_t reserve = 0, size_t flush_threshold = 0)
       : merge_(std::move(merge)), flush_threshold_(flush_threshold) {
@@ -29,8 +28,7 @@ public:
 
   size_t size() const { return buffer_.size(); }
 
-  template <typename UpdateFn, typename CreateFn>
-  void record(const KeyT& key, UpdateFn&& update, CreateFn&& create) {
+  template <typename UpdateFn, typename CreateFn> void record(const KeyT& key, UpdateFn&& update, CreateFn&& create) {
     auto it = buffer_.find(key);
     if (it != buffer_.end()) {
       update(it->second);

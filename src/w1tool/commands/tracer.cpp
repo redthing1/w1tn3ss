@@ -74,9 +74,7 @@ bool apply_config_flags(
   return true;
 }
 
-void apply_debug_level(
-    tracer_execution_params& params, args::ValueFlag<int>& debug_level_flag, int fallback_level
-) {
+void apply_debug_level(tracer_execution_params& params, args::ValueFlag<int>& debug_level_flag, int fallback_level) {
   if (debug_level_flag) {
     params.debug_level = args::get(debug_level_flag);
   } else {
@@ -146,8 +144,7 @@ bool apply_target(
 }
 
 std::string default_output_path(
-    bool spawn_flag, args::PositionalList<std::string>& args_list, std::string_view suffix,
-    std::string_view fallback
+    bool spawn_flag, args::PositionalList<std::string>& args_list, std::string_view suffix, std::string_view fallback
 ) {
   if (spawn_flag && !args_list.Get().empty()) {
     std::vector<std::string> all_args = args::get(args_list);

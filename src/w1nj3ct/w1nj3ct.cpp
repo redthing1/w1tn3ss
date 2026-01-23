@@ -294,7 +294,7 @@ std::vector<std::string> get_supported_platforms() {
   return platforms;
 }
 
-bool is_library_compatible(const std::string& library_path, int pid) {
+bool is_library_compatible(const std::string& library_path, [[maybe_unused]] int pid) {
   // basic check - library exists
   if (!std::filesystem::exists(library_path)) {
     return false;

@@ -48,36 +48,36 @@ w1::arch::arch_spec parse_arch_or(const char* name, const w1::arch::arch_spec& f
 
 std::vector<uint8_t> nop_bytes_for_arch(const w1::arch::arch_spec& spec) {
   switch (spec.arch_mode) {
-    case w1::arch::mode::aarch64:
-      return {0x1F, 0x20, 0x03, 0xD5};
-    case w1::arch::mode::x86_64:
-    case w1::arch::mode::x86_32:
-      return {0x90};
-    default:
-      return {};
+  case w1::arch::mode::aarch64:
+    return {0x1F, 0x20, 0x03, 0xD5};
+  case w1::arch::mode::x86_64:
+  case w1::arch::mode::x86_32:
+    return {0x90};
+  default:
+    return {};
   }
 }
 
 std::vector<uint8_t> branch_bytes_for_arch(const w1::arch::arch_spec& spec) {
   switch (spec.arch_mode) {
-    case w1::arch::mode::aarch64:
-      return {0x02, 0x00, 0x00, 0x14}; // b #8
-    case w1::arch::mode::x86_64:
-    case w1::arch::mode::x86_32:
-      return {0xE9, 0x01, 0x00, 0x00, 0x00}; // jmp rel32
-    default:
-      return {};
+  case w1::arch::mode::aarch64:
+    return {0x02, 0x00, 0x00, 0x14}; // b #8
+  case w1::arch::mode::x86_64:
+  case w1::arch::mode::x86_32:
+    return {0xE9, 0x01, 0x00, 0x00, 0x00}; // jmp rel32
+  default:
+    return {};
   }
 }
 
 std::vector<uint8_t> pc_relative_bytes_for_arch(const w1::arch::arch_spec& spec) {
   switch (spec.arch_mode) {
-    case w1::arch::mode::aarch64:
-      return {0x00, 0x00, 0x00, 0x10}; // adr x0, #0
-    case w1::arch::mode::x86_64:
-      return {0x8B, 0x05, 0x00, 0x00, 0x00, 0x00}; // mov eax, dword ptr [rip+0]
-    default:
-      return {};
+  case w1::arch::mode::aarch64:
+    return {0x00, 0x00, 0x00, 0x10}; // adr x0, #0
+  case w1::arch::mode::x86_64:
+    return {0x8B, 0x05, 0x00, 0x00, 0x00, 0x00}; // mov eax, dword ptr [rip+0]
+  default:
+    return {};
   }
 }
 
@@ -145,8 +145,9 @@ int32_t read_s32_le(const uint8_t* bytes) {
   return value;
 }
 
-std::vector<uint8_t> make_filled_buffer(const std::vector<uint8_t>& code, size_t total_size,
-                                        const std::vector<uint8_t>& filler) {
+std::vector<uint8_t> make_filled_buffer(
+    const std::vector<uint8_t>& code, size_t total_size, const std::vector<uint8_t>& filler
+) {
   REQUIRE(!filler.empty());
   std::vector<uint8_t> buffer(total_size, 0);
   size_t offset = 0;
@@ -210,29 +211,27 @@ TEST_CASE("w1h00k relocator reports conservative trampoline bound") {
   CHECK(bound > 0);
 
   const size_t patch_bytes = w1::h00k::reloc::detail::kMaxPatchBytes;
-  auto ceil_div = [](size_t num, size_t den) {
-    return (num + den - 1) / den;
-  };
+  auto ceil_div = [](size_t num, size_t den) { return (num + den - 1) / den; };
 
   switch (spec.arch_mode) {
-    case w1::arch::mode::x86_32: {
-      const size_t max_insns = ceil_div(patch_bytes, 2);
-      CHECK(bound >= max_insns * 12);
-      break;
-    }
-    case w1::arch::mode::x86_64: {
-      const size_t max_insns = ceil_div(patch_bytes, 2);
-      CHECK(bound >= max_insns * 16);
-      break;
-    }
-    case w1::arch::mode::aarch64: {
-      const size_t max_insns = ceil_div(patch_bytes, 4);
-      CHECK(bound >= max_insns * 20);
-      break;
-    }
-    default:
-      CHECK(true);
-      break;
+  case w1::arch::mode::x86_32: {
+    const size_t max_insns = ceil_div(patch_bytes, 2);
+    CHECK(bound >= max_insns * 12);
+    break;
+  }
+  case w1::arch::mode::x86_64: {
+    const size_t max_insns = ceil_div(patch_bytes, 2);
+    CHECK(bound >= max_insns * 16);
+    break;
+  }
+  case w1::arch::mode::aarch64: {
+    const size_t max_insns = ceil_div(patch_bytes, 4);
+    CHECK(bound >= max_insns * 20);
+    break;
+  }
+  default:
+    CHECK(true);
+    break;
   }
 }
 

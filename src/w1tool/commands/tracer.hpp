@@ -50,9 +50,7 @@ bool apply_config_flags(
     std::string* error_out = nullptr
 );
 
-void apply_debug_level(
-    tracer_execution_params& params, args::ValueFlag<int>& debug_level_flag, int fallback_level
-);
+void apply_debug_level(tracer_execution_params& params, args::ValueFlag<int>& debug_level_flag, int fallback_level);
 
 struct target_args {
   args::Flag& spawn_flag;
@@ -69,8 +67,7 @@ bool apply_target(
 );
 
 std::string default_output_path(
-    bool spawn_flag, args::PositionalList<std::string>& args_list, std::string_view suffix,
-    std::string_view fallback
+    bool spawn_flag, args::PositionalList<std::string>& args_list, std::string_view suffix, std::string_view fallback
 );
 
 /**

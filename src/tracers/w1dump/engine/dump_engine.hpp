@@ -18,9 +18,7 @@ public:
   const dump_config& config() const { return config_; }
   bool dump_completed() const { return dumped_; }
 
-  bool dump_once(
-      w1::trace_context& ctx, QBDI::VMInstanceRef vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr
-  );
+  bool dump_once(w1::trace_context& ctx, QBDI::VMInstanceRef vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr);
 
 private:
   std::vector<w1::dump::dump_options::filter> parse_filters() const;

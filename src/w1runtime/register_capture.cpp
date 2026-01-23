@@ -85,7 +85,7 @@ register_state register_capturer::capture(const QBDI::GPRState* gpr) {
   return state;
 }
 
-void register_capturer::capture_x86_64(register_state& state, const QBDI::GPRState* gpr) {
+void register_capturer::capture_x86_64(register_state& state, [[maybe_unused]] const QBDI::GPRState* gpr) {
 #if defined(QBDI_ARCH_X86_64)
   state.arch_ = register_state::architecture::x86_64;
 
@@ -115,7 +115,7 @@ void register_capturer::capture_x86_64(register_state& state, const QBDI::GPRSta
 #endif
 }
 
-void register_capturer::capture_aarch64(register_state& state, const QBDI::GPRState* gpr) {
+void register_capturer::capture_aarch64(register_state& state, [[maybe_unused]] const QBDI::GPRState* gpr) {
 #if defined(QBDI_ARCH_AARCH64)
   state.arch_ = register_state::architecture::aarch64;
 
@@ -133,7 +133,7 @@ void register_capturer::capture_aarch64(register_state& state, const QBDI::GPRSt
 #endif
 }
 
-void register_capturer::capture_arm32(register_state& state, const QBDI::GPRState* gpr) {
+void register_capturer::capture_arm32(register_state& state, [[maybe_unused]] const QBDI::GPRState* gpr) {
 #if defined(QBDI_ARCH_ARM)
   state.arch_ = register_state::architecture::arm32;
 
@@ -160,7 +160,7 @@ void register_capturer::capture_arm32(register_state& state, const QBDI::GPRStat
 #endif
 }
 
-void register_capturer::capture_x86(register_state& state, const QBDI::GPRState* gpr) {
+void register_capturer::capture_x86(register_state& state, [[maybe_unused]] const QBDI::GPRState* gpr) {
 #if defined(QBDI_ARCH_X86)
   state.arch_ = register_state::architecture::x86;
 

@@ -16,18 +16,17 @@ enum class coverage_mode : uint8_t {
 
 inline constexpr const char* coverage_mode_name(coverage_mode mode) {
   switch (mode) {
-    case coverage_mode::instruction:
-      return "instruction";
-    case coverage_mode::basic_block:
-    default:
-      return "basic_block";
+  case coverage_mode::instruction:
+    return "instruction";
+  case coverage_mode::basic_block:
+  default:
+    return "basic_block";
   }
 }
 
 struct coverage_config {
   w1::instrument::config::tracer_common_config common{};
-  w1::instrument::config::thread_attach_policy threads =
-      w1::instrument::config::thread_attach_policy::auto_attach;
+  w1::instrument::config::thread_attach_policy threads = w1::instrument::config::thread_attach_policy::auto_attach;
   std::string output_file = "coverage.drcov";
   coverage_mode mode = coverage_mode::basic_block;
   uint64_t buffer_flush_threshold = 0;

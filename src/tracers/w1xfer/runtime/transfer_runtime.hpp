@@ -18,8 +18,7 @@ struct transfer_traits {
   static process_config make_process_config(const transfer_config& config, bool owns_observer) {
     process_config session_config{};
     session_config.instrumentation = config.common.instrumentation;
-    session_config.attach_new_threads =
-        config.threads == w1::instrument::config::thread_attach_policy::auto_attach;
+    session_config.attach_new_threads = config.threads == w1::instrument::config::thread_attach_policy::auto_attach;
     session_config.refresh_on_module_events = true;
     session_config.owns_observer = owns_observer;
     return session_config;

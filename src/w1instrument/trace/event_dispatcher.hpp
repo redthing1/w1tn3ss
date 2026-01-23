@@ -361,9 +361,10 @@ private:
             event.target_address = target;
             event.thread_id = callback->ctx->thread_id();
 
-            if constexpr (std::same_as<decltype(callback->tracer->on_exec_transfer_call(
-                                                  *callback->ctx, event, vm, state, gpr, fpr)),
-                                        QBDI::VMAction>) {
+            if constexpr (std::same_as<
+                              decltype(callback->tracer
+                                           ->on_exec_transfer_call(*callback->ctx, event, vm, state, gpr, fpr)),
+                              QBDI::VMAction>) {
               return callback->tracer->on_exec_transfer_call(*callback->ctx, event, vm, state, gpr, fpr);
             }
             callback->tracer->on_exec_transfer_call(*callback->ctx, event, vm, state, gpr, fpr);
@@ -400,9 +401,10 @@ private:
             event.target_address = target;
             event.thread_id = callback->ctx->thread_id();
 
-            if constexpr (std::same_as<decltype(callback->tracer->on_exec_transfer_return(
-                                                  *callback->ctx, event, vm, state, gpr, fpr)),
-                                        QBDI::VMAction>) {
+            if constexpr (std::same_as<
+                              decltype(callback->tracer
+                                           ->on_exec_transfer_return(*callback->ctx, event, vm, state, gpr, fpr)),
+                              QBDI::VMAction>) {
               return callback->tracer->on_exec_transfer_return(*callback->ctx, event, vm, state, gpr, fpr);
             }
             callback->tracer->on_exec_transfer_return(*callback->ctx, event, vm, state, gpr, fpr);
@@ -439,9 +441,9 @@ private:
             event.end = end;
             event.thread_id = callback->ctx->thread_id();
 
-            if constexpr (std::same_as<decltype(callback->tracer->on_vm_start(
-                                                  *callback->ctx, event, vm, state, gpr, fpr)),
-                                        QBDI::VMAction>) {
+            if constexpr (std::same_as<
+                              decltype(callback->tracer->on_vm_start(*callback->ctx, event, vm, state, gpr, fpr)),
+                              QBDI::VMAction>) {
               return callback->tracer->on_vm_start(*callback->ctx, event, vm, state, gpr, fpr);
             }
             callback->tracer->on_vm_start(*callback->ctx, event, vm, state, gpr, fpr);

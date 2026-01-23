@@ -84,8 +84,8 @@ bool MachOProcessor::ask_user(const std::string& question) {
 }
 
 bool MachOProcessor::check_load_commands(
-    struct mach_header* mh, size_t header_offset, size_t commands_offset, const std::string& dylib_path,
-    std::streamoff* slice_size
+    struct mach_header* mh, [[maybe_unused]] size_t header_offset, size_t commands_offset,
+    const std::string& dylib_path, [[maybe_unused]] std::streamoff* slice_size
 ) {
   file_.seekg(commands_offset);
   uint32_t ncmds = SWAP32(mh->ncmds, mh->magic);
@@ -94,10 +94,10 @@ bool MachOProcessor::check_load_commands(
       "checking load commands", redlog::field("count", ncmds), redlog::field("commands_offset", commands_offset)
   );
 
-  std::streamoff linkedit_32_pos = -1;
-  std::streamoff linkedit_64_pos = -1;
-  struct segment_command linkedit_32;
-  struct segment_command_64 linkedit_64;
+  [[maybe_unused]] std::streamoff linkedit_32_pos = -1;
+  [[maybe_unused]] std::streamoff linkedit_64_pos = -1;
+  [[maybe_unused]] struct segment_command linkedit_32;
+  [[maybe_unused]] struct segment_command_64 linkedit_64;
 
   for (uint32_t i = 0; i < ncmds; i++) {
     auto lc_pos = file_.tellg();

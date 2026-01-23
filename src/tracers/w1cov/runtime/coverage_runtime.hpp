@@ -18,8 +18,7 @@ template <coverage_mode mode> struct coverage_traits {
   static process_config make_process_config(const coverage_config& config, bool owns_observer) {
     process_config tracer_config{};
     tracer_config.instrumentation = config.common.instrumentation;
-    tracer_config.attach_new_threads =
-        config.threads == w1::instrument::config::thread_attach_policy::auto_attach;
+    tracer_config.attach_new_threads = config.threads == w1::instrument::config::thread_attach_policy::auto_attach;
     tracer_config.refresh_on_module_events = true;
     tracer_config.owns_observer = owns_observer;
     return tracer_config;

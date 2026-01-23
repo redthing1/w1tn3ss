@@ -24,9 +24,7 @@ bool entry_in_module(const w1::rewind::module_record& module, uint64_t entry) {
   return entry < end;
 }
 
-std::optional<uint64_t> compute_runtime_entrypoint(
-    const w1::rewind::module_record& module
-) {
+std::optional<uint64_t> compute_runtime_entrypoint(const w1::rewind::module_record& module) {
   if ((module.flags & w1::rewind::module_record_flag_entry_point_valid) == 0) {
     return std::nullopt;
   }
@@ -99,13 +97,7 @@ std::optional<uint64_t> select_entrypoint(const adapter_services& services) {
   return best;
 }
 
-bool append_auxv_entry(
-    std::vector<std::byte>& out,
-    uint64_t type,
-    uint64_t value,
-    size_t word_size,
-    endian order
-) {
+bool append_auxv_entry(std::vector<std::byte>& out, uint64_t type, uint64_t value, size_t word_size, endian order) {
   size_t offset = out.size();
   out.resize(offset + word_size * 2);
   auto type_span = std::span<std::byte>(out.data() + offset, word_size);

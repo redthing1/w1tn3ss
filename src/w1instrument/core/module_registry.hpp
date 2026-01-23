@@ -20,9 +20,7 @@ namespace w1::core {
 struct instrumented_module_policy {
   instrumentation_policy instrumentation{};
 
-  bool include(const runtime::module_info& module) const {
-    return instrumentation.should_instrument(module);
-  }
+  bool include(const runtime::module_info& module) const { return instrumentation.should_instrument(module); }
 
   std::string_view identity(const runtime::module_info& module) const {
     return module.path.empty() ? module.name : module.path;
@@ -35,8 +33,7 @@ struct instrumented_module_policy {
 // The identity is used to keep module IDs stable across refreshes.
 //
 // IdT should fit module table size constraints (e.g. uint16_t for drcov).
-template <typename PolicyT = instrumented_module_policy, typename IdT = uint16_t>
-class module_registry {
+template <typename PolicyT = instrumented_module_policy, typename IdT = uint16_t> class module_registry {
 public:
   explicit module_registry(PolicyT policy = {}) : policy_(std::move(policy)) {}
 

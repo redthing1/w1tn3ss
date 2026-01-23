@@ -109,8 +109,8 @@ void rewind_thread_tracer<Mode, CaptureMemory>::on_thread_stop(w1::trace_context
 
 template <rewind_flow Mode, bool CaptureMemory>
 void rewind_thread_tracer<Mode, CaptureMemory>::on_basic_block_entry(
-    w1::trace_context& ctx, const w1::basic_block_event& event, QBDI::VMInstanceRef vm,
-    const QBDI::VMState* state, QBDI::GPRState* gpr, QBDI::FPRState* fpr
+    w1::trace_context& ctx, const w1::basic_block_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state,
+    QBDI::GPRState* gpr, QBDI::FPRState* fpr
 ) {
   (void) vm;
   (void) state;
@@ -155,8 +155,7 @@ void rewind_thread_tracer<Mode, CaptureMemory>::on_basic_block_entry(
   state_.flow_count += 1;
 
   if ((config_.registers.snapshot_interval > 0 || config_.stack_snapshots.interval > 0) && regs.has_value()) {
-    auto snapshot =
-        maybe_capture_snapshot(ctx, *regs, engine_->schema(), config_, state_.snapshot_state, log_);
+    auto snapshot = maybe_capture_snapshot(ctx, *regs, engine_->schema(), config_, state_.snapshot_state, log_);
     if (snapshot.has_value()) {
       engine_->emit_snapshot(
           state_.thread_id, sequence, snapshot->snapshot_id, snapshot->registers, snapshot->stack_segments,
@@ -222,8 +221,7 @@ void rewind_thread_tracer<Mode, CaptureMemory>::on_instruction_post(
 
   state_.flow_count += 1;
   if ((config_.registers.snapshot_interval > 0 || config_.stack_snapshots.interval > 0) && regs.has_value()) {
-    auto snapshot =
-        maybe_capture_snapshot(ctx, *regs, engine_->schema(), config_, state_.snapshot_state, log_);
+    auto snapshot = maybe_capture_snapshot(ctx, *regs, engine_->schema(), config_, state_.snapshot_state, log_);
     if (snapshot.has_value()) {
       pending.snapshot = std::move(snapshot);
     }
@@ -336,8 +334,7 @@ bool rewind_thread_tracer<Mode, CaptureMemory>::should_capture_registers() const
   return false;
 }
 
-template <rewind_flow Mode, bool CaptureMemory>
-bool rewind_thread_tracer<Mode, CaptureMemory>::uses_arm_flags() const {
+template <rewind_flow Mode, bool CaptureMemory> bool rewind_thread_tracer<Mode, CaptureMemory>::uses_arm_flags() const {
   if (!engine_) {
     return false;
   }

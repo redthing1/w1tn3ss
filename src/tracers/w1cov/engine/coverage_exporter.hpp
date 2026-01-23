@@ -16,8 +16,9 @@ namespace w1cov {
 
 class coverage_exporter {
 public:
-  drcov::coverage_data to_drcov(const coverage_snapshot& snapshot,
-                                const std::vector<w1::runtime::module_info>& modules) const;
+  drcov::coverage_data to_drcov(
+      const coverage_snapshot& snapshot, const std::vector<w1::runtime::module_info>& modules
+  ) const;
 
 private:
   static std::string format_hex(uint64_t value);

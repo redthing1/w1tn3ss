@@ -34,9 +34,7 @@ int main() {
   session_config.thread_name = "main";
   session_config.shared_modules = &modules;
 
-  w1::instrument::thread_session<tracer_t> session(
-      session_config, tracer_t(engine, config.buffer_flush_threshold)
-  );
+  w1::instrument::thread_session<tracer_t> session(session_config, tracer_t(engine, config.buffer_flush_threshold));
 
   if (!session.initialize()) {
     std::cout << "failed to initialize w1cov tracer\n";

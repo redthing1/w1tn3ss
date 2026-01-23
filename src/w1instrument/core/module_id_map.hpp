@@ -20,8 +20,7 @@ namespace w1::core {
 //  - bool include(const w1::runtime::module_info&) const
 //  - std::string_view identity(const w1::runtime::module_info&) const
 // The identity is used to keep module IDs stable across refreshes.
-template <typename PolicyT, typename IdT = uint16_t>
-class module_id_map {
+template <typename PolicyT, typename IdT = uint16_t> class module_id_map {
 public:
   explicit module_id_map(PolicyT policy = {}) : policy_(std::move(policy)) {}
 

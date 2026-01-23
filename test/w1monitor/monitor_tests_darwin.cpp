@@ -36,10 +36,11 @@ TEST_CASE("w1monitor darwin module monitor reports load/unload") {
   const auto has_loaded = wait_for_event(
       *monitor, event,
       [&](const w1::monitor::module_event& e) {
-        return e.type == w1::monitor::module_event::kind::loaded &&
-               !e.path.empty() && e.path.find(lib_name) != std::string::npos;
+        return e.type == w1::monitor::module_event::kind::loaded && !e.path.empty() &&
+               e.path.find(lib_name) != std::string::npos;
       },
-      std::chrono::milliseconds(1000));
+      std::chrono::milliseconds(1000)
+  );
   CHECK(has_loaded);
 
   dlclose(handle);
@@ -47,10 +48,11 @@ TEST_CASE("w1monitor darwin module monitor reports load/unload") {
   const auto has_unloaded = wait_for_event(
       *monitor, event,
       [&](const w1::monitor::module_event& e) {
-        return e.type == w1::monitor::module_event::kind::unloaded &&
-               !e.path.empty() && e.path.find(lib_name) != std::string::npos;
+        return e.type == w1::monitor::module_event::kind::unloaded && !e.path.empty() &&
+               e.path.find(lib_name) != std::string::npos;
       },
-      std::chrono::milliseconds(1000));
+      std::chrono::milliseconds(1000)
+  );
   CHECK(has_unloaded);
 
   monitor->stop();
@@ -83,16 +85,17 @@ TEST_CASE("w1monitor darwin thread monitor reports start/stop/rename") {
       [&](const w1::monitor::thread_event& e) {
         return e.type == w1::monitor::thread_event::kind::started && e.tid == tid;
       },
-      std::chrono::milliseconds(1000));
+      std::chrono::milliseconds(1000)
+  );
   CHECK(saw_started);
 
   const auto saw_rename = wait_for_event(
       *monitor, event,
       [&](const w1::monitor::thread_event& e) {
-        return e.type == w1::monitor::thread_event::kind::renamed && e.tid == tid &&
-               e.name == "w1mon_worker";
+        return e.type == w1::monitor::thread_event::kind::renamed && e.tid == tid && e.name == "w1mon_worker";
       },
-      std::chrono::milliseconds(1000));
+      std::chrono::milliseconds(1000)
+  );
   CHECK(saw_rename);
 
   worker.join();
@@ -102,7 +105,8 @@ TEST_CASE("w1monitor darwin thread monitor reports start/stop/rename") {
       [&](const w1::monitor::thread_event& e) {
         return e.type == w1::monitor::thread_event::kind::stopped && e.tid == tid;
       },
-      std::chrono::milliseconds(1000));
+      std::chrono::milliseconds(1000)
+  );
   CHECK(saw_stopped);
 
   monitor->stop();

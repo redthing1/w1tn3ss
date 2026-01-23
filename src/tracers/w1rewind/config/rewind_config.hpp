@@ -12,8 +12,7 @@ namespace w1rewind {
 
 struct rewind_config {
   w1::instrument::config::tracer_common_config common{};
-  w1::instrument::config::thread_attach_policy threads =
-      w1::instrument::config::thread_attach_policy::main_only;
+  w1::instrument::config::thread_attach_policy threads = w1::instrument::config::thread_attach_policy::main_only;
 
   struct flow_options {
     enum class flow_mode { instruction, block };

@@ -33,8 +33,6 @@ QBDI::VMAction dump_recorder::on_instruction_pre(
   return QBDI::VMAction::CONTINUE;
 }
 
-bool dump_recorder::dump_completed() const {
-  return engine_ ? engine_->dump_completed() : false;
-}
+bool dump_recorder::dump_completed() const { return engine_ ? engine_->dump_completed() : false; }
 
 } // namespace w1dump

@@ -9,16 +9,16 @@
 #include "w1monitor/backend/thread_entry.hpp"
 #include "w1monitor/backend/thread_event_helpers.hpp"
 
-using w1::monitor::backend::module_snapshot_entry;
-using w1::monitor::backend::module_snapshot_tracker;
-using w1::monitor::backend::thread_event_emitter;
-using w1::monitor::backend::thread_stop_tracker;
-using w1::monitor::backend::dispatch_thread_entry;
 using w1::monitor::event_queue;
 using w1::monitor::module_event;
 using w1::monitor::thread_entry_context;
 using w1::monitor::thread_entry_kind;
 using w1::monitor::thread_event;
+using w1::monitor::backend::dispatch_thread_entry;
+using w1::monitor::backend::module_snapshot_entry;
+using w1::monitor::backend::module_snapshot_tracker;
+using w1::monitor::backend::thread_event_emitter;
+using w1::monitor::backend::thread_stop_tracker;
 
 TEST_CASE("w1monitor module_snapshot_tracker reports load/unload") {
   module_snapshot_tracker tracker;
@@ -119,9 +119,7 @@ TEST_CASE("w1monitor thread_stop_tracker is thread local") {
   CHECK_FALSE(tracker.should_emit());
 
   bool other_thread_emitted = false;
-  std::thread worker([&]() {
-    other_thread_emitted = tracker.should_emit();
-  });
+  std::thread worker([&]() { other_thread_emitted = tracker.should_emit(); });
   worker.join();
 
   CHECK(other_thread_emitted);
@@ -163,15 +161,12 @@ TEST_CASE("w1monitor dispatch_thread_entry honors callback") {
   };
 
   const uint64_t result = dispatch_thread_entry(
-      callback,
-      thread_entry_kind::posix,
-      99,
-      reinterpret_cast<void*>(0x1234),
-      reinterpret_cast<void*>(0x5678),
+      callback, thread_entry_kind::posix, 99, reinterpret_cast<void*>(0x1234), reinterpret_cast<void*>(0x5678),
       [&]() -> uint64_t {
         ++start_calls;
         return 7;
-      });
+      }
+  );
 
   CHECK(callback_called);
   CHECK(start_calls == 0);
@@ -191,15 +186,12 @@ TEST_CASE("w1monitor dispatch_thread_entry falls back when callback declines") {
   };
 
   const uint64_t result = dispatch_thread_entry(
-      callback,
-      thread_entry_kind::win32,
-      123,
-      reinterpret_cast<void*>(0x1111),
-      reinterpret_cast<void*>(0x2222),
+      callback, thread_entry_kind::win32, 123, reinterpret_cast<void*>(0x1111), reinterpret_cast<void*>(0x2222),
       [&]() -> uint64_t {
         ++start_calls;
         return 99;
-      });
+      }
+  );
 
   CHECK(start_calls == 1);
   CHECK(result == 99);
@@ -209,13 +201,8 @@ TEST_CASE("w1monitor dispatch_thread_entry invokes when no callback") {
   int start_calls = 0;
   w1::monitor::thread_entry_callback callback{};
 
-  const uint64_t result = dispatch_thread_entry(
-      callback,
-      thread_entry_kind::posix,
-      777,
-      nullptr,
-      nullptr,
-      [&]() -> uint64_t {
+  const uint64_t result =
+      dispatch_thread_entry(callback, thread_entry_kind::posix, 777, nullptr, nullptr, [&]() -> uint64_t {
         ++start_calls;
         return 1234;
       });

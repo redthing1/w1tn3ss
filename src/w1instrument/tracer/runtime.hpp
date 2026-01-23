@@ -18,15 +18,15 @@
 namespace w1::instrument {
 
 template <typename Traits, typename Engine, typename ThreadTracer, typename Config>
-concept process_runtime_traits = requires(
-    Engine& engine, const Config& config, const runtime::thread_info& info, bool owns_observer
-) {
-  { Traits::make_process_config(config, owns_observer) } ->
-      std::same_as<typename process_session<ThreadTracer>::config>;
-  { Traits::make_tracer(std::declval<std::shared_ptr<Engine>>(), config, info) } -> std::same_as<ThreadTracer>;
-  { Traits::configure_engine(engine, std::declval<runtime::module_catalog&>()) } -> std::same_as<void>;
-  { Traits::export_output(engine) } -> std::same_as<bool>;
-};
+concept process_runtime_traits =
+    requires(Engine& engine, const Config& config, const runtime::thread_info& info, bool owns_observer) {
+      {
+        Traits::make_process_config(config, owns_observer)
+      } -> std::same_as<typename process_session<ThreadTracer>::config>;
+      { Traits::make_tracer(std::declval<std::shared_ptr<Engine>>(), config, info) } -> std::same_as<ThreadTracer>;
+      { Traits::configure_engine(engine, std::declval<runtime::module_catalog&>()) } -> std::same_as<void>;
+      { Traits::export_output(engine) } -> std::same_as<bool>;
+    };
 
 template <typename Traits, typename Engine, typename ThreadTracer, typename Config>
 concept thread_runtime_traits = requires(Engine& engine, const Config& config) {
@@ -37,12 +37,13 @@ concept thread_runtime_traits = requires(Engine& engine, const Config& config) {
 };
 
 template <typename Traits, typename Engine, typename ThreadTracer, typename Config>
-concept process_runtime_session_config = requires(process_session<ThreadTracer>& session, Engine& engine, const Config& config) {
-  { Traits::configure_session(session, engine, config) } -> std::same_as<void>;
-};
+concept process_runtime_session_config =
+    requires(process_session<ThreadTracer>& session, Engine& engine, const Config& config) {
+      { Traits::configure_session(session, engine, config) } -> std::same_as<void>;
+    };
 
 template <typename Engine, typename ThreadTracer, typename Config, typename Traits>
-requires process_runtime_traits<Traits, Engine, ThreadTracer, Config>
+  requires process_runtime_traits<Traits, Engine, ThreadTracer, Config>
 class tracer_runtime {
 public:
   using session_type = process_session<ThreadTracer>;
@@ -85,8 +86,7 @@ public:
   }
 
   bool call_current_thread(
-      uint64_t function_ptr, const std::vector<uint64_t>& args, uint64_t* result = nullptr,
-      std::string name = "main"
+      uint64_t function_ptr, const std::vector<uint64_t>& args, uint64_t* result = nullptr, std::string name = "main"
   ) {
     configure_engine();
     return session_.call_current_thread(function_ptr, args, result, std::move(name));
@@ -133,13 +133,12 @@ private:
 };
 
 template <typename Engine, typename ThreadTracer, typename Config, typename Traits>
-requires thread_runtime_traits<Traits, Engine, ThreadTracer, Config>
+  requires thread_runtime_traits<Traits, Engine, ThreadTracer, Config>
 class thread_runtime {
 public:
   using session_type = thread_session<ThreadTracer>;
 
-  explicit thread_runtime(Config config)
-      : config_(std::move(config)), engine_(std::make_shared<Engine>(config_)) {
+  explicit thread_runtime(Config config) : config_(std::move(config)), engine_(std::make_shared<Engine>(config_)) {
     configure_engine();
   }
 
@@ -173,8 +172,7 @@ public:
   }
 
   bool call(
-      uint64_t function_ptr, const std::vector<uint64_t>& args, uint64_t* result = nullptr,
-      std::string name = "thread"
+      uint64_t function_ptr, const std::vector<uint64_t>& args, uint64_t* result = nullptr, std::string name = "thread"
   ) {
     configure_engine();
 

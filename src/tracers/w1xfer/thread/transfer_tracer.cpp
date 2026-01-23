@@ -81,9 +81,8 @@ transfer_tracer::transfer_tracer(
     : engine_(std::move(engine)), config_(std::move(config)) {
   if (config_.common.verbose > 0) {
     log_.inf(
-        "transfer tracer created", redlog::field("thread_id", info.tid),
-        redlog::field("thread_name", info.name), redlog::field("output", config_.output.path),
-        redlog::field("capture_registers", config_.capture.registers),
+        "transfer tracer created", redlog::field("thread_id", info.tid), redlog::field("thread_name", info.name),
+        redlog::field("output", config_.output.path), redlog::field("capture_registers", config_.capture.registers),
         redlog::field("capture_stack", config_.capture.stack), redlog::field("enrich_modules", config_.enrich.modules),
         redlog::field("enrich_symbols", config_.enrich.symbols),
         redlog::field("analyze_apis", config_.enrich.analyze_apis)

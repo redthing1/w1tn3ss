@@ -201,8 +201,7 @@ void transfer_engine::record_transfer(
   }
 
   std::optional<w1::util::stack_info> stack_info;
-  if (capture_stack_ && regs &&
-      regs->get_architecture() != w1::util::register_state::architecture::unknown) {
+  if (capture_stack_ && regs && regs->get_architecture() != w1::util::register_state::architecture::unknown) {
     stack_info = w1::util::stack_capturer::capture(ctx.memory(), *regs);
   }
 

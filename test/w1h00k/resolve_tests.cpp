@@ -12,7 +12,7 @@ namespace {
 
 void touch_imports() {
 #if defined(_WIN32)
-  (void)GetModuleHandleA(nullptr);
+  (void) GetModuleHandleA(nullptr);
 #else
   void* ptr = std::malloc(32);
   std::free(ptr);

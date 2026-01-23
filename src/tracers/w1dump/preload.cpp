@@ -11,13 +11,9 @@ QBDI_EXPORT int qbdipreload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QB
   return w1::instrument::preload_on_run<w1dump::dump_recipe>(vm, start, stop);
 }
 
-QBDI_EXPORT int qbdipreload_on_exit(int status) {
-  return w1::instrument::preload_on_exit<w1dump::dump_recipe>(status);
-}
+QBDI_EXPORT int qbdipreload_on_exit(int status) { return w1::instrument::preload_on_exit<w1dump::dump_recipe>(status); }
 
-QBDI_EXPORT int qbdipreload_on_start(void* main) {
-  return w1::instrument::preload_on_start<w1dump::dump_recipe>(main);
-}
+QBDI_EXPORT int qbdipreload_on_start(void* main) { return w1::instrument::preload_on_start<w1dump::dump_recipe>(main); }
 
 QBDI_EXPORT int qbdipreload_on_premain(void* gpr_ctx, void* fpu_ctx) {
   return w1::instrument::preload_on_premain<w1dump::dump_recipe>(gpr_ctx, fpu_ctx);

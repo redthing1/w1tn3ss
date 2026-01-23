@@ -22,31 +22,29 @@ using flow_mode = rewind_config::flow_options::flow_mode;
 
 const char* flow_name(flow_mode mode) {
   switch (mode) {
-    case rewind_config::flow_options::flow_mode::instruction:
-      return "instruction";
-    case rewind_config::flow_options::flow_mode::block:
-    default:
-      return "block";
+  case rewind_config::flow_options::flow_mode::instruction:
+    return "instruction";
+  case rewind_config::flow_options::flow_mode::block:
+  default:
+    return "block";
   }
 }
 
 const char* memory_access_name(rewind_config::memory_access access) {
   switch (access) {
-    case rewind_config::memory_access::reads:
-      return "reads";
-    case rewind_config::memory_access::writes:
-      return "writes";
-    case rewind_config::memory_access::reads_writes:
-      return "reads_writes";
-    case rewind_config::memory_access::none:
-    default:
-      return "none";
+  case rewind_config::memory_access::reads:
+    return "reads";
+  case rewind_config::memory_access::writes:
+    return "writes";
+  case rewind_config::memory_access::reads_writes:
+    return "reads_writes";
+  case rewind_config::memory_access::none:
+  default:
+    return "none";
   }
 }
 
-bool has_filter(
-    const std::vector<rewind_config::memory_filter_kind>& filters, rewind_config::memory_filter_kind kind
-) {
+bool has_filter(const std::vector<rewind_config::memory_filter_kind>& filters, rewind_config::memory_filter_kind kind) {
   for (const auto& entry : filters) {
     if (entry == kind) {
       return true;
@@ -83,8 +81,7 @@ struct rewind_recipe {
 
   static void log_config(const config_t& config) {
     auto log = redlog::get_logger("w1rewind.preload");
-    const char* threads =
-        config.threads == w1::instrument::config::thread_attach_policy::auto_attach ? "auto" : "main";
+    const char* threads = config.threads == w1::instrument::config::thread_attach_policy::auto_attach ? "auto" : "main";
     log.inf(
         "qbdipreload_on_run configured", redlog::field("flow", flow_name(config.flow.mode)),
         redlog::field("output", config.output_path.empty() ? "default" : config.output_path),
@@ -97,7 +94,8 @@ struct rewind_recipe {
     if (config.memory.access != rewind_config::memory_access::none && !config.memory.values) {
       log.wrn("memory values disabled; replayable memory state will be incomplete");
     }
-    if (!config.memory.ranges.empty() && !has_filter(config.memory.filters, rewind_config::memory_filter_kind::ranges)) {
+    if (!config.memory.ranges.empty() &&
+        !has_filter(config.memory.filters, rewind_config::memory_filter_kind::ranges)) {
       log.wrn("memory ranges configured but ranges filter not enabled");
     }
   }
@@ -117,8 +115,7 @@ struct rewind_recipe {
       if (!active.export_output()) {
         log.err("trace export failed", redlog::field("output", config.output_path));
       } else {
-        const std::string output =
-            config.output_path.empty() ? active.engine().output_path() : config.output_path;
+        const std::string output = config.output_path.empty() ? active.engine().output_path() : config.output_path;
         log.inf("trace export completed", redlog::field("output", output));
       }
       auto& engine = active.engine();

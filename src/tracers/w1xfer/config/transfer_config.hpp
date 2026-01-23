@@ -27,8 +27,7 @@ struct transfer_output_config {
 
 struct transfer_config {
   w1::instrument::config::tracer_common_config common{};
-  w1::instrument::config::thread_attach_policy threads =
-      w1::instrument::config::thread_attach_policy::auto_attach;
+  w1::instrument::config::thread_attach_policy threads = w1::instrument::config::thread_attach_policy::auto_attach;
   transfer_capture_config capture;
   transfer_enrich_config enrich;
   transfer_output_config output;

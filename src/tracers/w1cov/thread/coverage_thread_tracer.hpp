@@ -20,8 +20,7 @@
 
 namespace w1cov {
 
-template <coverage_mode mode>
-class coverage_thread_tracer {
+template <coverage_mode mode> class coverage_thread_tracer {
 public:
   explicit coverage_thread_tracer(std::shared_ptr<coverage_engine> engine, uint64_t flush_threshold = 0);
 
@@ -41,8 +40,8 @@ public:
   void on_thread_stop(w1::trace_context& ctx, const w1::thread_event& event);
 
   void on_basic_block_entry(
-      w1::trace_context& ctx, const w1::basic_block_event& event, QBDI::VMInstanceRef vm,
-      const QBDI::VMState* state, QBDI::GPRState* gpr, QBDI::FPRState* fpr
+      w1::trace_context& ctx, const w1::basic_block_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state,
+      QBDI::GPRState* gpr, QBDI::FPRState* fpr
   );
   void on_instruction_pre(
       w1::trace_context& ctx, const w1::instruction_event& event, QBDI::VMInstanceRef vm, QBDI::GPRState* gpr,

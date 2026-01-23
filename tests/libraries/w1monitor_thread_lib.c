@@ -29,23 +29,23 @@ struct thread_payload {
 };
 
 static void* w1monitor_thread_proc(void* arg) {
-  struct thread_payload* payload = (struct thread_payload*)arg;
+  struct thread_payload* payload = (struct thread_payload*) arg;
   uint64_t tid = 0;
 #if defined(__linux__)
-  tid = (uint64_t)syscall(SYS_gettid);
+  tid = (uint64_t) syscall(SYS_gettid);
 #endif
   if (payload && payload->tid_out) {
     atomic_store_explicit(payload->tid_out, tid, memory_order_release);
   }
   if (payload && payload->name) {
-    (void)pthread_setname_np(pthread_self(), payload->name);
+    (void) pthread_setname_np(pthread_self(), payload->name);
   }
   free(payload);
 
   struct timespec ts;
   ts.tv_sec = 0;
   ts.tv_nsec = 50 * 1000 * 1000;
-  (void)nanosleep(&ts, NULL);
+  (void) nanosleep(&ts, NULL);
 
   return NULL;
 }
@@ -58,7 +58,7 @@ W1MONITOR_EXPORT int w1monitor_spawn_thread(pthread_t* thread_out, uint64_t* tid
   atomic_uint_fast64_t tid_storage;
   atomic_init(&tid_storage, 0);
 
-  struct thread_payload* payload = (struct thread_payload*)malloc(sizeof(*payload));
+  struct thread_payload* payload = (struct thread_payload*) malloc(sizeof(*payload));
   if (!payload) {
     return ENOMEM;
   }
@@ -75,10 +75,8 @@ W1MONITOR_EXPORT int w1monitor_spawn_thread(pthread_t* thread_out, uint64_t* tid
     sched_yield();
   }
 
-  *tid_out = (uint64_t)atomic_load_explicit(&tid_storage, memory_order_acquire);
+  *tid_out = (uint64_t) atomic_load_explicit(&tid_storage, memory_order_acquire);
   return 0;
 }
 
-W1MONITOR_EXPORT int w1monitor_join_thread(pthread_t thread) {
-  return pthread_join(thread, NULL);
-}
+W1MONITOR_EXPORT int w1monitor_join_thread(pthread_t thread) { return pthread_join(thread, NULL); }

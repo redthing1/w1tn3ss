@@ -40,7 +40,7 @@ W1COV_EXPORT int w1cov_demo_branch(int value) {
 
 #if defined(_WIN32) || defined(WIN32)
 W1COV_EXPORT DWORD W1COV_CALL w1cov_demo_thread_proc(LPVOID param) {
-  int value = (int)(intptr_t)param;
+  int value = (int) (intptr_t) param;
   int sum = 0;
   for (int i = 0; i < value; ++i) {
     sum += w1cov_demo_add(i, value);
@@ -49,11 +49,11 @@ W1COV_EXPORT DWORD W1COV_CALL w1cov_demo_thread_proc(LPVOID param) {
     }
   }
   sum += w1cov_demo_branch(value);
-  return (DWORD)sum;
+  return (DWORD) sum;
 }
 #else
 W1COV_EXPORT void* W1COV_CALL w1cov_demo_thread_proc(void* param) {
-  int value = (int)(intptr_t)param;
+  int value = (int) (intptr_t) param;
   int sum = 0;
   for (int i = 0; i < value; ++i) {
     sum += w1cov_demo_add(i, value);
@@ -62,6 +62,6 @@ W1COV_EXPORT void* W1COV_CALL w1cov_demo_thread_proc(void* param) {
     }
   }
   sum += w1cov_demo_branch(value);
-  return (void*)(intptr_t)sum;
+  return (void*) (intptr_t) sum;
 }
 #endif

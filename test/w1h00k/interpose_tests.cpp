@@ -18,21 +18,15 @@ namespace {
 using interpose_lib_fn = HMODULE (*)();
 static HMODULE g_expected_handle = nullptr;
 
-static HMODULE WINAPI replacement_get_module_handle(LPCSTR) {
-  return g_expected_handle;
-}
+static HMODULE WINAPI replacement_get_module_handle(LPCSTR) { return g_expected_handle; }
 #else
 using interpose_lib_fn = pid_t (*)();
 static pid_t g_expected_pid = 0;
 
-static pid_t replacement_getpid() {
-  return g_expected_pid;
-}
+static pid_t replacement_getpid() { return g_expected_pid; }
 #endif
 
-std::string interpose_library_path() {
-  return w1::test_paths::interpose_library_path();
-}
+std::string interpose_library_path() { return w1::test_paths::interpose_library_path(); }
 
 struct interpose_library {
 #if defined(_WIN32)
@@ -107,8 +101,7 @@ TEST_CASE("w1h00k interpose hooks loaded modules") {
   g_expected_handle = reinterpret_cast<HMODULE>(0x12345678);
   REQUIRE(original_main != g_expected_handle);
 
-  auto request = make_interpose_request("GetModuleHandleA",
-                                        reinterpret_cast<void*>(&replacement_get_module_handle));
+  auto request = make_interpose_request("GetModuleHandleA", reinterpret_cast<void*>(&replacement_get_module_handle));
 #else
   const pid_t original_main = getpid();
   const pid_t original_lib = entry();
@@ -153,8 +146,7 @@ TEST_CASE("w1h00k interpose respects module filter") {
   g_expected_handle = reinterpret_cast<HMODULE>(0x76543210);
   REQUIRE(original_main != g_expected_handle);
 
-  auto request = make_interpose_request("GetModuleHandleA",
-                                        reinterpret_cast<void*>(&replacement_get_module_handle));
+  auto request = make_interpose_request("GetModuleHandleA", reinterpret_cast<void*>(&replacement_get_module_handle));
 #else
   const pid_t original_main = getpid();
   const pid_t original_lib = entry();

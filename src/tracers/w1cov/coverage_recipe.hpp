@@ -35,8 +35,7 @@ struct coverage_recipe {
 
   static void log_config(const config_t& config) {
     auto log = redlog::get_logger("w1cov.preload");
-    const char* threads =
-        config.threads == w1::instrument::config::thread_attach_policy::auto_attach ? "auto" : "main";
+    const char* threads = config.threads == w1::instrument::config::thread_attach_policy::auto_attach ? "auto" : "main";
     log.inf(
         "qbdipreload_on_run configured", redlog::field("mode", coverage_mode_name(config.mode)),
         redlog::field("output_file", config.output_file),

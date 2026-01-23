@@ -60,7 +60,7 @@ uint64_t coverage_store::total_hits() const {
   std::lock_guard<std::mutex> lock(mutex_);
   uint64_t total = 0;
   for (const auto& [address, entry] : entries_) {
-    (void)address;
+    (void) address;
     total += entry.hitcount;
   }
   return total;

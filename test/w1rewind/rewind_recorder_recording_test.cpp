@@ -45,10 +45,9 @@ TEST_CASE("w1rewind records instruction flow, memory, and snapshots") {
   std::vector<uint64_t> args;
   args.push_back(64);
   uint64_t result = 0;
-  bool ok = w1rewind::with_runtime(
-      runtime,
-      [&](auto& active) { return active.call(reinterpret_cast<uint64_t>(&rewind_test_worker), args, &result, "unit_main"); }
-  );
+  bool ok = w1rewind::with_runtime(runtime, [&](auto& active) {
+    return active.call(reinterpret_cast<uint64_t>(&rewind_test_worker), args, &result, "unit_main");
+  });
   if (!ok) {
     WARN("thread runtime could not instrument modules; module scanning may be blocked");
     return;

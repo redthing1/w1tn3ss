@@ -29,8 +29,8 @@ private:
   bool is_readable_range_locked(uint64_t address, uint64_t end) const;
   void refresh_maps(bool force) const;
 
-  QBDI::VM* vm_ = nullptr;
-  const runtime::module_catalog* modules_ = nullptr;
+  [[maybe_unused]] QBDI::VM* vm_ = nullptr;
+  [[maybe_unused]] const runtime::module_catalog* modules_ = nullptr;
   mutable std::shared_mutex maps_mutex_{};
   mutable std::vector<QBDI::MemoryMap> readable_maps_{};
   mutable std::chrono::steady_clock::time_point last_refresh_{};

@@ -37,8 +37,7 @@ struct dump_recipe {
     auto log = redlog::get_logger("w1dump.preload");
     log.inf(
         "qbdipreload_on_run configured", redlog::field("output", config.output),
-        redlog::field("dump_on_entry", config.dump_on_entry),
-        redlog::field("dump_memory", config.dump_memory_content),
+        redlog::field("dump_on_entry", config.dump_on_entry), redlog::field("dump_memory", config.dump_memory_content),
         redlog::field("filters", static_cast<uint64_t>(config.filters.size())),
         redlog::field("max_region_size", config.max_region_size)
     );

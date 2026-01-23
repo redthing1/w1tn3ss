@@ -26,7 +26,9 @@ template <tracer_recipe Recipe> preload_state<Recipe>& state() {
 }
 
 template <typename Recipe>
-concept has_on_start = requires(void* main) { { Recipe::on_start(main) } -> std::same_as<int>; };
+concept has_on_start = requires(void* main) {
+  { Recipe::on_start(main) } -> std::same_as<int>;
+};
 
 template <typename Recipe>
 concept has_on_premain = requires(void* gpr_ctx, void* fpu_ctx) {
@@ -34,12 +36,13 @@ concept has_on_premain = requires(void* gpr_ctx, void* fpu_ctx) {
 };
 
 template <typename Recipe>
-concept has_on_main = requires(int argc, char** argv) { { Recipe::on_main(argc, argv) } -> std::same_as<int>; };
+concept has_on_main = requires(int argc, char** argv) {
+  { Recipe::on_main(argc, argv) } -> std::same_as<int>;
+};
 
 } // namespace detail
 
-template <tracer_recipe Recipe>
-int preload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QBDI::rword stop) {
+template <tracer_recipe Recipe> int preload_on_run(QBDI::VMInstanceRef vm, QBDI::rword start, QBDI::rword stop) {
   using config_t = typename Recipe::config_t;
   using runtime_t = typename Recipe::runtime_t;
 
