@@ -1,4 +1,4 @@
-#include "coverage_recorder.hpp"
+#include "coverage_thread_tracer.hpp"
 
 #include <algorithm>
 #include <optional>
@@ -10,13 +10,13 @@ constexpr size_t kDefaultBufferReserve = 4096;
 }
 
 template <coverage_mode mode>
-coverage_recorder<mode>::coverage_recorder(std::shared_ptr<coverage_engine> engine, uint64_t flush_threshold)
+coverage_thread_tracer<mode>::coverage_thread_tracer(std::shared_ptr<coverage_engine> engine, uint64_t flush_threshold)
     : engine_(std::move(engine)),
       module_epoch_(engine_ ? engine_->module_epoch() : 0),
       buffer_(buffer_merge{engine_.get()}, kDefaultBufferReserve, flush_threshold) {}
 
 template <coverage_mode mode>
-void coverage_recorder<mode>::on_thread_start(w1::trace_context& ctx, const w1::thread_event& event) {
+void coverage_thread_tracer<mode>::on_thread_start(w1::trace_context& ctx, const w1::thread_event& event) {
   (void)ctx;
   (void)event;
   if (engine_) {
@@ -27,7 +27,7 @@ void coverage_recorder<mode>::on_thread_start(w1::trace_context& ctx, const w1::
 }
 
 template <coverage_mode mode>
-void coverage_recorder<mode>::on_thread_stop(w1::trace_context& ctx, const w1::thread_event& event) {
+void coverage_thread_tracer<mode>::on_thread_stop(w1::trace_context& ctx, const w1::thread_event& event) {
   (void)ctx;
   (void)event;
   if (!engine_) {
@@ -38,15 +38,15 @@ void coverage_recorder<mode>::on_thread_stop(w1::trace_context& ctx, const w1::t
 }
 
 template <coverage_mode mode>
-void coverage_recorder<mode>::on_basic_block_entry(
-    w1::trace_context& ctx, const w1::basic_block_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state,
-    QBDI::GPRState* gpr, QBDI::FPRState* fpr
+void coverage_thread_tracer<mode>::on_basic_block_entry(
+    w1::trace_context& ctx, const w1::basic_block_event& event, QBDI::VMInstanceRef vm,
+    const QBDI::VMState* state, QBDI::GPRState* gpr, QBDI::FPRState* fpr
 ) {
-  (void) vm;
-  (void) state;
-  (void) gpr;
-  (void) fpr;
-  (void) ctx;
+  (void)vm;
+  (void)state;
+  (void)gpr;
+  (void)fpr;
+  (void)ctx;
 
   if constexpr (mode == coverage_mode::basic_block) {
     if (event.address == 0 || event.size == 0) {
@@ -59,14 +59,14 @@ void coverage_recorder<mode>::on_basic_block_entry(
 }
 
 template <coverage_mode mode>
-void coverage_recorder<mode>::on_instruction_pre(
+void coverage_thread_tracer<mode>::on_instruction_pre(
     w1::trace_context& ctx, const w1::instruction_event& event, QBDI::VMInstanceRef vm, QBDI::GPRState* gpr,
     QBDI::FPRState* fpr
 ) {
-  (void) vm;
-  (void) gpr;
-  (void) fpr;
-  (void) ctx;
+  (void)vm;
+  (void)gpr;
+  (void)fpr;
+  (void)ctx;
 
   if constexpr (mode == coverage_mode::instruction) {
     if (event.address == 0) {
@@ -80,7 +80,7 @@ void coverage_recorder<mode>::on_instruction_pre(
 }
 
 template <coverage_mode mode>
-void coverage_recorder<mode>::record_coverage(uint64_t address, uint32_t size) {
+void coverage_thread_tracer<mode>::record_coverage(uint64_t address, uint32_t size) {
   if (!engine_ || size == 0 || address == 0) {
     return;
   }
@@ -116,19 +116,7 @@ void coverage_recorder<mode>::record_coverage(uint64_t address, uint32_t size) {
   );
 }
 
-template <coverage_mode mode> size_t coverage_recorder<mode>::get_coverage_unit_count() const {
-  return engine_ ? engine_->coverage_unit_count() : 0;
-}
-
-template <coverage_mode mode> size_t coverage_recorder<mode>::get_module_count() const {
-  return engine_ ? engine_->module_count() : 0;
-}
-
-template <coverage_mode mode> uint64_t coverage_recorder<mode>::get_total_hits() const {
-  return engine_ ? engine_->total_hits() : 0;
-}
-
-template class coverage_recorder<coverage_mode::basic_block>;
-template class coverage_recorder<coverage_mode::instruction>;
+template class coverage_thread_tracer<coverage_mode::basic_block>;
+template class coverage_thread_tracer<coverage_mode::instruction>;
 
 } // namespace w1cov

@@ -9,68 +9,69 @@
 #include <QBDI.h>
 
 #include "w1base/thread_utils.hpp"
-#include "w1instrument/core/event_router.hpp"
-#include "w1instrument/core/instrumentation_policy.hpp"
 #include "w1instrument/core/vm_controller.hpp"
-#include "w1runtime/module_catalog.hpp"
+#include "w1instrument/trace/event_dispatcher.hpp"
 #include "w1instrument/tracer/event.hpp"
 #include "w1instrument/tracer/trace_context.hpp"
 #include "w1instrument/tracer/tracer.hpp"
 #include "w1runtime/memory_reader.hpp"
+#include "w1runtime/module_catalog.hpp"
 
-namespace w1 {
+namespace w1::instrument {
 
-using instrumentation_policy = core::instrumentation_policy;
-
-struct vm_session_config {
-  instrumentation_policy instrumentation{};
+struct thread_session_config {
+  core::instrumentation_policy instrumentation{};
   uint64_t thread_id = 0;
-  std::string thread_name = "main";
+  std::string thread_name = "thread";
   QBDI::Options vm_options = QBDI::Options::NO_OPT;
   runtime::module_catalog* shared_modules = nullptr;
 };
 
-template <tracer tracer_t> class vm_session {
+// Per-thread QBDI session wired to a tracer instance.
+template <tracer tracer_t> class thread_session {
 public:
-  explicit vm_session(vm_session_config config, tracer_t tracer_instance)
+  explicit thread_session(thread_session_config config, tracer_t tracer_instance)
       : config_(std::move(config)), tracer_(std::move(tracer_instance)), vm_controller_(),
-        event_router_(vm_controller_.vm()) {
+        dispatcher_(vm_controller_.vm()) {
     init_shared_state();
     apply_options();
   }
 
-  vm_session(vm_session_config config, tracer_t tracer_instance, QBDI::VM* borrowed_vm)
+  thread_session(thread_session_config config, tracer_t tracer_instance, QBDI::VM* borrowed_vm)
       : config_(std::move(config)), tracer_(std::move(tracer_instance)), vm_controller_(borrowed_vm),
-        event_router_(vm_controller_.vm()) {
+        dispatcher_(vm_controller_.vm()) {
     init_shared_state();
     apply_options();
   }
 
   template <typename... Args>
-  explicit vm_session(vm_session_config config, std::in_place_t, Args&&... args)
+  explicit thread_session(thread_session_config config, std::in_place_t, Args&&... args)
       : config_(std::move(config)), tracer_(std::forward<Args>(args)...), vm_controller_(),
-        event_router_(vm_controller_.vm()) {
+        dispatcher_(vm_controller_.vm()) {
     init_shared_state();
     apply_options();
   }
 
   template <typename... Args>
-  vm_session(vm_session_config config, QBDI::VM* borrowed_vm, std::in_place_t, Args&&... args)
+  thread_session(thread_session_config config, QBDI::VM* borrowed_vm, std::in_place_t, Args&&... args)
       : config_(std::move(config)), tracer_(std::forward<Args>(args)...), vm_controller_(borrowed_vm),
-        event_router_(vm_controller_.vm()) {
+        dispatcher_(vm_controller_.vm()) {
     init_shared_state();
     apply_options();
   }
 
-  vm_session(const vm_session&) = delete;
-  vm_session& operator=(const vm_session&) = delete;
-  vm_session(vm_session&&) = delete;
-  vm_session& operator=(vm_session&&) = delete;
+  thread_session(const thread_session&) = delete;
+  thread_session& operator=(const thread_session&) = delete;
+  thread_session(thread_session&&) = delete;
+  thread_session& operator=(thread_session&&) = delete;
 
-  ~vm_session() { shutdown(); }
+  ~thread_session() { shutdown(); }
 
   tracer_t& tracer() { return tracer_; }
   const tracer_t& tracer() const { return tracer_; }
+
+  trace_context& context() { return *context_; }
+  const trace_context& context() const { return *context_; }
 
   void request_refresh() { refresh_requested_.store(true, std::memory_order_release); }
 
@@ -91,10 +92,7 @@ public:
     }
 
     event_mask mask = tracer_t::requested_events();
-    if (!event_router_.configure(mask, tracer_, *context_)) {
-      return false;
-    }
-    if (!event_router_.enable_memory_recording()) {
+    if (!dispatcher_.bind(mask, tracer_, *context_)) {
       return false;
     }
 
@@ -111,7 +109,7 @@ public:
       refresh_callback_id_ = vm->addCodeCB(
           QBDI::PREINST,
           [](QBDI::VMInstanceRef, QBDI::GPRState*, QBDI::FPRState*, void* data) -> QBDI::VMAction {
-            auto* session = static_cast<vm_session*>(data);
+            auto* session = static_cast<thread_session*>(data);
             if (session->refresh_requested_.exchange(false, std::memory_order_acq_rel)) {
               session->refresh_instrumentation();
             }
@@ -143,8 +141,7 @@ public:
     }
 
     size_t added = refresh_instrumentation();
-
-    if (!event_router_.enable_memory_recording()) {
+    if (!dispatcher_.ensure_memory_recording()) {
       return false;
     }
 
@@ -206,13 +203,14 @@ public:
     }
 
     if (clear_callbacks) {
-      event_router_.clear();
+      dispatcher_.clear();
       if (refresh_callback_id_ != QBDI::INVALID_EVENTID) {
         vm_controller_.vm()->deleteInstrumentation(refresh_callback_id_);
       }
     } else {
-      event_router_.detach();
+      dispatcher_.detach();
     }
+
     refresh_callback_id_ = QBDI::INVALID_EVENTID;
     initialized_ = false;
     instrumented_ = false;
@@ -277,18 +275,18 @@ private:
     }
   }
 
-  vm_session_config config_{};
+  thread_session_config config_{};
   tracer_t tracer_{};
   core::vm_controller vm_controller_{};
   std::unique_ptr<runtime::module_catalog> owned_modules_{};
   runtime::module_catalog* modules_ = nullptr;
   std::unique_ptr<util::memory_reader> memory_reader_{};
   std::unique_ptr<trace_context> context_{};
-  core::event_router<tracer_t> event_router_;
+  event_dispatcher<tracer_t> dispatcher_;
   bool initialized_ = false;
   bool instrumented_ = false;
   std::atomic<bool> refresh_requested_{false};
   uint32_t refresh_callback_id_ = QBDI::INVALID_EVENTID;
 };
 
-} // namespace w1
+} // namespace w1::instrument

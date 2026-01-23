@@ -22,8 +22,7 @@ drcov::coverage_data coverage_exporter::to_drcov(
 
   log_.trc(
       "building drcov data", redlog::field("module_count", modules.size()),
-      redlog::field("coverage_unit_count", snapshot.units.size()),
-      redlog::field("total_hits", snapshot.total_hits)
+      redlog::field("coverage_unit_count", snapshot.units.size()), redlog::field("total_hits", snapshot.total_hits)
   );
 
   std::unordered_set<uint16_t> used_module_ids;
@@ -79,8 +78,8 @@ drcov::coverage_data coverage_exporter::to_drcov(
   }
 
   log_.inf(
-      "module processing completed", redlog::field("valid", valid_modules),
-      redlog::field("invalid", invalid_modules), redlog::field("skipped", skipped_modules)
+      "module processing completed", redlog::field("valid", valid_modules), redlog::field("invalid", invalid_modules),
+      redlog::field("skipped", skipped_modules)
   );
 
   size_t valid_units = 0;

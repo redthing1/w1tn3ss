@@ -103,7 +103,7 @@ int cover(
   if (system_policy_flag) {
     params.config_map["system_policy"] = args::get(system_policy_flag);
   }
-  params.config_map["inst_trace"] = inst_trace_flag ? "true" : "false";
+  params.config_map["mode"] = inst_trace_flag ? "instruction" : "basic_block";
   params.config_map["output"] = output_file;
 
   if (module_filter_flag) {
@@ -138,7 +138,8 @@ int cover(
   std::string system_policy = system_policy_flag ? args::get(system_policy_flag) : "default";
   log.info(
       "coverage tracing configuration", redlog::field("output_file", output_file), redlog::field("format", format),
-      redlog::field("system_policy", system_policy), redlog::field("inst_trace", inst_trace_flag ? "true" : "false"),
+      redlog::field("system_policy", system_policy),
+      redlog::field("mode", inst_trace_flag ? "instruction" : "basic_block"),
       redlog::field("debug_level", params.debug_level)
   );
 
