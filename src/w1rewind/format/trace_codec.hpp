@@ -145,6 +145,7 @@ inline bool encode_module_record(const module_record& module, trace_buffer_write
   writer.write_u32(module.identity_age);
   writer.write_u32(module.flags);
   writer.write_u64(module.link_base);
+  writer.write_u64(module.entry_point);
   if (!writer.write_string(module.identity)) {
     log.err("trace string too long", redlog::field("length", module.identity.size()));
     return false;
@@ -215,8 +216,8 @@ inline bool decode_module_record(trace_buffer_reader& reader, module_record& mod
   uint8_t format = 0;
   if (!reader.read_u64(module.id) || !reader.read_u64(module.base) || !reader.read_u64(module.size) ||
       !reader.read_u32(perms) || !reader.read_u8(format) || !reader.read_u32(module.identity_age) ||
-      !reader.read_u32(flags) || !reader.read_u64(module.link_base) || !reader.read_string(module.identity) ||
-      !reader.read_string(module.path)) {
+      !reader.read_u32(flags) || !reader.read_u64(module.link_base) || !reader.read_u64(module.entry_point) ||
+      !reader.read_string(module.identity) || !reader.read_string(module.path)) {
     return false;
   }
   module.permissions = static_cast<module_perm>(perms);

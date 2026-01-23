@@ -10,7 +10,7 @@
 
 namespace w1::rewind {
 
-constexpr uint16_t k_trace_version = 16;
+constexpr uint16_t k_trace_version = 17;
 constexpr std::array<uint8_t, 8> k_trace_magic = {'W', '1', 'R', 'W', 'N', 'D', '1', '1'};
 constexpr uint32_t k_trace_chunk_bytes = 8 * 1024 * 1024;
 constexpr uint32_t k_register_regnum_unknown = 0xFFFFFFFFu;
@@ -106,6 +106,7 @@ enum register_flags : uint16_t {
   register_flag_pc = 1u << 0,
   register_flag_sp = 1u << 1,
   register_flag_flags = 1u << 2,
+  register_flag_fp = 1u << 3,
 };
 
 enum class register_class : uint8_t {
@@ -141,6 +142,9 @@ struct register_spec_record {
 
 enum module_record_flags : uint32_t {
   module_record_flag_link_base_valid = 1u << 0,
+  module_record_flag_main = 1u << 1,
+  module_record_flag_file_backed = 1u << 2,
+  module_record_flag_entry_point_valid = 1u << 3,
 };
 
 struct module_record {
@@ -153,6 +157,7 @@ struct module_record {
   uint32_t identity_age = 0;
   uint32_t flags = 0;
   uint64_t link_base = 0;
+  uint64_t entry_point = 0;
   std::string path;
 };
 

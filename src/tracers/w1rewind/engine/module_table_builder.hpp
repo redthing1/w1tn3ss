@@ -1,6 +1,7 @@
 #pragma once
 
 #include <mutex>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -17,6 +18,7 @@ struct module_metadata {
   uint32_t identity_age = 0;
   uint32_t flags = 0;
   uint64_t link_base = 0;
+  std::optional<uint64_t> entry_point;
 };
 
 class module_metadata_cache {

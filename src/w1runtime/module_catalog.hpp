@@ -18,6 +18,7 @@ struct module_info {
   uint64_t size = 0;
   uint32_t permissions = 0;
   bool is_system = false;
+  bool is_main = false;
   address_range full_range{};
   std::vector<address_range> mapped_ranges;
   std::vector<address_range> exec_ranges;

@@ -107,6 +107,10 @@ bool adapter::open() {
     loaded_libraries_component_ = std::make_unique<loaded_libraries_component>(services_);
   }
   process_info_component_ = std::make_unique<process_info_component>(services_);
+  auxv_component_ = std::make_unique<auxv_component>(services_);
+  if (!auxv_component_->auxv_data()) {
+    auxv_component_.reset();
+  }
   offsets_component_ = std::make_unique<offsets_component>(services_);
   register_info_component_ = std::make_unique<register_info_component>(services_);
 
@@ -115,10 +119,24 @@ bool adapter::open() {
 
 gdbstub::target adapter::make_target() {
   if (loaded_libraries_component_) {
+    if (auxv_component_) {
+      return gdbstub::make_target(
+          *regs_component_, *mem_component_, *run_component_, *breakpoints_component_, *threads_component_,
+          *host_info_component_, *memory_layout_component_, *libraries_component_, *loaded_libraries_component_,
+          *process_info_component_, *auxv_component_, *offsets_component_, *register_info_component_
+      );
+    }
     return gdbstub::make_target(
         *regs_component_, *mem_component_, *run_component_, *breakpoints_component_, *threads_component_,
         *host_info_component_, *memory_layout_component_, *libraries_component_, *loaded_libraries_component_,
         *process_info_component_, *offsets_component_, *register_info_component_
+    );
+  }
+  if (auxv_component_) {
+    return gdbstub::make_target(
+        *regs_component_, *mem_component_, *run_component_, *breakpoints_component_, *threads_component_,
+        *host_info_component_, *memory_layout_component_, *libraries_component_, *process_info_component_,
+        *auxv_component_, *offsets_component_, *register_info_component_
     );
   }
   return gdbstub::make_target(

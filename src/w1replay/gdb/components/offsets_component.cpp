@@ -18,10 +18,11 @@ std::optional<gdbstub::offsets_info> offsets_component::get_offsets_info() const
   if ((module.flags & w1::rewind::module_record_flag_link_base_valid) == 0) {
     return std::nullopt;
   }
-  if (module.base < module.link_base) {
+  const uint64_t link_base = module.link_base;
+  if (module.base < link_base) {
     return std::nullopt;
   }
-  uint64_t slide = module.base - module.link_base;
+  uint64_t slide = module.base - link_base;
   return gdbstub::offsets_info::section(slide, slide, slide);
 }
 

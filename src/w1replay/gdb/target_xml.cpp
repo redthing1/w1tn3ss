@@ -35,6 +35,22 @@ const char* type_for_reg(const register_desc& reg) {
   return "int";
 }
 
+const char* generic_for_reg(const register_desc& reg) {
+  if (reg.is_pc) {
+    return "pc";
+  }
+  if (reg.is_sp) {
+    return "sp";
+  }
+  if (reg.is_flags) {
+    return "flags";
+  }
+  if (reg.is_fp) {
+    return "fp";
+  }
+  return nullptr;
+}
+
 } // namespace
 
 std::string build_target_xml(const register_layout& layout) {
@@ -91,6 +107,9 @@ std::string build_target_xml(const register_layout& layout) {
       xml << " gcc_regnum=\"" << *entry.ehframe_regnum << "\"";
     }
     xml << " type=\"" << type_for_reg(reg) << "\"";
+    if (const char* generic = generic_for_reg(reg)) {
+      xml << " generic=\"" << generic << "\"";
+    }
     xml << " group=\"" << group_for_class(reg.reg_class) << "\"";
     xml << "/>\n";
   }

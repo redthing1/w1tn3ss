@@ -1,6 +1,7 @@
 #include "module_table_builder.hpp"
 
 #include <algorithm>
+#include <filesystem>
 #include <limits>
 #include <optional>
 
@@ -34,6 +35,14 @@ w1::rewind::module_perm module_perm_from_qbdi(uint32_t perms) {
     out = out | w1::rewind::module_perm::exec;
   }
   return out;
+}
+
+bool path_exists(const std::string& path) {
+  if (path.empty()) {
+    return false;
+  }
+  std::error_code ec;
+  return std::filesystem::exists(std::filesystem::path(path), ec);
 }
 
 #if defined(WITNESS_LIEF_ENABLED)
@@ -173,6 +182,7 @@ w1rewind::module_metadata resolve_module_metadata(const std::string& path, const
     if (!elf) {
       return meta;
     }
+    meta.entry_point = elf->entrypoint();
     if (auto link_base = elf_link_base(*elf)) {
       meta.link_base = *link_base;
       meta.flags |= w1::rewind::module_record_flag_link_base_valid;
@@ -202,6 +212,7 @@ w1rewind::module_metadata resolve_module_metadata(const std::string& path, const
     if (!macho) {
       return meta;
     }
+    meta.entry_point = macho->entrypoint();
     if (!macho->has_uuid()) {
       if ((meta.flags & w1::rewind::module_record_flag_link_base_valid) == 0) {
         if (auto link_base = macho_link_base(*macho)) {
@@ -234,6 +245,7 @@ w1rewind::module_metadata resolve_module_metadata(const std::string& path, const
     if (!pe) {
       return meta;
     }
+    meta.entry_point = pe->entrypoint();
     if (auto link_base = pe_link_base(*pe)) {
       meta.link_base = *link_base;
       meta.flags |= w1::rewind::module_record_flag_link_base_valid;
@@ -295,6 +307,16 @@ w1::rewind::module_record build_module_record(
   record.identity = meta.identity;
   record.identity_age = meta.identity_age;
   record.flags = meta.flags;
+  if (module.is_main) {
+    record.flags |= w1::rewind::module_record_flag_main;
+  }
+  if (meta.format != w1::rewind::module_format::unknown || path_exists(record.path)) {
+    record.flags |= w1::rewind::module_record_flag_file_backed;
+  }
+  if (meta.entry_point.has_value()) {
+    record.entry_point = *meta.entry_point;
+    record.flags |= w1::rewind::module_record_flag_entry_point_valid;
+  }
   record.link_base = meta.link_base;
   return record;
 }

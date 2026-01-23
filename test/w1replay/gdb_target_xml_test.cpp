@@ -47,3 +47,16 @@ TEST_CASE("gdb target xml encodes architecture and regnums") {
   CHECK(xml_has_reg_attr(xml, "sp", "dwarf_regnum=\"31\""));
   CHECK(xml_has_reg_attr(xml, "lr", "dwarf_regnum=\"30\""));
 }
+
+TEST_CASE("gdb target xml uses explicit generic register flags") {
+  std::vector<std::string> regs = {"rip", "rsp", "rbp", "rflags"};
+  auto arch = w1::rewind::test_helpers::parse_arch_or_fail("x86_64");
+  auto specs = w1::rewind::test_helpers::make_register_specs(regs, arch);
+  auto layout = w1replay::gdb::build_register_layout(arch, specs);
+
+  auto xml = w1replay::gdb::build_target_xml(layout);
+  CHECK(xml_has_reg_attr(xml, "rip", "generic=\"pc\""));
+  CHECK(xml_has_reg_attr(xml, "rsp", "generic=\"sp\""));
+  CHECK(xml_has_reg_attr(xml, "rbp", "generic=\"fp\""));
+  CHECK(xml_has_reg_attr(xml, "eflags", "generic=\"flags\""));
+}
