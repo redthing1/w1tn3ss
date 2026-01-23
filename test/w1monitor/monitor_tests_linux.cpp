@@ -26,6 +26,17 @@ namespace {
 
 using w1::monitor::test::wait_for_event;
 
+using spawn_thread_fn = int (*)(pthread_t*, uint64_t*, const char*);
+using join_thread_fn = int (*)(pthread_t);
+
+constexpr uintptr_t kOverrideResult = 0x1234;
+
+void* entry_callback_start(void* arg) {
+  auto* ran_ptr = static_cast<std::atomic<bool>*>(arg);
+  ran_ptr->store(true, std::memory_order_release);
+  return reinterpret_cast<void*>(static_cast<uintptr_t>(0x7777));
+}
+
 } // namespace
 
 TEST_CASE("w1monitor linux module monitor reports load/unload") {
@@ -58,6 +69,44 @@ TEST_CASE("w1monitor linux module monitor reports load/unload") {
       },
       std::chrono::milliseconds(1000));
   CHECK(has_unloaded);
+
+  monitor->stop();
+}
+
+TEST_CASE("w1monitor linux thread entry callback can override start routine") {
+  auto monitor = w1::monitor::make_thread_monitor();
+  REQUIRE(monitor != nullptr);
+
+  std::atomic<bool> ran{false};
+  std::atomic<int> observed_kind{-1};
+  std::atomic<uint64_t> observed_tid{0};
+  std::atomic<void*> observed_start{nullptr};
+  std::atomic<void*> observed_arg{nullptr};
+
+  monitor->set_entry_callback([&](const w1::monitor::thread_entry_context& ctx, uint64_t& result_out) {
+    observed_kind.store(static_cast<int>(ctx.kind), std::memory_order_release);
+    observed_tid.store(ctx.tid, std::memory_order_release);
+    observed_start.store(ctx.start_routine, std::memory_order_release);
+    observed_arg.store(ctx.arg, std::memory_order_release);
+    result_out = static_cast<uint64_t>(kOverrideResult);
+    return true;
+  });
+
+  monitor->start();
+
+  pthread_t thread{};
+  REQUIRE(pthread_create(&thread, nullptr, &entry_callback_start, &ran) == 0);
+
+  void* thread_result = nullptr;
+  pthread_join(thread, &thread_result);
+
+  CHECK(thread_result == reinterpret_cast<void*>(kOverrideResult));
+  CHECK(ran.load(std::memory_order_acquire) == false);
+  CHECK(observed_kind.load(std::memory_order_acquire) == static_cast<int>(w1::monitor::thread_entry_kind::posix));
+  CHECK(observed_tid.load(std::memory_order_acquire) != 0);
+  CHECK(observed_start.load(std::memory_order_acquire) ==
+        reinterpret_cast<void*>(entry_callback_start));
+  CHECK(observed_arg.load(std::memory_order_acquire) == &ran);
 
   monitor->stop();
 }
@@ -115,6 +164,59 @@ TEST_CASE("w1monitor linux thread monitor reports start/stop/rename") {
       std::chrono::milliseconds(1000));
   CHECK(saw_stopped);
 
+  monitor->stop();
+}
+
+TEST_CASE("w1monitor linux thread monitor captures dlopen thread start/stop") {
+  auto monitor = w1::monitor::make_thread_monitor();
+  REQUIRE(monitor != nullptr);
+  monitor->start();
+
+  const auto lib_path = w1::test_paths::monitor_thread_library_path();
+  REQUIRE(!lib_path.empty());
+
+  void* handle = dlopen(lib_path.c_str(), RTLD_NOW);
+  REQUIRE(handle != nullptr);
+
+  auto spawn_thread = reinterpret_cast<spawn_thread_fn>(dlsym(handle, "w1monitor_spawn_thread"));
+  auto join_thread = reinterpret_cast<join_thread_fn>(dlsym(handle, "w1monitor_join_thread"));
+  REQUIRE(spawn_thread != nullptr);
+  REQUIRE(join_thread != nullptr);
+
+  pthread_t thread{};
+  uint64_t tid = 0;
+  REQUIRE(spawn_thread(&thread, &tid, "w1mon_plugin") == 0);
+  REQUIRE(tid != 0);
+
+  w1::monitor::thread_event event{};
+  const auto saw_started = wait_for_event(
+      *monitor, event,
+      [&](const w1::monitor::thread_event& e) {
+        return e.type == w1::monitor::thread_event::kind::started && e.tid == tid;
+      },
+      std::chrono::milliseconds(1000));
+  CHECK(saw_started);
+
+  const auto saw_rename = wait_for_event(
+      *monitor, event,
+      [&](const w1::monitor::thread_event& e) {
+        return e.type == w1::monitor::thread_event::kind::renamed && e.tid == tid &&
+               e.name == "w1mon_plugin";
+      },
+      std::chrono::milliseconds(1000));
+  CHECK(saw_rename);
+
+  CHECK(join_thread(thread) == 0);
+
+  const auto saw_stopped = wait_for_event(
+      *monitor, event,
+      [&](const w1::monitor::thread_event& e) {
+        return e.type == w1::monitor::thread_event::kind::stopped && e.tid == tid;
+      },
+      std::chrono::milliseconds(1000));
+  CHECK(saw_stopped);
+
+  dlclose(handle);
   monitor->stop();
 }
 

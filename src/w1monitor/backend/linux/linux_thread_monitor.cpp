@@ -35,6 +35,12 @@ struct start_payload {
   class linux_thread_monitor* monitor = nullptr;
 };
 
+struct stop_cleanup_context {
+  linux_thread_monitor* monitor = nullptr;
+  uint64_t tid = 0;
+  start_payload* payload = nullptr;
+};
+
 class linux_thread_monitor final : public thread_monitor {
 public:
   void start() override {
@@ -67,14 +73,32 @@ public:
   void set_entry_callback(thread_entry_callback callback) override { entry_callback_ = std::move(callback); }
 
 private:
-  static void* start_trampoline(void* arg) {
-    std::unique_ptr<start_payload> payload(static_cast<start_payload*>(arg));
-    linux_thread_monitor* monitor = payload->monitor;
-    void* (*start_routine)(void*) = payload->start_routine;
-    void* start_arg = payload->arg;
+  static void stop_cleanup(void* arg) {
+    auto* ctx = static_cast<stop_cleanup_context*>(arg);
+    if (!ctx || !ctx->monitor) {
+      if (ctx && ctx->payload) {
+        delete ctx->payload;
+      }
+      return;
+    }
+    auto* monitor = ctx->monitor;
+    if (monitor->active_ && monitor->stop_tracker_.should_emit()) {
+      monitor->emitter_.stopped(ctx->tid);
+    }
+    if (ctx->payload) {
+      delete ctx->payload;
+    }
+  }
 
+  static void* start_trampoline(void* arg) {
+    auto* payload = static_cast<start_payload*>(arg);
+    linux_thread_monitor* monitor = payload ? payload->monitor : nullptr;
+    void* (*start_routine)(void*) = payload ? payload->start_routine : nullptr;
+    void* start_arg = payload ? payload->arg : nullptr;
+
+    const uint64_t tid = current_tid();
     if (monitor && monitor->active_) {
-      monitor->emitter_.started(current_tid());
+      monitor->emitter_.started(tid);
     }
     if (monitor) {
       monitor->stop_tracker_.reset();
@@ -82,10 +106,13 @@ private:
 
     void* result = nullptr;
     if (monitor) {
-      const uint64_t result_value = backend::dispatch_thread_entry(
+      stop_cleanup_context cleanup{monitor, tid, payload};
+      uint64_t result_value = 0;
+      pthread_cleanup_push(&linux_thread_monitor::stop_cleanup, &cleanup);
+      result_value = backend::dispatch_thread_entry(
           monitor->entry_callback_,
           thread_entry_kind::posix,
-          current_tid(),
+          tid,
           reinterpret_cast<void*>(start_routine),
           start_arg,
           [&]() -> uint64_t {
@@ -94,13 +121,20 @@ private:
             }
             return 0;
           });
+      pthread_cleanup_pop(0);
       result = reinterpret_cast<void*>(static_cast<uintptr_t>(result_value));
+      delete payload;
     } else if (start_routine) {
       result = start_routine(start_arg);
+      if (payload) {
+        delete payload;
+      }
+    } else if (payload) {
+      delete payload;
     }
 
     if (monitor && monitor->active_ && monitor->stop_tracker_.should_emit()) {
-      monitor->emitter_.stopped(current_tid());
+      monitor->emitter_.stopped(tid);
     }
 
     return result;
@@ -151,24 +185,27 @@ private:
 
   void install_hooks() {
     if (pthread_create_handle_.id == 0) {
-    (void)hook_helpers::attach_interpose_symbol(
-        "pthread_create",
-        &linux_thread_monitor::replacement_pthread_create,
-        pthread_create_handle_, original_pthread_create_);
+      (void)hook_helpers::attach_symbol_replace_prefer_inline(
+          "pthread_create",
+          nullptr,
+          &linux_thread_monitor::replacement_pthread_create,
+          pthread_create_handle_, original_pthread_create_);
     }
 
     if (pthread_exit_handle_.id == 0) {
-    (void)hook_helpers::attach_interpose_symbol(
-        "pthread_exit",
-        &linux_thread_monitor::replacement_pthread_exit,
-        pthread_exit_handle_, original_pthread_exit_);
+      (void)hook_helpers::attach_symbol_replace_prefer_inline(
+          "pthread_exit",
+          nullptr,
+          &linux_thread_monitor::replacement_pthread_exit,
+          pthread_exit_handle_, original_pthread_exit_);
     }
 
     if (pthread_setname_handle_.id == 0) {
-    (void)hook_helpers::attach_interpose_symbol(
-        "pthread_setname_np",
-        &linux_thread_monitor::replacement_pthread_setname,
-        pthread_setname_handle_, original_pthread_setname_);
+      (void)hook_helpers::attach_symbol_replace_prefer_inline(
+          "pthread_setname_np",
+          nullptr,
+          &linux_thread_monitor::replacement_pthread_setname,
+          pthread_setname_handle_, original_pthread_setname_);
     }
   }
 

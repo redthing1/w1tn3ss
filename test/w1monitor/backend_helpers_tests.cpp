@@ -113,6 +113,7 @@ TEST_CASE("w1monitor thread_stop_tracker emits once per reset") {
 
 TEST_CASE("w1monitor thread_stop_tracker is thread local") {
   thread_stop_tracker tracker;
+  tracker.reset();
   CHECK(tracker.should_emit());
   CHECK_FALSE(tracker.should_emit());
 

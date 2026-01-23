@@ -71,4 +71,20 @@ inline std::string interpose_library_path() {
   return test_library_path(interpose_library_name());
 }
 
+inline const char* monitor_thread_library_name() {
+#if defined(__linux__)
+  return "w1monitor_thread_lib.so";
+#else
+  return "";
+#endif
+}
+
+inline std::string monitor_thread_library_path() {
+  const char* name = monitor_thread_library_name();
+  if (!name || name[0] == '\0') {
+    return {};
+  }
+  return test_library_path(name);
+}
+
 } // namespace w1::test_paths
