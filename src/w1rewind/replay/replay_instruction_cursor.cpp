@@ -1,7 +1,5 @@
 #include "replay_instruction_cursor.hpp"
 
-#include <limits>
-
 namespace w1::rewind {
 
 namespace {
@@ -68,22 +66,16 @@ bool replay_instruction_cursor::set_position(const flow_step& step, position_bia
 
   size_t index = 0;
   if (!step.is_block) {
-    if (step.address < instruction_state_.block.address) {
-      notice_ = make_notice(replay_notice_kind::decode_failed, "instruction address before block base");
-      instruction_state_ = instruction_state{};
-      return true;
-    }
-    uint64_t offset = step.address - instruction_state_.block.address;
     bool found = false;
     for (size_t i = 0; i < instruction_state_.block.instructions.size(); ++i) {
-      if (instruction_state_.block.instructions[i].offset == offset) {
+      if (instruction_state_.block.instructions[i].address == step.address) {
         index = i;
         found = true;
         break;
       }
     }
     if (!found) {
-      notice_ = make_notice(replay_notice_kind::decode_failed, "instruction offset not found in block");
+      notice_ = make_notice(replay_notice_kind::decode_failed, "instruction address not found in block");
       instruction_state_ = instruction_state{};
       return true;
     }
@@ -261,7 +253,7 @@ bool replay_instruction_cursor::set_instruction_state(
   if (!flow.is_block) {
     return false;
   }
-  replay_decoded_block decoded{};
+  decoded_block decoded{};
   std::string decode_error;
   if (!decoder_ || !decoder_->decode_block(flow_.context(), flow, decoded, decode_error) ||
       decoded.instructions.empty()) {
@@ -294,10 +286,7 @@ bool replay_instruction_cursor::build_instruction_step(const instruction_state& 
   flow_step step = state.base_step;
   step.is_block = false;
   step.size = inst.size;
-  if (inst.offset > std::numeric_limits<uint64_t>::max() - state.block.address) {
-    return false;
-  }
-  step.address = state.block.address + inst.offset;
+  step.address = inst.address;
   out = step;
   return true;
 }

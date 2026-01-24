@@ -17,11 +17,10 @@
 
 namespace {
 
-class test_block_decoder final : public w1::rewind::replay_block_decoder {
+class test_block_decoder final : public w1::rewind::block_decoder {
 public:
   bool decode_block(
-      const w1::rewind::replay_context&, const w1::rewind::flow_step& flow, w1::rewind::replay_decoded_block& out,
-      std::string&
+      const w1::rewind::replay_context&, const w1::rewind::flow_step& flow, w1::rewind::decoded_block& out, std::string&
   ) override {
     uint64_t address = flow.address;
     uint32_t size = flow.size;
@@ -29,13 +28,13 @@ public:
       return false;
     }
 
-    out.address = address;
+    out.start = address;
     out.size = size;
 
     uint32_t offset = 0;
     while (offset < size) {
-      w1::rewind::replay_decoded_instruction inst{};
-      inst.offset = offset;
+      w1::rewind::decoded_instruction inst{};
+      inst.address = address + offset;
       inst.size = 2;
       inst.bytes = {0x90, 0x90};
       out.instructions.push_back(inst);
@@ -93,13 +92,10 @@ TEST_CASE("w1rewind replay instruction cursor decodes blocks and steps backward"
   REQUIRE(w1::rewind::load_replay_context(trace_path.string(), context, error));
 
   auto stream = std::make_shared<w1::rewind::trace_reader>(trace_path.string());
-  w1::rewind::flow_cursor_config replay_config{};
-  replay_config.stream = stream;
-  replay_config.index = index_ptr;
-  replay_config.history_size = 4;
-  replay_config.context = &context;
-
-  w1::rewind::flow_cursor flow_cursor(replay_config);
+  w1::rewind::record_stream_cursor stream_cursor(stream);
+  w1::rewind::flow_extractor extractor(&context);
+  w1::rewind::history_window history(4);
+  w1::rewind::flow_cursor flow_cursor(std::move(stream_cursor), std::move(extractor), std::move(history), index_ptr);
   REQUIRE(flow_cursor.open());
 
   w1::rewind::replay_state state;
@@ -168,13 +164,10 @@ TEST_CASE("w1rewind replay instruction cursor reports missing decoder") {
   REQUIRE(w1::rewind::load_replay_context(trace_path.string(), context, error));
 
   auto stream = std::make_shared<w1::rewind::trace_reader>(trace_path.string());
-  w1::rewind::flow_cursor_config replay_config{};
-  replay_config.stream = stream;
-  replay_config.index = index_ptr;
-  replay_config.history_size = 4;
-  replay_config.context = &context;
-
-  w1::rewind::flow_cursor flow_cursor(replay_config);
+  w1::rewind::record_stream_cursor stream_cursor(stream);
+  w1::rewind::flow_extractor extractor(&context);
+  w1::rewind::history_window history(4);
+  w1::rewind::flow_cursor flow_cursor(std::move(stream_cursor), std::move(extractor), std::move(history), index_ptr);
   REQUIRE(flow_cursor.open());
 
   w1::rewind::replay_state state;

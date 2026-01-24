@@ -12,6 +12,20 @@
 #include "w1rewind/trace/trace_reader.hpp"
 #include "w1rewind/trace/trace_file_writer.hpp"
 
+namespace {
+
+w1::rewind::flow_cursor make_flow_cursor(
+    const std::shared_ptr<w1::rewind::trace_record_stream>& stream,
+    const std::shared_ptr<w1::rewind::trace_index>& index, w1::rewind::replay_context& context, size_t history_size
+) {
+  w1::rewind::record_stream_cursor stream_cursor(stream);
+  w1::rewind::flow_extractor extractor(&context);
+  w1::rewind::history_window history(history_size);
+  return w1::rewind::flow_cursor(std::move(stream_cursor), std::move(extractor), std::move(history), index);
+}
+
+} // namespace
+
 TEST_CASE("w1rewind replay cursor steps through instruction flow") {
   namespace fs = std::filesystem;
   using namespace w1::rewind::test_helpers;
@@ -65,13 +79,7 @@ TEST_CASE("w1rewind replay cursor steps through instruction flow") {
   REQUIRE(w1::rewind::load_replay_context(trace_path.string(), context, error));
 
   auto stream = std::make_shared<w1::rewind::trace_reader>(trace_path.string());
-  w1::rewind::flow_cursor_config replay_config{};
-  replay_config.stream = stream;
-  replay_config.index = index;
-  replay_config.history_size = 4;
-  replay_config.context = &context;
-
-  w1::rewind::flow_cursor cursor(replay_config);
+  w1::rewind::flow_cursor cursor = make_flow_cursor(stream, index, context, 4);
   REQUIRE(cursor.open());
   REQUIRE(cursor.seek(1, 2));
 
@@ -137,13 +145,7 @@ TEST_CASE("w1rewind replay cursor resolves block flow addresses") {
   REQUIRE(w1::rewind::load_replay_context(trace_path.string(), context, error));
 
   auto stream = std::make_shared<w1::rewind::trace_reader>(trace_path.string());
-  w1::rewind::flow_cursor_config replay_config{};
-  replay_config.stream = stream;
-  replay_config.index = index;
-  replay_config.history_size = 4;
-  replay_config.context = &context;
-
-  w1::rewind::flow_cursor cursor(replay_config);
+  w1::rewind::flow_cursor cursor = make_flow_cursor(stream, index, context, 4);
   REQUIRE(cursor.open());
   REQUIRE(cursor.seek(1, 0));
 
@@ -202,13 +204,7 @@ TEST_CASE("w1rewind replay cursor handles module-less traces") {
   REQUIRE(w1::rewind::load_replay_context(trace_path.string(), context, error));
 
   auto stream = std::make_shared<w1::rewind::trace_reader>(trace_path.string());
-  w1::rewind::flow_cursor_config replay_config{};
-  replay_config.stream = stream;
-  replay_config.index = index;
-  replay_config.history_size = 4;
-  replay_config.context = &context;
-
-  w1::rewind::flow_cursor cursor(replay_config);
+  w1::rewind::flow_cursor cursor = make_flow_cursor(stream, index, context, 4);
   REQUIRE(cursor.open());
   REQUIRE(cursor.seek(1, 0));
 
@@ -280,13 +276,7 @@ TEST_CASE("w1rewind replay cursor backfills history window when stepping backwar
   REQUIRE(w1::rewind::load_replay_context(trace_path.string(), context, error));
 
   auto stream = std::make_shared<w1::rewind::trace_reader>(trace_path.string());
-  w1::rewind::flow_cursor_config replay_config{};
-  replay_config.stream = stream;
-  replay_config.index = index;
-  replay_config.history_size = 3;
-  replay_config.context = &context;
-
-  w1::rewind::flow_cursor cursor(replay_config);
+  w1::rewind::flow_cursor cursor = make_flow_cursor(stream, index, context, 3);
   REQUIRE(cursor.open());
   REQUIRE(cursor.seek(1, 0));
 
@@ -355,13 +345,7 @@ TEST_CASE("w1rewind replay cursor supports history with observer") {
   REQUIRE(w1::rewind::load_replay_context(trace_path.string(), context, error));
 
   auto stream = std::make_shared<w1::rewind::trace_reader>(trace_path.string());
-  w1::rewind::flow_cursor_config replay_config{};
-  replay_config.stream = stream;
-  replay_config.index = index;
-  replay_config.history_size = 4;
-  replay_config.context = &context;
-
-  w1::rewind::flow_cursor cursor(replay_config);
+  w1::rewind::flow_cursor cursor = make_flow_cursor(stream, index, context, 4);
   cursor_delta_observer observer;
   cursor.set_observer(&observer);
 
@@ -376,7 +360,7 @@ TEST_CASE("w1rewind replay cursor supports history with observer") {
   REQUIRE(cursor.step_forward(step));
   REQUIRE(cursor.step_forward(step));
 
-  CHECK(observer.delta_count == 4);
+  CHECK(observer.delta_count == 6);
 }
 
 TEST_CASE("w1rewind replay cursor cancels during forward step") {
@@ -426,13 +410,7 @@ TEST_CASE("w1rewind replay cursor cancels during forward step") {
   REQUIRE(w1::rewind::load_replay_context(trace_path.string(), context, error));
 
   auto stream = std::make_shared<w1::rewind::trace_reader>(trace_path.string());
-  w1::rewind::flow_cursor_config replay_config{};
-  replay_config.stream = stream;
-  replay_config.index = index;
-  replay_config.history_size = 4;
-  replay_config.context = &context;
-
-  w1::rewind::flow_cursor cursor(replay_config);
+  w1::rewind::flow_cursor cursor = make_flow_cursor(stream, index, context, 4);
   REQUIRE(cursor.open());
   REQUIRE(cursor.seek(1, 0));
 

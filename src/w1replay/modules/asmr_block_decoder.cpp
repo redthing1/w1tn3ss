@@ -1,10 +1,8 @@
 #include "asmr_block_decoder.hpp"
 
 #include "w1replay/memory/memory_view.hpp"
-#include "w1rewind/replay/flow_cursor.hpp"
 
 #include <cstddef>
-#include <limits>
 #include <optional>
 #include <vector>
 
@@ -27,7 +25,7 @@ bool asmr_decoder_available() {
 asmr_block_decoder::~asmr_block_decoder() = default;
 
 bool asmr_block_decoder::decode_block(
-    const w1::rewind::replay_context& context, const w1::rewind::flow_step& flow, w1::rewind::replay_decoded_block& out,
+    const w1::rewind::replay_context& context, const w1::rewind::flow_step& flow, w1::rewind::decoded_block& out,
     std::string& error
 ) {
 #if !defined(WITNESS_ASMR_ENABLED)
@@ -95,52 +93,45 @@ bool asmr_block_decoder::decode_block(
     return false;
   }
 
-  out = w1::rewind::replay_decoded_block{};
-  out.address = flow.address;
+  out = w1::rewind::decoded_block{};
+  out.start = flow.address;
   out.size = flow.size;
   out.instructions.reserve(decoded.value.size());
 
-  uint32_t expected_offset = 0;
+  uint64_t expected_address = base_address;
   for (const auto& inst : decoded.value) {
     if (inst.bytes.empty()) {
       error = "decoded instruction missing bytes";
       return false;
     }
 
-    if (inst.address < base_address) {
-      error = "decoded instruction address underflow";
-      return false;
-    }
-
-    uint64_t offset64 = inst.address - base_address;
-    if (offset64 > std::numeric_limits<uint32_t>::max()) {
-      error = "decoded instruction offset too large";
-      return false;
-    }
-
-    uint32_t offset = static_cast<uint32_t>(offset64);
     uint32_t inst_size = static_cast<uint32_t>(inst.bytes.size());
 
-    if (offset != expected_offset) {
+    if (inst.address != expected_address) {
       error = "decoded instructions are not contiguous";
       return false;
     }
 
-    if (offset + inst_size > flow.size) {
+    if (inst.address + inst_size < inst.address) {
+      error = "decoded instruction address overflow";
+      return false;
+    }
+
+    if (inst.address + inst_size > base_address + flow.size) {
       error = "decoded instruction exceeds block size";
       return false;
     }
 
-    w1::rewind::replay_decoded_instruction out_inst{};
-    out_inst.offset = offset;
+    w1::rewind::decoded_instruction out_inst{};
+    out_inst.address = inst.address;
     out_inst.size = inst_size;
     out_inst.bytes = inst.bytes;
     out.instructions.push_back(std::move(out_inst));
 
-    expected_offset = offset + inst_size;
+    expected_address = inst.address + inst_size;
   }
 
-  if (expected_offset != flow.size) {
+  if (expected_address != base_address + flow.size) {
     error = "decoded instructions do not cover block size";
     return false;
   }

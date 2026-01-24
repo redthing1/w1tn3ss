@@ -40,6 +40,10 @@ w1_add_static_library(w1rewind_replay
     replay/memory_store.cpp
     replay/replay_state.cpp
     replay/replay_state_applier.cpp
+    replay/replay_position.cpp
+    replay/record_stream_cursor.cpp
+    replay/flow_extractor.cpp
+    replay/history_window.cpp
     replay/flow_cursor.cpp
     replay/stateful_flow_cursor.cpp
     replay/replay_instruction_cursor.cpp

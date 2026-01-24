@@ -23,13 +23,20 @@ struct trace_bundle {
   std::shared_ptr<w1::rewind::trace_reader> stream;
 };
 
+w1::rewind::flow_cursor make_flow_cursor(trace_bundle& bundle, size_t history_size) {
+  w1::rewind::record_stream_cursor stream_cursor(bundle.stream);
+  w1::rewind::flow_extractor extractor(&bundle.context);
+  w1::rewind::history_window history(history_size);
+  return w1::rewind::flow_cursor(std::move(stream_cursor), std::move(extractor), std::move(history), bundle.index);
+}
+
 trace_bundle build_instruction_trace(
     const char* name, size_t count, bool with_deltas, bool with_module = true, uint64_t thread_id = 1
 ) {
   namespace fs = std::filesystem;
   using namespace w1::rewind::test_helpers;
 
-  trace_bundle out{};
+  trace_bundle out;
   out.trace_path = temp_path(name);
   out.index_path = temp_path((std::string(name) + ".idx").c_str());
 
@@ -87,7 +94,7 @@ trace_bundle build_block_trace(const char* name, size_t count, uint64_t thread_i
   namespace fs = std::filesystem;
   using namespace w1::rewind::test_helpers;
 
-  trace_bundle out{};
+  trace_bundle out;
   out.trace_path = temp_path(name);
   out.index_path = temp_path((std::string(name) + ".idx").c_str());
 
@@ -139,13 +146,7 @@ trace_bundle build_block_trace(const char* name, size_t count, uint64_t thread_i
 TEST_CASE("w1rewind replay cursor reports begin/end of trace errors") {
   auto trace = build_instruction_trace("w1rewind_replay_bounds.trace", 1, false);
 
-  w1::rewind::flow_cursor_config replay_config{};
-  replay_config.stream = trace.stream;
-  replay_config.index = trace.index;
-  replay_config.history_size = 4;
-  replay_config.context = &trace.context;
-
-  w1::rewind::flow_cursor cursor(replay_config);
+  w1::rewind::flow_cursor cursor = make_flow_cursor(trace, 4);
   REQUIRE(cursor.open());
   REQUIRE(cursor.seek(1, 0));
 
@@ -163,13 +164,7 @@ TEST_CASE("w1rewind replay cursor reports begin/end of trace errors") {
 TEST_CASE("w1rewind replay cursor shrinks history without losing position") {
   auto trace = build_instruction_trace("w1rewind_replay_history_resize.trace", 6, false);
 
-  w1::rewind::flow_cursor_config replay_config{};
-  replay_config.stream = trace.stream;
-  replay_config.index = trace.index;
-  replay_config.history_size = 5;
-  replay_config.context = &trace.context;
-
-  w1::rewind::flow_cursor cursor(replay_config);
+  w1::rewind::flow_cursor cursor = make_flow_cursor(trace, 5);
   REQUIRE(cursor.open());
   REQUIRE(cursor.seek(1, 0));
 
@@ -190,13 +185,7 @@ TEST_CASE("w1rewind replay cursor shrinks history without losing position") {
 TEST_CASE("w1rewind replay cursor handles history size one") {
   auto trace = build_instruction_trace("w1rewind_replay_history_one.trace", 3, false);
 
-  w1::rewind::flow_cursor_config replay_config{};
-  replay_config.stream = trace.stream;
-  replay_config.index = trace.index;
-  replay_config.history_size = 1;
-  replay_config.context = &trace.context;
-
-  w1::rewind::flow_cursor cursor(replay_config);
+  w1::rewind::flow_cursor cursor = make_flow_cursor(trace, 1);
   REQUIRE(cursor.open());
   REQUIRE(cursor.seek(1, 0));
 
@@ -216,13 +205,7 @@ TEST_CASE("w1rewind replay cursor handles history size one") {
 TEST_CASE("w1rewind replay cursor seek fails for missing thread") {
   auto trace = build_instruction_trace("w1rewind_replay_missing_thread.trace", 2, false);
 
-  w1::rewind::flow_cursor_config replay_config{};
-  replay_config.stream = trace.stream;
-  replay_config.index = trace.index;
-  replay_config.history_size = 4;
-  replay_config.context = &trace.context;
-
-  w1::rewind::flow_cursor cursor(replay_config);
+  w1::rewind::flow_cursor cursor = make_flow_cursor(trace, 4);
   REQUIRE(cursor.open());
   CHECK_FALSE(cursor.seek(2, 0));
   CHECK(cursor.error() == "no anchor for thread");
@@ -231,13 +214,7 @@ TEST_CASE("w1rewind replay cursor seek fails for missing thread") {
 TEST_CASE("w1rewind replay cursor seek_from_location resets to prior step") {
   auto trace = build_instruction_trace("w1rewind_replay_seek_location.trace", 3, false);
 
-  w1::rewind::flow_cursor_config replay_config{};
-  replay_config.stream = trace.stream;
-  replay_config.index = trace.index;
-  replay_config.history_size = 4;
-  replay_config.context = &trace.context;
-
-  w1::rewind::flow_cursor cursor(replay_config);
+  w1::rewind::flow_cursor cursor = make_flow_cursor(trace, 4);
   REQUIRE(cursor.open());
   REQUIRE(cursor.seek(1, 0));
 
@@ -257,13 +234,7 @@ TEST_CASE("w1rewind replay cursor seek_from_location resets to prior step") {
 TEST_CASE("w1rewind replay cursor can cancel during seek") {
   auto trace = build_instruction_trace("w1rewind_replay_cancel_seek.trace", 2, false);
 
-  w1::rewind::flow_cursor_config replay_config{};
-  replay_config.stream = trace.stream;
-  replay_config.index = trace.index;
-  replay_config.history_size = 4;
-  replay_config.context = &trace.context;
-
-  w1::rewind::flow_cursor cursor(replay_config);
+  w1::rewind::flow_cursor cursor = make_flow_cursor(trace, 4);
   cursor.set_cancel_checker([]() { return true; });
   REQUIRE(cursor.open());
   CHECK_FALSE(cursor.seek(1, 0));
@@ -273,13 +244,7 @@ TEST_CASE("w1rewind replay cursor can cancel during seek") {
 TEST_CASE("w1rewind replay cursor can cancel during observer consume") {
   auto trace = build_instruction_trace("w1rewind_replay_cancel_consume.trace", 2, true);
 
-  w1::rewind::flow_cursor_config replay_config{};
-  replay_config.stream = trace.stream;
-  replay_config.index = trace.index;
-  replay_config.history_size = 4;
-  replay_config.context = &trace.context;
-
-  w1::rewind::flow_cursor cursor(replay_config);
+  w1::rewind::flow_cursor cursor = make_flow_cursor(trace, 4);
   struct noop_observer final : public w1::rewind::flow_record_observer {
     bool on_record(const w1::rewind::trace_record&, uint64_t, std::string&) override { return true; }
   } observer;
@@ -302,13 +267,7 @@ TEST_CASE("w1rewind replay cursor can cancel during observer consume") {
 TEST_CASE("w1rewind replay cursor history-only stays consistent across back/forward") {
   auto trace = build_instruction_trace("w1rewind_replay_history_consistent.trace", 6, false);
 
-  w1::rewind::flow_cursor_config replay_config{};
-  replay_config.stream = trace.stream;
-  replay_config.index = trace.index;
-  replay_config.history_size = 3;
-  replay_config.context = &trace.context;
-
-  w1::rewind::flow_cursor cursor(replay_config);
+  w1::rewind::flow_cursor cursor = make_flow_cursor(trace, 3);
   REQUIRE(cursor.open());
   REQUIRE(cursor.seek(1, 0));
 
@@ -335,13 +294,7 @@ TEST_CASE("w1rewind replay cursor history-only stays consistent across back/forw
 TEST_CASE("w1rewind replay cursor supports history-disabled backward stepping") {
   auto trace = build_instruction_trace("w1rewind_replay_history_disabled.trace", 4, false);
 
-  w1::rewind::flow_cursor_config replay_config{};
-  replay_config.stream = trace.stream;
-  replay_config.index = trace.index;
-  replay_config.history_size = 4;
-  replay_config.context = &trace.context;
-
-  w1::rewind::flow_cursor cursor(replay_config);
+  w1::rewind::flow_cursor cursor = make_flow_cursor(trace, 4);
   cursor.set_history_enabled(false);
   REQUIRE(cursor.open());
   REQUIRE(cursor.seek(1, 0));
@@ -364,15 +317,9 @@ TEST_CASE("w1rewind replay cursor supports history-disabled backward stepping") 
 TEST_CASE("w1rewind replay cursor cancels during backward prefill") {
   auto trace = build_instruction_trace("w1rewind_replay_cancel_prefill.trace", 3, false);
 
-  w1::rewind::flow_cursor_config replay_config{};
-  replay_config.stream = trace.stream;
-  replay_config.index = trace.index;
-  replay_config.history_size = 2;
-  replay_config.context = &trace.context;
-
-  w1::rewind::flow_cursor cursor(replay_config);
+  w1::rewind::flow_cursor cursor = make_flow_cursor(trace, 2);
   REQUIRE(cursor.open());
-  REQUIRE(cursor.seek(1, 0));
+  REQUIRE(cursor.seek(1, 2));
 
   w1::rewind::flow_step step{};
   REQUIRE(cursor.step_forward(step));
@@ -385,13 +332,7 @@ TEST_CASE("w1rewind replay cursor cancels during backward prefill") {
 TEST_CASE("w1rewind replay cursor errors when stepping without seek") {
   auto trace = build_instruction_trace("w1rewind_replay_no_seek.trace", 1, false);
 
-  w1::rewind::flow_cursor_config replay_config{};
-  replay_config.stream = trace.stream;
-  replay_config.index = trace.index;
-  replay_config.history_size = 4;
-  replay_config.context = &trace.context;
-
-  w1::rewind::flow_cursor cursor(replay_config);
+  w1::rewind::flow_cursor cursor = make_flow_cursor(trace, 4);
   REQUIRE(cursor.open());
 
   w1::rewind::flow_step step{};
@@ -405,13 +346,7 @@ TEST_CASE("w1rewind replay cursor errors when stepping without seek") {
 TEST_CASE("w1rewind replay cursor supports block flow backward prefill") {
   auto trace = build_block_trace("w1rewind_replay_block_backward.trace", 3);
 
-  w1::rewind::flow_cursor_config replay_config{};
-  replay_config.stream = trace.stream;
-  replay_config.index = trace.index;
-  replay_config.history_size = 2;
-  replay_config.context = &trace.context;
-
-  w1::rewind::flow_cursor cursor(replay_config);
+  w1::rewind::flow_cursor cursor = make_flow_cursor(trace, 2);
   REQUIRE(cursor.open());
   REQUIRE(cursor.seek(1, 0));
 

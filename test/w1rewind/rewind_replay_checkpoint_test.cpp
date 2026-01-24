@@ -109,13 +109,10 @@ TEST_CASE("w1rewind replay checkpoint restores register state") {
 
   {
     auto stream = std::make_shared<w1::rewind::trace_reader>(trace_path.string());
-    w1::rewind::flow_cursor_config replay_config{};
-    replay_config.stream = stream;
-    replay_config.index = index;
-    replay_config.history_size = 4;
-    replay_config.context = &context;
-
-    w1::rewind::flow_cursor cursor(replay_config);
+    w1::rewind::record_stream_cursor stream_cursor(stream);
+    w1::rewind::flow_extractor extractor(&context);
+    w1::rewind::history_window history(4);
+    w1::rewind::flow_cursor cursor(std::move(stream_cursor), std::move(extractor), std::move(history), index);
     REQUIRE(cursor.open());
 
     w1::rewind::replay_state state;
