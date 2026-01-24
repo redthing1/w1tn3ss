@@ -40,34 +40,29 @@ cmake --build build-release --parallel
 ## windows
 
 ```powershell
-$vcpkg = $Env:VCPKG_ROOT
-$toolchain = "$vcpkg/scripts/buildsystems/vcpkg.cmake"
+$env:VCPKG_ROOT = "path\to\vcpkg"
 ```
 
 ### windows x64
 
 ```powershell
-$triplet = "x64-windows-static"
-$zstd = "$vcpkg/installed/$triplet/share/zstd"
-python .\tools\windows\run_cmd.py --arch x64 -- cmake -G Ninja -B build-release `
+python .\tools\windows\run_cmd.py --arch x64 --env "VCPKG_ROOT=\path\vcpkg" -- cmake -G Ninja -B build-release `
   -DCMAKE_BUILD_TYPE=Release `
   -DWITNESS_SCRIPT=ON `
   -DWITNESS_LIEF=ON `
   -DWITNESS_ASMR=ON `
   -DWITNESS_SCRIPT_ENGINE=js `
   -DW1_REQUIRE_ZSTD=ON `
-  -DCMAKE_TOOLCHAIN_FILE=$toolchain `
-  -DVCPKG_TARGET_TRIPLET=$triplet `
-  -Dzstd_DIR=$zstd
+  -DCMAKE_TOOLCHAIN_FILE="%VCPKG_ROOT%/scripts/buildsystems/vcpkg.cmake" `
+  -DVCPKG_TARGET_TRIPLET=x64-windows-static `
+  -Dzstd_DIR="%VCPKG_ROOT%/installed/x64-windows-static/share/zstd"
 python .\tools\windows\run_cmd.py --arch x64 -- cmake --build build-release --parallel
 ```
 
 ### windows x86
 
 ```powershell
-$triplet = "x86-windows-static"
-$zstd = "$vcpkg/installed/$triplet/share/zstd"
-python .\tools\windows\run_cmd.py --arch x86 --host-arch amd64 -- cmake -G Ninja -B build-win32 `
+python .\tools\windows\run_cmd.py --arch x86 --host-arch amd64 --env "VCPKG_ROOT=\path\vcpkg" -- cmake -G Ninja -B build-win32 `
   -DCMAKE_BUILD_TYPE=Release `
   -DWITNESS_ARCH=x86 `
   -DWITNESS_SCRIPT=ON `
@@ -75,9 +70,9 @@ python .\tools\windows\run_cmd.py --arch x86 --host-arch amd64 -- cmake -G Ninja
   -DWITNESS_ASMR=ON `
   -DWITNESS_SCRIPT_ENGINE=js `
   -DW1_REQUIRE_ZSTD=ON `
-  -DCMAKE_TOOLCHAIN_FILE=$toolchain `
-  -DVCPKG_TARGET_TRIPLET=$triplet `
-  -Dzstd_DIR=$zstd
+  -DCMAKE_TOOLCHAIN_FILE="%VCPKG_ROOT%/scripts/buildsystems/vcpkg.cmake" `
+  -DVCPKG_TARGET_TRIPLET=x86-windows-static `
+  -Dzstd_DIR="%VCPKG_ROOT%/installed/x86-windows-static/share/zstd"
 python .\tools\windows\run_cmd.py --arch x86 --host-arch amd64 -- cmake --build build-win32 --parallel
 ```
 
