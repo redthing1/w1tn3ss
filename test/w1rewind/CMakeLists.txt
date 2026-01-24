@@ -16,6 +16,7 @@ set(W1REWIND_TEST_SOURCES
     rewind_stack_window_policy_test.cpp
     rewind_trace_index_test.cpp
     rewind_replay_cursor_test.cpp
+    rewind_replay_cursor_semantics_test.cpp
     rewind_replay_instruction_cursor_test.cpp
     rewind_replay_checkpoint_test.cpp
     rewind_replay_session_test.cpp
