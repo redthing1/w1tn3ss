@@ -146,7 +146,7 @@ traces can be captured with various levels of detail, trading performance/size f
 
 record a rewind trace:
 ```sh
-./build-release/bin/w1tool tracer -n w1rewind -s -o /tmp/trace.w1r -- ./build-release/bin/samples/programs/simple_demo
+./build-release/bin/w1tool rewind -s -o /tmp/trace.w1r -- ./build-release/bin/samples/programs/simple_demo
 ```
 
 inspect:
@@ -155,8 +155,8 @@ inspect:
 ```
 
 tips:
-- to increase trace detail, set `flow=instruction`, `reg_deltas=true`, `mem_access=reads_writes`, `mem_values=true`
-- to capture stack bytes, set `stack_window_mode=frame` and `stack_snapshot_interval=1`
+- to increase trace detail, use `--flow instruction --reg-deltas --mem-access reads_writes --mem-values`
+- to capture stack bytes, use `--stack-window frame --stack-snapshot-interval 1`
 - run a gdb rsp server with `w1replay server -t <trace> --gdb 127.0.0.1:5555`
 
 ## `p1ll` guide

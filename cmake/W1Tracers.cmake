@@ -64,10 +64,9 @@ function(w1_add_tracer TRACER_NAME)
         endif()
 
         install(TARGETS ${TRACER_NAME}_qbdipreload
-            RUNTIME DESTINATION lib
-            LIBRARY DESTINATION lib
-            ARCHIVE DESTINATION lib
-            COMPONENT ${W1_INSTALL_COMPONENT}
+            RUNTIME DESTINATION lib COMPONENT ${W1_INSTALL_COMPONENT}
+            LIBRARY DESTINATION lib COMPONENT ${W1_INSTALL_COMPONENT}
+            ARCHIVE DESTINATION lib COMPONENT ${W1_INSTALL_COMPONENT}
         )
     endif()
 

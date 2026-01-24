@@ -14,6 +14,7 @@
 #include "commands/inject.hpp"
 #include "commands/insert_library.hpp"
 #include "commands/inspect.hpp"
+#include "commands/rewind.hpp"
 #include "commands/read_drcov.hpp"
 #include "commands/read_dump.hpp"
 #include "commands/tracer.hpp"
@@ -154,6 +155,61 @@ void cmd_cover(args::Subparser& parser) {
   );
 }
 
+void cmd_rewind(args::Subparser& parser) {
+  cli::apply_verbosity();
+
+  args::ValueFlag<std::string> library(parser, "path", "path to w1rewind library", {'L', "w1rewind-library"});
+  args::Flag spawn(parser, "spawn", "spawn new process for tracing", {'s', "spawn"});
+  args::ValueFlag<int> pid(parser, "pid", "process ID to attach to", {'p', "pid"});
+  args::ValueFlag<std::string> name(parser, "name", "process name to attach to", {'n', "name"});
+  args::ValueFlag<std::string> output(parser, "path", "output file path", {'o', "output"});
+  args::ValueFlag<std::string> flow(parser, "mode", "flow mode (block, instruction)", {"flow"});
+  args::Flag reg_deltas(parser, "reg-deltas", "enable register delta capture", {"reg-deltas"});
+  args::ValueFlag<uint64_t> reg_snapshot_interval(
+      parser, "count", "register snapshot interval (instructions)", {"reg-snapshot-interval"}
+  );
+  args::ValueFlag<std::string> stack_window(parser, "mode", "stack window mode (none, fixed, frame)", {"stack-window"});
+  args::ValueFlag<uint64_t> stack_above(parser, "bytes", "stack window bytes above SP", {"stack-above"});
+  args::ValueFlag<uint64_t> stack_below(parser, "bytes", "stack window bytes below SP", {"stack-below"});
+  args::ValueFlag<uint64_t> stack_max(parser, "bytes", "stack window max bytes", {"stack-max"});
+  args::ValueFlag<uint64_t> stack_snapshot_interval(
+      parser, "count", "stack snapshot interval (instructions)", {"stack-snapshot-interval"}
+  );
+  args::ValueFlag<std::string> mem_access(
+      parser, "mode", "memory access capture (none, reads, writes, reads_writes)", {"mem-access"}
+  );
+  args::Flag mem_values(parser, "mem-values", "capture memory values", {"mem-values"});
+  args::ValueFlag<uint32_t> mem_max_bytes(parser, "bytes", "max bytes per memory value", {"mem-max-bytes"});
+  args::ValueFlagList<std::string> mem_filter(
+      parser, "filter", "memory filter (all, ranges, stack_window)", {"mem-filter"}
+  );
+  args::ValueFlagList<std::string> mem_ranges(
+      parser, "range", "memory ranges in start-end form (repeatable)", {"mem-range", "mem-ranges"}
+  );
+  args::ValueFlag<std::string> module_filter(
+      parser, "modules", "comma-separated list of modules to filter", {'m', "module-filter"}
+  );
+  args::ValueFlag<std::string> system_policy(
+      parser, "policy", "system module policy (exclude_all, include_critical, include_all)", {"system-policy"}
+  );
+  args::ValueFlag<std::string> threads(parser, "policy", "thread attach policy (main, auto)", {"threads"});
+  args::Flag compress(parser, "compress", "enable zstd compression (if available)", {"compress"});
+  args::ValueFlag<uint32_t> chunk_size(parser, "bytes", "trace chunk size", {"chunk-size"});
+  args::ValueFlagList<std::string> config(parser, "config", "configuration key=value pairs", {'c', "config"});
+  args::ValueFlag<int> debug_level(parser, "level", "debug level override", {"debug"});
+  args::Flag suspended(parser, "suspended", "start process in suspended state (only with --spawn)", {"suspended"});
+  args::Flag no_aslr(parser, "no-aslr", "disable ASLR when launching process (only with --spawn)", {"no-aslr"});
+  args::PositionalList<std::string> args(parser, "args", "binary -- arguments");
+  parser.Parse();
+
+  w1tool::commands::rewind(
+      library, spawn, pid, name, output, flow, reg_deltas, reg_snapshot_interval, stack_window, stack_above,
+      stack_below, stack_max, stack_snapshot_interval, mem_access, mem_values, mem_max_bytes, mem_filter, mem_ranges,
+      module_filter, system_policy, threads, compress, chunk_size, config, debug_level, suspended, no_aslr, args,
+      g_executable_path
+  );
+}
+
 void cmd_read_drcov(args::Subparser& parser) {
   cli::apply_verbosity();
 
@@ -259,6 +315,7 @@ int main(int argc, char* argv[]) {
   );
   args::Command inspect_cmd(commands, "inspect", "comprehensive binary analysis using LIEF", &cmd_inspect);
   args::Command cover_cmd(commands, "cover", "perform coverage tracing with configurable options", &cmd_cover);
+  args::Command rewind_cmd(commands, "rewind", "record rewind traces for replay", &cmd_rewind);
   args::Command read_drcov_cmd(commands, "read-drcov", "analyze DrCov coverage files", &cmd_read_drcov);
   args::Command dump_cmd(commands, "dump", "dump process state to file", &cmd_dump);
   args::Command read_dump_cmd(commands, "read-dump", "analyze process dump files", &cmd_read_dump);
