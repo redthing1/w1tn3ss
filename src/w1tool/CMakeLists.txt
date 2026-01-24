@@ -7,6 +7,7 @@ w1_add_executable(w1tool
     commands/insert_library.cpp
     commands/inspect.cpp
     commands/cover.cpp
+    commands/rewind.cpp
     commands/read_drcov.cpp
     commands/dump.cpp
     commands/read_dump.cpp
