@@ -21,7 +21,7 @@ struct inspect_request {
 };
 
 /**
- * inspect command - comprehensive binary analysis using LIEF
+ * inspect command - binary summary
  *
  * @param request resolved inspect configuration
  * @return exit code (0 for success, 1 for failure)

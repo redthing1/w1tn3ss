@@ -53,6 +53,11 @@ w1_add_sample_program(rewind_demo_algorithms
     OUTPUT_DIR ${samples_output_dir}
 )
 
+w1_add_sample_program(rewind_demo_million
+    SOURCES rewind_demo_million.c
+    OUTPUT_DIR ${samples_output_dir}
+)
+
 # thread test demo programs
 w1_add_sample_program(threadtest_demo
     SOURCES threadtest_demo.c
@@ -112,6 +117,7 @@ set(sample_targets
     rewind_demo_memops
     rewind_demo_io
     rewind_demo_algorithms
+    rewind_demo_million
     threadtest_demo
     threadtest_evasive_demo
     hook_test_target

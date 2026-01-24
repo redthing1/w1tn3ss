@@ -42,7 +42,7 @@ void cmd_inject(args::Subparser& parser) {
       parser, "process", "target process name (uses runtime injection)", {"process-name"}
   );
   args::Flag suspended(parser, "suspended", "start process in suspended state (only with --spawn)", {"suspended"});
-  args::Flag no_aslr(parser, "no-aslr", "disable ASLR when launching process (only with --spawn)", {"no-aslr"});
+  args::Flag no_aslr(parser, "no-aslr", "disable aslr when launching process (only with --spawn)", {"no-aslr"});
   args::PositionalList<std::string> args(parser, "args", "binary -- arguments");
   parser.Parse();
 
@@ -131,7 +131,7 @@ void cmd_cover(args::Subparser& parser) {
 
   args::ValueFlag<std::string> library(parser, "path", "path to w1cov library", {'L', "w1cov-library"});
   args::Flag spawn(parser, "spawn", "spawn new process for tracing", {'s', "spawn"});
-  args::ValueFlag<int> pid(parser, "pid", "process ID to attach to", {'p', "pid"});
+  args::ValueFlag<int> pid(parser, "pid", "process id to attach to", {'p', "pid"});
   args::ValueFlag<std::string> name(parser, "name", "process name to attach to", {'n', "name"});
   args::ValueFlag<std::string> output(parser, "path", "output file path", {'o', "output"});
   args::ValueFlag<std::string> system_policy(
@@ -145,7 +145,7 @@ void cmd_cover(args::Subparser& parser) {
   args::ValueFlag<int> debug_level(parser, "level", "debug level override", {"debug"});
   args::ValueFlag<std::string> format(parser, "format", "output format (drcov, text)", {"format"});
   args::Flag suspended(parser, "suspended", "start process in suspended state (only with --spawn)", {"suspended"});
-  args::Flag no_aslr(parser, "no-aslr", "disable ASLR when launching process (only with --spawn)", {"no-aslr"});
+  args::Flag no_aslr(parser, "no-aslr", "disable aslr when launching process (only with --spawn)", {"no-aslr"});
   args::PositionalList<std::string> args(parser, "args", "binary -- arguments");
   parser.Parse();
 
@@ -160,7 +160,7 @@ void cmd_rewind(args::Subparser& parser) {
 
   args::ValueFlag<std::string> library(parser, "path", "path to w1rewind library", {'L', "w1rewind-library"});
   args::Flag spawn(parser, "spawn", "spawn new process for tracing", {'s', "spawn"});
-  args::ValueFlag<int> pid(parser, "pid", "process ID to attach to", {'p', "pid"});
+  args::ValueFlag<int> pid(parser, "pid", "process id to attach to", {'p', "pid"});
   args::ValueFlag<std::string> name(parser, "name", "process name to attach to", {'n', "name"});
   args::ValueFlag<std::string> output(parser, "path", "output file path", {'o', "output"});
   args::ValueFlag<std::string> flow(parser, "mode", "flow mode (block, instruction)", {"flow"});
@@ -198,7 +198,7 @@ void cmd_rewind(args::Subparser& parser) {
   args::ValueFlagList<std::string> config(parser, "config", "configuration key=value pairs", {'c', "config"});
   args::ValueFlag<int> debug_level(parser, "level", "debug level override", {"debug"});
   args::Flag suspended(parser, "suspended", "start process in suspended state (only with --spawn)", {"suspended"});
-  args::Flag no_aslr(parser, "no-aslr", "disable ASLR when launching process (only with --spawn)", {"no-aslr"});
+  args::Flag no_aslr(parser, "no-aslr", "disable aslr when launching process (only with --spawn)", {"no-aslr"});
   args::PositionalList<std::string> args(parser, "args", "binary -- arguments");
   parser.Parse();
 
@@ -227,7 +227,7 @@ void cmd_dump(args::Subparser& parser) {
 
   args::ValueFlag<std::string> library(parser, "path", "path to w1dump library", {'L', "w1dump-library"});
   args::Flag spawn(parser, "spawn", "spawn new process for dumping", {'s', "spawn"});
-  args::ValueFlag<int> pid(parser, "pid", "process ID to attach to", {'p', "pid"});
+  args::ValueFlag<int> pid(parser, "pid", "process id to attach to", {'p', "pid"});
   args::ValueFlag<std::string> name(parser, "name", "process name to attach to", {'n', "name"});
   args::ValueFlag<std::string> output(parser, "path", "output file path", {'o', "output"});
   args::Flag memory(parser, "memory", "dump memory content", {"memory"});
@@ -240,7 +240,7 @@ void cmd_dump(args::Subparser& parser) {
   );
   args::ValueFlag<int> debug_level(parser, "level", "debug level override", {"debug"});
   args::Flag suspended(parser, "suspended", "start process in suspended state (only with --spawn)", {"suspended"});
-  args::Flag no_aslr(parser, "no-aslr", "disable ASLR when launching process (only with --spawn)", {"no-aslr"});
+  args::Flag no_aslr(parser, "no-aslr", "disable aslr when launching process (only with --spawn)", {"no-aslr"});
   args::PositionalList<std::string> args(parser, "args", "binary -- arguments");
   parser.Parse();
 
@@ -267,14 +267,14 @@ void cmd_tracer(args::Subparser& parser) {
   args::ValueFlag<std::string> library(parser, "path", "path to tracer library", {'L', "library"});
   args::ValueFlag<std::string> name(parser, "name", "tracer name (w1cov, w1mem, mintrace, etc.)", {'n', "name"});
   args::Flag spawn(parser, "spawn", "spawn new process for tracing", {'s', "spawn"});
-  args::ValueFlag<int> pid(parser, "pid", "process ID to attach to", {'p', "pid"});
+  args::ValueFlag<int> pid(parser, "pid", "process id to attach to", {'p', "pid"});
   args::ValueFlag<std::string> process_name(parser, "process", "process name to attach to", {"process-name"});
   args::ValueFlag<std::string> output(parser, "path", "output file path", {'o', "output"});
   args::ValueFlagList<std::string> config(parser, "config", "configuration key=value pairs", {'c', "config"});
   args::ValueFlag<int> debug_level(parser, "level", "debug level override", {"debug"});
   args::Flag list_tracers(parser, "list", "list available tracers", {"list-tracers"});
   args::Flag suspended(parser, "suspended", "start process in suspended state (only with --spawn)", {"suspended"});
-  args::Flag no_aslr(parser, "no-aslr", "disable ASLR when launching process (only with --spawn)", {"no-aslr"});
+  args::Flag no_aslr(parser, "no-aslr", "disable aslr when launching process (only with --spawn)", {"no-aslr"});
   args::PositionalList<std::string> args(parser, "args", "binary -- arguments");
   parser.Parse();
 
@@ -287,7 +287,7 @@ void cmd_tracer(args::Subparser& parser) {
 void cmd_debug(args::Subparser& parser) {
   cli::apply_verbosity();
 
-  args::ValueFlag<int> pid(parser, "pid", "process ID to attach to", {'p', "pid"});
+  args::ValueFlag<int> pid(parser, "pid", "process id to attach to", {'p', "pid"});
   args::Flag spawn(parser, "spawn", "spawn new process for debugging", {'s', "spawn"});
   args::Flag interactive(parser, "interactive", "interactive debugging mode", {'i', "interactive"});
   args::Flag suspended(parser, "suspended", "start process in suspended state (only with --spawn)", {"suspended"});
@@ -313,14 +313,14 @@ int main(int argc, char* argv[]) {
   args::Command insert_library_cmd(
       commands, "insert-library", "insert library import into binary file", &cmd_insert_library
   );
-  args::Command inspect_cmd(commands, "inspect", "comprehensive binary analysis using LIEF", &cmd_inspect);
-  args::Command cover_cmd(commands, "cover", "perform coverage tracing with configurable options", &cmd_cover);
-  args::Command rewind_cmd(commands, "rewind", "record rewind traces for replay", &cmd_rewind);
-  args::Command read_drcov_cmd(commands, "read-drcov", "analyze DrCov coverage files", &cmd_read_drcov);
-  args::Command dump_cmd(commands, "dump", "dump process state to file", &cmd_dump);
-  args::Command read_dump_cmd(commands, "read-dump", "analyze process dump files", &cmd_read_dump);
-  args::Command tracer_cmd(commands, "tracer", "run arbitrary tracer with flexible configuration", &cmd_tracer);
-  args::Command debug_cmd(commands, "debug", "interactive debugger for process control", &cmd_debug);
+  args::Command inspect_cmd(commands, "inspect", "binary summary", &cmd_inspect);
+  args::Command cover_cmd(commands, "cover", "run coverage tracer", &cmd_cover);
+  args::Command rewind_cmd(commands, "rewind", "record trace for replay", &cmd_rewind);
+  args::Command read_drcov_cmd(commands, "read-drcov", "analyze drcov coverage files", &cmd_read_drcov);
+  args::Command dump_cmd(commands, "dump", "dump process state", &cmd_dump);
+  args::Command read_dump_cmd(commands, "read-dump", "analyze process dump", &cmd_read_dump);
+  args::Command tracer_cmd(commands, "tracer", "run tracer", &cmd_tracer);
+  args::Command debug_cmd(commands, "debug", "interactive debugger", &cmd_debug);
 
   try {
     parser.ParseCLI(argc, argv);
