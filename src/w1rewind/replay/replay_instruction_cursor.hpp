@@ -22,7 +22,8 @@ public:
   void set_decoder(replay_block_decoder* decoder) { decoder_ = decoder; }
   void reset();
   void sync_with_flow_step(const flow_step& step);
-  bool set_position(const flow_step& step);
+  enum class position_bias { start, end };
+  bool set_position(const flow_step& step, position_bias bias = position_bias::start);
 
   bool step_forward(flow_step& out);
   bool step_backward(flow_step& out);

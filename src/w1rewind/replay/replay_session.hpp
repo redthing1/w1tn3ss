@@ -44,7 +44,7 @@ public:
   bool step_backward();
   bool step_instruction();
   bool step_instruction_backward();
-  bool sync_instruction_position();
+  bool sync_instruction_position(bool forward = true);
 
   const flow_step& current_step() const { return current_step_; }
   const replay_context& context() const { return context_; }

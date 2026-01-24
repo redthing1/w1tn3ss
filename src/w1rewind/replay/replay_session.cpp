@@ -278,7 +278,7 @@ bool replay_session::step_instruction_backward() {
   return true;
 }
 
-bool replay_session::sync_instruction_position() {
+bool replay_session::sync_instruction_position(bool forward) {
   clear_error();
 
   if (!open_) {
@@ -294,7 +294,9 @@ bool replay_session::sync_instruction_position() {
     return false;
   }
 
-  instruction_cursor_->set_position(current_step_);
+  instruction_cursor_->set_position(
+      current_step_, forward ? replay_instruction_cursor::position_bias::start : replay_instruction_cursor::position_bias::end
+  );
   if (auto notice = instruction_cursor_->take_notice(); notice.has_value()) {
     notice_ = notice;
   }

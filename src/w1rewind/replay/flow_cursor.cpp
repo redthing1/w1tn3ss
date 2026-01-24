@@ -38,6 +38,8 @@ void flow_cursor::set_history_size(uint32_t size) {
   history_pos_ = std::min(current_index, history_.size() - 1);
 }
 
+void flow_cursor::set_cancel_checker(std::function<bool()> checker) { cancel_checker_ = std::move(checker); }
+
 void flow_cursor::clear_error() {
   error_.clear();
   error_kind_ = flow_error_kind::none;
@@ -46,6 +48,38 @@ void flow_cursor::clear_error() {
 void flow_cursor::set_error(flow_error_kind kind, const std::string& message) {
   error_ = message;
   error_kind_ = kind;
+}
+
+bool flow_cursor::check_cancel() {
+  if (cancel_checker_ && cancel_checker_()) {
+    set_error(flow_error_kind::other, "cancelled");
+    return true;
+  }
+  return false;
+}
+
+void flow_cursor::reset_position_state() {
+  history_.clear();
+  history_pos_ = 0;
+  current_step_ = flow_step{};
+  has_position_ = false;
+  clear_buffered_flow();
+  stream_desynced_ = false;
+}
+
+void flow_cursor::clear_buffered_flow() { buffered_flow_.reset(); }
+
+bool flow_cursor::uses_history_only() const { return history_enabled_ && observer_ == nullptr; }
+
+bool flow_cursor::ensure_stream_synced() {
+  if (!stream_desynced_) {
+    return true;
+  }
+  if (history_.empty()) {
+    stream_desynced_ = false;
+    return true;
+  }
+  return seek_to_history(history_pos_);
 }
 
 bool flow_cursor::open() {
@@ -108,13 +142,8 @@ void flow_cursor::close() {
   if (stream_) {
     stream_->close();
   }
-  history_.clear();
-  history_pos_ = 0;
   active_thread_id_ = 0;
-  current_step_ = flow_step{};
-  pending_flow_.reset();
-  pending_location_.reset();
-  has_position_ = false;
+  reset_position_state();
   open_ = false;
   clear_error();
 }
@@ -136,12 +165,7 @@ bool flow_cursor::seek(uint64_t thread_id, uint64_t sequence) {
   }
 
   active_thread_id_ = thread_id;
-  history_.clear();
-  history_pos_ = 0;
-  has_position_ = false;
-  current_step_ = flow_step{};
-  pending_flow_.reset();
-  pending_location_.reset();
+  reset_position_state();
 
   auto anchor = index_->find_anchor(thread_id, sequence);
   if (!anchor.has_value()) {
@@ -170,12 +194,7 @@ bool flow_cursor::seek_from_location(uint64_t thread_id, uint64_t sequence, cons
   }
 
   active_thread_id_ = thread_id;
-  history_.clear();
-  history_pos_ = 0;
-  has_position_ = false;
-  current_step_ = flow_step{};
-  pending_flow_.reset();
-  pending_location_.reset();
+  reset_position_state();
 
   if (!stream_->seek_to_location(location)) {
     set_error(flow_error_kind::other, std::string(stream_->error()));
@@ -199,6 +218,23 @@ bool flow_cursor::step_forward(flow_step& out, trace_record_location* location) 
 
   bool has_future = history_enabled_ && has_position_ && history_pos_ + 1 < history_.size();
 
+  if (has_future && uses_history_only()) {
+    history_pos_ += 1;
+    const auto& entry = history_[history_pos_];
+    current_step_ = entry.step;
+    has_position_ = true;
+    out = entry.step;
+    if (location) {
+      *location = entry.location;
+    }
+    stream_desynced_ = true;
+    return true;
+  }
+
+  if (!ensure_stream_synced()) {
+    return false;
+  }
+
   flow_step step{};
   trace_record_location loc{};
   if (!read_next_flow(step, &loc)) {
@@ -218,6 +254,19 @@ bool flow_cursor::step_forward(flow_step& out, trace_record_location* location) 
     if (location) {
       *location = expected.location;
     }
+  } else {
+    if (observer_ != nullptr) {
+      if (!consume_sequence_records(step.thread_id, step.sequence)) {
+        return false;
+      }
+    }
+    push_history(step, loc);
+    current_step_ = step;
+    has_position_ = true;
+    out = step;
+    if (location) {
+      *location = loc;
+    }
     return true;
   }
 
@@ -227,13 +276,6 @@ bool flow_cursor::step_forward(flow_step& out, trace_record_location* location) 
     }
   }
 
-  push_history(step, loc);
-  current_step_ = step;
-  has_position_ = true;
-  out = step;
-  if (location) {
-    *location = loc;
-  }
   return true;
 }
 
@@ -265,8 +307,12 @@ bool flow_cursor::step_backward(flow_step& out) {
   if (!history_.empty() && history_pos_ > 0) {
     history_pos_ -= 1;
     const auto& entry = history_[history_pos_];
-    if (!seek_to_history(history_pos_)) {
-      return false;
+    if (uses_history_only()) {
+      stream_desynced_ = true;
+    } else {
+      if (!seek_to_history(history_pos_)) {
+        return false;
+      }
     }
     current_step_ = entry.step;
     has_position_ = true;
@@ -282,6 +328,9 @@ bool flow_cursor::scan_until_sequence(uint64_t thread_id, uint64_t sequence) {
   trace_record_location location{};
 
   while (stream_->read_next(record, &location)) {
+    if (check_cancel()) {
+      return false;
+    }
     bool is_flow = false;
     flow_step step{};
     if (!try_parse_flow(record, step, is_flow)) {
@@ -306,8 +355,7 @@ bool flow_cursor::scan_until_sequence(uint64_t thread_id, uint64_t sequence) {
       return false;
     }
 
-    pending_flow_ = step;
-    pending_location_ = location;
+    buffered_flow_ = buffered_flow{step, location};
     return true;
   }
 
@@ -361,13 +409,12 @@ bool flow_cursor::try_parse_flow(const trace_record& record, flow_step& out, boo
 }
 
 bool flow_cursor::read_next_flow(flow_step& out, trace_record_location* location) {
-  if (pending_flow_.has_value()) {
-    out = *pending_flow_;
-    pending_flow_.reset();
-    if (location && pending_location_.has_value()) {
-      *location = *pending_location_;
+  if (buffered_flow_.has_value()) {
+    out = buffered_flow_->step;
+    if (location) {
+      *location = buffered_flow_->location;
     }
-    pending_location_.reset();
+    buffered_flow_.reset();
     return true;
   }
 
@@ -375,6 +422,9 @@ bool flow_cursor::read_next_flow(flow_step& out, trace_record_location* location
   trace_record_location loc{};
 
   while (stream_->read_next(record, &loc)) {
+    if (check_cancel()) {
+      return false;
+    }
     bool is_flow = false;
     if (!try_parse_flow(record, out, is_flow)) {
       return false;
@@ -407,6 +457,9 @@ bool flow_cursor::consume_sequence_records(uint64_t thread_id, uint64_t sequence
   trace_record_location loc{};
 
   while (stream_->read_next(record, &loc)) {
+    if (check_cancel()) {
+      return false;
+    }
     bool is_flow = false;
     flow_step step{};
     if (!try_parse_flow(record, step, is_flow)) {
@@ -428,8 +481,7 @@ bool flow_cursor::consume_sequence_records(uint64_t thread_id, uint64_t sequence
       continue;
     }
 
-    pending_flow_ = step;
-    pending_location_ = loc;
+    buffered_flow_ = buffered_flow{step, loc};
     return true;
   }
 
@@ -467,6 +519,7 @@ void flow_cursor::push_history(const flow_step& step, const trace_record_locatio
   history_.push_back(history_entry{step, location});
   history_pos_ = history_.size() - 1;
   has_position_ = true;
+  stream_desynced_ = false;
 }
 
 bool flow_cursor::seek_to_history(size_t index) {
@@ -476,6 +529,7 @@ bool flow_cursor::seek_to_history(size_t index) {
   }
 
   const auto& entry = history_[index];
+  clear_buffered_flow();
   if (!stream_->seek_to_location(entry.location)) {
     set_error(flow_error_kind::other, std::string(stream_->error()));
     return false;
@@ -488,6 +542,7 @@ bool flow_cursor::seek_to_history(size_t index) {
     return false;
   }
 
+  stream_desynced_ = false;
   return true;
 }
 
@@ -509,10 +564,25 @@ bool flow_cursor::prefill_history_window(uint64_t target, flow_step& out) {
   }
 
   flow_step step{};
+  trace_record_location loc{};
   while (true) {
-    if (!step_forward(step)) {
+    if (check_cancel()) {
       return false;
     }
+    if (!ensure_stream_synced()) {
+      return false;
+    }
+    if (!read_next_flow(step, &loc)) {
+      return false;
+    }
+    if (observer_ != nullptr) {
+      if (!consume_sequence_records(step.thread_id, step.sequence)) {
+        return false;
+      }
+    }
+    push_history(step, loc);
+    current_step_ = step;
+    has_position_ = true;
     if (step.sequence == target) {
       out = step;
       return true;

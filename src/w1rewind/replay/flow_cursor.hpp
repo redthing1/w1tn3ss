@@ -1,8 +1,9 @@
 #pragma once
 
 #include <cstdint>
-#include <memory>
 #include <deque>
+#include <functional>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -46,6 +47,7 @@ public:
   void set_observer(flow_record_observer* observer);
   void set_history_enabled(bool enabled);
   void set_history_size(uint32_t size);
+  void set_cancel_checker(std::function<bool()> checker);
 
   bool open();
   void close();
@@ -70,8 +72,18 @@ private:
     trace_record_location location;
   };
 
+  struct buffered_flow {
+    flow_step step;
+    trace_record_location location;
+  };
+
   void clear_error();
   void set_error(flow_error_kind kind, const std::string& message);
+  bool check_cancel();
+  void reset_position_state();
+  void clear_buffered_flow();
+  bool uses_history_only() const;
+  bool ensure_stream_synced();
   bool scan_until_sequence(uint64_t thread_id, uint64_t sequence);
   bool try_parse_flow(const trace_record& record, flow_step& out, bool& is_flow);
   bool read_next_flow(flow_step& out, trace_record_location* location);
@@ -92,12 +104,13 @@ private:
   flow_kind flow_kind_ = flow_kind::instructions;
   uint64_t active_thread_id_ = 0;
   flow_step current_step_{};
-  std::optional<flow_step> pending_flow_{};
-  std::optional<trace_record_location> pending_location_{};
+  std::optional<buffered_flow> buffered_flow_{};
   bool has_position_ = false;
   bool open_ = false;
   bool history_enabled_ = true;
   flow_record_observer* observer_ = nullptr;
+  std::function<bool()> cancel_checker_{};
+  bool stream_desynced_ = false;
   std::string error_;
   flow_error_kind error_kind_ = flow_error_kind::none;
 };

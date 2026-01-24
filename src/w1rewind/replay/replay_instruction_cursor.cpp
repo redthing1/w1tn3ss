@@ -33,7 +33,7 @@ void replay_instruction_cursor::sync_with_flow_step(const flow_step& step) {
   error_.clear();
 }
 
-bool replay_instruction_cursor::set_position(const flow_step& step) {
+bool replay_instruction_cursor::set_position(const flow_step& step, position_bias bias) {
   instruction_state_ = instruction_state{};
   current_step_ = step;
   has_position_ = true;
@@ -86,6 +86,10 @@ bool replay_instruction_cursor::set_position(const flow_step& step) {
       notice_ = make_notice(replay_notice_kind::decode_failed, "instruction offset not found in block");
       instruction_state_ = instruction_state{};
       return true;
+    }
+  } else if (bias == position_bias::end) {
+    if (!instruction_state_.block.instructions.empty()) {
+      index = instruction_state_.block.instructions.size() - 1;
     }
   }
 
