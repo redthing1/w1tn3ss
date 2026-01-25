@@ -1,18 +1,28 @@
 # w1tn3ss
 
-a cross-platform dynamic binary analysis and instrumentation framework powered by [qbdi](https://github.com/QBDI/QBDI).
-fully supports **linux**, **macos**, **windows** for `x86`, `x64`, and `arm64`.
+a cross-platform framework for binary analysis/instrumentation.
+fully supports **linux**, **macos**, **windows** across `x86`, `x64`, and `arm64`.
+
+highlights:
++ **record-and-replay** (experimental): **record** the execution of a process, and **replay** the trace on any platform; with full time-travel
++ **code coverage**: automatic gathering of code coverage/block hits for any instrumentable binary
++ **declarative patching**: scriptable, ergonomic, declarative binary patching
 
 ## features
 
-+ framework for writing dynamic tracers (`w1tn3ss`)
-+ built-in tracers: coverage (`w1cov`), call tracing (`w1xfer`), memory (`w1mem`), instructions (`w1inst`), instruction flow (`w1trace`), scripting (`w1script`), dumps (`w1dump`), record/replay (`w1rewind`/`w1replay`)
-+ real-time library call interception with argument extraction (`w1xfer`)
++ dynamic instrumentation tracers
+  + code coverage: `w1cov`
+  + record and replay `w1rewind`/`w1replay`
+  + call tracing: `w1xfer`
+  + scripting: `w1script`
+  + memory: `w1mem`
+  + process dump: `w1dump`
 + signature scanning and binary patching (`p1ll`/`p1llx`)
-+ scriptable tracing/patching with js/lua
-+ cross-platform injection library with multiple techniques (`w1nj3ct`)
-+ symbol resolution and calling convention modeling for intercepting arguments and return values
-+ **scanning**, **patching**, **gadgeting**, control execution, and more
++ scriptable with js/lua
++ reusable binary instrumentation infra
+  + cross-platform library injection: `w1nj3ct`
+  + cross-platform function hooking: `w1h00k`
+  + calling convention/abi modeling for many platforms
 
 ## build
 
@@ -23,11 +33,11 @@ git submodule update --init --recursive
 
 build:
 ```sh
-cmake -G Ninja -B build-release -DCMAKE_BUILD_TYPE=Release -DWITNESS_SCRIPT=ON
+cmake -G Ninja -B build-release -DCMAKE_BUILD_TYPE=Release
 cmake --build build-release --parallel
 ```
 
-see [doc/build.md](./doc/build.md) for platform-specific instructions.
+see [doc/build.md](./doc/build.md) for features and platform-specific instructions.
 
 ## `w1tool` guide
 
