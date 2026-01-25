@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <limits>
 #include <optional>
 #include <string>
 #include <vector>
@@ -36,6 +37,23 @@ policy_params params_for(policy policy_value) {
     return policy_params{16, 20};
   }
   return policy_params{12, 20};
+}
+
+policy_params apply_options(policy_params params, const signature_options& options, size_t& min_instructions) {
+  if (options.min_fixed_bytes) {
+    params.min_fixed_bytes = *options.min_fixed_bytes;
+  }
+  if (options.max_instructions && *options.max_instructions > 0) {
+    params.max_instructions = *options.max_instructions;
+  }
+  min_instructions = options.min_instructions.value_or(0);
+  if (params.max_instructions == 0) {
+    params.max_instructions = std::numeric_limits<size_t>::max();
+  }
+  if (min_instructions > params.max_instructions) {
+    min_instructions = params.max_instructions;
+  }
+  return params;
 }
 
 p1ll::engine::error_code map_error_code(w1::asmr::error_code code) {
@@ -244,7 +262,7 @@ std::string format_pretty_line(const instruction& inst, const std::vector<uint8_
 
 engine::result<signature> code_signature(
     std::span<const uint8_t> bytes, uint64_t address, const engine::platform::platform_key& platform,
-    policy policy_value
+    policy policy_value, const signature_options& options
 ) {
   if (bytes.empty()) {
     return engine::error_result<signature>(engine::error_code::invalid_argument, "signature input is empty");
@@ -293,7 +311,8 @@ engine::result<signature> code_signature(
     return engine::error_result<signature>(engine::error_code::not_found, "no instructions decoded");
   }
 
-  policy_params params = params_for(policy_value);
+  size_t min_instructions = 0;
+  policy_params params = apply_options(params_for(policy_value), options, min_instructions);
 
   signature output;
   size_t fixed_bytes = 0;
@@ -325,7 +344,7 @@ engine::result<signature> code_signature(
     }
 
     ++instruction_count;
-    if (fixed_bytes >= params.min_fixed_bytes) {
+    if (fixed_bytes >= params.min_fixed_bytes && instruction_count >= min_instructions) {
       break;
     }
   }
