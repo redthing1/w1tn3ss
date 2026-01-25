@@ -3,6 +3,8 @@
 a cross-platform framework for binary analysis/instrumentation.
 fully supports **linux**, **macos**, **windows** across `x86`, `x64`, and `arm64`.
 
+built to enable flexible auditing, tracing, analysis, instrumentation of binaries across platforms.
+
 highlights:
 + **record-and-replay** (experimental): **record** the execution of a process, and **replay** the trace on any platform; with full time-travel
 + **code coverage**: automatic gathering of code coverage/block hits for any instrumentable binary
@@ -259,4 +261,4 @@ see the [guide](./doc/p1lljs.md)
 
 ## acknowledgements
 
-+ many thanks to quarkslab for [qbdi](https://github.com/QBDI/QBDI)!
++ many thanks to quarkslab for [qbdi](https://github.com/QBDI/QBDI) and [lief](https://github.com/lief-project/LIEF).
