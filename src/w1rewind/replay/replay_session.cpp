@@ -63,12 +63,10 @@ bool replay_session::open() {
   }
 
   state_applier_.emplace(context_);
-  flow_cursor_config cursor_config{};
-  cursor_config.stream = config_.stream;
-  cursor_config.index = config_.index;
-  cursor_config.history_size = config_.history_size;
-  cursor_config.context = &context_;
-  flow_cursor_.emplace(std::move(cursor_config));
+  record_stream_cursor stream_cursor(config_.stream);
+  flow_extractor extractor(&context_);
+  history_window history(config_.history_size);
+  flow_cursor_.emplace(std::move(stream_cursor), std::move(extractor), std::move(history), config_.index);
   if (!flow_cursor_->open()) {
     set_error(map_flow_error_kind(flow_cursor_->error_kind()), std::string(flow_cursor_->error()));
     return false;
@@ -104,6 +102,7 @@ void replay_session::close() {
   instruction_cursor_.reset();
   context_ = replay_context{};
   state_.reset();
+  current_position_ = replay_position{};
   current_step_ = flow_step{};
   active_thread_id_ = 0;
   checkpoint_index_.reset();
@@ -175,6 +174,7 @@ bool replay_session::select_thread(uint64_t thread_id, uint64_t sequence) {
   active_thread_id_ = thread_id;
   reset_instruction_cursor();
   has_position_ = false;
+  current_position_ = replay_position{};
   current_step_ = flow_step{};
   return true;
 }
@@ -189,7 +189,16 @@ bool replay_session::step_flow() {
   if (instruction_cursor_.has_value()) {
     instruction_cursor_->sync_with_flow_step(step);
   }
-  current_step_ = step;
+  current_position_.flow = step;
+  if (step.is_block) {
+    current_position_.kind = position_kind::block;
+    current_position_.instruction.reset();
+    current_step_ = step;
+  } else {
+    current_position_.kind = position_kind::instruction;
+    current_position_.instruction = step;
+    current_step_ = step;
+  }
   has_position_ = true;
   return true;
 }
@@ -205,7 +214,16 @@ bool replay_session::step_backward() {
   if (instruction_cursor_.has_value()) {
     instruction_cursor_->sync_with_flow_step(step);
   }
-  current_step_ = step;
+  current_position_.flow = step;
+  if (step.is_block) {
+    current_position_.kind = position_kind::block;
+    current_position_.instruction.reset();
+    current_step_ = step;
+  } else {
+    current_position_.kind = position_kind::instruction;
+    current_position_.instruction = step;
+    current_step_ = step;
+  }
   has_position_ = true;
   return true;
 }
@@ -237,7 +255,20 @@ bool replay_session::step_instruction() {
     notice_ = notice;
   }
 
-  current_step_ = step;
+  if (stateful_flow_cursor_.has_value()) {
+    current_position_.flow = stateful_flow_cursor_->current_step();
+  } else {
+    current_position_.flow = step;
+  }
+  if (step.is_block) {
+    current_position_.kind = position_kind::block;
+    current_position_.instruction.reset();
+    current_step_ = step;
+  } else {
+    current_position_.kind = position_kind::instruction;
+    current_position_.instruction = step;
+    current_step_ = step;
+  }
   has_position_ = true;
   return true;
 }
@@ -273,12 +304,25 @@ bool replay_session::step_instruction_backward() {
     notice_ = notice;
   }
 
-  current_step_ = step;
+  if (stateful_flow_cursor_.has_value()) {
+    current_position_.flow = stateful_flow_cursor_->current_step();
+  } else {
+    current_position_.flow = step;
+  }
+  if (step.is_block) {
+    current_position_.kind = position_kind::block;
+    current_position_.instruction.reset();
+    current_step_ = step;
+  } else {
+    current_position_.kind = position_kind::instruction;
+    current_position_.instruction = step;
+    current_step_ = step;
+  }
   has_position_ = true;
   return true;
 }
 
-bool replay_session::sync_instruction_position() {
+bool replay_session::sync_instruction_position(bool forward) {
   clear_error();
 
   if (!open_) {
@@ -294,12 +338,29 @@ bool replay_session::sync_instruction_position() {
     return false;
   }
 
-  instruction_cursor_->set_position(current_step_);
-  if (auto notice = instruction_cursor_->take_notice(); notice.has_value()) {
-    notice_ = notice;
+  replay_position normalized = current_position_;
+  position_normalizer normalizer(block_decoder_);
+  std::string error;
+  if (!normalizer.normalize(context_, normalized, forward, error)) {
+    set_error(error.empty() ? "failed to normalize position" : error);
+    return false;
   }
-  current_step_ = instruction_cursor_->current_step();
-  has_position_ = instruction_cursor_->has_position();
+
+  if (normalized.instruction.has_value()) {
+    instruction_cursor_->set_position(
+        *normalized.instruction,
+        forward ? replay_instruction_cursor::position_bias::start : replay_instruction_cursor::position_bias::end
+    );
+    if (auto notice = instruction_cursor_->take_notice(); notice.has_value()) {
+      notice_ = notice;
+    }
+    current_step_ = *normalized.instruction;
+  } else {
+    current_step_ = normalized.flow;
+  }
+
+  current_position_ = normalized;
+  has_position_ = true;
   return true;
 }
 

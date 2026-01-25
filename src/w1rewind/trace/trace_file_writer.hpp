@@ -37,6 +37,8 @@ public:
   bool write_target_environment(const target_environment_record& record) override;
   bool write_register_spec(const register_spec_record& record) override;
   bool write_module_table(const module_table_record& record) override;
+  bool write_module_load(const module_load_record& record) override;
+  bool write_module_unload(const module_unload_record& record) override;
   bool write_memory_map(const memory_map_record& record) override;
   bool write_thread_start(const thread_start_record& record) override;
   bool write_instruction(const instruction_record& record) override;

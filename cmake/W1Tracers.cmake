@@ -57,21 +57,22 @@ function(w1_add_tracer TRACER_NAME)
 
     if(WITNESS_BUILD_SHARED)
         add_library(${TRACER_NAME}_qbdipreload SHARED ${W1_SOURCES})
+        w1_register_target(${TRACER_NAME}_qbdipreload)
         w1_configure_tracer_target(${TRACER_NAME}_qbdipreload)
         if(W1_LIBS)
             target_link_libraries(${TRACER_NAME}_qbdipreload PUBLIC ${W1_LIBS})
         endif()
 
         install(TARGETS ${TRACER_NAME}_qbdipreload
-            RUNTIME DESTINATION lib
-            LIBRARY DESTINATION lib
-            ARCHIVE DESTINATION lib
-            COMPONENT ${W1_INSTALL_COMPONENT}
+            RUNTIME DESTINATION lib COMPONENT ${W1_INSTALL_COMPONENT}
+            LIBRARY DESTINATION lib COMPONENT ${W1_INSTALL_COMPONENT}
+            ARCHIVE DESTINATION lib COMPONENT ${W1_INSTALL_COMPONENT}
         )
     endif()
 
     if(WITNESS_BUILD_STATIC)
         add_library(${TRACER_NAME}_static STATIC ${W1_SOURCES})
+        w1_register_target(${TRACER_NAME}_static)
         w1_configure_tracer_target(${TRACER_NAME}_static)
         if(W1_LIBS)
             target_link_libraries(${TRACER_NAME}_static PUBLIC ${W1_LIBS})

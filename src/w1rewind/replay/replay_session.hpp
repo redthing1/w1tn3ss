@@ -11,8 +11,9 @@
 #include "w1rewind/trace/replay_checkpoint.hpp"
 #include "w1rewind/trace/record_stream.hpp"
 #include "replay_context.hpp"
-#include "replay_decode.hpp"
+#include "block_decoder.hpp"
 #include "replay_instruction_cursor.hpp"
+#include "replay_position.hpp"
 #include "replay_state.hpp"
 #include "replay_state_applier.hpp"
 #include "stateful_flow_cursor.hpp"
@@ -29,7 +30,7 @@ struct replay_session_config {
   bool track_memory = false;
   uint64_t thread_id = 0;
   uint64_t start_sequence = 0;
-  replay_block_decoder* block_decoder = nullptr;
+  block_decoder* block_decoder = nullptr;
 };
 
 class replay_session {
@@ -44,7 +45,7 @@ public:
   bool step_backward();
   bool step_instruction();
   bool step_instruction_backward();
-  bool sync_instruction_position();
+  bool sync_instruction_position(bool forward = true);
 
   const flow_step& current_step() const { return current_step_; }
   const replay_context& context() const { return context_; }
@@ -61,6 +62,7 @@ public:
   const std::string& error() const { return error_; }
   enum class replay_error_kind { none, begin_of_trace, end_of_trace, other };
   replay_error_kind error_kind() const { return error_kind_; }
+  const replay_position& current_position() const { return current_position_; }
 
 private:
   bool apply_checkpoint(const replay_checkpoint_entry& checkpoint);
@@ -81,9 +83,10 @@ private:
   replay_state state_{};
   std::optional<replay_instruction_cursor> instruction_cursor_;
   std::optional<replay_notice> notice_;
+  replay_position current_position_{};
   flow_step current_step_{};
   uint64_t active_thread_id_ = 0;
-  replay_block_decoder* block_decoder_ = nullptr;
+  block_decoder* block_decoder_ = nullptr;
   std::shared_ptr<replay_checkpoint_index> checkpoint_index_;
   bool open_ = false;
   bool has_position_ = false;

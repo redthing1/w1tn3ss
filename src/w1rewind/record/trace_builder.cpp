@@ -111,6 +111,28 @@ bool trace_builder::set_memory_map(std::vector<memory_region_record> regions) {
   return write_memory_map();
 }
 
+bool trace_builder::emit_module_load(const module_load_record& record) {
+  if (!ensure_trace_started()) {
+    return false;
+  }
+  if (!config_.sink->write_module_load(record)) {
+    error_ = "failed to write module load";
+    return false;
+  }
+  return true;
+}
+
+bool trace_builder::emit_module_unload(const module_unload_record& record) {
+  if (!ensure_trace_started()) {
+    return false;
+  }
+  if (!config_.sink->write_module_unload(record)) {
+    error_ = "failed to write module unload";
+    return false;
+  }
+  return true;
+}
+
 bool trace_builder::begin_thread(uint64_t thread_id, std::string name) {
   if (!ensure_trace_started()) {
     return false;
@@ -412,9 +434,6 @@ bool trace_builder::write_module_table() {
 }
 
 bool trace_builder::write_memory_map() {
-  if (memory_map_written_) {
-    return true;
-  }
   if (!ensure_trace_started()) {
     return false;
   }
@@ -424,7 +443,6 @@ bool trace_builder::write_memory_map() {
     error_ = "failed to write memory map";
     return false;
   }
-  memory_map_written_ = true;
   memory_map_pending_ = false;
   return true;
 }

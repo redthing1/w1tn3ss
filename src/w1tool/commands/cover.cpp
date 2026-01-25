@@ -17,40 +17,11 @@ int cover(
     args::ValueFlag<std::string>& library_flag, args::Flag& spawn_flag, args::ValueFlag<int>& pid_flag,
     args::ValueFlag<std::string>& name_flag, args::ValueFlag<std::string>& output_flag,
     args::ValueFlag<std::string>& system_policy_flag, args::Flag& inst_trace_flag,
-    args::ValueFlag<std::string>& module_filter_flag, args::ValueFlag<int>& debug_level_flag,
-    args::ValueFlag<std::string>& format_flag, args::Flag& suspended_flag, args::Flag& no_aslr_flag,
-    args::PositionalList<std::string>& args_list, const std::string& executable_path
+    args::ValueFlagList<std::string>& config_flags, args::ValueFlag<std::string>& module_filter_flag,
+    args::ValueFlag<int>& debug_level_flag, args::ValueFlag<std::string>& format_flag, args::Flag& suspended_flag,
+    args::Flag& no_aslr_flag, args::PositionalList<std::string>& args_list, const std::string& executable_path
 ) {
   auto log = redlog::get_logger("w1tool.cover");
-
-  // validate target
-  int target_count = 0;
-  if (spawn_flag) {
-    target_count++;
-  }
-  if (pid_flag) {
-    target_count++;
-  }
-  if (name_flag) {
-    target_count++;
-  }
-
-  if (target_count != 1) {
-    log.err("exactly one target required: specify -s/--spawn, --pid, or --name");
-    return 1;
-  }
-
-  // validate suspended flag
-  if (suspended_flag && !spawn_flag) {
-    log.err("--suspended can only be used with -s/--spawn (launch tracing)");
-    return 1;
-  }
-
-  // validate no_aslr flag
-  if (no_aslr_flag && !spawn_flag) {
-    log.err("--no-aslr can only be used with -s/--spawn (launch tracing)");
-    return 1;
-  }
 
   // validate output format
   std::string format = "drcov"; // default
@@ -66,23 +37,6 @@ int cover(
     }
   }
 
-  // determine output file
-  std::string output_file;
-  if (output_flag) {
-    output_file = args::get(output_flag);
-  } else {
-    // generate default filename
-    if (spawn_flag && !args_list.Get().empty()) {
-      std::vector<std::string> all_args = args::get(args_list);
-      std::string binary_path = all_args[0];
-      std::filesystem::path fs_path(binary_path);
-      std::string binary_name = fs_path.filename().string();
-      output_file = binary_name + "_coverage." + format;
-    } else {
-      output_file = "coverage." + format;
-    }
-  }
-
   // build execution parameters
   tracer_execution_params params;
   params.tracer_name = "w1cov";
@@ -93,17 +47,36 @@ int cover(
   }
 
   // set debug level
-  if (debug_level_flag) {
-    params.debug_level = args::get(debug_level_flag);
+  apply_debug_level(params, debug_level_flag, args::get(cli::verbosity_flag));
+
+  // process config
+  std::string config_error;
+  if (!apply_config_flags(config_flags, params.config_map, &config_error)) {
+    log.err("invalid config format, expected key=value", redlog::field("config", config_error));
+    return 1;
+  }
+
+  // determine output file
+  std::string output_file;
+  if (output_flag) {
+    output_file = args::get(output_flag);
+  } else if (auto it = params.config_map.find("output"); it != params.config_map.end()) {
+    output_file = it->second;
   } else {
-    params.debug_level = args::get(cli::verbosity_flag);
+    output_file = default_output_path(
+        spawn_flag, args_list, std::string("_coverage.") + format, std::string("coverage.") + format
+    );
   }
 
   // translate cover flags to w1cov config
   if (system_policy_flag) {
     params.config_map["system_policy"] = args::get(system_policy_flag);
   }
-  params.config_map["inst_trace"] = inst_trace_flag ? "true" : "false";
+  if (inst_trace_flag) {
+    params.config_map["mode"] = "instruction";
+  } else if (params.config_map.find("mode") == params.config_map.end()) {
+    params.config_map["mode"] = "basic_block";
+  }
   params.config_map["output"] = output_file;
 
   if (module_filter_flag) {
@@ -111,34 +84,24 @@ int cover(
   }
 
   // set target
-  if (spawn_flag) {
-    if (args_list.Get().empty()) {
-      log.err("binary path required when using -s/--spawn flag");
-      return 1;
-    }
-
-    std::vector<std::string> all_args = args::get(args_list);
-    params.spawn_target = true;
-    params.binary_path = all_args[0];
-    params.suspended = suspended_flag;
-    params.disable_aslr = no_aslr_flag;
-
-    // extract binary arguments
-    if (all_args.size() > 1) {
-      params.binary_args.assign(all_args.begin() + 1, all_args.end());
-    }
-
-  } else if (pid_flag) {
-    params.target_pid = args::get(pid_flag);
-
-  } else if (name_flag) {
-    params.process_name = args::get(name_flag);
+  std::string target_error;
+  target_args target{spawn_flag, pid_flag, name_flag, suspended_flag, no_aslr_flag, args_list};
+  if (!apply_target(params, target, &target_error)) {
+    log.err(target_error);
+    return 1;
   }
 
-  std::string system_policy = system_policy_flag ? args::get(system_policy_flag) : "default";
+  std::string system_policy = "default";
+  if (auto it = params.config_map.find("system_policy"); it != params.config_map.end()) {
+    system_policy = it->second;
+  }
+  std::string mode = "basic_block";
+  if (auto it = params.config_map.find("mode"); it != params.config_map.end()) {
+    mode = it->second;
+  }
   log.info(
       "coverage tracing configuration", redlog::field("output_file", output_file), redlog::field("format", format),
-      redlog::field("system_policy", system_policy), redlog::field("inst_trace", inst_trace_flag ? "true" : "false"),
+      redlog::field("system_policy", system_policy), redlog::field("mode", mode),
       redlog::field("debug_level", params.debug_level)
   );
 

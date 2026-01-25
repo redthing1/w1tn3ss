@@ -11,10 +11,18 @@ set(W1REWIND_TEST_SOURCES
     rewind_config_validation_test.cpp
     rewind_memory_filter_test.cpp
     rewind_memory_map_mapping_test.cpp
+    rewind_module_event_test.cpp
     rewind_snapshot_codec_test.cpp
     rewind_stack_window_policy_test.cpp
     rewind_trace_index_test.cpp
+    rewind_history_window_test.cpp
+    rewind_flow_extractor_test.cpp
+    rewind_replay_position_test.cpp
+    rewind_replay_cursor_property_test.cpp
     rewind_replay_cursor_test.cpp
+    rewind_replay_session_position_test.cpp
+    rewind_replay_run_invariants_test.cpp
+    rewind_replay_cursor_semantics_test.cpp
     rewind_replay_instruction_cursor_test.cpp
     rewind_replay_checkpoint_test.cpp
     rewind_replay_session_test.cpp
@@ -39,6 +47,7 @@ w1_add_doctest_suite(w1rewind_unit_tests
     INCLUDE_DIRS
         ${W1_SOURCE_DIR}/src
         ${W1_SOURCE_DIR}/src/third_party
+        ${W1_SOURCE_DIR}/src/tracers/w1rewind
         ${W1_SOURCE_DIR}/test
     LIBS
         ${W1REWIND_TEST_LIBS}

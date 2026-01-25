@@ -6,7 +6,7 @@
 #include "doctest/doctest.hpp"
 
 #include "w1rewind/rewind_test_helpers.hpp"
-#include "w1rewind/replay/replay_decode.hpp"
+#include "w1rewind/replay/block_decoder.hpp"
 #include "w1rewind/replay/replay_session.hpp"
 #include "w1rewind/trace/trace_index.hpp"
 #include "w1rewind/trace/trace_reader.hpp"
@@ -14,23 +14,22 @@
 
 namespace {
 
-class test_block_decoder final : public w1::rewind::replay_block_decoder {
+class test_block_decoder final : public w1::rewind::block_decoder {
 public:
   bool decode_block(
-      const w1::rewind::replay_context&, const w1::rewind::flow_step& flow, w1::rewind::replay_decoded_block& out,
-      std::string&
+      const w1::rewind::replay_context&, const w1::rewind::flow_step& flow, w1::rewind::decoded_block& out, std::string&
   ) override {
     if (flow.size == 0 || (flow.size % 2) != 0) {
       return false;
     }
 
-    out.address = flow.address;
+    out.start = flow.address;
     out.size = flow.size;
 
     uint32_t offset = 0;
     while (offset < flow.size) {
-      w1::rewind::replay_decoded_instruction inst{};
-      inst.offset = offset;
+      w1::rewind::decoded_instruction inst{};
+      inst.address = flow.address + offset;
       inst.size = 2;
       inst.bytes = {0x90, 0x90};
       out.instructions.push_back(inst);

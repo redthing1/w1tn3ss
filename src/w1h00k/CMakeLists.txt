@@ -1,0 +1,81 @@
+w1_add_static_library(w1h00k_reloc
+    reloc/relocator.cpp
+    reloc/x86.cpp
+    reloc/arm64.cpp
+)
+target_link_libraries(w1h00k_reloc PUBLIC w1asmr)
+
+w1_add_static_library(w1h00k_os
+    os/os.cpp
+)
+
+set(W1H00K_RESOLVE_SOURCES "")
+if(WIN32)
+    list(APPEND W1H00K_RESOLVE_SOURCES resolve/windows.cpp)
+else()
+    list(APPEND W1H00K_RESOLVE_SOURCES resolve/posix.cpp)
+endif()
+
+w1_add_static_library(w1h00k_resolve ${W1H00K_RESOLVE_SOURCES})
+
+set(W1H00K_MEMORY_SOURCES "")
+if(WIN32)
+    list(APPEND W1H00K_MEMORY_SOURCES memory/windows.cpp)
+else()
+    list(APPEND W1H00K_MEMORY_SOURCES memory/posix.cpp)
+endif()
+
+w1_add_static_library(w1h00k_memory ${W1H00K_MEMORY_SOURCES})
+
+set(W1H00K_PATCHER_SOURCES "")
+if(WIN32)
+    list(APPEND W1H00K_PATCHER_SOURCES patcher/windows.cpp)
+else()
+    list(APPEND W1H00K_PATCHER_SOURCES patcher/posix.cpp)
+endif()
+
+w1_add_static_library(w1h00k_patcher ${W1H00K_PATCHER_SOURCES})
+
+w1_add_static_library(w1h00k_backend
+    backend/registry.cpp
+    backend/inline/inline_backend.cpp
+    backend/inline/inline_detour.cpp
+    backend/inline/inline_instrumentation.cpp
+    backend/interpose/interpose_backend.cpp
+    backend/import_table/import_table_backend.cpp
+)
+
+w1_add_static_library(w1h00k_core
+    core/hook_manager.cpp
+    core/hook_transaction.cpp
+)
+
+w1_add_static_library(w1h00k
+    hook.cpp
+    errors.cpp
+)
+add_library(w1::h00k ALIAS w1h00k)
+
+target_link_libraries(w1h00k_backend
+    PUBLIC
+        w1h00k_reloc
+        w1h00k_resolve
+        w1h00k_memory
+        w1h00k_patcher
+)
+
+target_link_libraries(w1h00k_resolve
+    PUBLIC
+        w1h00k_os
+)
+
+target_link_libraries(w1h00k_core
+    PUBLIC
+        w1h00k_backend
+)
+
+target_link_libraries(w1h00k
+    PUBLIC
+        w1h00k_core
+        w1base
+)

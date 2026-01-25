@@ -4,8 +4,8 @@ if(WITNESS_SCRIPT)
 
     w1_add_tracer(w1script
         SOURCES
-            preload.cpp
-            script_tracer.cpp
+            entrypoints/preload.cpp
+            thread/script_tracer.cpp
             runtime/lua_runtime.cpp
             runtime/callback_registry.cpp
             runtime/output_state.cpp

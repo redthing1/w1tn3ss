@@ -10,6 +10,7 @@
 #include "w1replay/cli/commands/checkpoint.hpp"
 #include "w1replay/cli/commands/inspect.hpp"
 #include "w1replay/cli/commands/server.hpp"
+#include "w1replay/cli/commands/summary.hpp"
 #include "w1replay/cli/commands/threads.hpp"
 
 namespace cli {
@@ -101,6 +102,31 @@ void cmd_threads(args::Subparser& parser) {
   g_exit_code = w1replay::commands::threads(options);
 }
 
+void cmd_summary(args::Subparser& parser) {
+  cli::apply_verbosity();
+
+  args::ValueFlag<std::string> trace_flag(parser, "path", "path to trace file", {'t', "trace"});
+  args::ValueFlag<std::string> index_flag(parser, "path", "path to index file", {'i', "index"});
+  args::ValueFlag<std::string> checkpoint_flag(parser, "path", "path to replay checkpoint file", {"checkpoint"});
+  args::Flag full_flag(parser, "full", "scan full trace details", {'f', "full"});
+  parser.Parse();
+
+  if (!trace_flag) {
+    log_main.err("trace path required");
+    std::cerr << "error: --trace is required" << std::endl;
+    g_exit_code = 1;
+    return;
+  }
+
+  w1replay::commands::summary_options options;
+  options.trace_path = *trace_flag;
+  options.index_path = index_flag ? *index_flag : "";
+  options.checkpoint_path = checkpoint_flag ? *checkpoint_flag : "";
+  options.full = full_flag;
+
+  g_exit_code = w1replay::commands::summary(options);
+}
+
 void cmd_checkpoint(args::Subparser& parser) {
   cli::apply_verbosity();
 
@@ -178,6 +204,7 @@ int main(int argc, char* argv[]) {
 
   args::Command inspect_cmd(commands, "inspect", "inspect a rewind trace", &cmd_inspect);
   args::Command threads_cmd(commands, "threads", "list threads in a rewind trace", &cmd_threads);
+  args::Command summary_cmd(commands, "summary", "summarize a rewind trace", &cmd_summary);
   args::Command checkpoint_cmd(commands, "checkpoint", "build a replay checkpoint file", &cmd_checkpoint);
   args::Command server_cmd(commands, "server", "run gdbstub server for a rewind trace", &cmd_server);
 

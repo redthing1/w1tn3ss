@@ -50,6 +50,112 @@ std::pair<std::string, std::string> parse_config_string(const std::string& confi
   return {key, value};
 }
 
+bool apply_config_flags(
+    args::ValueFlagList<std::string>& config_flags, std::map<std::string, std::string>& config_map,
+    std::string* error_out
+) {
+  if (!config_flags) {
+    return true;
+  }
+
+  for (const std::string& config_str : args::get(config_flags)) {
+    auto [key, value] = parse_config_string(config_str);
+
+    if (key.empty() || value.empty()) {
+      if (error_out) {
+        *error_out = config_str;
+      }
+      return false;
+    }
+
+    config_map[key] = value;
+  }
+
+  return true;
+}
+
+void apply_debug_level(tracer_execution_params& params, args::ValueFlag<int>& debug_level_flag, int fallback_level) {
+  if (debug_level_flag) {
+    params.debug_level = args::get(debug_level_flag);
+  } else {
+    params.debug_level = fallback_level;
+  }
+}
+
+bool apply_target(
+    tracer_execution_params& params, const target_args& args, std::string* error_out, std::string_view name_flag
+) {
+  int target_count = 0;
+  if (args.spawn_flag) {
+    target_count++;
+  }
+  if (args.pid_flag) {
+    target_count++;
+  }
+  if (args.name_flag) {
+    target_count++;
+  }
+
+  if (target_count != 1) {
+    if (error_out) {
+      *error_out = "exactly one target required: specify -s/--spawn, --pid, or " + std::string(name_flag);
+    }
+    return false;
+  }
+
+  if (args.suspended_flag && !args.spawn_flag) {
+    if (error_out) {
+      *error_out = "--suspended can only be used with -s/--spawn (launch tracing)";
+    }
+    return false;
+  }
+
+  if (args.no_aslr_flag && !args.spawn_flag) {
+    if (error_out) {
+      *error_out = "--no-aslr can only be used with -s/--spawn (launch tracing)";
+    }
+    return false;
+  }
+
+  if (args.spawn_flag) {
+    if (args.args_list.Get().empty()) {
+      if (error_out) {
+        *error_out = "binary path required when using -s/--spawn flag";
+      }
+      return false;
+    }
+
+    std::vector<std::string> all_args = args::get(args.args_list);
+    params.spawn_target = true;
+    params.binary_path = all_args[0];
+    params.suspended = args.suspended_flag;
+    params.disable_aslr = args.no_aslr_flag;
+
+    if (all_args.size() > 1) {
+      params.binary_args.assign(all_args.begin() + 1, all_args.end());
+    }
+  } else if (args.pid_flag) {
+    params.target_pid = args::get(args.pid_flag);
+  } else if (args.name_flag) {
+    params.process_name = args::get(args.name_flag);
+  }
+
+  return true;
+}
+
+std::string default_output_path(
+    bool spawn_flag, args::PositionalList<std::string>& args_list, std::string_view suffix, std::string_view fallback
+) {
+  if (spawn_flag && !args_list.Get().empty()) {
+    std::vector<std::string> all_args = args::get(args_list);
+    std::filesystem::path fs_path(all_args[0]);
+    std::string binary_name = fs_path.filename().string();
+    return binary_name + std::string(suffix);
+  }
+
+  return std::string(fallback);
+}
+
 int tracer(
     args::ValueFlag<std::string>& library_flag, args::ValueFlag<std::string>& name_flag, args::Flag& spawn_flag,
     args::ValueFlag<int>& pid_flag, args::ValueFlag<std::string>& process_name_flag,
@@ -84,35 +190,6 @@ int tracer(
 
   const std::string tracer_name = args::get(name_flag);
 
-  // validate target
-  int target_count = 0;
-  if (spawn_flag) {
-    target_count++;
-  }
-  if (pid_flag) {
-    target_count++;
-  }
-  if (process_name_flag) {
-    target_count++;
-  }
-
-  if (target_count != 1) {
-    log.err("exactly one target required: specify -s/--spawn, --pid, or --process-name");
-    return 1;
-  }
-
-  // validate suspended flag
-  if (suspended_flag && !spawn_flag) {
-    log.err("--suspended can only be used with -s/--spawn (launch tracing)");
-    return 1;
-  }
-
-  // validate no_aslr flag
-  if (no_aslr_flag && !spawn_flag) {
-    log.err("--no-aslr can only be used with -s/--spawn (launch tracing)");
-    return 1;
-  }
-
   // build execution parameters
   tracer_execution_params params;
   params.tracer_name = tracer_name;
@@ -123,24 +200,13 @@ int tracer(
   }
 
   // set debug level
-  if (debug_level_flag) {
-    params.debug_level = args::get(debug_level_flag);
-  } else {
-    params.debug_level = args::get(cli::verbosity_flag);
-  }
+  apply_debug_level(params, debug_level_flag, args::get(cli::verbosity_flag));
 
   // process config
-  if (config_flags) {
-    for (const std::string& config_str : args::get(config_flags)) {
-      auto [key, value] = parse_config_string(config_str);
-
-      if (key.empty() || value.empty()) {
-        log.err("invalid config format, expected key=value", redlog::field("config", config_str));
-        return 1;
-      }
-
-      params.config_map[key] = value;
-    }
+  std::string config_error;
+  if (!apply_config_flags(config_flags, params.config_map, &config_error)) {
+    log.err("invalid config format, expected key=value", redlog::field("config", config_error));
+    return 1;
   }
 
   // process output flag
@@ -149,28 +215,11 @@ int tracer(
   }
 
   // set target
-  if (spawn_flag) {
-    if (args_list.Get().empty()) {
-      log.err("binary path required when using -s/--spawn flag");
-      return 1;
-    }
-
-    std::vector<std::string> all_args = args::get(args_list);
-    params.spawn_target = true;
-    params.binary_path = all_args[0];
-    params.suspended = suspended_flag;
-    params.disable_aslr = no_aslr_flag;
-
-    // extract binary arguments
-    if (all_args.size() > 1) {
-      params.binary_args.assign(all_args.begin() + 1, all_args.end());
-    }
-
-  } else if (pid_flag) {
-    params.target_pid = args::get(pid_flag);
-
-  } else if (process_name_flag) {
-    params.process_name = args::get(process_name_flag);
+  std::string target_error;
+  target_args target{spawn_flag, pid_flag, process_name_flag, suspended_flag, no_aslr_flag, args_list};
+  if (!apply_target(params, target, &target_error, "--process-name")) {
+    log.err(target_error);
+    return 1;
   }
 
   return execute_tracer_impl(params);

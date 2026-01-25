@@ -275,8 +275,8 @@ QBDI::VMAction callback_registry::dispatch_basic_block(
 }
 
 QBDI::VMAction callback_registry::dispatch_exec_transfer(
-    event_type event_type, const w1::exec_transfer_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state,
-    QBDI::GPRState* gpr, QBDI::FPRState* fpr
+    event_type event_type, [[maybe_unused]] const w1::exec_transfer_event& event, QBDI::VMInstanceRef vm,
+    const QBDI::VMState* state, QBDI::GPRState* gpr, QBDI::FPRState* fpr
 ) {
   dispatch_scope guard(*this);
   auto handler_it = event_handlers_.find(event_type);
@@ -304,8 +304,8 @@ QBDI::VMAction callback_registry::dispatch_exec_transfer(
 }
 
 QBDI::VMAction callback_registry::dispatch_sequence(
-    event_type event_type, const w1::sequence_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state,
-    QBDI::GPRState* gpr, QBDI::FPRState* fpr
+    event_type event_type, [[maybe_unused]] const w1::sequence_event& event, QBDI::VMInstanceRef vm,
+    const QBDI::VMState* state, QBDI::GPRState* gpr, QBDI::FPRState* fpr
 ) {
   dispatch_scope guard(*this);
   auto handler_it = event_handlers_.find(event_type);

@@ -20,7 +20,7 @@ class TestHarness {
 private:
   int tests_run = 0;
   int tests_passed = 0;
-  bool verbose = false;
+  [[maybe_unused]] bool verbose = false;
 
 public:
   TestHarness(bool verbose = false) : verbose(verbose) {}
@@ -253,7 +253,7 @@ void test_within_vm_callback() {
 
   vm.addCodeCB(
       QBDI::PREINST,
-      [](QBDI::VM* vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr, void* data) {
+      [](QBDI::VM* vm, QBDI::GPRState* gpr, [[maybe_unused]] QBDI::FPRState* fpr, void* data) {
         auto* ctx = static_cast<CallbackContext*>(data);
         ctx->instruction_count++;
 
@@ -398,6 +398,7 @@ void test_performance() {
     sum += gadget_add(i, i);
   }
   auto direct_time = std::chrono::high_resolution_clock::now() - start;
+  static_cast<void>(sum);
 
   // Time gadget calls
   start = std::chrono::high_resolution_clock::now();
@@ -408,6 +409,7 @@ void test_performance() {
     );
   }
   auto gadget_time = std::chrono::high_resolution_clock::now() - start;
+  static_cast<void>(sum);
 
   auto direct_us = std::chrono::duration_cast<std::chrono::microseconds>(direct_time).count();
   auto gadget_us = std::chrono::duration_cast<std::chrono::microseconds>(gadget_time).count();
@@ -438,7 +440,8 @@ void test_nested_execution() {
 
   outer_vm.addCodeCB(
       QBDI::PREINST,
-      [](QBDI::VM* vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr, void* data) {
+      []([[maybe_unused]] QBDI::VM* vm, [[maybe_unused]] QBDI::GPRState* gpr, [[maybe_unused]] QBDI::FPRState* fpr,
+         void* data) {
         static int count = 0;
         if (++count == 2) {
           auto* ctx = static_cast<NestedContext*>(data);
@@ -451,7 +454,7 @@ void test_nested_execution() {
 
           inner_vm.addCodeCB(
               QBDI::PREINST,
-              [](QBDI::VM* vm, QBDI::GPRState* gpr, QBDI::FPRState* fpr, void* data) {
+              [](QBDI::VM* vm, [[maybe_unused]] QBDI::GPRState* gpr, [[maybe_unused]] QBDI::FPRState* fpr, void* data) {
                 static int inner_count = 0;
                 if (++inner_count == 2) {
                   auto* ctx = static_cast<NestedContext*>(data);

@@ -16,57 +16,12 @@ namespace w1tool::commands {
 int dump(
     args::ValueFlag<std::string>& library_flag, args::Flag& spawn_flag, args::ValueFlag<int>& pid_flag,
     args::ValueFlag<std::string>& name_flag, args::ValueFlag<std::string>& output_flag, args::Flag& memory_flag,
-    args::ValueFlagList<std::string>& filter_flag, args::ValueFlag<std::string>& max_region_size_flag,
-    args::ValueFlag<int>& debug_level_flag, args::Flag& suspended_flag, args::Flag& no_aslr_flag,
-    args::PositionalList<std::string>& args_list, const std::string& executable_path
+    args::ValueFlagList<std::string>& config_flags, args::ValueFlagList<std::string>& filter_flag,
+    args::ValueFlag<std::string>& max_region_size_flag, args::ValueFlag<int>& debug_level_flag,
+    args::Flag& suspended_flag, args::Flag& no_aslr_flag, args::PositionalList<std::string>& args_list,
+    const std::string& executable_path
 ) {
   auto log = redlog::get_logger("w1tool.dump");
-
-  // validate target
-  int target_count = 0;
-  if (spawn_flag) {
-    target_count++;
-  }
-  if (pid_flag) {
-    target_count++;
-  }
-  if (name_flag) {
-    target_count++;
-  }
-
-  if (target_count != 1) {
-    log.err("exactly one target required: specify -s/--spawn, --pid, or --name");
-    return 1;
-  }
-
-  // validate suspended flag
-  if (suspended_flag && !spawn_flag) {
-    log.err("--suspended can only be used with -s/--spawn (launch tracing)");
-    return 1;
-  }
-
-  // validate no_aslr flag
-  if (no_aslr_flag && !spawn_flag) {
-    log.err("--no-aslr can only be used with -s/--spawn (launch tracing)");
-    return 1;
-  }
-
-  // determine output file
-  std::string output_file;
-  if (output_flag) {
-    output_file = args::get(output_flag);
-  } else {
-    // generate default filename
-    if (spawn_flag && !args_list.Get().empty()) {
-      std::vector<std::string> all_args = args::get(args_list);
-      std::string binary_path = all_args[0];
-      std::filesystem::path fs_path(binary_path);
-      std::string binary_name = fs_path.filename().string();
-      output_file = binary_name + ".w1dump";
-    } else {
-      output_file = "process.w1dump";
-    }
-  }
 
   // build execution parameters
   tracer_execution_params params;
@@ -77,16 +32,32 @@ int dump(
     params.library_path = args::get(library_flag);
   }
 
-  // set debug level
-  if (debug_level_flag) {
-    params.debug_level = args::get(debug_level_flag);
-  } else {
-    params.debug_level = args::get(cli::verbosity_flag);
+  std::string config_error;
+  if (!apply_config_flags(config_flags, params.config_map, &config_error)) {
+    log.err("invalid config format, expected key=value", redlog::field("config", config_error));
+    return 1;
   }
+
+  // determine output file
+  std::string output_file;
+  if (output_flag) {
+    output_file = args::get(output_flag);
+  } else if (auto it = params.config_map.find("output"); it != params.config_map.end()) {
+    output_file = it->second;
+  } else {
+    output_file = default_output_path(spawn_flag, args_list, ".w1dump", "process.w1dump");
+  }
+
+  // set debug level
+  apply_debug_level(params, debug_level_flag, args::get(cli::verbosity_flag));
 
   // translate dump flags to w1dump config
   params.config_map["output"] = output_file;
-  params.config_map["dump_memory_content"] = memory_flag ? "true" : "false";
+  if (memory_flag) {
+    params.config_map["dump_memory_content"] = "true";
+  } else if (params.config_map.find("dump_memory_content") == params.config_map.end()) {
+    params.config_map["dump_memory_content"] = "false";
+  }
 
   // parse and validate filters
   if (filter_flag) {
@@ -108,34 +79,28 @@ int dump(
   params.config_map["dump_on_entry"] = "true";
 
   // set target
-  if (spawn_flag) {
-    if (args_list.Get().empty()) {
-      log.err("binary path required when using -s/--spawn flag");
-      return 1;
-    }
-
-    std::vector<std::string> all_args = args::get(args_list);
-    params.spawn_target = true;
-    params.binary_path = all_args[0];
-    params.suspended = suspended_flag;
-    params.disable_aslr = no_aslr_flag;
-
-    // extract binary arguments
-    if (all_args.size() > 1) {
-      params.binary_args.assign(all_args.begin() + 1, all_args.end());
-    }
-
-  } else if (pid_flag) {
-    params.target_pid = args::get(pid_flag);
-
-  } else if (name_flag) {
-    params.process_name = args::get(name_flag);
+  std::string target_error;
+  target_args target{spawn_flag, pid_flag, name_flag, suspended_flag, no_aslr_flag, args_list};
+  if (!apply_target(params, target, &target_error)) {
+    log.err(target_error);
+    return 1;
   }
 
+  std::string dump_memory = "false";
+  if (auto it = params.config_map.find("dump_memory_content"); it != params.config_map.end()) {
+    dump_memory = it->second;
+  }
+  size_t filter_count = 0;
+  if (auto it = params.config_map.find("filter_count"); it != params.config_map.end()) {
+    try {
+      filter_count = static_cast<size_t>(std::stoull(it->second));
+    } catch (...) {
+      filter_count = 0;
+    }
+  }
   log.info(
       "process dump configuration", redlog::field("output_file", output_file),
-      redlog::field("dump_memory", memory_flag ? "true" : "false"),
-      redlog::field("filter_count", filter_flag ? args::get(filter_flag).size() : 0),
+      redlog::field("dump_memory", dump_memory), redlog::field("filter_count", filter_count),
       redlog::field("debug_level", params.debug_level)
   );
 

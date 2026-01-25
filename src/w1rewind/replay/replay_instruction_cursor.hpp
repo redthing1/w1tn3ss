@@ -3,7 +3,7 @@
 #include <optional>
 #include <string>
 
-#include "replay_decode.hpp"
+#include "block_decoder.hpp"
 #include "stateful_flow_cursor.hpp"
 
 namespace w1::rewind {
@@ -19,10 +19,11 @@ class replay_instruction_cursor {
 public:
   explicit replay_instruction_cursor(stateful_flow_cursor& flow);
 
-  void set_decoder(replay_block_decoder* decoder) { decoder_ = decoder; }
+  void set_decoder(block_decoder* decoder) { decoder_ = decoder; }
   void reset();
   void sync_with_flow_step(const flow_step& step);
-  bool set_position(const flow_step& step);
+  enum class position_bias { start, end };
+  bool set_position(const flow_step& step, position_bias bias = position_bias::start);
 
   bool step_forward(flow_step& out);
   bool step_backward(flow_step& out);
@@ -35,7 +36,7 @@ public:
 private:
   struct instruction_state {
     flow_step base_step{};
-    replay_decoded_block block{};
+    decoded_block block{};
     size_t instruction_index = 0;
     bool active = false;
   };
@@ -47,7 +48,7 @@ private:
   bool fallback_to_flow_backward(flow_step& out, replay_notice notice);
 
   stateful_flow_cursor& flow_;
-  replay_block_decoder* decoder_ = nullptr;
+  block_decoder* decoder_ = nullptr;
   instruction_state instruction_state_{};
   flow_step current_step_{};
   bool has_position_ = false;

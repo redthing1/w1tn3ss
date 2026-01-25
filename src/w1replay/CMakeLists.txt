@@ -8,6 +8,7 @@ w1_add_executable(w1replay
     cli/commands/checkpoint.cpp
     cli/commands/inspect.cpp
     cli/commands/server.cpp
+    cli/commands/summary.cpp
     cli/commands/threads.cpp
     modules/asmr_block_decoder.cpp
     modules/address_index.cpp
@@ -29,6 +30,7 @@ w1_add_executable(w1replay
     gdb/components/libraries_component.cpp
     gdb/components/loaded_libraries_component.cpp
     gdb/components/process_info_component.cpp
+    gdb/components/auxv_component.cpp
     gdb/components/offsets_component.cpp
     gdb/components/register_info_component.cpp
     gdb/lldb/darwin_loaded_libraries.cpp

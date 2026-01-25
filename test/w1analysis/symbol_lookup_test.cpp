@@ -1,7 +1,7 @@
 #include "doctest/doctest.hpp"
 
 #include "w1analysis/symbol_lookup.hpp"
-#include "w1runtime/module_registry.hpp"
+#include "w1runtime/module_catalog.hpp"
 
 namespace {
 
@@ -10,12 +10,12 @@ int symbol_lookup_target(int value) { return value + 1; }
 } // namespace
 
 TEST_CASE("symbol_lookup resolves current symbol") {
-  w1::runtime::module_registry registry;
+  w1::runtime::module_catalog registry;
   registry.refresh();
 
   auto modules = registry.list_modules();
   if (modules.empty()) {
-    WARN("module_registry returned no modules; module scanning may be blocked");
+    WARN("module_catalog returned no modules; module scanning may be blocked");
     return;
   }
 

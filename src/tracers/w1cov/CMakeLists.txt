@@ -1,4 +1,12 @@
 w1_add_tracer(w1cov
-    SOURCES preload.cpp coverage_tracer.cpp coverage_collector.cpp coverage_module_tracker.cpp
-    LIBS w1formats
+    SOURCES
+        entrypoints/preload.cpp
+        engine/coverage_engine.cpp
+        engine/coverage_store.cpp
+        engine/coverage_exporter.cpp
+        thread/coverage_thread_tracer.cpp
+    LIBS
+        w1formats
+        w1runtime
+        w1base
 )

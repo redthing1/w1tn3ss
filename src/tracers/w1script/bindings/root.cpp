@@ -187,18 +187,18 @@ void setup_root_bindings(
 
   sol::table settings_table = lua.create_table();
   settings_table["script_path"] = context.config().script_path;
-  const auto system_policy = context.config().instrumentation.system_policy;
+  const auto system_policy = context.config().common.instrumentation.system_policy;
   settings_table["system_policy"] = system_policy_name(system_policy);
-  settings_table["include_unnamed_modules"] = context.config().instrumentation.include_unnamed_modules;
-  settings_table["use_default_excludes"] = context.config().instrumentation.use_default_excludes;
-  settings_table["verbose"] = context.config().verbose;
+  settings_table["include_unnamed_modules"] = context.config().common.instrumentation.include_unnamed_modules;
+  settings_table["use_default_excludes"] = context.config().common.instrumentation.use_default_excludes;
+  settings_table["verbose"] = context.config().common.verbose;
 
   sol::table include_modules = lua.create_table();
-  add_list_table(include_modules, context.config().instrumentation.include_modules);
+  add_list_table(include_modules, context.config().common.instrumentation.include_modules);
   settings_table["include_modules"] = include_modules;
 
   sol::table exclude_modules = lua.create_table();
-  add_list_table(exclude_modules, context.config().instrumentation.exclude_modules);
+  add_list_table(exclude_modules, context.config().common.instrumentation.exclude_modules);
   settings_table["exclude_modules"] = exclude_modules;
 
   w1_module["settings"] = settings_table;

@@ -3,12 +3,12 @@
 #include <array>
 #include <cstdint>
 
-#include "w1runtime/module_registry.hpp"
+#include "w1runtime/module_catalog.hpp"
 #include "w1runtime/memory_reader.hpp"
 
 TEST_CASE("memory_reader reads bytes") {
   std::array<uint8_t, 4> buffer = {1, 2, 3, 4};
-  w1::runtime::module_registry modules;
+  w1::runtime::module_catalog modules;
   w1::util::memory_reader reader(nullptr, modules);
 
   auto result = reader.read_bytes(reinterpret_cast<uint64_t>(buffer.data()), buffer.size());
@@ -20,7 +20,7 @@ TEST_CASE("memory_reader reads bytes") {
 
 TEST_CASE("memory_reader reads string") {
   const char message[] = "hello";
-  w1::runtime::module_registry modules;
+  w1::runtime::module_catalog modules;
   w1::util::memory_reader reader(nullptr, modules);
 
   auto result = reader.read_string(reinterpret_cast<uint64_t>(message), 16);
@@ -29,7 +29,7 @@ TEST_CASE("memory_reader reads string") {
 }
 
 TEST_CASE("memory_reader rejects null address") {
-  w1::runtime::module_registry modules;
+  w1::runtime::module_catalog modules;
   w1::util::memory_reader reader(nullptr, modules);
 
   auto bytes = reader.read_bytes(0, 4);

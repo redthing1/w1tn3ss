@@ -127,7 +127,8 @@ int read_dump(
 
       uint64_t total_mapped = stack_size + code_size + data_size;
 
-      std::cout << "├─ Memory Regions (" << dump.regions.size() << " total, " << mapped_regions << " mapped)\n";
+      std::cout << "├─ Memory Regions (" << dump.regions.size() << " total, " << mapped_regions << " mapped, "
+                << reserved_regions << " reserved)\n";
       std::cout << "│  ├─ Stack: " << std::setw(3) << stack_count << " regions (" << format_bytes_dump(stack_size)
                 << ")\n";
       std::cout << "│  ├─ Code:  " << std::setw(3) << code_count << " regions (" << format_bytes_dump(code_size)
@@ -248,7 +249,13 @@ int read_dump(
 
         std::cout << "── " << group.name << " (" << group.regions.size() << " regions, "
                   << format_bytes_dump(group.total_size) << ") ";
-        for (int i = 0; i < 70 - group.name.length() - 20; i++) {
+        size_t padding = 0;
+        const size_t base_width = 70;
+        const size_t used_width = group.name.length() + 20;
+        if (base_width > used_width) {
+          padding = base_width - used_width;
+        }
+        for (size_t i = 0; i < padding; ++i) {
           std::cout << "─";
         }
         std::cout << "\n";

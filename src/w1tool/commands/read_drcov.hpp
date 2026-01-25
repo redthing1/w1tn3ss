@@ -5,7 +5,7 @@
 namespace w1tool::commands {
 
 /**
- * read-DrCov command - analyzes DrCov coverage files
+ * read-DrCov command - analyzes drcov coverage files
  *
  * @param file_flag path to DrCov file to analyze
  * @param summary_flag show summary only (optional)

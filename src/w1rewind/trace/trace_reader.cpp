@@ -1,5 +1,6 @@
 #include "trace_reader.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cstring>
 #include <limits>
@@ -535,6 +536,24 @@ bool trace_reader::parse_record(
     record = std::move(out);
     return true;
   }
+  case record_kind::module_load: {
+    module_load_record out{};
+    if (!decode_module_load(reader, out)) {
+      return false;
+    }
+    apply_module_load(out.module);
+    record = std::move(out);
+    return true;
+  }
+  case record_kind::module_unload: {
+    module_unload_record out{};
+    if (!decode_module_unload(reader, out)) {
+      return false;
+    }
+    apply_module_unload(out);
+    record = std::move(out);
+    return true;
+  }
   case record_kind::memory_map: {
     memory_map_record out{};
     if (!decode_memory_map(reader, out)) {
@@ -619,6 +638,48 @@ bool trace_reader::parse_record(
   default:
     error_ = "unknown record kind";
     return false;
+  }
+}
+
+void trace_reader::apply_module_load(module_record module) {
+  auto it = std::find_if(module_table_.begin(), module_table_.end(), [&](const module_record& entry) {
+    return entry.id == module.id;
+  });
+  if (it != module_table_.end()) {
+    *it = std::move(module);
+    return;
+  }
+  module_table_.push_back(std::move(module));
+}
+
+void trace_reader::apply_module_unload(const module_unload_record& record) {
+  auto it = std::find_if(module_table_.begin(), module_table_.end(), [&](const module_record& entry) {
+    return entry.id == record.module_id;
+  });
+  if (it != module_table_.end()) {
+    module_table_.erase(it);
+    return;
+  }
+
+  if (record.base == 0 && record.size == 0 && record.path.empty()) {
+    return;
+  }
+
+  auto fallback = std::find_if(module_table_.begin(), module_table_.end(), [&](const module_record& entry) {
+    if (record.base != 0 && entry.base != record.base) {
+      return false;
+    }
+    if (record.size != 0 && entry.size != record.size) {
+      return false;
+    }
+    if (!record.path.empty() && entry.path != record.path) {
+      return false;
+    }
+    return true;
+  });
+
+  if (fallback != module_table_.end()) {
+    module_table_.erase(fallback);
   }
 }
 

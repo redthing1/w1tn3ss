@@ -3,14 +3,9 @@
 include("${W1_CMAKE_DIR}/W1Tracers.cmake")
 w1_dep_qbdi()
 
-# Add tracer subdirectories
+# add tracer subdirectories
 add_subdirectory(w1cov)
-add_subdirectory(w1mem)
-add_subdirectory(w1trace)
-add_subdirectory(w1inst)
+add_subdirectory(w1dump)
+add_subdirectory(w1rewind)
 add_subdirectory(w1xfer)
 add_subdirectory(w1script)
-add_subdirectory(gadgetdemo)
-add_subdirectory(w1dump)
-add_subdirectory(threadtest)
-add_subdirectory(w1rewind)

@@ -6,7 +6,7 @@ set(W1INSTRUMENT_TEST_SOURCES
     ${W1_SOURCE_DIR}/test/common/test_main.cpp
     event_router_test.cpp
     instrumentation_policy_test.cpp
-    trace_session_smoke_test.cpp
+    thread_session_simple_test.cpp
 )
 
 w1_add_doctest_suite(w1instrument_unit_tests

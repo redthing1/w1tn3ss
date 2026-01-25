@@ -6,6 +6,10 @@ project(w1tn3ss
     LANGUAGES C CXX ASM
 )
 
+if(CMAKE_C_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    message(FATAL_ERROR "GCC is not supported. Configure with Clang instead.")
+endif()
+
 include(cmake/W1Init.cmake)
 include(cmake/WindowsSymbolConfig.cmake)
 
@@ -17,6 +21,8 @@ endfunction()
 
 set(W1_COMPONENTS
     w1base
+    w1h00k
+    w1monitor
     w1formats
     w1runtime
     w1instrument
@@ -37,6 +43,8 @@ set(W1_COMPONENTS
 )
 
 set(W1_COMPONENT_DIR_w1base "src/w1base")
+set(W1_COMPONENT_DIR_w1h00k "src/w1h00k")
+set(W1_COMPONENT_DIR_w1monitor "src/w1monitor")
 set(W1_COMPONENT_DIR_w1formats "src/w1formats")
 set(W1_COMPONENT_DIR_w1runtime "src/w1runtime")
 set(W1_COMPONENT_DIR_w1instrument "src/w1instrument")
@@ -56,6 +64,8 @@ set(W1_COMPONENT_DIR_w1replay "src/w1replay")
 set(W1_COMPONENT_DIR_p01s0n "src/p01s0n")
 
 set(W1_COMPONENT_DEPS_w1base "")
+set(W1_COMPONENT_DEPS_w1h00k "w1base;w1asmr")
+set(W1_COMPONENT_DEPS_w1monitor "w1base;w1h00k")
 set(W1_COMPONENT_DEPS_w1formats "")
 set(W1_COMPONENT_DEPS_w1runtime "")
 set(W1_COMPONENT_DEPS_w1instrument "w1runtime;w1base")
@@ -78,6 +88,11 @@ foreach(component IN LISTS W1_COMPONENTS)
     w1_component_option_name("${component}" _opt)
     w1_set_cache_default(${_opt} BOOL ${W1_BUILD_ALL} "Build component ${component}")
 endforeach()
+
+if(W1_BUILD_W1H00K AND NOT WITNESS_ASMR)
+    message(STATUS "Enabling WITNESS_ASMR because w1h00k depends on w1asmr")
+    set(WITNESS_ASMR ON CACHE BOOL "Build w1asmr disassembler/assembler" FORCE)
+endif()
 
 function(w1_enable_component NAME)
     get_property(_already_set GLOBAL PROPERTY "W1_COMPONENT_ENABLED_${NAME}")

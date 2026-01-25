@@ -22,6 +22,8 @@ public:
   );
   bool set_module_table(std::vector<module_record> modules);
   bool set_memory_map(std::vector<memory_region_record> regions);
+  bool emit_module_load(const module_load_record& record);
+  bool emit_module_unload(const module_unload_record& record);
 
   bool begin_thread(uint64_t thread_id, std::string name = {});
   bool end_thread(uint64_t thread_id);
@@ -82,7 +84,6 @@ private:
   trace_builder_config config_;
   bool started_ = false;
   bool module_table_written_ = false;
-  bool memory_map_written_ = false;
   bool module_table_pending_ = false;
   bool memory_map_pending_ = false;
 

@@ -245,6 +245,7 @@ void append_x86_operands(csh handle, const cs_x86& detail, instruction& inst) {
       out.mem_index = op.mem.index;
       out.mem_scale = op.mem.scale;
       out.mem_disp = op.mem.disp;
+      out.is_pc_relative = (op.mem.base == X86_REG_RIP || op.mem.base == X86_REG_EIP);
       break;
     default:
       continue;
@@ -281,6 +282,7 @@ void append_arm_operands(csh handle, const cs_arm& detail, instruction& inst) {
       out.mem_index = op.mem.index;
       out.mem_scale = op.mem.scale;
       out.mem_disp = op.mem.disp;
+      out.is_pc_relative = (op.mem.base == ARM_REG_PC);
       break;
     default:
       continue;
@@ -311,6 +313,7 @@ void append_arm64_operands(csh handle, const cs_arm64& detail, instruction& inst
       out.mem_base = op.mem.base;
       out.mem_index = op.mem.index;
       out.mem_disp = op.mem.disp;
+      out.is_pc_relative = false;
       break;
     case ARM64_OP_IMM:
     case ARM64_OP_CIMM:

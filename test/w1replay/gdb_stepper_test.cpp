@@ -17,11 +17,10 @@
 
 namespace {
 
-class test_block_decoder final : public w1::rewind::replay_block_decoder {
+class test_block_decoder final : public w1::rewind::block_decoder {
 public:
   bool decode_block(
-      const w1::rewind::replay_context&, const w1::rewind::flow_step& flow, w1::rewind::replay_decoded_block& out,
-      std::string&
+      const w1::rewind::replay_context&, const w1::rewind::flow_step& flow, w1::rewind::decoded_block& out, std::string&
   ) override {
     uint64_t address = flow.address;
     uint32_t size = flow.size;
@@ -29,13 +28,13 @@ public:
       return false;
     }
 
-    out.address = address;
+    out.start = address;
     out.size = size;
 
     uint32_t offset = 0;
     while (offset < size) {
-      w1::rewind::replay_decoded_instruction inst{};
-      inst.offset = offset;
+      w1::rewind::decoded_instruction inst{};
+      inst.address = address + offset;
       inst.size = 2;
       inst.bytes = {0x90, 0x90};
       out.instructions.push_back(inst);

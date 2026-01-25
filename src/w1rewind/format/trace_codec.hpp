@@ -119,6 +119,9 @@ inline bool decode_register_spec(trace_buffer_reader& reader, register_spec_reco
   return true;
 }
 
+inline bool encode_module_record(const module_record& module, trace_buffer_writer& writer, redlog::logger& log);
+inline bool decode_module_record(trace_buffer_reader& reader, module_record& module);
+
 inline bool encode_module_table(const module_table_record& record, trace_buffer_writer& writer, redlog::logger& log) {
   if (record.modules.size() > std::numeric_limits<uint32_t>::max()) {
     log.err("module table too large", redlog::field("count", record.modules.size()));
@@ -126,22 +129,45 @@ inline bool encode_module_table(const module_table_record& record, trace_buffer_
   }
   writer.write_u32(static_cast<uint32_t>(record.modules.size()));
   for (const auto& module : record.modules) {
-    writer.write_u64(module.id);
-    writer.write_u64(module.base);
-    writer.write_u64(module.size);
-    writer.write_u32(static_cast<uint32_t>(module.permissions));
-    writer.write_u8(static_cast<uint8_t>(module.format));
-    writer.write_u32(module.identity_age);
-    writer.write_u32(module.flags);
-    writer.write_u64(module.link_base);
-    if (!writer.write_string(module.identity)) {
-      log.err("trace string too long", redlog::field("length", module.identity.size()));
+    if (!encode_module_record(module, writer, log)) {
       return false;
     }
-    if (!writer.write_string(module.path)) {
-      log.err("trace string too long", redlog::field("length", module.path.size()));
-      return false;
-    }
+  }
+  return true;
+}
+
+inline bool encode_module_record(const module_record& module, trace_buffer_writer& writer, redlog::logger& log) {
+  writer.write_u64(module.id);
+  writer.write_u64(module.base);
+  writer.write_u64(module.size);
+  writer.write_u32(static_cast<uint32_t>(module.permissions));
+  writer.write_u8(static_cast<uint8_t>(module.format));
+  writer.write_u32(module.identity_age);
+  writer.write_u32(module.flags);
+  writer.write_u64(module.link_base);
+  writer.write_u64(module.entry_point);
+  if (!writer.write_string(module.identity)) {
+    log.err("trace string too long", redlog::field("length", module.identity.size()));
+    return false;
+  }
+  if (!writer.write_string(module.path)) {
+    log.err("trace string too long", redlog::field("length", module.path.size()));
+    return false;
+  }
+  return true;
+}
+
+inline bool encode_module_load(const module_load_record& record, trace_buffer_writer& writer, redlog::logger& log) {
+  return encode_module_record(record.module, writer, log);
+}
+
+inline bool encode_module_unload(const module_unload_record& record, trace_buffer_writer& writer, redlog::logger& log) {
+  writer.write_u64(record.module_id);
+  writer.write_u64(record.base);
+  writer.write_u64(record.size);
+  if (!writer.write_string(record.path)) {
+    log.err("trace string too long", redlog::field("length", record.path.size()));
+    return false;
   }
   return true;
 }
@@ -184,6 +210,22 @@ inline bool decode_memory_map(trace_buffer_reader& reader, memory_map_record& ou
   return true;
 }
 
+inline bool decode_module_record(trace_buffer_reader& reader, module_record& module) {
+  uint32_t perms = 0;
+  uint32_t flags = 0;
+  uint8_t format = 0;
+  if (!reader.read_u64(module.id) || !reader.read_u64(module.base) || !reader.read_u64(module.size) ||
+      !reader.read_u32(perms) || !reader.read_u8(format) || !reader.read_u32(module.identity_age) ||
+      !reader.read_u32(flags) || !reader.read_u64(module.link_base) || !reader.read_u64(module.entry_point) ||
+      !reader.read_string(module.identity) || !reader.read_string(module.path)) {
+    return false;
+  }
+  module.permissions = static_cast<module_perm>(perms);
+  module.format = static_cast<module_format>(format);
+  module.flags = flags;
+  return true;
+}
+
 inline bool decode_module_table(trace_buffer_reader& reader, module_table_record& out) {
   uint32_t count = 0;
   if (!reader.read_u32(count)) {
@@ -192,19 +234,27 @@ inline bool decode_module_table(trace_buffer_reader& reader, module_table_record
   out.modules.reserve(count);
   for (uint32_t i = 0; i < count; ++i) {
     module_record module{};
-    uint32_t perms = 0;
-    uint32_t flags = 0;
-    uint8_t format = 0;
-    if (!reader.read_u64(module.id) || !reader.read_u64(module.base) || !reader.read_u64(module.size) ||
-        !reader.read_u32(perms) || !reader.read_u8(format) || !reader.read_u32(module.identity_age) ||
-        !reader.read_u32(flags) || !reader.read_u64(module.link_base) || !reader.read_string(module.identity) ||
-        !reader.read_string(module.path)) {
+    if (!decode_module_record(reader, module)) {
       return false;
     }
-    module.permissions = static_cast<module_perm>(perms);
-    module.format = static_cast<module_format>(format);
-    module.flags = flags;
     out.modules.push_back(std::move(module));
+  }
+  return true;
+}
+
+inline bool decode_module_load(trace_buffer_reader& reader, module_load_record& out) {
+  module_record module{};
+  if (!decode_module_record(reader, module)) {
+    return false;
+  }
+  out.module = std::move(module);
+  return true;
+}
+
+inline bool decode_module_unload(trace_buffer_reader& reader, module_unload_record& out) {
+  if (!reader.read_u64(out.module_id) || !reader.read_u64(out.base) || !reader.read_u64(out.size) ||
+      !reader.read_string(out.path)) {
+    return false;
   }
   return true;
 }

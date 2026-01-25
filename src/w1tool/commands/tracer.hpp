@@ -3,6 +3,8 @@
 #include "w1base/ext/args.hpp"
 #include <map>
 #include <string>
+#include <string_view>
+#include <utility>
 #include <vector>
 
 namespace w1tool::commands {
@@ -28,6 +30,45 @@ struct tracer_execution_params {
 
   std::string executable_path; // for auto-discovery
 };
+
+/**
+ * convert tracer config key to environment variable name
+ */
+std::string make_env_var_name(const std::string& tracer_name, const std::string& config_key);
+
+/**
+ * parse config string in format "key=value"
+ */
+std::pair<std::string, std::string> parse_config_string(const std::string& config_str);
+
+/**
+ * apply config key=value flags into config map
+ * returns false and sets error_out to the bad entry on parse failure
+ */
+bool apply_config_flags(
+    args::ValueFlagList<std::string>& config_flags, std::map<std::string, std::string>& config_map,
+    std::string* error_out = nullptr
+);
+
+void apply_debug_level(tracer_execution_params& params, args::ValueFlag<int>& debug_level_flag, int fallback_level);
+
+struct target_args {
+  args::Flag& spawn_flag;
+  args::ValueFlag<int>& pid_flag;
+  args::ValueFlag<std::string>& name_flag;
+  args::Flag& suspended_flag;
+  args::Flag& no_aslr_flag;
+  args::PositionalList<std::string>& args_list;
+};
+
+bool apply_target(
+    tracer_execution_params& params, const target_args& args, std::string* error_out = nullptr,
+    std::string_view name_flag = "--name"
+);
+
+std::string default_output_path(
+    bool spawn_flag, args::PositionalList<std::string>& args_list, std::string_view suffix, std::string_view fallback
+);
 
 /**
  * execute tracer with given parameters (shared implementation)

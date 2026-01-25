@@ -2,8 +2,8 @@
 
 #include "doctest/doctest.hpp"
 
-#include "tracers/w1rewind/memory_filter.hpp"
-#include "tracers/w1rewind/stack_window_policy.hpp"
+#include "tracers/w1rewind/thread/memory_filter.hpp"
+#include "tracers/w1rewind/thread/stack_window_policy.hpp"
 
 TEST_CASE("memory filter matches all selectors") {
   w1rewind::rewind_config::memory_options options{};

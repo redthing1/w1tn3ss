@@ -35,7 +35,7 @@ public:
   ) const;
 
 private:
-  const replay_context& context_;
+  [[maybe_unused]] const replay_context& context_;
 };
 
 } // namespace w1::rewind

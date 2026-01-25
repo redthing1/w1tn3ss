@@ -111,7 +111,7 @@ BOOL WINAPI console_handler(DWORD ctrl_type) {
 }
 
 #else
-void unix_handler(int signum, siginfo_t* info, void* context) {
+void unix_handler(int signum, [[maybe_unused]] siginfo_t* info, [[maybe_unused]] void* context) {
   if (signum != SIGINT) {
     return;
   }

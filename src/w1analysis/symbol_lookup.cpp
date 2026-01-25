@@ -13,10 +13,10 @@
 
 namespace w1::analysis {
 
-symbol_lookup::symbol_lookup(const runtime::module_registry* modules, symbol_lookup_config config)
+symbol_lookup::symbol_lookup(const runtime::module_catalog* modules, symbol_lookup_config config)
     : modules_(modules), config_(config) {}
 
-void symbol_lookup::set_module_registry(const runtime::module_registry* modules) { modules_ = modules; }
+void symbol_lookup::set_module_catalog(const runtime::module_catalog* modules) { modules_ = modules; }
 
 void symbol_lookup::set_config(symbol_lookup_config config) { config_ = config; }
 

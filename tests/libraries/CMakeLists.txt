@@ -14,10 +14,16 @@ endfunction()
 w1_add_test_library(tracer_lib tracer_lib.c)
 w1_add_test_library(counter_lib counter_lib.c)
 w1_add_test_library(memory_lib memory_lib.c)
+w1_add_test_library(w1h00k_interpose_lib w1h00k_interpose_lib.c)
+w1_add_test_library(w1cov_demo_lib w1cov_demo_lib.c)
 
 if(UNIX AND NOT APPLE)
+    find_package(Threads REQUIRED)
     w1_add_test_library(linux_test_lib linux_test_lib.c)
     target_link_libraries(linux_test_lib PRIVATE ${CMAKE_DL_LIBS})
+
+    w1_add_test_library(w1monitor_thread_lib w1monitor_thread_lib.c)
+    target_link_libraries(w1monitor_thread_lib PRIVATE Threads::Threads)
 endif()
 
 # platform-specific linking and suffixes
@@ -30,14 +36,30 @@ else()
     set(TEST_LIBRARY_SUFFIX ".so")
 endif()
 
-set(TEST_LIBRARY_TARGETS tracer_lib counter_lib memory_lib)
+set(TEST_LIBRARY_TARGETS tracer_lib counter_lib memory_lib w1h00k_interpose_lib w1cov_demo_lib)
 if(TARGET linux_test_lib)
     list(APPEND TEST_LIBRARY_TARGETS linux_test_lib)
+endif()
+if(TARGET w1monitor_thread_lib)
+    list(APPEND TEST_LIBRARY_TARGETS w1monitor_thread_lib)
 endif()
 
 foreach(target IN LISTS TEST_LIBRARY_TARGETS)
     set_target_properties(${target} PROPERTIES SUFFIX "${TEST_LIBRARY_SUFFIX}")
 endforeach()
+
+if(TARGET w1h00k_tests)
+    add_dependencies(w1h00k_tests w1h00k_interpose_lib)
+endif()
+if(TARGET w1monitor_tests)
+    add_dependencies(w1monitor_tests w1h00k_interpose_lib)
+endif()
+if(TARGET w1monitor_tests AND TARGET w1monitor_thread_lib)
+    add_dependencies(w1monitor_tests w1monitor_thread_lib)
+endif()
+if(TARGET test_monitor_demo)
+    add_dependencies(test_monitor_demo w1h00k_interpose_lib)
+endif()
 
 install(TARGETS ${TEST_LIBRARY_TARGETS}
     LIBRARY DESTINATION test/libraries

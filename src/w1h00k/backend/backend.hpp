@@ -1,0 +1,40 @@
+#pragma once
+
+#include <vector>
+
+#include "w1h00k/hook.hpp"
+
+namespace w1::h00k::backend {
+
+struct patch_entry {
+  void* target = nullptr;
+  std::vector<uint8_t> patch_bytes{};
+  std::vector<uint8_t> restore_bytes{};
+};
+
+struct hook_plan {
+  hook_request request{};
+  void* resolved_target = nullptr;
+  std::vector<uint8_t> patch_bytes{};
+  std::vector<uint8_t> restore_bytes{};
+  std::vector<patch_entry> patches{};
+  void* trampoline = nullptr;
+  size_t trampoline_size = 0;
+};
+
+struct prepare_result {
+  hook_plan plan{};
+  hook_error_info error{};
+};
+
+class hook_backend {
+public:
+  virtual ~hook_backend() = default;
+  virtual hook_technique technique() const = 0;
+  virtual bool supports(const hook_request& request) const = 0;
+  virtual prepare_result prepare(const hook_request& request, void* resolved_target) = 0;
+  virtual hook_error commit(const hook_plan& plan) = 0;
+  virtual hook_error revert(const hook_plan& plan) = 0;
+};
+
+} // namespace w1::h00k::backend

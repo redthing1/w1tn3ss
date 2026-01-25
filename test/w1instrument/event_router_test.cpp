@@ -5,8 +5,8 @@
 
 #include <QBDI.h>
 
-#include "w1instrument/core/event_router.hpp"
-#include "w1runtime/module_registry.hpp"
+#include "w1instrument/trace/event_dispatcher.hpp"
+#include "w1runtime/module_catalog.hpp"
 #include "w1instrument/tracer/event.hpp"
 #include "w1instrument/tracer/trace_context.hpp"
 #include "w1runtime/memory_reader.hpp"
@@ -243,14 +243,14 @@ struct exec_transfer_tracer {
 TEST_CASE("event_router registers instruction_pre callbacks") {
   QBDI::VM vm;
 
-  w1::runtime::module_registry modules;
+  w1::runtime::module_catalog modules;
   w1::util::memory_reader memory(&vm, modules);
   w1::trace_context ctx(0, &vm, &modules, &memory);
 
   counting_tracer tracer;
-  w1::core::event_router<counting_tracer> router(&vm);
+  w1::instrument::event_dispatcher<counting_tracer> router(&vm);
 
-  REQUIRE(router.configure(counting_tracer::requested_events(), tracer, ctx));
+  REQUIRE(router.bind(counting_tracer::requested_events(), tracer, ctx));
   REQUIRE(vm.addInstrumentedModuleFromAddr(reinterpret_cast<QBDI::rword>(&test_add)));
 
   QBDI::rword result = 0;
@@ -265,14 +265,14 @@ TEST_CASE("event_router registers instruction_pre callbacks") {
 TEST_CASE("event_router skips callbacks when event mask is empty") {
   QBDI::VM vm;
 
-  w1::runtime::module_registry modules;
+  w1::runtime::module_catalog modules;
   w1::util::memory_reader memory(&vm, modules);
   w1::trace_context ctx(0, &vm, &modules, &memory);
 
   silent_tracer tracer;
-  w1::core::event_router<silent_tracer> router(&vm);
+  w1::instrument::event_dispatcher<silent_tracer> router(&vm);
 
-  REQUIRE(router.configure(silent_tracer::requested_events(), tracer, ctx));
+  REQUIRE(router.bind(silent_tracer::requested_events(), tracer, ctx));
   REQUIRE(vm.addInstrumentedModuleFromAddr(reinterpret_cast<QBDI::rword>(&test_add)));
 
   QBDI::rword result = 0;
@@ -287,14 +287,14 @@ TEST_CASE("event_router skips callbacks when event mask is empty") {
 TEST_CASE("event_router registers instruction_post callbacks") {
   QBDI::VM vm;
 
-  w1::runtime::module_registry modules;
+  w1::runtime::module_catalog modules;
   w1::util::memory_reader memory(&vm, modules);
   w1::trace_context ctx(0, &vm, &modules, &memory);
 
   dual_tracer tracer;
-  w1::core::event_router<dual_tracer> router(&vm);
+  w1::instrument::event_dispatcher<dual_tracer> router(&vm);
 
-  REQUIRE(router.configure(dual_tracer::requested_events(), tracer, ctx));
+  REQUIRE(router.bind(dual_tracer::requested_events(), tracer, ctx));
   REQUIRE(vm.addInstrumentedModuleFromAddr(reinterpret_cast<QBDI::rword>(&test_add)));
 
   QBDI::rword result = 0;
@@ -310,14 +310,14 @@ TEST_CASE("event_router registers instruction_post callbacks") {
 TEST_CASE("event_router registers basic block callbacks") {
   QBDI::VM vm;
 
-  w1::runtime::module_registry modules;
+  w1::runtime::module_catalog modules;
   w1::util::memory_reader memory(&vm, modules);
   w1::trace_context ctx(0, &vm, &modules, &memory);
 
   basic_block_tracer tracer;
-  w1::core::event_router<basic_block_tracer> router(&vm);
+  w1::instrument::event_dispatcher<basic_block_tracer> router(&vm);
 
-  REQUIRE(router.configure(basic_block_tracer::requested_events(), tracer, ctx));
+  REQUIRE(router.bind(basic_block_tracer::requested_events(), tracer, ctx));
   REQUIRE(vm.addInstrumentedModuleFromAddr(reinterpret_cast<QBDI::rword>(&test_add)));
 
   QBDI::rword result = 0;
@@ -333,14 +333,14 @@ TEST_CASE("event_router registers basic block callbacks") {
 TEST_CASE("event_router registers vm start and stop callbacks") {
   QBDI::VM vm;
 
-  w1::runtime::module_registry modules;
+  w1::runtime::module_catalog modules;
   w1::util::memory_reader memory(&vm, modules);
   w1::trace_context ctx(0, &vm, &modules, &memory);
 
   sequence_tracer tracer;
-  w1::core::event_router<sequence_tracer> router(&vm);
+  w1::instrument::event_dispatcher<sequence_tracer> router(&vm);
 
-  REQUIRE(router.configure(sequence_tracer::requested_events(), tracer, ctx));
+  REQUIRE(router.bind(sequence_tracer::requested_events(), tracer, ctx));
   REQUIRE(vm.addInstrumentedModuleFromAddr(reinterpret_cast<QBDI::rword>(&test_add)));
 
   QBDI::rword result = 0;
@@ -356,16 +356,16 @@ TEST_CASE("event_router registers vm start and stop callbacks") {
 TEST_CASE("event_router registers memory callbacks") {
   QBDI::VM vm;
 
-  w1::runtime::module_registry modules;
+  w1::runtime::module_catalog modules;
   w1::util::memory_reader memory(&vm, modules);
   w1::trace_context ctx(0, &vm, &modules, &memory);
 
   memory_tracer tracer;
-  w1::core::event_router<memory_tracer> router(&vm);
+  w1::instrument::event_dispatcher<memory_tracer> router(&vm);
 
-  REQUIRE(router.configure(memory_tracer::requested_events(), tracer, ctx));
+  REQUIRE(router.bind(memory_tracer::requested_events(), tracer, ctx));
   REQUIRE(vm.addInstrumentedModuleFromAddr(reinterpret_cast<QBDI::rword>(&test_load)));
-  REQUIRE(router.enable_memory_recording());
+  REQUIRE(router.ensure_memory_recording());
 
   QBDI::rword result = 0;
   std::vector<QBDI::rword> args;
@@ -382,14 +382,14 @@ TEST_CASE("event_router registers memory callbacks") {
 TEST_CASE("event_router registers exec transfer callbacks") {
   QBDI::VM vm;
 
-  w1::runtime::module_registry modules;
+  w1::runtime::module_catalog modules;
   w1::util::memory_reader memory(&vm, modules);
   w1::trace_context ctx(0, &vm, &modules, &memory);
 
   exec_transfer_tracer tracer;
-  w1::core::event_router<exec_transfer_tracer> router(&vm);
+  w1::instrument::event_dispatcher<exec_transfer_tracer> router(&vm);
 
-  REQUIRE(router.configure(exec_transfer_tracer::requested_events(), tracer, ctx));
+  REQUIRE(router.bind(exec_transfer_tracer::requested_events(), tracer, ctx));
   REQUIRE(vm.addInstrumentedModuleFromAddr(reinterpret_cast<QBDI::rword>(&test_call_chain)));
 
   QBDI::rword result = 0;
