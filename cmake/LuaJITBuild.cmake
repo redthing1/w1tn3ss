@@ -3,16 +3,16 @@
 
 # main function to build luajit static library
 function(build_luajit_from_source)
-    if(NOT EXISTS "${W1_SOURCE_DIR}/src/third_party/luajit_cmake/CMakeLists.txt")
+    if(NOT EXISTS "${WITNESS_SOURCE_DIR}/src/third_party/luajit_cmake/CMakeLists.txt")
         message(FATAL_ERROR "luajit-cmake submodule not found. run: git submodule update --init --recursive")
     endif()
 
-    if(NOT EXISTS "${W1_SOURCE_DIR}/src/third_party/luajit/src/lua.h")
+    if(NOT EXISTS "${WITNESS_SOURCE_DIR}/src/third_party/luajit/src/lua.h")
         message(FATAL_ERROR "luajit submodule not found. run: git submodule update --init --recursive")
     endif()
     
     # set luajit source directory for luajit-cmake wrapper
-    set(LUAJIT_DIR "${W1_SOURCE_DIR}/src/third_party/luajit" CACHE PATH "path to luajit source")
+    set(LUAJIT_DIR "${WITNESS_SOURCE_DIR}/src/third_party/luajit" CACHE PATH "path to luajit source")
     
     # configure luajit build options
     set(LUAJIT_DISABLE_FFI ${WITNESS_LUAJIT_DISABLE_FFI} CACHE BOOL "disable luajit ffi")
@@ -33,7 +33,7 @@ function(build_luajit_from_source)
     endif()
     
     # add luajit-cmake subdirectory with unique binary directory
-    add_subdirectory(${W1_SOURCE_DIR}/src/third_party/luajit_cmake ${CMAKE_BINARY_DIR}/witness_luajit)
+    add_subdirectory(${WITNESS_SOURCE_DIR}/src/third_party/luajit_cmake ${CMAKE_BINARY_DIR}/witness_luajit)
 
     if(TARGET libluajit)
         set_target_properties(libluajit PROPERTIES POSITION_INDEPENDENT_CODE ON)

@@ -60,4 +60,4 @@ if(TARGET w1asmr)
     target_link_libraries(w1replay PRIVATE w1asmr)
 endif()
 
-install(TARGETS w1replay RUNTIME DESTINATION bin COMPONENT ${W1_INSTALL_COMPONENT})
+install(TARGETS w1replay RUNTIME DESTINATION bin COMPONENT ${WITNESS_INSTALL_COMPONENT})

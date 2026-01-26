@@ -13,12 +13,12 @@ if(APPLE)
     endif()
 endif()
 
-if(NOT DEFINED W1_SOURCE_DIR)
-    set(W1_SOURCE_DIR "${PROJECT_SOURCE_DIR}")
+if(NOT DEFINED WITNESS_SOURCE_DIR)
+    set(WITNESS_SOURCE_DIR "${PROJECT_SOURCE_DIR}")
 endif()
 
-if(NOT DEFINED W1_ENABLE_CLANG_TIDY)
-    option(W1_ENABLE_CLANG_TIDY "Enable clang-tidy for w1 targets" ON)
+if(NOT DEFINED WITNESS_ENABLE_CLANG_TIDY)
+    option(WITNESS_ENABLE_CLANG_TIDY "Enable clang-tidy for w1 targets" ON)
 endif()
 
 find_program(CLANG_TIDY_EXECUTABLE
@@ -27,26 +27,26 @@ find_program(CLANG_TIDY_EXECUTABLE
 )
 
 if(CLANG_TIDY_EXECUTABLE)
-    if(NOT DEFINED W1_CLANG_TIDY_COMMAND)
-        set(W1_CLANG_TIDY_COMMAND "${CLANG_TIDY_EXECUTABLE};--format-style=file")
+    if(NOT DEFINED WITNESS_CLANG_TIDY_COMMAND)
+        set(WITNESS_CLANG_TIDY_COMMAND "${CLANG_TIDY_EXECUTABLE};--format-style=file")
     endif()
 
-    if(NOT DEFINED W1_CLANG_TIDY_EXCLUDE_DIRS)
-        set(_w1_default_tidy_excludes "${W1_SOURCE_DIR}/src/third_party")
+    if(NOT DEFINED WITNESS_CLANG_TIDY_EXCLUDE_DIRS)
+        set(_w1_default_tidy_excludes "${WITNESS_SOURCE_DIR}/src/third_party")
         if(EXISTS "${_w1_default_tidy_excludes}")
-            set(W1_CLANG_TIDY_EXCLUDE_DIRS "${_w1_default_tidy_excludes}")
+            set(WITNESS_CLANG_TIDY_EXCLUDE_DIRS "${_w1_default_tidy_excludes}")
         else()
-            set(W1_CLANG_TIDY_EXCLUDE_DIRS "")
+            set(WITNESS_CLANG_TIDY_EXCLUDE_DIRS "")
         endif()
     endif()
 
     if(NOT COMMAND w1_apply_clang_tidy)
         function(w1_apply_clang_tidy TARGET_NAME)
-            if(NOT W1_ENABLE_CLANG_TIDY)
+            if(NOT WITNESS_ENABLE_CLANG_TIDY)
                 return()
             endif()
 
-            if(NOT W1_CLANG_TIDY_COMMAND)
+            if(NOT WITNESS_CLANG_TIDY_COMMAND)
                 return()
             endif()
 
@@ -65,15 +65,15 @@ if(CLANG_TIDY_EXECUTABLE)
                 return()
             endif()
 
-            get_target_property(_w1_skip_tidy ${TARGET_NAME} W1_CLANG_TIDY_SKIP)
+            get_target_property(_w1_skip_tidy ${TARGET_NAME} WITNESS_CLANG_TIDY_SKIP)
             if(_w1_skip_tidy)
                 return()
             endif()
 
             get_target_property(_w1_target_source_dir ${TARGET_NAME} SOURCE_DIR)
-            if(_w1_target_source_dir AND W1_CLANG_TIDY_EXCLUDE_DIRS)
+            if(_w1_target_source_dir AND WITNESS_CLANG_TIDY_EXCLUDE_DIRS)
                 file(TO_CMAKE_PATH "${_w1_target_source_dir}" _w1_target_source_dir_norm)
-                foreach(_w1_exclude_dir IN LISTS W1_CLANG_TIDY_EXCLUDE_DIRS)
+                foreach(_w1_exclude_dir IN LISTS WITNESS_CLANG_TIDY_EXCLUDE_DIRS)
                     if(NOT _w1_exclude_dir)
                         continue()
                     endif()
@@ -88,8 +88,8 @@ if(CLANG_TIDY_EXECUTABLE)
             endif()
 
             set_target_properties(${TARGET_NAME} PROPERTIES
-                C_CLANG_TIDY "${W1_CLANG_TIDY_COMMAND}"
-                CXX_CLANG_TIDY "${W1_CLANG_TIDY_COMMAND}"
+                C_CLANG_TIDY "${WITNESS_CLANG_TIDY_COMMAND}"
+                CXX_CLANG_TIDY "${WITNESS_CLANG_TIDY_COMMAND}"
             )
         endfunction()
     endif()
@@ -98,26 +98,26 @@ if(CLANG_TIDY_EXECUTABLE)
     set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
     
     file(GLOB_RECURSE ALL_TIDY_FILES
-        "${W1_SOURCE_DIR}/src/w1base/*.cpp" "${W1_SOURCE_DIR}/src/w1base/*.hpp"
-        "${W1_SOURCE_DIR}/src/w1formats/*.cpp" "${W1_SOURCE_DIR}/src/w1formats/*.hpp"
-        "${W1_SOURCE_DIR}/src/w1runtime/*.cpp" "${W1_SOURCE_DIR}/src/w1runtime/*.hpp"
-        "${W1_SOURCE_DIR}/src/w1instrument/*.cpp" "${W1_SOURCE_DIR}/src/w1instrument/*.hpp"
-        "${W1_SOURCE_DIR}/src/w1analysis/*.cpp" "${W1_SOURCE_DIR}/src/w1analysis/*.hpp"
-        "${W1_SOURCE_DIR}/src/w1import/*.cpp" "${W1_SOURCE_DIR}/src/w1import/*.hpp"
-        "${W1_SOURCE_DIR}/src/w1dump/*.cpp" "${W1_SOURCE_DIR}/src/w1dump/*.hpp"
-        "${W1_SOURCE_DIR}/src/w1gadget/*.cpp" "${W1_SOURCE_DIR}/src/w1gadget/*.hpp"
-        "${W1_SOURCE_DIR}/src/w1rewind/*.cpp" "${W1_SOURCE_DIR}/src/w1rewind/*.hpp"
-        "${W1_SOURCE_DIR}/src/w1nj3ct/*.cpp" "${W1_SOURCE_DIR}/src/w1nj3ct/*.hpp"
-        "${W1_SOURCE_DIR}/src/w1debugger/*.cpp" "${W1_SOURCE_DIR}/src/w1debugger/*.hpp"
-        "${W1_SOURCE_DIR}/src/w1tool/*.cpp" "${W1_SOURCE_DIR}/src/w1tool/*.hpp"
-        "${W1_SOURCE_DIR}/src/w1replay/*.cpp" "${W1_SOURCE_DIR}/src/w1replay/*.hpp"
-        "${W1_SOURCE_DIR}/src/tracers/*.cpp" "${W1_SOURCE_DIR}/src/tracers/*.hpp"
-        "${W1_SOURCE_DIR}/src/p1ll/*.cpp" "${W1_SOURCE_DIR}/src/p1ll/*.hpp"
-        "${W1_SOURCE_DIR}/src/p1llx/*.cpp" "${W1_SOURCE_DIR}/src/p1llx/*.hpp"
-        "${W1_SOURCE_DIR}/src/p01s0n/*.cpp" "${W1_SOURCE_DIR}/src/p01s0n/*.hpp"
-        "${W1_SOURCE_DIR}/samples/*.cpp" "${W1_SOURCE_DIR}/samples/*.hpp"
-        "${W1_SOURCE_DIR}/tests/*.cpp" "${W1_SOURCE_DIR}/tests/*.hpp"
-        "${W1_SOURCE_DIR}/test/*.cpp" "${W1_SOURCE_DIR}/test/*.hpp"
+        "${WITNESS_SOURCE_DIR}/src/w1base/*.cpp" "${WITNESS_SOURCE_DIR}/src/w1base/*.hpp"
+        "${WITNESS_SOURCE_DIR}/src/w1formats/*.cpp" "${WITNESS_SOURCE_DIR}/src/w1formats/*.hpp"
+        "${WITNESS_SOURCE_DIR}/src/w1runtime/*.cpp" "${WITNESS_SOURCE_DIR}/src/w1runtime/*.hpp"
+        "${WITNESS_SOURCE_DIR}/src/w1instrument/*.cpp" "${WITNESS_SOURCE_DIR}/src/w1instrument/*.hpp"
+        "${WITNESS_SOURCE_DIR}/src/w1analysis/*.cpp" "${WITNESS_SOURCE_DIR}/src/w1analysis/*.hpp"
+        "${WITNESS_SOURCE_DIR}/src/w1import/*.cpp" "${WITNESS_SOURCE_DIR}/src/w1import/*.hpp"
+        "${WITNESS_SOURCE_DIR}/src/w1dump/*.cpp" "${WITNESS_SOURCE_DIR}/src/w1dump/*.hpp"
+        "${WITNESS_SOURCE_DIR}/src/w1gadget/*.cpp" "${WITNESS_SOURCE_DIR}/src/w1gadget/*.hpp"
+        "${WITNESS_SOURCE_DIR}/src/w1rewind/*.cpp" "${WITNESS_SOURCE_DIR}/src/w1rewind/*.hpp"
+        "${WITNESS_SOURCE_DIR}/src/w1nj3ct/*.cpp" "${WITNESS_SOURCE_DIR}/src/w1nj3ct/*.hpp"
+        "${WITNESS_SOURCE_DIR}/src/w1debugger/*.cpp" "${WITNESS_SOURCE_DIR}/src/w1debugger/*.hpp"
+        "${WITNESS_SOURCE_DIR}/src/w1tool/*.cpp" "${WITNESS_SOURCE_DIR}/src/w1tool/*.hpp"
+        "${WITNESS_SOURCE_DIR}/src/w1replay/*.cpp" "${WITNESS_SOURCE_DIR}/src/w1replay/*.hpp"
+        "${WITNESS_SOURCE_DIR}/src/tracers/*.cpp" "${WITNESS_SOURCE_DIR}/src/tracers/*.hpp"
+        "${WITNESS_SOURCE_DIR}/src/p1ll/*.cpp" "${WITNESS_SOURCE_DIR}/src/p1ll/*.hpp"
+        "${WITNESS_SOURCE_DIR}/src/p1llx/*.cpp" "${WITNESS_SOURCE_DIR}/src/p1llx/*.hpp"
+        "${WITNESS_SOURCE_DIR}/src/p01s0n/*.cpp" "${WITNESS_SOURCE_DIR}/src/p01s0n/*.hpp"
+        "${WITNESS_SOURCE_DIR}/samples/*.cpp" "${WITNESS_SOURCE_DIR}/samples/*.hpp"
+        "${WITNESS_SOURCE_DIR}/tests/*.cpp" "${WITNESS_SOURCE_DIR}/tests/*.hpp"
+        "${WITNESS_SOURCE_DIR}/test/*.cpp" "${WITNESS_SOURCE_DIR}/test/*.hpp"
     )
     
     list(FILTER ALL_TIDY_FILES EXCLUDE REGEX ".*/build-.*/.*")
@@ -127,25 +127,25 @@ if(CLANG_TIDY_EXECUTABLE)
     if(EXISTS "${CMAKE_BINARY_DIR}/compile_commands.json")
         add_custom_target(w1-tidy
             COMMAND ${CLANG_TIDY_EXECUTABLE} --fix --format-style=file -p ${CMAKE_BINARY_DIR} ${ALL_TIDY_FILES}
-            WORKING_DIRECTORY ${W1_SOURCE_DIR}
+            WORKING_DIRECTORY ${WITNESS_SOURCE_DIR}
             VERBATIM
         )
         
         add_custom_target(w1-tidy-check
             COMMAND ${CLANG_TIDY_EXECUTABLE} -p ${CMAKE_BINARY_DIR} ${ALL_TIDY_FILES}
-            WORKING_DIRECTORY ${W1_SOURCE_DIR}
+            WORKING_DIRECTORY ${WITNESS_SOURCE_DIR}
             VERBATIM
         )
     else()
         add_custom_target(w1-tidy
             COMMAND ${CLANG_TIDY_EXECUTABLE} --fix --format-style=file ${ALL_TIDY_FILES}
-            WORKING_DIRECTORY ${W1_SOURCE_DIR}
+            WORKING_DIRECTORY ${WITNESS_SOURCE_DIR}
             VERBATIM
         )
         
         add_custom_target(w1-tidy-check
             COMMAND ${CLANG_TIDY_EXECUTABLE} ${ALL_TIDY_FILES}
-            WORKING_DIRECTORY ${W1_SOURCE_DIR}
+            WORKING_DIRECTORY ${WITNESS_SOURCE_DIR}
             VERBATIM
         )
     endif()

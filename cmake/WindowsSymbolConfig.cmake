@@ -3,7 +3,7 @@
 
 include_guard()
 
-set(_W1_QBDI_LINK_HINTS
+set(_WITNESS_QBDI_LINK_HINTS
     "QBDI"         # QBDI_static, QBDI::QBDI, QBDIPreload
     "w1cov"
     "w1dump"
@@ -14,7 +14,7 @@ set(_W1_QBDI_LINK_HINTS
     "w1trace"
 )
 
-set(_W1_LIEF_LINK_HINTS
+set(_WITNESS_LIEF_LINK_HINTS
     "LIEF"         # LIEF::LIEF or LIEF.lib
     "w1::lief"
     "w1_lief"
@@ -37,13 +37,13 @@ function(_w1_target_has_link_hint_impl TARGET_NAME OUT_VAR)
     set(options)
     set(one_value_args)
     set(multi_value_args PATTERNS VISITED)
-    cmake_parse_arguments(W1 "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
+    cmake_parse_arguments(WITNESS "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
 
-    if(TARGET_NAME IN_LIST W1_VISITED)
+    if(TARGET_NAME IN_LIST WITNESS_VISITED)
         set(${OUT_VAR} FALSE PARENT_SCOPE)
         return()
     endif()
-    list(APPEND W1_VISITED ${TARGET_NAME})
+    list(APPEND WITNESS_VISITED ${TARGET_NAME})
 
     foreach(_prop IN ITEMS LINK_LIBRARIES INTERFACE_LINK_LIBRARIES)
         get_target_property(_libs ${TARGET_NAME} ${_prop})
@@ -52,7 +52,7 @@ function(_w1_target_has_link_hint_impl TARGET_NAME OUT_VAR)
         endif()
         foreach(_lib IN LISTS _libs)
             _w1_normalize_link_item("${_lib}" _norm)
-            foreach(_pattern IN LISTS W1_PATTERNS)
+            foreach(_pattern IN LISTS WITNESS_PATTERNS)
                 if(_norm MATCHES "${_pattern}")
                     set(${OUT_VAR} TRUE PARENT_SCOPE)
                     return()
@@ -65,8 +65,8 @@ function(_w1_target_has_link_hint_impl TARGET_NAME OUT_VAR)
                     set(_norm ${_aliased})
                 endif()
                 _w1_target_has_link_hint_impl(${_norm} _child
-                    PATTERNS ${W1_PATTERNS}
-                    VISITED ${W1_VISITED}
+                    PATTERNS ${WITNESS_PATTERNS}
+                    VISITED ${WITNESS_VISITED}
                 )
                 if(_child)
                     set(${OUT_VAR} TRUE PARENT_SCOPE)
@@ -90,8 +90,8 @@ function(configure_windows_symbol_resolution TARGET_NAME)
         return()
     endif()
 
-    _w1_target_has_link_hint(${TARGET_NAME} _w1_has_qbdi ${_W1_QBDI_LINK_HINTS})
-    _w1_target_has_link_hint(${TARGET_NAME} _w1_has_lief ${_W1_LIEF_LINK_HINTS})
+    _w1_target_has_link_hint(${TARGET_NAME} _w1_has_qbdi ${_WITNESS_QBDI_LINK_HINTS})
+    _w1_target_has_link_hint(${TARGET_NAME} _w1_has_lief ${_WITNESS_LIEF_LINK_HINTS})
 
     if(_w1_has_qbdi AND _w1_has_lief)
         message(STATUS "applying fmt conflict resolution for ${TARGET_NAME}")
@@ -101,11 +101,11 @@ function(configure_windows_symbol_resolution TARGET_NAME)
 endfunction()
 
 function(w1_register_target_for_symbol_resolution TARGET_NAME)
-    set_property(GLOBAL APPEND PROPERTY W1_WINDOWS_SYMBOL_TARGETS ${TARGET_NAME})
+    set_property(GLOBAL APPEND PROPERTY WITNESS_WINDOWS_SYMBOL_TARGETS ${TARGET_NAME})
 endfunction()
 
 function(apply_windows_symbol_resolution_to_all)
-    get_property(targets GLOBAL PROPERTY W1_WINDOWS_SYMBOL_TARGETS)
+    get_property(targets GLOBAL PROPERTY WITNESS_WINDOWS_SYMBOL_TARGETS)
     if(NOT targets)
         return()
     endif()

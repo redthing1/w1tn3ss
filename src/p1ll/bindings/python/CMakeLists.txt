@@ -23,8 +23,8 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(nanobind)
 
-set(W1_BUILD_ALL OFF CACHE BOOL "disable full w1tn3ss build" FORCE)
-set(W1_BUILD_P1LL ON CACHE BOOL "build p1ll component" FORCE)
+set(WITNESS_BUILD_ALL OFF CACHE BOOL "disable full w1tn3ss build" FORCE)
+set(WITNESS_BUILD_P1LL ON CACHE BOOL "build p1ll component" FORCE)
 set(WITNESS_SCRIPT OFF CACHE BOOL "disable scripting for standalone p1ll python build" FORCE)
 set(P1LL_BUILD_CAPI OFF CACHE BOOL "disable p1ll c api for python build" FORCE)
 
@@ -53,9 +53,9 @@ install(TARGETS _p1ll
     LIBRARY DESTINATION p1ll
     RUNTIME DESTINATION p1ll
     ARCHIVE DESTINATION p1ll
-    COMPONENT ${W1_INSTALL_COMPONENT}
+    COMPONENT ${WITNESS_INSTALL_COMPONENT}
 )
 install(FILES "${CMAKE_CURRENT_LIST_DIR}/p1ll/__init__.py"
     DESTINATION p1ll
-    COMPONENT ${W1_INSTALL_COMPONENT}
+    COMPONENT ${WITNESS_INSTALL_COMPONENT}
 )

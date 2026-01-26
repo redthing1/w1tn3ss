@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 3.16)
 
-include(${W1_SOURCE_DIR}/cmake/TestConfig.cmake)
+include(${WITNESS_SOURCE_DIR}/cmake/TestConfig.cmake)
 
 set(W1REWIND_TEST_SOURCES
-    ${W1_SOURCE_DIR}/test/common/test_main.cpp
+    ${WITNESS_SOURCE_DIR}/test/common/test_main.cpp
     rewind_trace_io_test.cpp
     rewind_recorder_recording_test.cpp
     rewind_recorder_block_recording_test.cpp
@@ -48,10 +48,10 @@ endif()
 w1_add_doctest_suite(w1rewind_unit_tests
     SOURCES ${W1REWIND_TEST_SOURCES}
     INCLUDE_DIRS
-        ${W1_SOURCE_DIR}/src
-        ${W1_SOURCE_DIR}/src/third_party
-        ${W1_SOURCE_DIR}/src/tracers/w1rewind
-        ${W1_SOURCE_DIR}/test
+        ${WITNESS_SOURCE_DIR}/src
+        ${WITNESS_SOURCE_DIR}/src/third_party
+        ${WITNESS_SOURCE_DIR}/src/tracers/w1rewind
+        ${WITNESS_SOURCE_DIR}/test
     LIBS
         ${W1REWIND_TEST_LIBS}
     OUTPUT_SUBDIR w1rewind

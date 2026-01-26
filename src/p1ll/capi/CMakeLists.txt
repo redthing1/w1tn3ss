@@ -19,7 +19,7 @@ target_include_directories(p1ll_c
 
 # export header for installation
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
-    install(TARGETS p1ll_c DESTINATION lib COMPONENT ${W1_INSTALL_COMPONENT})
+    install(TARGETS p1ll_c DESTINATION lib COMPONENT ${WITNESS_INSTALL_COMPONENT})
 endif()
 
 message(STATUS "p1ll c api configured")

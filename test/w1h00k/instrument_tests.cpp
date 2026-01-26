@@ -8,15 +8,15 @@
 namespace {
 
 #if defined(_MSC_VER)
-#define W1_NO_INLINE __declspec(noinline)
+#define WITNESS_NO_INLINE __declspec(noinline)
 #else
-#define W1_NO_INLINE __attribute__((noinline))
+#define WITNESS_NO_INLINE __attribute__((noinline))
 #endif
 
 volatile int g_int_sink = 0;
 volatile double g_fp_sink = 0.0;
 
-W1_NO_INLINE double mixed_args(
+WITNESS_NO_INLINE double mixed_args(
     int a0, double f0, int a1, float f1, int a2, int a3, int a4, int a5, int a6, int a7, int a8
 ) {
   int sum = a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8;
@@ -184,7 +184,7 @@ TEST_CASE("w1h00k instrumentation prehook captures arguments") {
 }
 
 #if defined(_WIN32) && defined(_M_IX86)
-W1_NO_INLINE int __fastcall fastcall_add(int a, int b, int c) {
+WITNESS_NO_INLINE int __fastcall fastcall_add(int a, int b, int c) {
   int result = a + b + c;
   g_int_sink = result;
   return result;
@@ -233,7 +233,7 @@ TEST_CASE("w1h00k instrumentation supports win32 fastcall") {
 #endif
 
 #if defined(_WIN32) && defined(_M_X64) && defined(_MSC_VER)
-W1_NO_INLINE double __vectorcall vectorcall_sum(double a, double b, double c, double d, double e, double f) {
+WITNESS_NO_INLINE double __vectorcall vectorcall_sum(double a, double b, double c, double d, double e, double f) {
   double result = a + b + c + d + e + f;
   g_fp_sink = result;
   return result;

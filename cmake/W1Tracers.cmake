@@ -1,8 +1,8 @@
 # helper functions for tracer libraries
 include_guard()
 
-if(NOT DEFINED W1_SOURCE_DIR)
-    set(W1_SOURCE_DIR "${PROJECT_SOURCE_DIR}")
+if(NOT DEFINED WITNESS_SOURCE_DIR)
+    set(WITNESS_SOURCE_DIR "${PROJECT_SOURCE_DIR}")
 endif()
 
 if(NOT COMMAND w1_target_defaults)
@@ -12,7 +12,7 @@ endif()
 function(w1_configure_tracer_target TARGET_NAME)
     target_include_directories(${TARGET_NAME} PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}
-        ${W1_SOURCE_DIR}/src/third_party/qbdi/tools/QBDIPreload/include
+        ${WITNESS_SOURCE_DIR}/src/third_party/qbdi/tools/QBDIPreload/include
     )
 
     target_link_libraries(${TARGET_NAME} PUBLIC
@@ -36,9 +36,9 @@ function(w1_configure_tracer_target TARGET_NAME)
 
     set_target_properties(${TARGET_NAME} PROPERTIES PREFIX "")
     set_target_properties(${TARGET_NAME} PROPERTIES
-        ARCHIVE_OUTPUT_DIRECTORY ${W1_OUTPUT_LIB_DIR}
-        LIBRARY_OUTPUT_DIRECTORY ${W1_OUTPUT_LIB_DIR}
-        RUNTIME_OUTPUT_DIRECTORY ${W1_OUTPUT_LIB_DIR}
+        ARCHIVE_OUTPUT_DIRECTORY ${WITNESS_OUTPUT_LIB_DIR}
+        LIBRARY_OUTPUT_DIRECTORY ${WITNESS_OUTPUT_LIB_DIR}
+        RUNTIME_OUTPUT_DIRECTORY ${WITNESS_OUTPUT_LIB_DIR}
     )
     if(APPLE)
         set_target_properties(${TARGET_NAME} PROPERTIES MACOSX_RPATH TRUE)
@@ -49,33 +49,33 @@ function(w1_add_tracer TRACER_NAME)
     set(options)
     set(one_value_args)
     set(multi_value_args SOURCES LIBS)
-    cmake_parse_arguments(W1 "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
+    cmake_parse_arguments(WITNESS "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
 
-    if(NOT W1_SOURCES)
+    if(NOT WITNESS_SOURCES)
         message(FATAL_ERROR "w1_add_tracer requires SOURCES")
     endif()
 
     if(WITNESS_BUILD_SHARED)
-        add_library(${TRACER_NAME}_qbdipreload SHARED ${W1_SOURCES})
+        add_library(${TRACER_NAME}_qbdipreload SHARED ${WITNESS_SOURCES})
         w1_register_target(${TRACER_NAME}_qbdipreload)
         w1_configure_tracer_target(${TRACER_NAME}_qbdipreload)
-        if(W1_LIBS)
-            target_link_libraries(${TRACER_NAME}_qbdipreload PUBLIC ${W1_LIBS})
+        if(WITNESS_LIBS)
+            target_link_libraries(${TRACER_NAME}_qbdipreload PUBLIC ${WITNESS_LIBS})
         endif()
 
         install(TARGETS ${TRACER_NAME}_qbdipreload
-            RUNTIME DESTINATION lib COMPONENT ${W1_INSTALL_COMPONENT}
-            LIBRARY DESTINATION lib COMPONENT ${W1_INSTALL_COMPONENT}
-            ARCHIVE DESTINATION lib COMPONENT ${W1_INSTALL_COMPONENT}
+            RUNTIME DESTINATION lib COMPONENT ${WITNESS_INSTALL_COMPONENT}
+            LIBRARY DESTINATION lib COMPONENT ${WITNESS_INSTALL_COMPONENT}
+            ARCHIVE DESTINATION lib COMPONENT ${WITNESS_INSTALL_COMPONENT}
         )
     endif()
 
     if(WITNESS_BUILD_STATIC)
-        add_library(${TRACER_NAME}_static STATIC ${W1_SOURCES})
+        add_library(${TRACER_NAME}_static STATIC ${WITNESS_SOURCES})
         w1_register_target(${TRACER_NAME}_static)
         w1_configure_tracer_target(${TRACER_NAME}_static)
-        if(W1_LIBS)
-            target_link_libraries(${TRACER_NAME}_static PUBLIC ${W1_LIBS})
+        if(WITNESS_LIBS)
+            target_link_libraries(${TRACER_NAME}_static PUBLIC ${WITNESS_LIBS})
         endif()
     endif()
 endfunction()

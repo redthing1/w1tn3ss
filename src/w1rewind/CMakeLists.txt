@@ -6,7 +6,7 @@ add_library(w1rewind::format ALIAS w1rewind_format)
 add_library(w1::rewind::format ALIAS w1rewind_format)
 
 target_include_directories(w1rewind_format
-    INTERFACE $<BUILD_INTERFACE:${W1_SOURCE_DIR}/src>
+    INTERFACE $<BUILD_INTERFACE:${WITNESS_SOURCE_DIR}/src>
 )
 
 target_link_libraries(w1rewind_format INTERFACE redlog::redlog)

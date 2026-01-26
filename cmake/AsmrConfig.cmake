@@ -3,8 +3,8 @@
 
 include_guard()
 
-set(WITNESS_ASMR_CAPSTONE_DIR "${W1_SOURCE_DIR}/src/third_party/capstone" CACHE PATH "capstone source directory")
-set(WITNESS_ASMR_KEYSTONE_DIR "${W1_SOURCE_DIR}/src/third_party/keystone" CACHE PATH "keystone source directory")
+set(WITNESS_ASMR_CAPSTONE_DIR "${WITNESS_SOURCE_DIR}/src/third_party/capstone" CACHE PATH "capstone source directory")
+set(WITNESS_ASMR_KEYSTONE_DIR "${WITNESS_SOURCE_DIR}/src/third_party/keystone" CACHE PATH "keystone source directory")
 
 if(NOT DEFINED WITNESS_ASMR_DISASM_ARCHES)
     set(WITNESS_ASMR_DISASM_ARCHES "X86;AARCH64;ARM;RISCV" CACHE STRING "Capstone disassembly architectures")

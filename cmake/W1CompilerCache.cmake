@@ -1,7 +1,7 @@
 # compiler cache selection for w1tn3ss
 include_guard()
 
-if(NOT W1_ENABLE_COMPILER_CACHE)
+if(NOT WITNESS_ENABLE_COMPILER_CACHE)
     return()
 endif()
 

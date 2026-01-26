@@ -7,7 +7,7 @@
 
 #include "w1rewind/format/trace_io.hpp"
 
-#if defined(W1_REWIND_HAVE_ZSTD)
+#if defined(WITNESS_REWIND_HAVE_ZSTD)
 #include <zstd.h>
 #endif
 
@@ -20,7 +20,9 @@
 namespace w1::rewind {
 
 namespace {
+#if defined(WITNESS_REWIND_HAVE_ZSTD)
 constexpr int k_zstd_level = 3;
+#endif
 } // namespace
 
 trace_file_writer::trace_file_writer(trace_file_writer_config config) : config_(std::move(config)) {}
@@ -33,7 +35,7 @@ std::shared_ptr<trace_file_writer> make_trace_file_writer(trace_file_writer_conf
 
 bool trace_file_writer::open() {
   std::lock_guard<std::mutex> guard(mutex_);
-#if !defined(W1_REWIND_HAVE_ZSTD)
+#if !defined(WITNESS_REWIND_HAVE_ZSTD)
   if (config_.codec == compression::zstd) {
     config_.log.err("zstd compression requested but zstd is not available");
     good_ = false;
@@ -256,7 +258,7 @@ bool trace_file_writer::flush_chunk_locked() {
     return false;
   }
 
-#if defined(W1_REWIND_HAVE_ZSTD)
+#if defined(WITNESS_REWIND_HAVE_ZSTD)
   size_t bound = ZSTD_compressBound(chunk_buffer_.size());
   if (bound > std::numeric_limits<uint32_t>::max()) {
     config_.log.err("compressed chunk bound too large", redlog::field("size", bound));

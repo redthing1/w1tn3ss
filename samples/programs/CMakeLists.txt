@@ -1,8 +1,8 @@
 # sample programs for tracer demos and instrumentation targets
 
-include(${W1_SOURCE_DIR}/cmake/SampleConfig.cmake)
+include(${WITNESS_SOURCE_DIR}/cmake/SampleConfig.cmake)
 
-set(samples_output_dir ${W1_OUTPUT_SAMPLE_DIR}/programs)
+set(samples_output_dir ${WITNESS_OUTPUT_SAMPLE_DIR}/programs)
 
 add_subdirectory(instraware)
 
@@ -143,5 +143,5 @@ w1_apply_debug_sanitizers_to_targets(${sample_targets})
 # install targets
 install(TARGETS ${sample_targets}
     RUNTIME DESTINATION bin/samples/programs
-    COMPONENT ${W1_INSTALL_COMPONENT}
+    COMPONENT ${WITNESS_INSTALL_COMPONENT}
 )

@@ -35,7 +35,7 @@ if(WITNESS_SCRIPT)
     
     install(TARGETS p1llx
         RUNTIME DESTINATION bin
-        COMPONENT ${W1_INSTALL_COMPONENT}
+        COMPONENT ${WITNESS_INSTALL_COMPONENT}
     )
 
     message(STATUS "p1llx static patcher tool configured")

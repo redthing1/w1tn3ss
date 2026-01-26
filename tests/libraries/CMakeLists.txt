@@ -1,6 +1,6 @@
 # test injection libraries
 
-include(${W1_SOURCE_DIR}/cmake/TestConfig.cmake)
+include(${WITNESS_SOURCE_DIR}/cmake/TestConfig.cmake)
 
 set(TEST_LIBRARY_OUTPUT_SUBDIR libraries)
 
@@ -64,5 +64,5 @@ endif()
 install(TARGETS ${TEST_LIBRARY_TARGETS}
     LIBRARY DESTINATION test/libraries
     RUNTIME DESTINATION test/libraries
-    COMPONENT ${W1_TESTS_COMPONENT}
+    COMPONENT ${WITNESS_TESTS_COMPONENT}
 )

@@ -6,12 +6,12 @@ if(NOT COMMAND w1_target_defaults)
 endif()
 
 function(w1_resolve_test_output_dir out_var output_subdir)
-    set(output_dir "${W1_OUTPUT_TEST_DIR}")
+    set(output_dir "${WITNESS_OUTPUT_TEST_DIR}")
     if(output_subdir)
         if(IS_ABSOLUTE "${output_subdir}")
             set(output_dir "${output_subdir}")
         else()
-            set(output_dir "${W1_OUTPUT_TEST_DIR}/${output_subdir}")
+            set(output_dir "${WITNESS_OUTPUT_TEST_DIR}/${output_subdir}")
         endif()
     endif()
     set(${out_var} "${output_dir}" PARENT_SCOPE)
@@ -38,25 +38,25 @@ function(w1_add_doctest_suite target)
     set(options)
     set(one_value_args OUTPUT_SUBDIR)
     set(multi_value_args SOURCES LIBS INCLUDE_DIRS)
-    cmake_parse_arguments(W1 "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
+    cmake_parse_arguments(WITNESS "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
 
-    if(NOT W1_SOURCES)
+    if(NOT WITNESS_SOURCES)
         message(FATAL_ERROR "w1_add_doctest_suite requires SOURCES")
     endif()
 
-    add_executable(${target} ${W1_SOURCES})
+    add_executable(${target} ${WITNESS_SOURCES})
     w1_register_target(${target})
-    if(W1_INCLUDE_DIRS)
-        target_include_directories(${target} PRIVATE ${W1_INCLUDE_DIRS})
+    if(WITNESS_INCLUDE_DIRS)
+        target_include_directories(${target} PRIVATE ${WITNESS_INCLUDE_DIRS})
     endif()
-    if(W1_LIBS)
-        target_link_libraries(${target} PRIVATE ${W1_LIBS})
+    if(WITNESS_LIBS)
+        target_link_libraries(${target} PRIVATE ${WITNESS_LIBS})
     endif()
 
     w1_apply_test_defaults(${target})
-    w1_set_test_output_dirs(${target} "${W1_OUTPUT_SUBDIR}")
+    w1_set_test_output_dirs(${target} "${WITNESS_OUTPUT_SUBDIR}")
 
-    w1_resolve_test_output_dir(_w1_working_dir "${W1_OUTPUT_SUBDIR}")
+    w1_resolve_test_output_dir(_w1_working_dir "${WITNESS_OUTPUT_SUBDIR}")
 
     add_test(
         NAME ${target}
@@ -69,30 +69,30 @@ function(w1_add_harness_test target)
     set(options)
     set(one_value_args OUTPUT_SUBDIR)
     set(multi_value_args SOURCES LIBS INCLUDE_DIRS ARGS)
-    cmake_parse_arguments(W1 "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
+    cmake_parse_arguments(WITNESS "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
 
-    if(NOT W1_SOURCES)
+    if(NOT WITNESS_SOURCES)
         message(FATAL_ERROR "w1_add_harness_test requires SOURCES")
     endif()
 
-    add_executable(${target} ${W1_SOURCES})
+    add_executable(${target} ${WITNESS_SOURCES})
     w1_register_target(${target})
-    if(W1_INCLUDE_DIRS)
-        target_include_directories(${target} PRIVATE ${W1_INCLUDE_DIRS})
+    if(WITNESS_INCLUDE_DIRS)
+        target_include_directories(${target} PRIVATE ${WITNESS_INCLUDE_DIRS})
     endif()
-    if(W1_LIBS)
-        target_link_libraries(${target} PRIVATE ${W1_LIBS})
+    if(WITNESS_LIBS)
+        target_link_libraries(${target} PRIVATE ${WITNESS_LIBS})
     endif()
 
     w1_apply_test_defaults(${target})
-    w1_set_test_output_dirs(${target} "${W1_OUTPUT_SUBDIR}")
+    w1_set_test_output_dirs(${target} "${WITNESS_OUTPUT_SUBDIR}")
 
-    w1_resolve_test_output_dir(_w1_working_dir "${W1_OUTPUT_SUBDIR}")
+    w1_resolve_test_output_dir(_w1_working_dir "${WITNESS_OUTPUT_SUBDIR}")
 
-    if(W1_ARGS)
+    if(WITNESS_ARGS)
         add_test(
             NAME ${target}
-            COMMAND ${target} ${W1_ARGS}
+            COMMAND ${target} ${WITNESS_ARGS}
             WORKING_DIRECTORY ${_w1_working_dir}
         )
     else()

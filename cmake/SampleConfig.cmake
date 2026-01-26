@@ -9,19 +9,19 @@ function(w1_add_sample_program target)
     set(options)
     set(one_value_args OUTPUT_DIR)
     set(multi_value_args SOURCES)
-    cmake_parse_arguments(W1 "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
+    cmake_parse_arguments(WITNESS "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
 
-    if(NOT W1_SOURCES)
+    if(NOT WITNESS_SOURCES)
         message(FATAL_ERROR "w1_add_sample_program requires SOURCES")
     endif()
 
-    add_executable(${target} ${W1_SOURCES})
+    add_executable(${target} ${WITNESS_SOURCES})
     w1_register_target(${target})
     w1_target_defaults(${target})
 
-    set(sample_output_dir "${W1_OUTPUT_SAMPLE_DIR}")
-    if(W1_OUTPUT_DIR)
-        set(sample_output_dir "${W1_OUTPUT_DIR}")
+    set(sample_output_dir "${WITNESS_OUTPUT_SAMPLE_DIR}")
+    if(WITNESS_OUTPUT_DIR)
+        set(sample_output_dir "${WITNESS_OUTPUT_DIR}")
     endif()
 
     set_target_properties(${target} PROPERTIES

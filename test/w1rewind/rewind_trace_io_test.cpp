@@ -281,7 +281,7 @@ TEST_CASE("rewind trace writer and reader round trip (image metadata)") {
   fs::remove(path);
 }
 
-#if defined(W1_REWIND_HAVE_ZSTD)
+#if defined(WITNESS_REWIND_HAVE_ZSTD)
 TEST_CASE("rewind trace writer and reader round trip (compressed blocks)") {
   namespace fs = std::filesystem;
   using namespace w1::rewind::test_helpers;

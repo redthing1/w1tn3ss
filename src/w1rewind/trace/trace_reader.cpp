@@ -5,7 +5,7 @@
 #include <cstring>
 #include <limits>
 
-#if defined(W1_REWIND_HAVE_ZSTD)
+#if defined(WITNESS_REWIND_HAVE_ZSTD)
 #include <zstd.h>
 #endif
 
@@ -532,7 +532,7 @@ bool trace_reader::read_chunk_at(uint64_t file_offset, uint32_t chunk_index, con
     return false;
   }
 
-#if defined(W1_REWIND_HAVE_ZSTD)
+#if defined(WITNESS_REWIND_HAVE_ZSTD)
   chunk_buffer_.assign(uncompressed_size, 0);
   size_t result = ZSTD_decompress(chunk_buffer_.data(), chunk_buffer_.size(), compressed.data(), compressed.size());
   if (ZSTD_isError(result)) {

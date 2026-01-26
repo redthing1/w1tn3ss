@@ -1,6 +1,6 @@
 # Tracers - w1 framework tracers
 
-include("${W1_CMAKE_DIR}/W1Tracers.cmake")
+include("${WITNESS_CMAKE_DIR}/W1Tracers.cmake")
 w1_dep_qbdi()
 
 # add tracer subdirectories

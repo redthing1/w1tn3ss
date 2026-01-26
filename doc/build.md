@@ -20,7 +20,7 @@ common options:
 
 zstd:
 ```sh
--DW1_REQUIRE_ZSTD=ON
+-DWITNESS_REQUIRE_ZSTD=ON
 ```
 
 ## linux
@@ -52,7 +52,7 @@ python .\tools\windows\run_cmd.py --arch x64 --env "VCPKG_ROOT=\path\vcpkg" -- c
   -DWITNESS_LIEF=ON `
   -DWITNESS_ASMR=ON `
   -DWITNESS_SCRIPT_ENGINE=js `
-  -DW1_REQUIRE_ZSTD=ON `
+  -DWITNESS_REQUIRE_ZSTD=ON `
   -DCMAKE_TOOLCHAIN_FILE="%VCPKG_ROOT%/scripts/buildsystems/vcpkg.cmake" `
   -DVCPKG_TARGET_TRIPLET=x64-windows-static `
   -Dzstd_DIR="%VCPKG_ROOT%/installed/x64-windows-static/share/zstd"
@@ -69,7 +69,7 @@ python .\tools\windows\run_cmd.py --arch x86 --host-arch amd64 --env "VCPKG_ROOT
   -DWITNESS_LIEF=ON `
   -DWITNESS_ASMR=ON `
   -DWITNESS_SCRIPT_ENGINE=js `
-  -DW1_REQUIRE_ZSTD=ON `
+  -DWITNESS_REQUIRE_ZSTD=ON `
   -DCMAKE_TOOLCHAIN_FILE="%VCPKG_ROOT%/scripts/buildsystems/vcpkg.cmake" `
   -DVCPKG_TARGET_TRIPLET=x86-windows-static `
   -Dzstd_DIR="%VCPKG_ROOT%/installed/x86-windows-static/share/zstd"

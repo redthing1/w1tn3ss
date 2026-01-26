@@ -16,32 +16,32 @@
 namespace {
 
 #if defined(_MSC_VER)
-#define W1_NO_INLINE __declspec(noinline)
+#define WITNESS_NO_INLINE __declspec(noinline)
 #else
-#define W1_NO_INLINE __attribute__((noinline))
+#define WITNESS_NO_INLINE __attribute__((noinline))
 #endif
 
 volatile int g_sink = 0;
 
-W1_NO_INLINE int add_one(int value) {
+WITNESS_NO_INLINE int add_one(int value) {
   int result = value + 1;
   g_sink = result;
   return result;
 }
 
-W1_NO_INLINE int add_ten(int value) {
+WITNESS_NO_INLINE int add_ten(int value) {
   int result = value + 10;
   g_sink = result;
   return result;
 }
 
-W1_NO_INLINE int mul_two(int value) {
+WITNESS_NO_INLINE int mul_two(int value) {
   int result = value * 2;
   g_sink = result;
   return result;
 }
 
-W1_NO_INLINE int mul_three(int value) {
+WITNESS_NO_INLINE int mul_three(int value) {
   int result = value * 3;
   g_sink = result;
   return result;
