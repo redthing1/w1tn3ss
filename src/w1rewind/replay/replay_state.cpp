@@ -37,7 +37,7 @@ void replay_state::set_register_files(const std::vector<register_file_record>& f
   banks_.clear();
   for (const auto& file : files) {
     register_bank bank{};
-    bank.slots.reserve(file.registers.size());
+    bank.register_slots.reserve(file.registers.size());
 
     for (const auto& spec : file.registers) {
       register_slot slot{};
@@ -46,8 +46,8 @@ void replay_state::set_register_files(const std::vector<register_file_record>& f
       slot.bytes.resize(size, 0);
       slot.known.resize(size, 0);
 
-      size_t index = bank.slots.size();
-      bank.slots.push_back(std::move(slot));
+      size_t index = bank.register_slots.size();
+      bank.register_slots.push_back(std::move(slot));
 
       if (bank.id_to_index.find(spec.reg_id) == bank.id_to_index.end()) {
         bank.id_to_index.emplace(spec.reg_id, index);
@@ -81,7 +81,7 @@ const replay_state::register_bank* replay_state::find_bank(uint32_t regfile_id) 
 }
 
 void replay_state::reset_register_bank(register_bank& bank) {
-  for (auto& slot : bank.slots) {
+  for (auto& slot : bank.register_slots) {
     std::fill(slot.bytes.begin(), slot.bytes.end(), 0);
     std::fill(slot.known.begin(), slot.known.end(), 0);
   }
@@ -93,7 +93,7 @@ replay_state::register_slot* replay_state::ensure_slot(register_bank& bank, uint
     return nullptr;
   }
 
-  replay_state::register_slot& slot = bank.slots[it->second];
+  replay_state::register_slot& slot = bank.register_slots[it->second];
   if (slot.bytes.size() < min_size) {
     slot.bytes.resize(min_size, 0);
     slot.known.resize(min_size, 0);
@@ -186,7 +186,7 @@ std::optional<uint64_t> replay_state::register_value(uint32_t regfile_id, uint32
     return std::nullopt;
   }
 
-  const register_slot& slot = bank->slots[it->second];
+  const register_slot& slot = bank->register_slots[it->second];
   if (slot.bytes.empty() || slot.bytes.size() > sizeof(uint64_t)) {
     return std::nullopt;
   }
@@ -212,7 +212,7 @@ bool replay_state::copy_register_bytes(
     return false;
   }
 
-  const register_slot& slot = bank->slots[it->second];
+  const register_slot& slot = bank->register_slots[it->second];
   if (out.size() < slot.bytes.size()) {
     return false;
   }
@@ -237,7 +237,7 @@ std::vector<reg_write_entry> replay_state::collect_register_writes(uint32_t regf
     return out;
   }
 
-  for (const auto& slot : bank->slots) {
+  for (const auto& slot : bank->register_slots) {
     if (slot.bytes.empty() || slot.known.empty()) {
       continue;
     }
