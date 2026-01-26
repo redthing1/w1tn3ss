@@ -1,9 +1,9 @@
 #include "callback_registry.hpp"
 
 #include <algorithm>
-#include <cctype>
 #include <string_view>
 
+#include "w1base/string_utils.hpp"
 namespace w1::tracers::script::runtime {
 namespace {
 
@@ -24,14 +24,6 @@ sol::table build_state_table(sol::state_view lua, const QBDI::VMState* state) {
 
 namespace {
 
-std::string to_lower(std::string_view value) {
-  std::string out(value.begin(), value.end());
-  std::transform(out.begin(), out.end(), out.begin(), [](unsigned char ch) {
-    return static_cast<char>(std::tolower(ch));
-  });
-  return out;
-}
-
 bool has_wildcards(std::string_view pattern) { return pattern.find_first_of("*?") != std::string_view::npos; }
 
 } // namespace
@@ -50,7 +42,7 @@ uint64_t callback_registry::register_callback(
   entry.event = event;
   entry.options = options;
   if (!entry.options.mnemonic.empty()) {
-    entry.options.mnemonic = to_lower(entry.options.mnemonic);
+    entry.options.mnemonic = w1::util::to_lower(entry.options.mnemonic);
     entry.options.mnemonic_has_wildcards = has_wildcards(entry.options.mnemonic);
     mnemonic_filter_counts_[event_index(event)] += 1;
   }
@@ -204,7 +196,7 @@ QBDI::VMAction callback_registry::dispatch_instruction(
   if (mnemonic_filter_counts_[event_index(event_type)] > 0 && vm) {
     const QBDI::InstAnalysis* analysis = vm->getInstAnalysis(QBDI::ANALYSIS_INSTRUCTION);
     if (analysis && analysis->mnemonic) {
-      mnemonic_lower = to_lower(analysis->mnemonic);
+      mnemonic_lower = w1::util::to_lower(analysis->mnemonic);
     }
   }
 

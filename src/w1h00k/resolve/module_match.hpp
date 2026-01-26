@@ -1,8 +1,9 @@
 #pragma once
 
-#include <cctype>
 #include <string>
 #include <string_view>
+
+#include "w1base/string_utils.hpp"
 
 namespace w1::h00k::resolve {
 
@@ -32,14 +33,6 @@ inline module_match_mode normalize_match_mode(std::string_view requested, module
 }
 
 #if defined(_WIN32)
-inline std::string to_lower(std::string_view value) {
-  std::string out(value.begin(), value.end());
-  for (auto& ch : out) {
-    ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
-  }
-  return out;
-}
-
 inline bool module_matches(const char* requested,
                            std::string_view path,
                            module_match_mode mode = module_match_mode::auto_detect) {
@@ -49,8 +42,8 @@ inline bool module_matches(const char* requested,
   if (path.empty()) {
     return false;
   }
-  const std::string req_lower = to_lower(requested);
-  const std::string full_lower = to_lower(path);
+  const std::string req_lower = w1::util::to_lower(requested);
+  const std::string full_lower = w1::util::to_lower(path);
   const auto match_mode = normalize_match_mode(std::string_view(requested), mode);
   if (match_mode == module_match_mode::full_path) {
     return full_lower == req_lower;

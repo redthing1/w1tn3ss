@@ -1,7 +1,10 @@
 #pragma once
 
-#include <cstdint>
+#include <algorithm>
 #include <cstddef>
+#include <cstdint>
+#include <limits>
+#include <vector>
 
 #include "w1base/types.hpp"
 
@@ -48,6 +51,39 @@ inline bool compute_end(uint64_t start, size_t size, uint64_t* end) {
 
   *end = end_value;
   return true;
+}
+
+inline uint64_t range_end_saturating(uint64_t start, size_t size) {
+  uint64_t end = start + static_cast<uint64_t>(size);
+  if (end < start) {
+    return std::numeric_limits<uint64_t>::max();
+  }
+  return end;
+}
+
+inline void merge_ranges(std::vector<address_range>& ranges) {
+  if (ranges.empty()) {
+    return;
+  }
+
+  std::sort(ranges.begin(), ranges.end(), [](const auto& left, const auto& right) { return left.start < right.start; });
+
+  std::vector<address_range> merged;
+  merged.reserve(ranges.size());
+  address_range current = ranges.front();
+
+  for (size_t i = 1; i < ranges.size(); ++i) {
+    const auto& next = ranges[i];
+    if (next.start > current.end) {
+      merged.push_back(current);
+      current = next;
+      continue;
+    }
+    current.end = std::max(current.end, next.end);
+  }
+
+  merged.push_back(current);
+  ranges.swap(merged);
 }
 
 } // namespace w1::util

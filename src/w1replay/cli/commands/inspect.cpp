@@ -12,6 +12,8 @@
 
 #include <redlog.hpp>
 
+#include "w1base/format_utils.hpp"
+#include "w1base/json_utils.hpp"
 #include "w1replay/memory/memory_view.hpp"
 #include "w1replay/modules/address_index.hpp"
 #include "w1replay/modules/asmr_block_decoder.hpp"
@@ -24,68 +26,10 @@ namespace w1replay::commands {
 
 namespace {
 
-std::string format_address(uint64_t address) {
-  std::ostringstream out;
-  out << "0x" << std::hex << address;
-  return out.str();
-}
-
-std::string format_byte(std::byte value, bool known) {
-  if (!known) {
-    return "??";
-  }
-  std::ostringstream out;
-  out << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(std::to_integer<uint8_t>(value));
-  return out.str();
-}
-
-std::string format_bytes(std::span<const std::byte> bytes) {
-  std::ostringstream out;
-  for (size_t i = 0; i < bytes.size(); ++i) {
-    if (i > 0) {
-      out << " ";
-    }
-    out << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(std::to_integer<uint8_t>(bytes[i]));
-  }
-  return out.str();
-}
-
-void write_json_string(std::ostream& out, std::string_view value) {
-  out << '"';
-  for (unsigned char c : value) {
-    switch (c) {
-    case '"':
-      out << "\\\"";
-      break;
-    case '\\':
-      out << "\\\\";
-      break;
-    case '\b':
-      out << "\\b";
-      break;
-    case '\f':
-      out << "\\f";
-      break;
-    case '\n':
-      out << "\\n";
-      break;
-    case '\r':
-      out << "\\r";
-      break;
-    case '\t':
-      out << "\\t";
-      break;
-    default:
-      if (c < 0x20) {
-        out << "\\u" << std::hex << std::setw(4) << std::setfill('0') << static_cast<int>(c);
-      } else {
-        out << static_cast<char>(c);
-      }
-      break;
-    }
-  }
-  out << '"';
-}
+using w1::util::format_address;
+using w1::util::format_hex_byte;
+using w1::util::format_hex_bytes;
+using w1::util::write_json_string;
 
 struct memory_query {
   uint64_t address = 0;
@@ -380,7 +324,7 @@ int inspect(const inspect_options& options) {
           if (!session.read_register_bytes(static_cast<uint32_t>(i), buffer, known) || !known) {
             continue;
           }
-          reg_values.push_back({names[i], format_bytes(buffer)});
+          reg_values.push_back({names[i], format_hex_bytes(buffer)});
         }
         regs_available = !reg_values.empty();
       }
@@ -433,9 +377,9 @@ int inspect(const inspect_options& options) {
         out << "  mem[" << mem_space_label << ":" << format_address(mem_dump->address) << ":" << mem_dump->size << "]:";
         for (const auto& entry : mem_dump->bytes) {
           if (entry.has_value()) {
-            out << " " << format_byte(static_cast<std::byte>(*entry), true);
+            out << " " << format_hex_byte(static_cast<std::byte>(*entry), true);
           } else {
-            out << " " << format_byte(std::byte{0}, false);
+            out << " " << format_hex_byte(std::byte{0}, false);
           }
         }
         std::cout << out.str() << std::endl;

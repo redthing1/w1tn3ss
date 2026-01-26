@@ -1,106 +1,12 @@
 #include "rewind_config.hpp"
 
 #include <algorithm>
-#include <cctype>
-#include <sstream>
 
 #include "w1base/env_config.hpp"
+#include "w1base/interval.hpp"
+#include "w1base/parse_utils.hpp"
 
 namespace w1rewind {
-namespace {
-
-std::string to_lower(std::string value) {
-  std::transform(value.begin(), value.end(), value.begin(), [](unsigned char ch) {
-    return static_cast<char>(std::tolower(ch));
-  });
-  return value;
-}
-
-std::string trim(const std::string& value) {
-  size_t first = value.find_first_not_of(' ');
-  if (first == std::string::npos) {
-    return value;
-  }
-  size_t last = value.find_last_not_of(' ');
-  return value.substr(first, last - first + 1);
-}
-
-template <typename Enum>
-bool parse_enum_value(
-    const std::string& value, const std::initializer_list<std::pair<const char*, Enum>>& mapping, Enum& out
-) {
-  std::string lower = to_lower(value);
-  for (const auto& entry : mapping) {
-    if (lower == entry.first) {
-      out = entry.second;
-      return true;
-    }
-  }
-  return false;
-}
-
-bool parse_range(const std::string& text, w1::address_range& out, std::string& error) {
-  const size_t dash = text.find('-');
-  if (dash == std::string::npos) {
-    error = "range must be in start-end form";
-    return false;
-  }
-  std::string start_text = trim(text.substr(0, dash));
-  std::string end_text = trim(text.substr(dash + 1));
-  if (start_text.empty() || end_text.empty()) {
-    error = "range start/end missing";
-    return false;
-  }
-
-  try {
-    uint64_t start = std::stoull(start_text, nullptr, 0);
-    uint64_t end = std::stoull(end_text, nullptr, 0);
-    if (end <= start) {
-      error = "range end must be greater than start";
-      return false;
-    }
-    out.start = start;
-    out.end = end;
-    return true;
-  } catch (const std::exception& exc) {
-    error = std::string("invalid range value: ") + exc.what();
-    return false;
-  }
-}
-
-void merge_ranges(std::vector<w1::address_range>& ranges) {
-  if (ranges.empty()) {
-    return;
-  }
-  std::sort(ranges.begin(), ranges.end(), [](const auto& left, const auto& right) { return left.start < right.start; });
-
-  std::vector<w1::address_range> merged;
-  merged.reserve(ranges.size());
-  w1::address_range current = ranges.front();
-  for (size_t i = 1; i < ranges.size(); ++i) {
-    const auto& next = ranges[i];
-    if (next.start > current.end) {
-      merged.push_back(current);
-      current = next;
-      continue;
-    }
-    current.end = std::max(current.end, next.end);
-  }
-  merged.push_back(current);
-  ranges.swap(merged);
-}
-
-bool has_filter(const std::vector<rewind_config::memory_filter_kind>& filters, rewind_config::memory_filter_kind kind) {
-  for (const auto& entry : filters) {
-    if (entry == kind) {
-      return true;
-    }
-  }
-  return false;
-}
-
-} // namespace
-
 rewind_config rewind_config::from_environment(std::string& error) {
   error.clear();
   w1::util::env_config loader("W1REWIND");
@@ -118,7 +24,7 @@ rewind_config rewind_config::from_environment(std::string& error) {
 
   std::string flow_value = loader.get<std::string>("FLOW", "");
   if (!flow_value.empty()) {
-    if (!parse_enum_value(
+    if (!w1::util::parse_enum(
             flow_value,
             {{"instruction", flow_options::flow_mode::instruction}, {"block", flow_options::flow_mode::block}},
             config.flow.mode
@@ -130,7 +36,7 @@ rewind_config rewind_config::from_environment(std::string& error) {
 
   std::string reg_capture = loader.get<std::string>("REG_CAPTURE", "");
   if (!reg_capture.empty()) {
-    if (!parse_enum_value(reg_capture, {{"gpr", register_options::capture_kind::gpr}}, config.registers.capture)) {
+    if (!w1::util::parse_enum(reg_capture, {{"gpr", register_options::capture_kind::gpr}}, config.registers.capture)) {
       error = "invalid W1REWIND_REG_CAPTURE value";
       return config;
     }
@@ -143,7 +49,7 @@ rewind_config rewind_config::from_environment(std::string& error) {
 
   std::string stack_mode = loader.get<std::string>("STACK_WINDOW_MODE", "");
   if (!stack_mode.empty()) {
-    if (!parse_enum_value(
+    if (!w1::util::parse_enum(
             stack_mode,
             {{"none", stack_window_options::window_mode::none},
              {"fixed", stack_window_options::window_mode::fixed},
@@ -161,7 +67,7 @@ rewind_config rewind_config::from_environment(std::string& error) {
 
   std::string mem_access = loader.get<std::string>("MEM_ACCESS", "");
   if (!mem_access.empty()) {
-    if (!parse_enum_value(
+    if (!w1::util::parse_enum(
             mem_access,
             {{"none", memory_access::none},
              {"reads", memory_access::reads},
@@ -186,7 +92,7 @@ rewind_config rewind_config::from_environment(std::string& error) {
     bool saw_ranges = false;
     bool saw_stack = false;
     for (const auto& entry : filters) {
-      const std::string value = to_lower(entry);
+      const std::string value = w1::util::to_lower(entry);
       if (value == "all") {
         saw_all = true;
       } else if (value == "ranges") {
@@ -221,13 +127,13 @@ rewind_config rewind_config::from_environment(std::string& error) {
     for (const auto& entry : ranges) {
       w1::address_range range{};
       std::string parse_error;
-      if (!parse_range(entry, range, parse_error)) {
+      if (!w1::util::parse_address_range(entry, range, &parse_error)) {
         error = "invalid W1REWIND_MEM_RANGES entry: " + parse_error;
         return config;
       }
       config.memory.ranges.push_back(range);
     }
-    merge_ranges(config.memory.ranges);
+    w1::util::merge_ranges(config.memory.ranges);
   }
 
   config.image_blobs.enabled = loader.get<bool>("IMAGE_BLOBS", config.image_blobs.enabled);
@@ -307,9 +213,12 @@ bool rewind_config::validate(std::string& error) const {
     return false;
   }
 
-  bool filter_all = has_filter(memory.filters, memory_filter_kind::all);
-  bool filter_ranges = has_filter(memory.filters, memory_filter_kind::ranges);
-  bool filter_stack = has_filter(memory.filters, memory_filter_kind::stack_window);
+  bool filter_all =
+      std::find(memory.filters.begin(), memory.filters.end(), memory_filter_kind::all) != memory.filters.end();
+  bool filter_ranges =
+      std::find(memory.filters.begin(), memory.filters.end(), memory_filter_kind::ranges) != memory.filters.end();
+  bool filter_stack =
+      std::find(memory.filters.begin(), memory.filters.end(), memory_filter_kind::stack_window) != memory.filters.end();
 
   if (filter_all && (filter_ranges || filter_stack)) {
     error = "memory.filter=all cannot be combined with other filters";

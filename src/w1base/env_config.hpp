@@ -6,6 +6,8 @@
 #include <utility>
 #include <vector>
 
+#include "w1base/string_utils.hpp"
+
 namespace w1::util {
 
 class env_config {
@@ -26,8 +28,6 @@ private:
   std::string prefix_;
   std::string build_env_name(const std::string& name) const;
   std::string get_env_value(const std::string& name) const;
-  std::string to_lower(const std::string& value) const;
-  std::string trim(const std::string& value) const;
 };
 
 template <typename enum_type>
@@ -40,10 +40,10 @@ enum_type env_config::get_enum(
     return default_value;
   }
 
-  std::string lower_value = to_lower(value);
+  std::string lower_value = w1::util::to_lower(value);
 
   for (const auto& pair : mapping) {
-    if (to_lower(pair.first) == lower_value) {
+    if (w1::util::to_lower(pair.first) == lower_value) {
       return pair.second;
     }
   }

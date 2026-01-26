@@ -1,8 +1,6 @@
 #include "inspect.hpp"
 
 #include <redlog.hpp>
-#include <algorithm>
-#include <cctype>
 #include <filesystem>
 #include <iomanip>
 #include <iostream>
@@ -10,6 +8,8 @@
 #include <sstream>
 #include <vector>
 
+#include "w1base/format_utils.hpp"
+#include "w1base/string_utils.hpp"
 #include "w1base/uuid_format.hpp"
 
 #ifdef WITNESS_LIEF_ENABLED
@@ -162,54 +162,9 @@ struct inspect_report {
   std::optional<macho_header_info> macho_header;
 };
 
-std::string to_lower(std::string value) {
-  std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) {
-    return static_cast<char>(std::tolower(c));
-  });
-  return value;
-}
-
-std::string format_address(uint64_t addr) {
-  std::ostringstream out;
-  out << "0x" << std::hex << addr;
-  return out.str();
-}
-
-std::string format_bytes(uint64_t bytes) {
-  if (bytes >= 1024ULL * 1024 * 1024) {
-    double gb = static_cast<double>(bytes) / (1024.0 * 1024.0 * 1024.0);
-    std::ostringstream out;
-    out << std::fixed << std::setprecision(1) << gb << " GB";
-    return out.str();
-  }
-  if (bytes >= 1024ULL * 1024) {
-    double mb = static_cast<double>(bytes) / (1024.0 * 1024.0);
-    std::ostringstream out;
-    out << std::fixed << std::setprecision(1) << mb << " MB";
-    return out.str();
-  }
-  if (bytes >= 1024ULL) {
-    double kb = static_cast<double>(bytes) / 1024.0;
-    std::ostringstream out;
-    out << std::fixed << std::setprecision(1) << kb << " KB";
-    return out.str();
-  }
-  return std::to_string(bytes) + " B";
-}
-
-std::string format_permissions(bool read, bool write, bool exec) {
-  std::string perms = "---";
-  if (read) {
-    perms[0] = 'r';
-  }
-  if (write) {
-    perms[1] = 'w';
-  }
-  if (exec) {
-    perms[2] = 'x';
-  }
-  return perms;
-}
+using w1::util::format_address;
+using w1::util::format_bytes;
+using w1::util::format_permissions;
 
 std::string format_version(const LIEF::MachO::BuildVersion::version_t& version) {
   std::ostringstream out;
@@ -243,7 +198,7 @@ std::unique_ptr<LIEF::Binary> parse_binary(const inspect_request& request, redlo
     return LIEF::Parser::parse(request.binary_path);
   }
 
-  std::string format = to_lower(request.forced_format);
+  std::string format = w1::util::to_lower(request.forced_format);
   if (format == "elf") {
     return LIEF::ELF::Parser::parse(request.binary_path);
   }

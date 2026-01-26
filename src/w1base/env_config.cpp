@@ -1,12 +1,11 @@
 #include "w1base/env_config.hpp"
 
-#include <algorithm>
-#include <cctype>
 #include <cstdint>
 #include <cstdlib>
 #include <iostream>
 #include <sstream>
 
+#include "w1base/string_utils.hpp"
 namespace w1::util {
 
 env_config::env_config(const std::string& prefix) : prefix_(prefix) {
@@ -22,23 +21,6 @@ std::string env_config::get_env_value(const std::string& name) const {
   return value ? std::string(value) : std::string();
 }
 
-std::string env_config::to_lower(const std::string& value) const {
-  std::string result = value;
-  std::transform(result.begin(), result.end(), result.begin(), [](unsigned char ch) {
-    return static_cast<char>(std::tolower(ch));
-  });
-  return result;
-}
-
-std::string env_config::trim(const std::string& value) const {
-  size_t first = value.find_first_not_of(' ');
-  if (first == std::string::npos) {
-    return value;
-  }
-  size_t last = value.find_last_not_of(' ');
-  return value.substr(first, last - first + 1);
-}
-
 template <> std::string env_config::get<std::string>(const std::string& name, std::string default_value) const {
   std::string value = get_env_value(name);
   return value.empty() ? default_value : value;
@@ -50,7 +32,7 @@ template <> bool env_config::get<bool>(const std::string& name, bool default_val
     return default_value;
   }
 
-  std::string lower_value = to_lower(value);
+  std::string lower_value = w1::util::to_lower(value);
   return (lower_value == "1" || lower_value == "true" || lower_value == "yes" || lower_value == "on");
 }
 
@@ -156,7 +138,7 @@ std::vector<std::string> env_config::get_list(const std::string& name, char deli
   std::string item;
 
   while (std::getline(ss, item, delimiter)) {
-    result.push_back(trim(item));
+    result.push_back(w1::util::trim_copy(item));
   }
 
   return result;

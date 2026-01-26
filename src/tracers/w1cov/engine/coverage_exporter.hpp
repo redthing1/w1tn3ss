@@ -21,7 +21,6 @@ public:
   ) const;
 
 private:
-  static std::string format_hex(uint64_t value);
   redlog::logger log_ = redlog::get_logger("w1cov.exporter");
 };
 

@@ -16,6 +16,8 @@
 
 #include <redlog.hpp>
 
+#include "w1base/format_utils.hpp"
+#include "w1base/uuid_format.hpp"
 #include "w1rewind/format/trace_format.hpp"
 #include "w1rewind/replay/replay_context.hpp"
 #include "w1rewind/trace/replay_checkpoint.hpp"
@@ -29,6 +31,12 @@ namespace summary_detail {
 constexpr const char* k_indent1 = "  ";
 constexpr const char* k_indent2 = "    ";
 constexpr const char* k_indent3 = "      ";
+
+using w1::util::format_address;
+using w1::util::format_bool;
+using w1::util::format_bytes;
+using w1::util::format_number;
+using w1::util::format_uuid;
 
 struct address_span {
   bool has = false;
@@ -157,74 +165,6 @@ struct summary_context {
   const std::vector<std::string>& warnings;
 };
 
-std::string format_number(uint64_t value) {
-  std::string out = std::to_string(value);
-  for (std::ptrdiff_t i = static_cast<std::ptrdiff_t>(out.size()) - 3; i > 0; i -= 3) {
-    out.insert(static_cast<size_t>(i), ",");
-  }
-  return out;
-}
-
-std::string format_decimal(double value, int precision) {
-  std::ostringstream out;
-  out << std::fixed << std::setprecision(precision) << value;
-  std::string text = out.str();
-  if (precision > 0) {
-    while (!text.empty() && text.back() == '0') {
-      text.pop_back();
-    }
-    if (!text.empty() && text.back() == '.') {
-      text.pop_back();
-    }
-  }
-  if (text.empty()) {
-    return "0";
-  }
-  return text;
-}
-
-std::string format_bytes(uint64_t bytes) {
-  static constexpr const char* suffixes[] = {"b", "kb", "mb", "gb", "tb", "pb"};
-  constexpr size_t suffix_count = sizeof(suffixes) / sizeof(suffixes[0]);
-  double value = static_cast<double>(bytes);
-  size_t suffix_index = 0;
-  while (value >= 1024.0 && suffix_index + 1 < suffix_count) {
-    value /= 1024.0;
-    ++suffix_index;
-  }
-  if (suffix_index == 0) {
-    return format_number(bytes) + "b";
-  }
-  return format_decimal(value, 1) + suffixes[suffix_index];
-}
-
-std::string format_address(uint64_t address) {
-  std::ostringstream out;
-  out << "0x" << std::hex << address;
-  return out.str();
-}
-
-std::string format_bool(bool value) { return value ? "true" : "false"; }
-
-std::string format_uuid(const std::array<uint8_t, 16>& uuid) {
-  auto hex = [](uint8_t value) -> char {
-    if (value < 10) {
-      return static_cast<char>('0' + value);
-    }
-    return static_cast<char>('a' + (value - 10));
-  };
-  std::string out;
-  out.reserve(36);
-  for (size_t i = 0; i < uuid.size(); ++i) {
-    if (i == 4 || i == 6 || i == 8 || i == 10) {
-      out.push_back('-');
-    }
-    out.push_back(hex(uuid[i] >> 4));
-    out.push_back(hex(uuid[i] & 0x0f));
-  }
-  return out;
-}
-
 std::string format_endian(w1::rewind::endian order) {
   switch (order) {
   case w1::rewind::endian::little:
@@ -245,20 +185,6 @@ std::string format_compression(w1::rewind::compression codec) {
   default:
     return "unknown";
   }
-}
-
-std::string format_perms(w1::rewind::mapping_perm perms) {
-  std::string out = "---";
-  if ((perms & w1::rewind::mapping_perm::read) != w1::rewind::mapping_perm::none) {
-    out[0] = 'r';
-  }
-  if ((perms & w1::rewind::mapping_perm::write) != w1::rewind::mapping_perm::none) {
-    out[1] = 'w';
-  }
-  if ((perms & w1::rewind::mapping_perm::exec) != w1::rewind::mapping_perm::none) {
-    out[2] = 'x';
-  }
-  return out;
 }
 
 std::string format_flow_kind(const w1::rewind::replay_context& context) {
@@ -808,8 +734,14 @@ void render_images_section(const summary_context& ctx) {
           space_label = space->name;
         }
       }
+      const auto perms = mapping.perms;
+      const std::string perms_label = w1::util::format_permissions(
+          (perms & w1::rewind::mapping_perm::read) != w1::rewind::mapping_perm::none,
+          (perms & w1::rewind::mapping_perm::write) != w1::rewind::mapping_perm::none,
+          (perms & w1::rewind::mapping_perm::exec) != w1::rewind::mapping_perm::none
+      );
       rows.push_back(
-          {space_label, format_address(mapping.base), format_bytes(mapping.size), format_perms(mapping.perms),
+          {space_label, format_address(mapping.base), format_bytes(mapping.size), perms_label,
            format_number(mapping.image_id), mapping.name.empty() ? "unknown" : mapping.name}
       );
     }

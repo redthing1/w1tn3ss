@@ -2,26 +2,9 @@
 
 #include "util.hpp"
 
-#include <chrono>
-#include <iomanip>
-#include <sstream>
+#include "w1base/time_utils.hpp"
 
 namespace w1::tracers::script::bindings {
-
-namespace {
-
-std::string format_timestamp() {
-  auto now = std::chrono::system_clock::now();
-  auto time_t = std::chrono::system_clock::to_time_t(now);
-  auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
-
-  std::stringstream ss;
-  ss << std::put_time(std::gmtime(&time_t), "%Y-%m-%dT%H:%M:%S");
-  ss << '.' << std::setfill('0') << std::setw(3) << ms.count() << 'Z';
-  return ss.str();
-}
-
-} // namespace
 
 void setup_output_bindings(sol::state& lua, sol::table& w1_module, runtime::script_context& context) {
   sol::table output = lua.create_table();
@@ -34,7 +17,7 @@ void setup_output_bindings(sol::state& lua, sol::table& w1_module, runtime::scri
           meta_table["version"] = "1.0";
         }
         if (!meta_table["timestamp"].valid()) {
-          meta_table["timestamp"] = format_timestamp();
+          meta_table["timestamp"] = w1::util::format_timestamp_utc_iso8601_ms();
         }
         if (!meta_table["tracer"].valid()) {
           meta_table["tracer"] = "w1script";

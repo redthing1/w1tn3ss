@@ -1,45 +1,8 @@
 #include "memory_filter.hpp"
 
-#include <algorithm>
-#include <limits>
+#include "w1base/interval.hpp"
 
 namespace w1rewind {
-namespace {
-
-uint64_t range_end(uint64_t start, uint64_t size) {
-  uint64_t end = start + size;
-  if (end < start) {
-    return std::numeric_limits<uint64_t>::max();
-  }
-  return end;
-}
-
-void merge_ranges(std::vector<w1::address_range>& ranges) {
-  if (ranges.empty()) {
-    return;
-  }
-  std::sort(ranges.begin(), ranges.end(), [](const auto& left, const auto& right) { return left.start < right.start; });
-
-  std::vector<w1::address_range> merged;
-  merged.reserve(ranges.size());
-  w1::address_range current = ranges.front();
-
-  for (size_t i = 1; i < ranges.size(); ++i) {
-    const auto& next = ranges[i];
-    if (next.start > current.end) {
-      merged.push_back(current);
-      current = next;
-      continue;
-    }
-    current.end = std::max(current.end, next.end);
-  }
-
-  merged.push_back(current);
-  ranges.swap(merged);
-}
-
-} // namespace
-
 memory_filter::memory_filter(const rewind_config::memory_options& options) : ranges_(options.ranges) {
   match_all_ = false;
   use_ranges_ = false;
@@ -69,7 +32,7 @@ memory_filter::memory_filter(const rewind_config::memory_options& options) : ran
     use_ranges_ = false;
     use_stack_window_ = false;
   } else if (use_ranges_) {
-    merge_ranges(ranges_);
+    w1::util::merge_ranges(ranges_);
   }
 }
 
@@ -81,7 +44,7 @@ std::vector<w1::address_range> memory_filter::filter(
     return out;
   }
 
-  uint64_t end = range_end(address, size);
+  uint64_t end = w1::util::range_end_saturating(address, size);
   w1::address_range event{address, end};
 
   if (match_all_) {
@@ -99,7 +62,7 @@ std::vector<w1::address_range> memory_filter::filter(
       if (segment.size == 0) {
         continue;
       }
-      selectors.push_back(w1::address_range{segment.base, range_end(segment.base, segment.size)});
+      selectors.push_back(w1::address_range{segment.base, w1::util::range_end_saturating(segment.base, segment.size)});
     }
   }
 
@@ -121,7 +84,7 @@ std::vector<w1::address_range> memory_filter::filter(
     return out;
   }
 
-  merge_ranges(intersections);
+  w1::util::merge_ranges(intersections);
   return intersections;
 }
 

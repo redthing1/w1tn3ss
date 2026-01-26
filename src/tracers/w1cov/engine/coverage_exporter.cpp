@@ -1,16 +1,9 @@
 #include "coverage_exporter.hpp"
 
-#include <iomanip>
-#include <sstream>
 #include <unordered_set>
 
+#include "w1base/format_utils.hpp"
 namespace w1cov {
-
-std::string coverage_exporter::format_hex(uint64_t value) {
-  std::ostringstream oss;
-  oss << "0x" << std::hex << std::setw(static_cast<int>(sizeof(uint64_t) * 2)) << std::setfill('0') << value;
-  return oss.str();
-}
 
 drcov::coverage_data coverage_exporter::to_drcov(
     const coverage_snapshot& snapshot, const std::vector<w1::runtime::module_info>& modules
@@ -102,8 +95,9 @@ drcov::coverage_data coverage_exporter::to_drcov(
     if (unit.address < module.base_address || unit.address >= module.base_address + module.size) {
       log_.wrn(
           "coverage unit address outside module bounds", redlog::field("module_id", unit.module_id),
-          redlog::field("address", format_hex(unit.address)), redlog::field("base", format_hex(module.base_address)),
-          redlog::field("end", format_hex(module.base_address + module.size))
+          redlog::field("address", w1::util::format_hex(unit.address, sizeof(uint64_t) * 2, true)),
+          redlog::field("base", w1::util::format_hex(module.base_address, sizeof(uint64_t) * 2, true)),
+          redlog::field("end", w1::util::format_hex(module.base_address + module.size, sizeof(uint64_t) * 2, true))
       );
       invalid_units++;
       continue;

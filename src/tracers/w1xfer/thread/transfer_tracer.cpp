@@ -1,24 +1,18 @@
 #include "transfer_tracer.hpp"
 
-#include <sstream>
 #include <utility>
 
+#include "w1base/format_utils.hpp"
 #include "w1runtime/thread_catalog.hpp"
 
 namespace w1xfer {
 namespace {
 
-std::string format_hex(uint64_t value) {
-  std::ostringstream oss;
-  oss << "0x" << std::hex << value;
-  return oss.str();
-}
-
 std::string format_symbol_name(const transfer_symbol& symbol) {
   std::string name = symbol.demangled_name.empty() ? symbol.symbol_name : symbol.demangled_name;
   if (symbol.symbol_offset != 0) {
     name += "+";
-    name += format_hex(symbol.symbol_offset);
+    name += w1::util::format_hex(symbol.symbol_offset);
   }
   return name;
 }
@@ -43,7 +37,7 @@ endpoint_summary describe_endpoint(const transfer_engine& engine, const transfer
     out.module = endpoint->module_name;
     if (!endpoint->symbol && endpoint->module_offset != 0) {
       out.module += "+";
-      out.module += format_hex(endpoint->module_offset);
+      out.module += w1::util::format_hex(endpoint->module_offset);
     }
   }
 

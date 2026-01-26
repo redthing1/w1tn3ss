@@ -2,61 +2,23 @@
 #include <w1dump/process_dumper.hpp>
 #include <iomanip>
 #include <iostream>
-#include <sstream>
-#include <chrono>
 #include <redlog.hpp>
+
+#include "w1base/format_utils.hpp"
+#include "w1base/time_utils.hpp"
 
 namespace w1tool::commands {
 
 using namespace w1::dump;
 
-// helper function to format timestamp
-std::string format_timestamp(uint64_t timestamp) {
-  // timestamp is in milliseconds since epoch
-  auto duration = std::chrono::milliseconds(timestamp);
-  auto tp = std::chrono::system_clock::time_point(duration);
-  auto time_t = std::chrono::system_clock::to_time_t(tp);
-
-  std::stringstream ss;
-  ss << std::put_time(std::localtime(&time_t), "%Y-%m-%d %H:%M:%S");
-  return ss.str();
-}
-
-// helper function to format byte sizes
-static std::string format_bytes_dump(uint64_t bytes) {
-  if (bytes >= 1024ULL * 1024 * 1024) {
-    double gb = static_cast<double>(bytes) / (1024.0 * 1024.0 * 1024.0);
-    std::stringstream ss;
-    ss << std::fixed << std::setprecision(1) << gb << " GB";
-    return ss.str();
-  } else if (bytes >= 1024 * 1024) {
-    double mb = static_cast<double>(bytes) / (1024.0 * 1024.0);
-    std::stringstream ss;
-    ss << std::fixed << std::setprecision(1) << mb << " MB";
-    return ss.str();
-  } else if (bytes >= 1024) {
-    double kb = static_cast<double>(bytes) / 1024.0;
-    std::stringstream ss;
-    ss << std::fixed << std::setprecision(1) << kb << " KB";
-    return ss.str();
-  } else {
-    return std::to_string(bytes) + " B";
-  }
-}
-
-// helper to format permissions
-std::string format_permissions(uint32_t perms) {
-  std::string result;
-  result += (perms & 1) ? "r" : "-"; // read
-  result += (perms & 2) ? "w" : "-"; // write
-  result += (perms & 4) ? "x" : "-"; // execute
-  return result;
-}
-
 int read_dump(
     args::ValueFlag<std::string>& file_flag, args::Flag& detailed_flag, args::ValueFlag<std::string>& module_flag
 ) {
   auto log = redlog::get_logger("w1tool.read_dump");
+
+  auto format_perm_bits = [](uint32_t perms) {
+    return w1::util::format_permissions((perms & 1u) != 0, (perms & 2u) != 0, (perms & 4u) != 0);
+  };
 
   if (!file_flag) {
     log.err("--file argument required");
@@ -77,7 +39,7 @@ int read_dump(
 
       // metadata section
       std::cout << "├─ Metadata\n";
-      std::cout << "│  ├─ Timestamp: " << format_timestamp(dump.metadata.timestamp) << "\n";
+      std::cout << "│  ├─ Timestamp: " << w1::util::format_timestamp_local_ms(dump.metadata.timestamp) << "\n";
       std::cout << "│  ├─ Platform:  " << dump.metadata.os << "/" << dump.metadata.arch << " ("
                 << static_cast<int>(dump.metadata.pointer_size) * 8 << "-bit)\n";
       std::cout << "│  └─ Process:   " << dump.metadata.process_name << " [pid:" << dump.metadata.pid << "]\n";
@@ -129,13 +91,13 @@ int read_dump(
 
       std::cout << "├─ Memory Regions (" << dump.regions.size() << " total, " << mapped_regions << " mapped, "
                 << reserved_regions << " reserved)\n";
-      std::cout << "│  ├─ Stack: " << std::setw(3) << stack_count << " regions (" << format_bytes_dump(stack_size)
+      std::cout << "│  ├─ Stack: " << std::setw(3) << stack_count << " regions (" << w1::util::format_bytes(stack_size)
                 << ")\n";
-      std::cout << "│  ├─ Code:  " << std::setw(3) << code_count << " regions (" << format_bytes_dump(code_size)
+      std::cout << "│  ├─ Code:  " << std::setw(3) << code_count << " regions (" << w1::util::format_bytes(code_size)
                 << ")\n";
-      std::cout << "│  ├─ Data:  " << std::setw(3) << data_count << " regions (" << format_bytes_dump(data_size)
+      std::cout << "│  ├─ Data:  " << std::setw(3) << data_count << " regions (" << w1::util::format_bytes(data_size)
                 << ")\n";
-      std::cout << "│  └─ Total: " << format_bytes_dump(total_mapped) << " mapped\n";
+      std::cout << "│  └─ Total: " << w1::util::format_bytes(total_mapped) << " mapped\n";
 
       // thread state
       std::cout << "└─ Thread State\n";
@@ -174,10 +136,10 @@ int read_dump(
       }
 
       // compact module display
-      auto print_module_line = [](const module_info* mod, bool show_system) {
+      auto print_module_line = [&](const module_info* mod, bool show_system) {
         std::cout << std::hex << std::setw(12) << mod->base_address << std::dec << " " << std::setw(8) << std::right
-                  << format_bytes_dump(mod->size) << " " << std::setw(3) << format_permissions(mod->permissions) << " "
-                  << std::left << std::setw(32) << mod->name;
+                  << w1::util::format_bytes(mod->size) << " " << std::setw(3) << format_perm_bits(mod->permissions)
+                  << " " << std::left << std::setw(32) << mod->name;
         if (show_system) {
           std::cout << " [sys]";
         }
@@ -242,13 +204,13 @@ int read_dump(
       std::cout << "START        END          SIZE     PRM TYPE MODULE\n";
       std::cout << "────────────────────────────────────────────────────────────────────────────────────────────────\n";
 
-      auto print_region_group = [](const RegionGroup& group) {
+      auto print_region_group = [&](const RegionGroup& group) {
         if (group.regions.empty()) {
           return;
         }
 
         std::cout << "── " << group.name << " (" << group.regions.size() << " regions, "
-                  << format_bytes_dump(group.total_size) << ") ";
+                  << w1::util::format_bytes(group.total_size) << ") ";
         size_t padding = 0;
         const size_t base_width = 70;
         const size_t used_width = group.name.length() + 20;
@@ -262,8 +224,8 @@ int read_dump(
 
         for (const auto* region : group.regions) {
           std::cout << std::hex << std::setw(12) << region->start << " " << std::setw(12) << region->end << std::dec
-                    << " " << std::setw(8) << format_bytes_dump(region->end - region->start) << " " << std::setw(3)
-                    << format_permissions(region->permissions) << " " << std::setw(4)
+                    << " " << std::setw(8) << w1::util::format_bytes(region->end - region->start) << " " << std::setw(3)
+                    << format_perm_bits(region->permissions) << " " << std::setw(4)
                     << (region->is_stack  ? "STK"
                         : region->is_code ? "CODE"
                                           : "DATA");
@@ -273,7 +235,7 @@ int read_dump(
           }
 
           if (!region->data.empty()) {
-            std::cout << " [" << format_bytes_dump(region->data.size()) << " captured]";
+            std::cout << " [" << w1::util::format_bytes(region->data.size()) << " captured]";
           }
 
           std::cout << "\n";

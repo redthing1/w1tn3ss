@@ -2,17 +2,16 @@
 #include <w1formats/drcov.hpp>
 #include <iomanip>
 #include <iostream>
-#include <locale>
 #include <redlog.hpp>
 #include <sstream>
 
+#include "w1base/format_utils.hpp"
+
 namespace w1tool::commands {
 
-std::string format_address(uint64_t address) {
-  std::ostringstream out;
-  out << "0x" << std::hex << address;
-  return out.str();
-}
+using w1::util::format_address;
+using w1::util::format_bytes;
+using w1::util::format_number;
 
 // helper function to format hit counts with K/M/B suffixes
 std::string format_hits(uint64_t hits) {
@@ -33,51 +32,6 @@ std::string format_hits(uint64_t hits) {
     return ss.str();
   } else {
     return std::to_string(hits);
-  }
-}
-
-// helper function to format byte sizes with KB/MB/GB suffixes
-std::string format_bytes(uint64_t bytes) {
-  if (bytes >= 1024ULL * 1024 * 1024) {
-    double gb = static_cast<double>(bytes) / (1024.0 * 1024.0 * 1024.0);
-    std::stringstream ss;
-    ss << std::fixed << std::setprecision(1) << gb << " GB";
-    return ss.str();
-  } else if (bytes >= 1024 * 1024) {
-    double mb = static_cast<double>(bytes) / (1024.0 * 1024.0);
-    std::stringstream ss;
-    ss << std::fixed << std::setprecision(1) << mb << " MB";
-    return ss.str();
-  } else if (bytes >= 1024) {
-    double kb = static_cast<double>(bytes) / 1024.0;
-    std::stringstream ss;
-    ss << std::fixed << std::setprecision(1) << kb << " KB";
-    return ss.str();
-  } else {
-    return std::to_string(bytes) + " B";
-  }
-}
-
-// helper function to format plain numbers (for counts)
-std::string format_number(uint64_t number) {
-  try {
-    std::stringstream ss;
-    ss.imbue(std::locale(""));
-    ss << number;
-    return ss.str();
-  } catch (...) {
-    // fallback: manual formatting with commas
-    std::string str = std::to_string(number);
-    std::string result;
-    int count = 0;
-    for (auto it = str.rbegin(); it != str.rend(); ++it) {
-      if (count > 0 && count % 3 == 0) {
-        result = ',' + result;
-      }
-      result = *it + result;
-      count++;
-    }
-    return result;
   }
 }
 

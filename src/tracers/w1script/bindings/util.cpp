@@ -3,81 +3,20 @@
 #include <w1base/platform_utils.hpp>
 
 #include <algorithm>
-#include <cctype>
 #include <cstdint>
 #include <iomanip>
 #include <sstream>
 #include <string>
 #include <vector>
 
+#include "w1base/format_utils.hpp"
+#include "w1base/json_utils.hpp"
+
 namespace w1::tracers::script::bindings {
 
 namespace {
 
 constexpr char hex_digits[] = "0123456789abcdef";
-
-std::string format_integer_hex(uint64_t value, size_t width) {
-  std::string hex;
-  if (value == 0) {
-    hex = "0";
-  } else {
-    while (value > 0) {
-      hex.push_back(hex_digits[value & 0xF]);
-      value >>= 4;
-    }
-    std::reverse(hex.begin(), hex.end());
-  }
-
-  if (hex.size() < width) {
-    hex.insert(hex.begin(), width - hex.size(), '0');
-  }
-
-  return hex;
-}
-
-std::string escape_json(const std::string& input) {
-  std::string out;
-  out.reserve(input.size() + 2);
-  out.push_back('"');
-
-  for (char ch : input) {
-    switch (ch) {
-    case '"':
-      out += "\\\"";
-      break;
-    case '\\':
-      out += "\\\\";
-      break;
-    case '\b':
-      out += "\\b";
-      break;
-    case '\f':
-      out += "\\f";
-      break;
-    case '\n':
-      out += "\\n";
-      break;
-    case '\r':
-      out += "\\r";
-      break;
-    case '\t':
-      out += "\\t";
-      break;
-    default:
-      if (static_cast<unsigned char>(ch) < 0x20) {
-        std::ostringstream oss;
-        oss << "\\u" << std::hex << std::setw(4) << std::setfill('0') << (static_cast<int>(ch) & 0xFF);
-        out += oss.str();
-      } else {
-        out.push_back(ch);
-      }
-      break;
-    }
-  }
-
-  out.push_back('"');
-  return out;
-}
 
 bool is_array_table(const sol::table& table, size_t& length) {
   length = 0;
@@ -153,7 +92,7 @@ std::string lua_table_to_json_internal(const sol::table& table, int depth) {
     }
     first = false;
 
-    out += escape_json(key_str);
+    out += w1::util::quote_json_string(key_str);
     out += ':';
     out += lua_value_to_json(val, depth + 1);
   }
@@ -177,7 +116,7 @@ std::string lua_value_to_json(const sol::object& value, int depth) {
   }
 
   if (value.is<std::string>()) {
-    return escape_json(value.as<std::string>());
+    return w1::util::quote_json_string(value.as<std::string>());
   }
 
   if (value.is<sol::table>()) {
@@ -194,9 +133,7 @@ void setup_util_bindings(sol::state& lua, sol::table& w1_module, uint64_t thread
 
   util.set_function("format_address", [](uint64_t address) -> std::string {
     size_t width = sizeof(uintptr_t) * 2;
-    std::ostringstream oss;
-    oss << "0x" << std::hex << std::setw(static_cast<int>(width)) << std::setfill('0') << address;
-    return oss.str();
+    return w1::util::format_hex(address, width, true);
   });
 
   util.set_function(
@@ -217,7 +154,7 @@ void setup_util_bindings(sol::state& lua, sol::table& w1_module, uint64_t thread
           lua_Integer iv = value.as<lua_Integer>();
           bool negative = iv < 0;
           uint64_t magnitude = negative ? static_cast<uint64_t>(-iv) : static_cast<uint64_t>(iv);
-          std::string hex = format_integer_hex(magnitude, width);
+          std::string hex = w1::util::format_hex(magnitude, width, false);
           if (prefix) {
             hex.insert(0, "0x");
           }
