@@ -48,18 +48,31 @@ bool replay_session::open() {
     set_error("trace index required");
     return false;
   }
-  if (config_.context.header.version == 0) {
+  bool empty_uuid = true;
+  for (auto byte : config_.context.header.trace_uuid) {
+    if (byte != 0) {
+      empty_uuid = false;
+      break;
+    }
+  }
+  if (empty_uuid) {
     set_error("replay context required");
     return false;
   }
 
   context_ = config_.context;
   block_decoder_ = config_.block_decoder;
-
-  if (config_.track_registers && context_.register_specs.empty() &&
-      (context_.header.flags & trace_flag_register_deltas) != 0) {
-    set_error("register specs missing");
-    return false;
+  state_.set_register_files(context_.register_files);
+  bool track_mappings = config_.track_mappings || context_.features.has_mapping_events;
+  if (track_mappings) {
+    mapping_state_.emplace();
+    std::string mapping_error;
+    if (!mapping_state_->reset(context_.mappings, mapping_error)) {
+      set_error(mapping_error.empty() ? "invalid mapping snapshot" : mapping_error);
+      return false;
+    }
+  } else {
+    mapping_state_.reset();
   }
 
   state_applier_.emplace(context_);
@@ -73,9 +86,15 @@ bool replay_session::open() {
   }
 
   stateful_flow_cursor_.emplace(*flow_cursor_, *state_applier_, state_);
-  stateful_flow_cursor_->configure(context_, config_.track_registers, config_.track_memory);
+  if (!stateful_flow_cursor_->configure(
+          context_, config_.track_registers, config_.track_memory, track_mappings ? &*mapping_state_ : nullptr
+      )) {
+    set_error(map_flow_error_kind(stateful_flow_cursor_->error_kind()), std::string(stateful_flow_cursor_->error()));
+    return false;
+  }
   instruction_cursor_.emplace(*stateful_flow_cursor_);
   instruction_cursor_->set_decoder(block_decoder_);
+  instruction_cursor_->set_strict(config_.strict_instructions);
 
   if (config_.checkpoint) {
     checkpoint_index_ = config_.checkpoint;
@@ -102,6 +121,7 @@ void replay_session::close() {
   instruction_cursor_.reset();
   context_ = replay_context{};
   state_.reset();
+  mapping_state_.reset();
   current_position_ = replay_position{};
   current_step_ = flow_step{};
   active_thread_id_ = 0;
@@ -128,7 +148,13 @@ bool replay_session::select_thread(uint64_t thread_id, uint64_t sequence) {
     return false;
   }
 
-  stateful_flow_cursor_->configure(context_, config_.track_registers, config_.track_memory);
+  if (!stateful_flow_cursor_->configure(
+          context_, config_.track_registers, config_.track_memory,
+          mapping_state_.has_value() ? &*mapping_state_ : nullptr
+      )) {
+    set_error(map_flow_error_kind(stateful_flow_cursor_->error_kind()), std::string(stateful_flow_cursor_->error()));
+    return false;
+  }
 
   bool used_checkpoint = false;
   if (checkpoint_index_ && (config_.track_registers || config_.track_memory)) {
@@ -145,26 +171,7 @@ bool replay_session::select_thread(uint64_t thread_id, uint64_t sequence) {
     }
   }
 
-  bool used_snapshot = false;
-  if (!used_checkpoint && (config_.track_registers || config_.track_memory) && config_.index) {
-    auto snapshot = config_.index->find_snapshot(thread_id, sequence);
-    if (snapshot.has_value() && snapshot->sequence == sequence) {
-      if (sequence > 0) {
-        snapshot = config_.index->find_snapshot(thread_id, sequence - 1);
-      } else {
-        snapshot.reset();
-      }
-    }
-    if (snapshot.has_value()) {
-      if (!flow_cursor_->seek_from_location(thread_id, sequence, {snapshot->chunk_index, snapshot->record_offset})) {
-        set_error(map_flow_error_kind(flow_cursor_->error_kind()), std::string(flow_cursor_->error()));
-        return false;
-      }
-      used_snapshot = true;
-    }
-  }
-
-  if (!used_checkpoint && !used_snapshot) {
+  if (!used_checkpoint) {
     if (!flow_cursor_->seek(thread_id, sequence)) {
       set_error(map_flow_error_kind(flow_cursor_->error_kind()), std::string(flow_cursor_->error()));
       return false;
@@ -347,10 +354,14 @@ bool replay_session::sync_instruction_position(bool forward) {
   }
 
   if (normalized.instruction.has_value()) {
-    instruction_cursor_->set_position(
-        *normalized.instruction,
-        forward ? replay_instruction_cursor::position_bias::start : replay_instruction_cursor::position_bias::end
-    );
+    if (!instruction_cursor_->set_position(
+            *normalized.instruction,
+            forward ? replay_instruction_cursor::position_bias::start : replay_instruction_cursor::position_bias::end
+        )) {
+      set_error(instruction_cursor_->error().empty() ? "failed to sync instruction position"
+                                                     : instruction_cursor_->error());
+      return false;
+    }
     if (auto notice = instruction_cursor_->take_notice(); notice.has_value()) {
       notice_ = notice;
     }
@@ -365,47 +376,45 @@ bool replay_session::sync_instruction_position(bool forward) {
 }
 
 std::vector<std::optional<uint64_t>> replay_session::read_registers() const {
-  const size_t count = context_.register_specs.size();
+  const size_t count = context_.default_registers.size();
+  auto out = build_unknown_registers(count);
   if (!config_.track_registers || !stateful_flow_cursor_.has_value()) {
-    return build_unknown_registers(count);
-  }
-  const auto& regs = state_.registers();
-  if (regs.size() == count) {
-    return regs;
+    return out;
   }
 
-  auto out = build_unknown_registers(count);
-  size_t copy_count = std::min(out.size(), regs.size());
-  for (size_t i = 0; i < copy_count; ++i) {
-    out[i] = regs[i];
+  endian byte_order = endian::unknown;
+  if (context_.arch.has_value()) {
+    byte_order = context_.arch->byte_order;
+  }
+
+  for (size_t i = 0; i < count; ++i) {
+    const auto& spec = context_.default_registers[i];
+    out[i] = state_.register_value(0, spec.reg_id, byte_order);
   }
   return out;
 }
 
-bool replay_session::read_register_bytes(uint16_t reg_id, std::span<std::byte> out, bool& known) const {
+bool replay_session::read_register_bytes(uint32_t reg_id, std::span<std::byte> out, bool& known) const {
   known = false;
   if (!config_.track_registers || !stateful_flow_cursor_.has_value()) {
     return true;
   }
-  if (reg_id >= context_.register_specs.size()) {
+  if (reg_id >= context_.default_registers.size()) {
     return false;
   }
-  const auto& spec = context_.register_specs[reg_id];
-  if (spec.value_kind != register_value_kind::bytes) {
-    return false;
-  }
-  size_t size = (spec.bits + 7u) / 8u;
+  const auto& spec = context_.default_registers[reg_id];
+  size_t size = (spec.bit_size + 7u) / 8u;
   if (size == 0 || out.size() < size) {
     return false;
   }
-  return state_.copy_register_bytes(reg_id, out, known);
+  return state_.copy_register_bytes(0, spec.reg_id, out, known);
 }
 
 memory_read replay_session::read_memory(uint64_t address, size_t size) const {
   if (!config_.track_memory || !stateful_flow_cursor_.has_value()) {
     return build_unknown_memory(size);
   }
-  return state_.read_memory(address, size);
+  return state_.read_memory(0, address, size);
 }
 
 const replay_state* replay_session::state() const {
@@ -415,39 +424,47 @@ const replay_state* replay_session::state() const {
   return &state_;
 }
 
+const mapping_state* replay_session::mappings() const {
+  if (!mapping_state_.has_value()) {
+    return nullptr;
+  }
+  return &*mapping_state_;
+}
+
 bool replay_session::apply_checkpoint(const replay_checkpoint_entry& checkpoint) {
   state_.reset();
+  state_.set_register_files(context_.register_files);
   if (config_.track_registers) {
-    state_.set_register_specs(context_.register_specs);
-    state_.apply_register_snapshot(checkpoint.registers);
-    if (!checkpoint.register_bytes_entries.empty()) {
-      if (!state_.apply_register_bytes(checkpoint.register_bytes_entries, checkpoint.register_bytes)) {
-        set_error("checkpoint register bytes mismatch");
-        return false;
-      }
+    std::string error;
+    if (!state_.apply_register_snapshot(checkpoint.regfile_id, checkpoint.registers, error)) {
+      set_error(error.empty() ? "failed to apply checkpoint registers" : error);
+      return false;
     }
   }
   if (config_.track_memory) {
-    state_.set_memory_spans(checkpoint.memory);
+    state_.set_memory_segments(checkpoint.memory_segments);
+  }
+  if (mapping_state_.has_value()) {
+    if (checkpoint_index_ && (checkpoint_index_->header.flags & k_checkpoint_flag_has_mappings) != 0) {
+      std::string mapping_error;
+      if (!mapping_state_->reset(checkpoint.mappings, mapping_error)) {
+        set_error(mapping_error.empty() ? "invalid checkpoint mappings" : mapping_error);
+        return false;
+      }
+    } else {
+      std::string mapping_error;
+      if (!mapping_state_->reset(context_.mappings, mapping_error)) {
+        set_error(mapping_error.empty() ? "invalid mapping snapshot" : mapping_error);
+        return false;
+      }
+    }
   }
   return true;
 }
 
 bool replay_session::validate_checkpoint(const replay_checkpoint_index& index) {
-  if (index.header.trace_version != context_.header.version) {
-    set_error("checkpoint trace version mismatch");
-    return false;
-  }
-  if (index.header.trace_flags != context_.header.flags) {
-    set_error("checkpoint trace flags mismatch");
-    return false;
-  }
-  if (index.header.arch != context_.header.arch) {
-    set_error("checkpoint architecture mismatch");
-    return false;
-  }
-  if (!context_.register_specs.empty() && index.header.register_count != context_.register_specs.size()) {
-    set_error("checkpoint register count mismatch");
+  if (index.header.trace_uuid != context_.header.trace_uuid) {
+    set_error("checkpoint trace uuid mismatch");
     return false;
   }
   return true;
@@ -525,7 +542,15 @@ bool replay_session::step_flow_backward_internal(flow_step& out) {
     if (checkpoint_index_) {
       const auto* checkpoint = find_checkpoint(active_thread_id_, target);
       if (checkpoint) {
-        stateful_flow_cursor_->configure(context_, config_.track_registers, config_.track_memory);
+        if (!stateful_flow_cursor_->configure(
+                context_, config_.track_registers, config_.track_memory,
+                mapping_state_.has_value() ? &*mapping_state_ : nullptr
+            )) {
+          set_error(
+              map_flow_error_kind(stateful_flow_cursor_->error_kind()), std::string(stateful_flow_cursor_->error())
+          );
+          return false;
+        }
         if (!apply_checkpoint(*checkpoint)) {
           return false;
         }
@@ -545,22 +570,34 @@ bool replay_session::step_flow_backward_internal(flow_step& out) {
       }
     }
 
-    std::optional<trace_anchor> snapshot;
+    std::optional<trace_anchor> anchor;
     if (config_.index) {
-      snapshot = config_.index->find_snapshot(active_thread_id_, target);
-      if (snapshot.has_value() && snapshot->sequence == target) {
+      anchor = config_.index->find_anchor(active_thread_id_, target);
+      if (anchor.has_value() && anchor->sequence > target) {
+        anchor.reset();
+      }
+      if (anchor.has_value() && anchor->sequence == target) {
         if (target > 0) {
-          snapshot = config_.index->find_snapshot(active_thread_id_, target - 1);
+          anchor = config_.index->find_anchor(active_thread_id_, target - 1);
+          if (anchor.has_value() && anchor->sequence > target - 1) {
+            anchor.reset();
+          }
         } else {
-          snapshot.reset();
+          anchor.reset();
         }
       }
     }
 
-    stateful_flow_cursor_->configure(context_, config_.track_registers, config_.track_memory);
-    if (snapshot.has_value()) {
+    if (!stateful_flow_cursor_->configure(
+            context_, config_.track_registers, config_.track_memory,
+            mapping_state_.has_value() ? &*mapping_state_ : nullptr
+        )) {
+      set_error(map_flow_error_kind(stateful_flow_cursor_->error_kind()), std::string(stateful_flow_cursor_->error()));
+      return false;
+    }
+    if (anchor.has_value()) {
       if (!flow_cursor_->seek_from_location(
-              active_thread_id_, target, {snapshot->chunk_index, snapshot->record_offset}
+              active_thread_id_, target, {anchor->chunk_index, anchor->record_offset}
           )) {
         set_error(map_flow_error_kind(flow_cursor_->error_kind()), std::string(flow_cursor_->error()));
         return false;

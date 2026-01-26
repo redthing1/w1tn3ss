@@ -1,7 +1,6 @@
 #include "w1replay/gdb/adapter_components.hpp"
 
 #include <limits>
-#include "w1rewind/format/trace_format.hpp"
 
 namespace w1replay::gdb {
 
@@ -10,91 +9,112 @@ namespace {
 constexpr uint64_t k_auxv_at_null = 0;
 constexpr uint64_t k_auxv_at_entry = 9;
 
-bool entry_in_module(const w1::rewind::module_record& module, uint64_t entry) {
-  if (module.size == 0) {
-    return true;
-  }
-  if (entry < module.base) {
-    return false;
-  }
-  uint64_t end = module.base + module.size;
-  if (end < module.base) {
-    return false;
-  }
-  return entry < end;
+struct mapping_view {
+  const w1::rewind::mapping_record* mapping = nullptr;
+  uint64_t base = 0;
+  uint64_t image_offset = 0;
+};
+
+bool add_overflows(uint64_t base, uint64_t addend) {
+  return base > std::numeric_limits<uint64_t>::max() - addend;
 }
 
-std::optional<uint64_t> compute_runtime_entrypoint(const w1::rewind::module_record& module) {
-  if ((module.flags & w1::rewind::module_record_flag_entry_point_valid) == 0) {
-    return std::nullopt;
+const w1::rewind::image_record* find_main_image(const adapter_services& services) {
+  if (!services.context) {
+    return nullptr;
   }
-  if ((module.flags & w1::rewind::module_record_flag_link_base_valid) == 0) {
-    return std::nullopt;
+  for (const auto& image : services.context->images) {
+    if ((image.flags & w1::rewind::image_flag_main) != 0) {
+      return &image;
+    }
   }
-  const uint64_t entry = module.entry_point;
-  const uint64_t link_base = module.link_base;
-  if (entry < link_base) {
-    return std::nullopt;
+  if (services.session && services.image_index) {
+    uint64_t pc = services.session->current_step().address;
+    auto match = services.image_index->find(pc, 1);
+    if (match && match->image) {
+      return match->image;
+    }
   }
-  uint64_t offset = entry - link_base;
-  if (module.base > std::numeric_limits<uint64_t>::max() - offset) {
-    return std::nullopt;
-  }
-  uint64_t runtime_entry = module.base + offset;
-  if (!entry_in_module(module, runtime_entry)) {
-    return std::nullopt;
-  }
-  return runtime_entry;
+  return nullptr;
 }
 
-bool is_elf_file_backed(const w1::rewind::module_record& module) {
-  return (module.flags & w1::rewind::module_record_flag_file_backed) != 0 &&
-         module.format == w1::rewind::module_format::elf;
+std::vector<mapping_view> collect_mappings(const adapter_services& services, uint32_t space_id) {
+  std::vector<mapping_view> out;
+  if (services.mappings) {
+    auto it = services.mappings->ranges_by_space().find(space_id);
+    if (it == services.mappings->ranges_by_space().end()) {
+      return out;
+    }
+    out.reserve(it->second.size());
+    for (const auto& range : it->second) {
+      if (!range.mapping || range.end <= range.start) {
+        continue;
+      }
+      if (range.start < range.mapping->base) {
+        continue;
+      }
+      uint64_t delta = range.start - range.mapping->base;
+      if (add_overflows(range.mapping->image_offset, delta)) {
+        continue;
+      }
+      out.push_back({range.mapping, range.start, range.mapping->image_offset + delta});
+    }
+    return out;
+  }
+
+  if (!services.context) {
+    return out;
+  }
+  out.reserve(services.context->mappings.size());
+  for (const auto& mapping : services.context->mappings) {
+    if (mapping.space_id != space_id || mapping.size == 0) {
+      continue;
+    }
+    out.push_back({&mapping, mapping.base, mapping.image_offset});
+  }
+  return out;
 }
 
-std::optional<uint64_t> select_entrypoint(const adapter_services& services) {
+std::optional<uint64_t> compute_runtime_entrypoint(
+    const adapter_services& services, const w1::rewind::image_record& image
+) {
   if (!services.context) {
     return std::nullopt;
   }
+  const auto* meta = services.context->find_image_metadata(image.image_id);
+  if (!meta) {
+    return std::nullopt;
+  }
+  if ((meta->flags & w1::rewind::image_meta_has_entry_point) == 0 ||
+      (meta->flags & w1::rewind::image_meta_has_link_base) == 0) {
+    return std::nullopt;
+  }
+  const uint64_t entry = meta->entry_point;
+  const uint64_t link_base = meta->link_base;
 
-  const auto& modules = services.context->modules;
-  for (const auto& module : modules) {
-    if ((module.flags & w1::rewind::module_record_flag_main) == 0) {
+  auto mappings = collect_mappings(services, 0);
+  for (const auto& view : mappings) {
+    if (!view.mapping || view.mapping->image_id != image.image_id) {
       continue;
     }
-    if (!is_elf_file_backed(module)) {
-      return std::nullopt;
-    }
-    return compute_runtime_entrypoint(module);
-  }
-
-  if (services.session && services.module_index) {
-    uint64_t pc = services.session->current_step().address;
-    auto match = services.module_index->find(pc, 1);
-    if (match && match->module && is_elf_file_backed(*match->module)) {
-      if (auto entry = compute_runtime_entrypoint(*match->module)) {
-        return entry;
-      }
-    }
-  }
-
-  std::optional<uint64_t> best;
-  uint64_t best_base = 0;
-  for (const auto& module : modules) {
-    if (!is_elf_file_backed(module)) {
+    if (add_overflows(link_base, view.image_offset)) {
       continue;
     }
-    auto entry = compute_runtime_entrypoint(module);
-    if (!entry) {
+    uint64_t mapped_base = link_base + view.image_offset;
+    if (view.base < mapped_base) {
       continue;
     }
-    if (!best || module.base < best_base) {
-      best = entry;
-      best_base = module.base;
+    if (entry < link_base) {
+      continue;
     }
+    uint64_t offset = entry - link_base;
+    if (view.base > std::numeric_limits<uint64_t>::max() - offset) {
+      continue;
+    }
+    return view.base + offset;
   }
 
-  return best;
+  return std::nullopt;
 }
 
 bool append_auxv_entry(std::vector<std::byte>& out, uint64_t type, uint64_t value, size_t word_size, endian order) {
@@ -125,14 +145,17 @@ std::optional<std::vector<std::byte>> auxv_component::auxv_data() const {
 }
 
 std::optional<std::vector<std::byte>> auxv_component::build_auxv() const {
-  if (!services_.context || !services_.context->target_info) {
+  if (!services_.context || !services_.context->environment) {
     return std::nullopt;
   }
-  if (services_.context->target_info->os != "linux") {
+  if (services_.context->environment->os_id != "linux") {
     return std::nullopt;
   }
 
-  uint32_t pointer_bits = services_.context->header.arch.pointer_bits;
+  uint32_t pointer_bits = 0;
+  if (services_.context->arch.has_value()) {
+    pointer_bits = services_.context->arch->pointer_bits;
+  }
   if (pointer_bits == 0 || pointer_bits % 8 != 0) {
     return std::nullopt;
   }
@@ -141,7 +164,11 @@ std::optional<std::vector<std::byte>> auxv_component::build_auxv() const {
     return std::nullopt;
   }
 
-  auto entry = select_entrypoint(services_);
+  const auto* image = find_main_image(services_);
+  if (!image) {
+    return std::nullopt;
+  }
+  auto entry = compute_runtime_entrypoint(services_, *image);
   if (!entry) {
     return std::nullopt;
   }

@@ -6,7 +6,7 @@
 #include <vector>
 
 namespace w1::rewind {
-struct module_record;
+struct image_record;
 }
 
 namespace w1replay {
@@ -27,16 +27,16 @@ struct macho_segment_info {
   uint32_t maxprot = 0;
 };
 
-class module_metadata_provider {
+class image_metadata_provider {
 public:
-  virtual ~module_metadata_provider() = default;
+  virtual ~image_metadata_provider() = default;
 
-  virtual std::optional<std::string> module_uuid(const w1::rewind::module_record& module, std::string& error) = 0;
+  virtual std::optional<std::string> image_uuid(const w1::rewind::image_record& image, std::string& error) = 0;
   virtual std::optional<macho_header_info> macho_header(
-      const w1::rewind::module_record& module, std::string& error
+      const w1::rewind::image_record& image, std::string& error
   ) = 0;
   virtual std::vector<macho_segment_info> macho_segments(
-      const w1::rewind::module_record& module, std::string& error
+      const w1::rewind::image_record& image, std::string& error
   ) = 0;
 };
 

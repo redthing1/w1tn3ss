@@ -31,6 +31,9 @@ void cmd_inspect(args::Subparser& parser) {
 
   args::ValueFlag<std::string> trace_flag(parser, "path", "path to trace file", {'t', "trace"});
   args::ValueFlag<std::string> index_flag(parser, "path", "path to index file", {'i', "index"});
+  args::ValueFlag<uint32_t> index_stride_flag(
+      parser, "count", "index anchor stride (flow records)", {"index-stride"}
+  );
   args::ValueFlag<uint64_t> thread_flag(parser, "thread", "thread id", {'T', "thread"});
   args::ValueFlag<uint64_t> start_flag(parser, "sequence", "start sequence", {'s', "start"});
   args::ValueFlag<uint32_t> count_flag(parser, "count", "number of steps", {'n', "count"});
@@ -38,12 +41,19 @@ void cmd_inspect(args::Subparser& parser) {
   args::Flag reverse_flag(parser, "reverse", "step backward", {"reverse"});
   args::Flag inst_flag(parser, "inst", "step instructions (decode block traces)", {"inst"});
   args::Flag regs_flag(parser, "regs", "show register state", {"regs"});
+  args::Flag json_flag(parser, "json", "emit JSON output", {"json"});
   args::ValueFlag<std::string> mem_flag(
-      parser, "range", "show memory bytes at addr:size (example: 0x1000:32)", {"mem"}
+      parser, "range", "show memory bytes at addr:size or space:addr:size (example: 0x1000:32)", {"mem"}
   );
-  args::ValueFlagList<std::string> module_flag(parser, "mapping", "module mapping name=path (repeatable)", {"module"});
-  args::ValueFlagList<std::string> module_dir_flag(
-      parser, "dir", "module search directory (repeatable)", {"module-dir"}
+  args::ValueFlag<std::string> mem_space_flag(
+      parser, "space", "address space name or id for --mem (example: code or 1)", {"space"}
+  );
+  args::ValueFlagList<std::string> image_flag(parser, "mapping", "image mapping name=path (repeatable)", {"image"});
+  args::ValueFlagList<std::string> image_dir_flag(
+      parser, "dir", "image search directory (repeatable)", {"image-dir"}
+  );
+  args::ValueFlag<std::string> image_layout_flag(
+      parser, "mode", "image layout source (trace|lief)", {"image-layout"}
   );
   args::ValueFlag<std::string> checkpoint_flag(parser, "path", "path to replay checkpoint file", {"checkpoint"});
   parser.Parse();
@@ -64,6 +74,7 @@ void cmd_inspect(args::Subparser& parser) {
   w1replay::commands::inspect_options options;
   options.trace_path = *trace_flag;
   options.index_path = index_flag ? *index_flag : "";
+  options.index_stride = index_stride_flag ? *index_stride_flag : 0;
   options.thread_id = *thread_flag;
   options.start_sequence = start_flag ? *start_flag : 0;
   options.count = count_flag ? *count_flag : 10;
@@ -72,12 +83,24 @@ void cmd_inspect(args::Subparser& parser) {
   options.instruction_steps = inst_flag;
   options.show_registers = regs_flag;
   options.memory_range = mem_flag ? *mem_flag : "";
+  options.memory_space = mem_space_flag ? *mem_space_flag : "";
   options.checkpoint_path = checkpoint_flag ? *checkpoint_flag : "";
-  if (module_flag) {
-    options.module_mappings = args::get(module_flag);
+  options.json_output = json_flag;
+  if (image_flag) {
+    options.image_mappings = args::get(image_flag);
   }
-  if (module_dir_flag) {
-    options.module_dirs = args::get(module_dir_flag);
+  if (image_dir_flag) {
+    options.image_dirs = args::get(image_dir_flag);
+  }
+  if (image_layout_flag) {
+    auto parsed = w1replay::parse_image_layout_mode(*image_layout_flag);
+    if (!parsed.has_value()) {
+      log_main.err("invalid image layout mode", redlog::field("value", *image_layout_flag));
+      std::cerr << "error: invalid --image-layout (use trace or lief)" << std::endl;
+      g_exit_code = 1;
+      return;
+    }
+    options.image_layout = *parsed;
   }
 
   g_exit_code = w1replay::commands::inspect(options);
@@ -164,9 +187,12 @@ void cmd_server(args::Subparser& parser) {
   args::ValueFlag<uint64_t> thread_flag(parser, "thread", "thread id", {'T', "thread"});
   args::ValueFlag<uint64_t> start_flag(parser, "sequence", "start sequence", {'s', "start"});
   args::Flag inst_flag(parser, "inst", "prefer instruction steps when possible", {"inst"});
-  args::ValueFlagList<std::string> module_flag(parser, "mapping", "module mapping name=path (repeatable)", {"module"});
-  args::ValueFlagList<std::string> module_dir_flag(
-      parser, "dir", "module search directory (repeatable)", {"module-dir"}
+  args::ValueFlagList<std::string> image_flag(parser, "mapping", "image mapping name=path (repeatable)", {"image"});
+  args::ValueFlagList<std::string> image_dir_flag(
+      parser, "dir", "image search directory (repeatable)", {"image-dir"}
+  );
+  args::ValueFlag<std::string> image_layout_flag(
+      parser, "mode", "image layout source (trace|lief)", {"image-layout"}
   );
   parser.Parse();
 
@@ -185,11 +211,21 @@ void cmd_server(args::Subparser& parser) {
   options.thread_id = thread_flag ? *thread_flag : 0;
   options.start_sequence = start_flag ? *start_flag : 0;
   options.instruction_steps = inst_flag;
-  if (module_flag) {
-    options.module_mappings = args::get(module_flag);
+  if (image_flag) {
+    options.image_mappings = args::get(image_flag);
   }
-  if (module_dir_flag) {
-    options.module_dirs = args::get(module_dir_flag);
+  if (image_dir_flag) {
+    options.image_dirs = args::get(image_dir_flag);
+  }
+  if (image_layout_flag) {
+    auto parsed = w1replay::parse_image_layout_mode(*image_layout_flag);
+    if (!parsed.has_value()) {
+      log_main.err("invalid image layout mode", redlog::field("value", *image_layout_flag));
+      std::cerr << "error: invalid --image-layout (use trace or lief)" << std::endl;
+      g_exit_code = 1;
+      return;
+    }
+    options.image_layout = *parsed;
   }
 
   g_exit_code = w1replay::commands::server(options);

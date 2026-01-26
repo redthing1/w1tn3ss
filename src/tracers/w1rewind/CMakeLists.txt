@@ -2,7 +2,10 @@ w1_add_tracer(w1rewind
     SOURCES
         entrypoints/preload.cpp
         config/rewind_config.cpp
-        engine/module_table_builder.cpp
+        engine/image_table_builder.cpp
+        engine/image_inventory_pipeline.cpp
+        engine/module_catalog_inventory.cpp
+        engine/qbdi_register_schema_provider.cpp
         engine/register_schema.cpp
         engine/target_environment_provider.cpp
         engine/trace_emitter.cpp

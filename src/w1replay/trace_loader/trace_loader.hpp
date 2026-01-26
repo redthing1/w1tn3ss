@@ -16,6 +16,7 @@ struct trace_load_options {
   std::string checkpoint_path;
   bool auto_build_index = true;
   bool auto_build_checkpoint = true;
+  uint32_t index_stride = 0;
   uint32_t checkpoint_stride = 0;
   bool checkpoint_include_memory = false;
 };

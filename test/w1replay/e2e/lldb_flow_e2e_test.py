@@ -163,30 +163,55 @@ def main() -> int:
         record_trace(args.w1tool, trace_path, scenario.configs, sample_path, args.timeout)
         thread_id = select_thread_id(args.w1replay, trace_path, args.timeout)
 
-        inspect_output = run_inspect(
-            args.w1replay,
-            trace_path,
-            thread_id,
-            count=10,
-            timeout=args.timeout,
-            inst=scenario.inspect_inst,
-        )
+        image_mapping = f"{os.path.basename(sample_path)}={sample_path}"
+        try:
+            inspect_output = run_inspect(
+                args.w1replay,
+                trace_path,
+                thread_id,
+                count=10,
+                timeout=args.timeout,
+                inst=scenario.inspect_inst,
+                image_mappings=[image_mapping] if scenario.inspect_inst else None,
+            )
+        except RuntimeError as exc:
+            message = str(exc)
+            if scenario.inspect_inst and (
+                "block decoder unavailable" in message
+                or "asmr decoder unavailable" in message
+                or "WITNESS_ASMR" in message
+                or "WITNESS_LIEF" in message
+            ):
+                print(f"skipping {scenario.name}: decoder unavailable", file=sys.stderr)
+                continue
+            raise
         inspect_trace = parse_inspect_output(inspect_output)
         expected_pcs = inspect_trace.addresses()
         if len(expected_pcs) < 6:
             raise AssertionError(f"{scenario.name}: need at least 6 inspect steps")
 
         host = "127.0.0.1"
-        module_mapping = f"{os.path.basename(sample_path)}={sample_path}"
         port = next_available_port(host)
-        server = start_server(
-            args.w1replay,
-            trace_path,
-            port,
-            scenario.server_inst,
-            args.timeout,
-            module_mappings=[module_mapping],
-        )
+        try:
+            server = start_server(
+                args.w1replay,
+                trace_path,
+                port,
+                scenario.server_inst,
+                args.timeout,
+                image_mappings=[image_mapping],
+            )
+        except RuntimeError as exc:
+            message = str(exc)
+            if scenario.server_inst and (
+                "block decoder unavailable" in message
+                or "asmr decoder unavailable" in message
+                or "WITNESS_ASMR" in message
+                or "WITNESS_LIEF" in message
+            ):
+                print(f"skipping {scenario.name}: decoder unavailable", file=sys.stderr)
+                continue
+            raise
         try:
             step_count = 4
             log_path = os.path.join(tempfile.gettempdir(), f"w1replay_flow_{scenario.name}_{port}.log")
@@ -224,7 +249,7 @@ def main() -> int:
             port,
             scenario.server_inst,
             args.timeout,
-            module_mappings=[module_mapping],
+            image_mappings=[image_mapping],
         )
         try:
             hit_pc = run_break_session(

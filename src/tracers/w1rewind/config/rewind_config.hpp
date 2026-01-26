@@ -5,7 +5,6 @@
 #include <vector>
 
 #include "w1instrument/config/tracer_common_config.hpp"
-#include "w1rewind/format/trace_format.hpp"
 #include "w1base/types.hpp"
 
 namespace w1rewind {
@@ -50,14 +49,21 @@ struct rewind_config {
     std::vector<w1::address_range> ranges{};
   };
 
+  struct image_blob_options {
+    bool enabled = false;
+    bool exec_only = true;
+    uint64_t max_bytes = 0;
+  };
+
   flow_options flow{};
   register_options registers{};
   stack_window_options stack_window{};
   stack_snapshot_options stack_snapshots{};
   memory_options memory{};
+  image_blob_options image_blobs{};
   std::string output_path;
-  bool compress_trace = false;
-  uint32_t chunk_size = w1::rewind::k_trace_chunk_bytes;
+  bool compress_trace = true;
+  uint32_t chunk_size = 0;
 
   static rewind_config from_environment(std::string& error);
   bool validate(std::string& error) const;

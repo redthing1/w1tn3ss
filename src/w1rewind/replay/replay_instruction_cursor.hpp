@@ -20,6 +20,8 @@ public:
   explicit replay_instruction_cursor(stateful_flow_cursor& flow);
 
   void set_decoder(block_decoder* decoder) { decoder_ = decoder; }
+  void set_strict(bool strict) { strict_ = strict; }
+  bool strict() const { return strict_; }
   void reset();
   void sync_with_flow_step(const flow_step& step);
   enum class position_bias { start, end };
@@ -49,6 +51,7 @@ private:
 
   stateful_flow_cursor& flow_;
   block_decoder* decoder_ = nullptr;
+  bool strict_ = false;
   instruction_state instruction_state_{};
   flow_step current_step_{};
   bool has_position_ = false;

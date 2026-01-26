@@ -5,7 +5,10 @@
 #include <variant>
 
 #include "config/rewind_config.hpp"
+#include "engine/module_catalog_inventory.hpp"
+#include "engine/qbdi_register_schema_provider.hpp"
 #include "engine/rewind_engine.hpp"
+#include "engine/target_environment_provider.hpp"
 #include "thread/rewind_thread_tracer.hpp"
 #include "w1instrument/tracer/runtime.hpp"
 
@@ -41,7 +44,15 @@ template <rewind_flow Mode, bool CaptureMemory> struct rewind_traits {
   }
 
   static void configure_engine(rewind_engine& engine, w1::runtime::module_catalog& modules) {
-    engine.configure(modules);
+    auto host_arch = w1::arch::detect_host_arch_spec();
+    auto arch_desc = build_arch_descriptor(host_arch);
+    engine.set_arch_descriptor(arch_desc);
+    engine.set_environment_record(build_host_environment_record(arch_desc));
+    engine.set_register_schema_provider(std::make_shared<qbdi_register_schema_provider>());
+    auto provider = std::make_shared<module_catalog_image_inventory>(
+        modules, w1::core::instrumented_module_policy{engine.config().common.instrumentation}
+    );
+    engine.configure(std::move(provider));
   }
 
   static bool export_output(rewind_engine& engine) { return engine.export_trace(); }
@@ -49,7 +60,28 @@ template <rewind_flow Mode, bool CaptureMemory> struct rewind_traits {
   static void configure_session(
       w1::instrument::process_session<tracer_type>& session, rewind_engine& engine, const rewind_config&
   ) {
-    session.set_on_event([eng = &engine](const w1::runtime::process_event& event) { eng->on_process_event(event); });
+    session.set_on_event([eng = &engine](const w1::runtime::process_event& event) {
+      if (event.type != w1::runtime::process_event::kind::module_loaded &&
+          event.type != w1::runtime::process_event::kind::module_unloaded) {
+        return;
+      }
+      auto provider = eng->image_provider();
+      if (!provider) {
+        return;
+      }
+      image_inventory_source_event source{};
+      source.kind = (event.type == w1::runtime::process_event::kind::module_loaded)
+                        ? image_inventory_event_kind::loaded
+                        : image_inventory_event_kind::unloaded;
+      source.base = reinterpret_cast<uint64_t>(event.module.base);
+      source.size = static_cast<uint64_t>(event.module.size);
+      source.path = event.module.path;
+
+      auto translated = provider->translate_event(source, 0);
+      if (translated.has_value()) {
+        eng->on_image_event(*translated);
+      }
+    });
   }
 };
 

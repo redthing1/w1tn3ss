@@ -230,6 +230,10 @@ rewind_config rewind_config::from_environment(std::string& error) {
     merge_ranges(config.memory.ranges);
   }
 
+  config.image_blobs.enabled = loader.get<bool>("IMAGE_BLOBS", config.image_blobs.enabled);
+  config.image_blobs.exec_only = loader.get<bool>("IMAGE_BLOBS_EXEC_ONLY", config.image_blobs.exec_only);
+  config.image_blobs.max_bytes = loader.get<uint64_t>("IMAGE_BLOBS_MAX", config.image_blobs.max_bytes);
+
   config.output_path = loader.get<std::string>("OUTPUT", "");
   config.compress_trace = loader.get<bool>("COMPRESS", config.compress_trace);
   config.chunk_size = loader.get<uint32_t>("CHUNK_SIZE", config.chunk_size);

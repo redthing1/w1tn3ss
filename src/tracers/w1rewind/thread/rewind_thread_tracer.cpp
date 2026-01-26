@@ -1,5 +1,7 @@
 #include "rewind_thread_tracer.hpp"
 
+#include <algorithm>
+#include <cctype>
 #include <optional>
 #include <utility>
 
@@ -27,31 +29,6 @@ w1::instruction_event patch_instruction_event(const w1::instruction_event& event
     }
   }
   return adjusted;
-}
-
-uint32_t apply_arm_thumb_flags(
-    const w1::util::register_state* regs, const w1::arch::arch_spec& arch, uint32_t flags, uint32_t valid_flag,
-    uint32_t thumb_flag
-) {
-  if (!regs) {
-    return flags;
-  }
-  if (arch.arch_family != w1::arch::family::arm) {
-    return flags;
-  }
-  if (arch.arch_mode != w1::arch::mode::arm && arch.arch_mode != w1::arch::mode::thumb) {
-    return flags;
-  }
-
-  uint64_t cpsr = 0;
-  if (!regs->get_register("cpsr", cpsr)) {
-    return flags;
-  }
-  flags |= valid_flag;
-  if (((cpsr >> 5) & 1U) != 0) {
-    flags |= thumb_flag;
-  }
-  return flags;
 }
 
 } // namespace
@@ -134,7 +111,7 @@ void rewind_thread_tracer<Mode, CaptureMemory>::on_basic_block_entry(
     regs = capture_registers(gpr);
   }
 
-  if (!ensure_trace_ready(ctx, regs)) {
+  if (!ensure_trace_ready(regs)) {
     return;
   }
 
@@ -142,24 +119,23 @@ void rewind_thread_tracer<Mode, CaptureMemory>::on_basic_block_entry(
     return;
   }
 
-  const uint32_t flags = apply_arm_thumb_flags(
-      regs ? &*regs : nullptr, engine_->arch_spec(), 0, w1::rewind::trace_block_flag_mode_valid,
-      w1::rewind::trace_block_flag_thumb
-  );
+  const uint32_t space_id = 0;
+  const uint16_t mode_id = engine_->resolve_mode_id(regs ? &*regs : nullptr);
 
   uint64_t sequence = 0;
-  if (!engine_->emit_block(state_.thread_id, event.address, event.size, flags, sequence)) {
+  if (!engine_->emit_block(state_.thread_id, event.address, event.size, space_id, mode_id, sequence)) {
     return;
   }
 
   state_.flow_count += 1;
 
   if ((config_.registers.snapshot_interval > 0 || config_.stack_snapshots.interval > 0) && regs.has_value()) {
-    auto snapshot = maybe_capture_snapshot(ctx, *regs, engine_->schema(), config_, state_.snapshot_state, log_);
+    auto snapshot = maybe_capture_snapshot(
+        ctx, *regs, engine_->schema(), config_, state_.snapshot_state, log_, engine_->byte_order()
+    );
     if (snapshot.has_value()) {
       engine_->emit_snapshot(
-          state_.thread_id, sequence, snapshot->snapshot_id, snapshot->registers, snapshot->stack_segments,
-          std::move(snapshot->reason)
+          state_.thread_id, sequence, snapshot->snapshot_id, snapshot->registers, snapshot->memory_segments
       );
     }
   }
@@ -194,7 +170,7 @@ void rewind_thread_tracer<Mode, CaptureMemory>::on_instruction_post(
     regs = capture_registers(gpr);
   }
 
-  if (!ensure_trace_ready(ctx, regs)) {
+  if (!ensure_trace_ready(regs)) {
     return;
   }
 
@@ -210,18 +186,20 @@ void rewind_thread_tracer<Mode, CaptureMemory>::on_instruction_post(
   pending.thread_id = state_.thread_id;
   pending.address = adjusted.address;
   pending.size = adjusted.size;
-  pending.flags = apply_arm_thumb_flags(
-      regs ? &*regs : nullptr, engine_->arch_spec(), 0, w1::rewind::trace_inst_flag_mode_valid,
-      w1::rewind::trace_inst_flag_thumb
-  );
+  pending.space_id = 0;
+  pending.mode_id = engine_->resolve_mode_id(regs ? &*regs : nullptr);
 
-  if (config_.registers.deltas && regs.has_value()) {
-    pending.register_deltas = capture_register_deltas(engine_->schema(), *regs, state_.last_registers);
+  bool capture_regs = config_.registers.deltas || config_.registers.bytes;
+  if (capture_regs && regs.has_value()) {
+    pending.register_writes =
+        capture_register_deltas(engine_->schema(), *regs, engine_->byte_order(), state_.last_registers);
   }
 
   state_.flow_count += 1;
   if ((config_.registers.snapshot_interval > 0 || config_.stack_snapshots.interval > 0) && regs.has_value()) {
-    auto snapshot = maybe_capture_snapshot(ctx, *regs, engine_->schema(), config_, state_.snapshot_state, log_);
+    auto snapshot = maybe_capture_snapshot(
+        ctx, *regs, engine_->schema(), config_, state_.snapshot_state, log_, engine_->byte_order()
+    );
     if (snapshot.has_value()) {
       pending.snapshot = std::move(snapshot);
     }
@@ -268,7 +246,7 @@ void rewind_thread_tracer<Mode, CaptureMemory>::on_memory(
 
   std::vector<stack_window_segment> stack_segments;
   if (memory_filter_.uses_stack_window()) {
-    auto window = compute_stack_window_segments(*regs, config_.stack_window);
+    auto window = compute_stack_window_segments(*regs, engine_->schema(), config_.stack_window);
     if (window.frame_window_missing && !state_.snapshot_state.warned_missing_frame) {
       log_.wrn("frame pointer not available; stack window will use SP-only segments");
       state_.snapshot_state.warned_missing_frame = true;
@@ -288,21 +266,21 @@ void rewind_thread_tracer<Mode, CaptureMemory>::on_memory(
 
   if (event.is_read && capture_reads) {
     append_memory_access(
-        config_, ctx, event, w1::rewind::memory_access_kind::read, segments, state_.pending->memory_accesses,
-        state_.memory_events
+        config_, ctx, event, w1::rewind::mem_access_op::read, segments, state_.pending->memory_accesses,
+        state_.memory_events, 0
     );
   }
   if (event.is_write && capture_writes) {
     append_memory_access(
-        config_, ctx, event, w1::rewind::memory_access_kind::write, segments, state_.pending->memory_accesses,
-        state_.memory_events
+        config_, ctx, event, w1::rewind::mem_access_op::write, segments, state_.pending->memory_accesses,
+        state_.memory_events, 0
     );
   }
 }
 
 template <rewind_flow Mode, bool CaptureMemory>
 bool rewind_thread_tracer<Mode, CaptureMemory>::ensure_trace_ready(
-    w1::trace_context& ctx, const std::optional<w1::util::register_state>& regs
+    const std::optional<w1::util::register_state>& regs
 ) {
   if (!engine_) {
     return false;
@@ -314,7 +292,7 @@ bool rewind_thread_tracer<Mode, CaptureMemory>::ensure_trace_ready(
     log_.err("missing register state for trace start");
     return false;
   }
-  return engine_->ensure_trace_ready(ctx, *regs);
+  return engine_->ensure_trace_ready(*regs);
 }
 
 template <rewind_flow Mode, bool CaptureMemory>
@@ -328,7 +306,8 @@ bool rewind_thread_tracer<Mode, CaptureMemory>::should_capture_registers() const
   if (uses_arm_flags()) {
     return true;
   }
-  if (config_.registers.deltas || config_.registers.snapshot_interval > 0 || config_.stack_snapshots.interval > 0) {
+  if (config_.registers.deltas || config_.registers.bytes || config_.registers.snapshot_interval > 0 ||
+      config_.stack_snapshots.interval > 0) {
     return true;
   }
   return false;
@@ -338,7 +317,18 @@ template <rewind_flow Mode, bool CaptureMemory> bool rewind_thread_tracer<Mode, 
   if (!engine_) {
     return false;
   }
-  return engine_->arch_spec().arch_family == w1::arch::family::arm;
+  const auto& arch = engine_->arch_descriptor();
+  std::string id = arch.arch_id;
+  std::string gdb = arch.gdb_arch;
+  std::transform(id.begin(), id.end(), id.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+  std::transform(gdb.begin(), gdb.end(), gdb.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+  if (id.find("arm") != std::string::npos || id == "thumb") {
+    return true;
+  }
+  if (gdb.find("arm") != std::string::npos) {
+    return true;
+  }
+  return false;
 }
 
 template class rewind_thread_tracer<rewind_flow::instruction, true>;

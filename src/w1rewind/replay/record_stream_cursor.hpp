@@ -17,7 +17,7 @@ public:
   bool seek(const trace_record_location& location, std::string& error);
   bool read_next(trace_record& out, trace_record_location& location, std::string& error);
 
-  const trace_header& header() const;
+  const file_header& header() const;
   bool is_open() const { return open_; }
 
 private:

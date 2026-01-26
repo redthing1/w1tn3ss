@@ -8,20 +8,22 @@
 
 #include "w1rewind/format/trace_format.hpp"
 
+namespace w1::rewind {
+struct replay_context;
+}
+
 namespace w1replay::gdb {
 
 struct register_desc {
   std::string name;
   uint32_t bits = 0;
   std::optional<size_t> trace_index;
+  std::optional<int> dwarf_regnum;
+  std::optional<int> gcc_regnum;
   bool is_pc = false;
   bool is_sp = false;
   bool is_flags = false;
   bool is_fp = false;
-  std::optional<int> dwarf_regnum;
-  std::optional<int> ehframe_regnum;
-  w1::rewind::register_class reg_class = w1::rewind::register_class::unknown;
-  w1::rewind::register_value_kind value_kind = w1::rewind::register_value_kind::unknown;
 };
 
 struct register_layout {
@@ -33,7 +35,7 @@ struct register_layout {
 };
 
 register_layout build_register_layout(
-    const w1::arch::arch_spec& arch, const std::vector<w1::rewind::register_spec>& register_specs
+    const w1::rewind::replay_context& context, const std::vector<w1::rewind::register_spec>& register_specs
 );
 
 } // namespace w1replay::gdb

@@ -17,8 +17,8 @@ namespace w1rewind {
 
 struct pending_snapshot {
   uint64_t snapshot_id = 0;
-  std::vector<w1::rewind::register_delta> registers;
-  std::vector<w1::rewind::stack_segment> stack_segments;
+  std::vector<w1::rewind::reg_write_entry> registers;
+  std::vector<w1::rewind::memory_segment> memory_segments;
   std::string reason;
 };
 
@@ -31,7 +31,7 @@ struct snapshot_state {
 
 std::optional<pending_snapshot> maybe_capture_snapshot(
     w1::trace_context& ctx, const w1::util::register_state& regs, const register_schema& schema,
-    const rewind_config& config, snapshot_state& state, redlog::logger log
+    const rewind_config& config, snapshot_state& state, redlog::logger log, w1::rewind::endian byte_order
 );
 
 } // namespace w1rewind

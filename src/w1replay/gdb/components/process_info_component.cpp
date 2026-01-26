@@ -12,18 +12,26 @@ std::optional<gdbstub::process_info> process_info_component::get_process_info() 
   }
   gdbstub::process_info info{};
   const auto& context = *services_.context;
-  const auto* env = context.target_environment ? &*context.target_environment : nullptr;
-  std::string os_id;
-  std::string abi;
-  if (context.target_info) {
-    os_id = context.target_info->os;
-    abi = context.target_info->abi;
-  }
+  const auto* env = context.environment ? &*context.environment : nullptr;
+  std::string os_id = env ? env->os_id : std::string{};
+  std::string abi = env ? env->abi : std::string{};
   info.pid = (env && env->pid != 0) ? static_cast<int>(env->pid) : 1;
   info.endian = (services_.target_endian == endian::big) ? "big" : "little";
-  info.ptr_size = static_cast<int>(context.header.arch.pointer_bits / 8);
+  uint16_t pointer_bits = 0;
+  if (context.arch.has_value()) {
+    pointer_bits = context.arch->pointer_bits;
+    if (pointer_bits == 0) {
+      pointer_bits = context.arch->address_bits;
+    }
+  }
+  if (pointer_bits % 8 != 0) {
+    pointer_bits = 0;
+  }
+  info.ptr_size = static_cast<int>(pointer_bits / 8);
   info.ostype = os_id.empty() ? "unknown" : os_id;
-  info.triple = build_process_triple(context.header.arch, os_id, abi);
+  if (context.arch.has_value()) {
+    info.triple = build_process_triple(*context.arch, os_id, abi);
+  }
   if (info.ptr_size <= 0 || info.triple.empty()) {
     return std::nullopt;
   }

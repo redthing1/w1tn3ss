@@ -104,10 +104,7 @@ public:
   std::optional<uint64_t> libraries_generation() const;
 
 private:
-  std::optional<uint64_t> resolve_main_module_id() const;
-
   const adapter_services& services_;
-  mutable std::optional<uint64_t> main_module_id_;
 };
 
 class loaded_libraries_component {

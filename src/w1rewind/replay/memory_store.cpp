@@ -20,13 +20,14 @@ uint64_t safe_end(uint64_t base, size_t size) {
 
 } // namespace
 
-void memory_store::clear() { spans_.clear(); }
+void memory_store::clear() { spans_by_space_.clear(); }
 
-void memory_store::apply_bytes(uint64_t address, std::span<const uint8_t> bytes) {
+void memory_store::apply_bytes(uint32_t space_id, uint64_t address, std::span<const uint8_t> bytes) {
   if (bytes.empty()) {
     return;
   }
 
+  auto& spans = spans_by_space_[space_id];
   uint64_t start = address;
   uint64_t end = safe_end(address, bytes.size());
   if (end == std::numeric_limits<uint64_t>::max() && start != 0) {
@@ -34,11 +35,11 @@ void memory_store::apply_bytes(uint64_t address, std::span<const uint8_t> bytes)
   }
 
   std::vector<memory_span> merged;
-  merged.reserve(spans_.size() + 1);
+  merged.reserve(spans.size() + 1);
 
   size_t index = 0;
-  while (index < spans_.size()) {
-    const auto& span = spans_[index];
+  while (index < spans.size()) {
+    const auto& span = spans[index];
     uint64_t span_end = safe_end(span.base, span.bytes.size());
     if (span_end < start) {
       merged.push_back(span);
@@ -51,8 +52,8 @@ void memory_store::apply_bytes(uint64_t address, std::span<const uint8_t> bytes)
   uint64_t merged_start = start;
   uint64_t merged_end = end;
   size_t merge_start = index;
-  while (index < spans_.size()) {
-    const auto& span = spans_[index];
+  while (index < spans.size()) {
+    const auto& span = spans[index];
     if (span.base > merged_end) {
       break;
     }
@@ -69,6 +70,7 @@ void memory_store::apply_bytes(uint64_t address, std::span<const uint8_t> bytes)
   size_t merge_end = index;
   if (merge_start == merge_end) {
     memory_span span{};
+    span.space_id = space_id;
     span.base = start;
     span.bytes.assign(bytes.begin(), bytes.end());
     merged.push_back(std::move(span));
@@ -77,7 +79,7 @@ void memory_store::apply_bytes(uint64_t address, std::span<const uint8_t> bytes)
     std::vector<uint8_t> merged_bytes(merged_size, 0);
 
     for (size_t i = merge_start; i < merge_end; ++i) {
-      const auto& span = spans_[i];
+      const auto& span = spans[i];
       size_t offset = static_cast<size_t>(span.base - merged_start);
       std::copy(span.bytes.begin(), span.bytes.end(), merged_bytes.begin() + static_cast<std::ptrdiff_t>(offset));
     }
@@ -86,27 +88,29 @@ void memory_store::apply_bytes(uint64_t address, std::span<const uint8_t> bytes)
     std::copy(bytes.begin(), bytes.end(), merged_bytes.begin() + static_cast<std::ptrdiff_t>(incoming_offset));
 
     memory_span span{};
+    span.space_id = space_id;
     span.base = merged_start;
     span.bytes = std::move(merged_bytes);
     merged.push_back(std::move(span));
   }
 
-  merged.insert(merged.end(), spans_.begin() + static_cast<std::ptrdiff_t>(merge_end), spans_.end());
-  spans_ = std::move(merged);
+  merged.insert(merged.end(), spans.begin() + static_cast<std::ptrdiff_t>(merge_end), spans.end());
+  spans = std::move(merged);
 }
 
 void memory_store::apply_segments(std::span<const memory_span> segments) {
   for (const auto& segment : segments) {
-    apply_bytes(segment.base, segment.bytes);
+    apply_bytes(segment.space_id, segment.base, segment.bytes);
   }
 }
 
-memory_read memory_store::read(uint64_t address, size_t size) const {
+memory_read memory_store::read(uint32_t space_id, uint64_t address, size_t size) const {
   memory_read out;
   out.bytes.assign(size, std::byte{0});
   out.known.assign(size, 0);
 
-  if (size == 0 || spans_.empty()) {
+  auto spans_it = spans_by_space_.find(space_id);
+  if (size == 0 || spans_it == spans_by_space_.end()) {
     return out;
   }
 
@@ -116,7 +120,8 @@ memory_read memory_store::read(uint64_t address, size_t size) const {
     return out;
   }
 
-  for (const auto& span : spans_) {
+  const auto& spans = spans_it->second;
+  for (const auto& span : spans) {
     uint64_t span_end = safe_end(span.base, span.bytes.size());
     if (span_end <= start) {
       continue;
@@ -144,6 +149,12 @@ memory_read memory_store::read(uint64_t address, size_t size) const {
   return out;
 }
 
-std::vector<memory_span> memory_store::spans() const { return spans_; }
+std::vector<memory_span> memory_store::spans() const {
+  std::vector<memory_span> out;
+  for (const auto& [_, spans] : spans_by_space_) {
+    out.insert(out.end(), spans.begin(), spans.end());
+  }
+  return out;
+}
 
 } // namespace w1::rewind

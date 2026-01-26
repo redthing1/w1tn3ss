@@ -193,7 +193,7 @@ void cmd_rewind(args::Subparser& parser) {
       parser, "policy", "system module policy (exclude_all, include_critical, include_all)", {"system-policy"}
   );
   args::ValueFlag<std::string> threads(parser, "policy", "thread attach policy (main, auto)", {"threads"});
-  args::Flag compress(parser, "compress", "enable zstd compression (if available)", {"compress"});
+  args::Flag compress(parser, "compress", "enable zstd compression (default on if available)", {"compress"});
   args::ValueFlag<uint32_t> chunk_size(parser, "bytes", "trace chunk size", {"chunk-size"});
   args::ValueFlagList<std::string> config(parser, "config", "configuration key=value pairs", {'c', "config"});
   args::ValueFlag<int> debug_level(parser, "level", "debug level override", {"debug"});

@@ -10,8 +10,8 @@ namespace w1rewind {
 
 void append_memory_access(
     const rewind_config& config, w1::trace_context& ctx, const w1::memory_event& event,
-    w1::rewind::memory_access_kind kind, std::span<const w1::address_range> segments,
-    std::vector<pending_memory_access>& out, uint64_t& memory_events
+    w1::rewind::mem_access_op op, std::span<const w1::address_range> segments,
+    std::vector<pending_memory_access>& out, uint64_t& memory_events, uint32_t space_id
 ) {
   if (segments.empty()) {
     return;
@@ -41,9 +41,12 @@ void append_memory_access(
     uint32_t seg_size = static_cast<uint32_t>(seg_size_u64);
 
     pending_memory_access record{};
-    record.kind = kind;
+    record.op = op;
+    record.space_id = space_id;
     record.address = segment.start;
     record.size = seg_size;
+    bool value_known = false;
+    bool value_truncated = false;
 
     if (capture_values && seg_size > 0) {
       uint32_t capture_size = std::min(seg_size, max_bytes);
@@ -57,16 +60,23 @@ void append_memory_access(
               value_bytes.begin() + static_cast<std::ptrdiff_t>(offset),
               value_bytes.begin() + static_cast<std::ptrdiff_t>(offset + capture_size)
           );
-          record.value_known = true;
+          value_known = true;
         } else {
           auto bytes = ctx.memory().read_bytes(segment.start, capture_size);
           if (bytes.has_value()) {
             record.data = std::move(*bytes);
-            record.value_known = true;
+            value_known = true;
           }
         }
-        record.value_truncated = seg_size > capture_size;
+        value_truncated = seg_size > capture_size;
       }
+    }
+
+    if (value_known) {
+      record.flags |= w1::rewind::mem_access_value_known;
+    }
+    if (value_truncated) {
+      record.flags |= w1::rewind::mem_access_value_truncated;
     }
 
     out.push_back(std::move(record));

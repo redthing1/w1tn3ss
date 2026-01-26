@@ -18,9 +18,11 @@ TEST_CASE("w1rewind flow_extractor parses instruction records") {
   w1::rewind::replay_context context;
   w1::rewind::flow_extractor extractor(&context);
 
-  w1::rewind::instruction_record inst{};
+  w1::rewind::flow_instruction_record inst{};
   inst.thread_id = 7;
   inst.sequence = 9;
+  inst.space_id = 0;
+  inst.mode_id = 0;
   inst.address = 0x401000;
   inst.size = 4;
   inst.flags = 0x12;
@@ -44,8 +46,9 @@ TEST_CASE("w1rewind flow_extractor skips non-flow records") {
   w1::rewind::replay_context context;
   w1::rewind::flow_extractor extractor(&context);
 
-  w1::rewind::module_table_record table{};
-  w1::rewind::trace_record record = table;
+  w1::rewind::environment_record env{};
+  env.os_id = "test";
+  w1::rewind::trace_record record = env;
   w1::rewind::flow_step step{};
   bool is_flow = true;
   std::string error;
@@ -57,6 +60,8 @@ TEST_CASE("w1rewind flow_extractor skips non-flow records") {
 TEST_CASE("w1rewind flow_extractor parses block records") {
   w1::rewind::replay_context context;
   w1::rewind::block_definition_record def{};
+  def.space_id = 0;
+  def.mode_id = 0;
   def.address = 0x5000;
   def.size = 8;
   def.flags = 0;
@@ -108,8 +113,9 @@ TEST_CASE("w1rewind flow_extractor forwards non-flow records to observer") {
   w1::rewind::replay_context context;
   w1::rewind::flow_extractor extractor(&context);
 
-  w1::rewind::module_table_record table{};
-  w1::rewind::trace_record record = table;
+  w1::rewind::environment_record env{};
+  env.os_id = "test";
+  w1::rewind::trace_record record = env;
   test_observer observer;
   std::string error;
 

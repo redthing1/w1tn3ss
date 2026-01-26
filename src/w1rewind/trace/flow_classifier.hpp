@@ -22,7 +22,7 @@ inline std::optional<flow_record_key> classify_flow_record(const trace_record& r
     }
     return std::nullopt;
   }
-  if (const auto* inst = std::get_if<instruction_record>(&record)) {
+  if (const auto* inst = std::get_if<flow_instruction_record>(&record)) {
     return flow_record_key{flow_record_kind::instruction, inst->sequence, inst->thread_id};
   }
   return std::nullopt;

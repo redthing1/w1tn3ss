@@ -11,7 +11,10 @@ set(W1REWIND_TEST_SOURCES
     rewind_config_validation_test.cpp
     rewind_memory_filter_test.cpp
     rewind_memory_map_mapping_test.cpp
+    rewind_mapping_state_test.cpp
+    rewind_image_segment_utils_test.cpp
     rewind_module_event_test.cpp
+    rewind_image_inventory_test.cpp
     rewind_snapshot_codec_test.cpp
     rewind_stack_window_policy_test.cpp
     rewind_trace_index_test.cpp

@@ -33,11 +33,13 @@ int server(const server_options& options) {
   config.trace_path = options.trace_path;
   config.index_path = options.index_path;
   config.checkpoint_path = options.checkpoint_path;
+  config.index_stride = options.index_stride;
   config.thread_id = options.thread_id;
   config.start_sequence = options.start_sequence;
   config.prefer_instruction_steps = options.instruction_steps;
-  config.module_mappings = options.module_mappings;
-  config.module_dirs = options.module_dirs;
+  config.image_mappings = options.image_mappings;
+  config.image_dirs = options.image_dirs;
+  config.image_layout = options.image_layout;
 
   gdb::adapter adapter(std::move(config));
   if (!adapter.open()) {

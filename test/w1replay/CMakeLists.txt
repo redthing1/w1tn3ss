@@ -20,15 +20,27 @@ set(W1REPLAY_TEST_SOURCES
     gdb_value_codec_test.cpp
     gdb_loaded_libraries_test.cpp
     gdb_libraries_component_test.cpp
-    module_image_test.cpp
-    module_address_index_test.cpp
-    module_path_resolver_test.cpp
+    gdb_auxv_component_test.cpp
+    memory_view_space_test.cpp
+    image_bytes_test.cpp
+    image_blob_provider_test.cpp
+    image_metadata_provider_test.cpp
+    image_layout_provider_test.cpp
+    image_address_index_test.cpp
+    image_path_resolver_test.cpp
+    trace_loader_test.cpp
     replay_context_test.cpp
     ${W1_SOURCE_DIR}/src/w1replay/modules/address_index.cpp
-    ${W1_SOURCE_DIR}/src/w1replay/modules/module_image.cpp
-    ${W1_SOURCE_DIR}/src/w1replay/modules/module_image_lief.cpp
+    ${W1_SOURCE_DIR}/src/w1replay/modules/address_read_cursor.cpp
+    ${W1_SOURCE_DIR}/src/w1replay/modules/image_blob_reader.cpp
+    ${W1_SOURCE_DIR}/src/w1replay/modules/image_bytes.cpp
+    ${W1_SOURCE_DIR}/src/w1replay/modules/image_layout_from_metadata.cpp
+    ${W1_SOURCE_DIR}/src/w1replay/modules/trace_metadata_provider.cpp
     ${W1_SOURCE_DIR}/src/w1replay/modules/asmr_block_decoder.cpp
-    ${W1_SOURCE_DIR}/src/w1replay/modules/lief_module_provider.cpp
+    ${W1_SOURCE_DIR}/src/w1replay/modules/composite_image_provider.cpp
+    ${W1_SOURCE_DIR}/src/w1replay/modules/file_image_reader.cpp
+    ${W1_SOURCE_DIR}/src/w1replay/modules/image_layout_provider.cpp
+    ${W1_SOURCE_DIR}/src/w1replay/modules/lief_image_layout_provider.cpp
     ${W1_SOURCE_DIR}/src/w1replay/modules/path_resolver.cpp
     ${W1_SOURCE_DIR}/src/w1replay/trace_loader/trace_loader.cpp
     ${W1_SOURCE_DIR}/src/w1replay/gdb/adapter.cpp
@@ -63,6 +75,7 @@ w1_add_doctest_suite(w1replay_unit_tests
         ${W1_SOURCE_DIR}/src/third_party
         ${W1_SOURCE_DIR}/test
     LIBS
+        w1base
         w1rewind_record
         w1rewind_replay
         gdbstub::gdbstub

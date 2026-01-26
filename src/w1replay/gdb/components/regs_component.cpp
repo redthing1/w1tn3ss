@@ -1,7 +1,5 @@
 #include "w1replay/gdb/adapter_components.hpp"
 
-#include "w1replay/gdb/value_codec.hpp"
-
 #include <algorithm>
 
 namespace w1replay::gdb {
@@ -55,28 +53,12 @@ gdbstub::target_status regs_component::read_reg(int regno, std::span<std::byte> 
     return gdbstub::target_status::ok;
   }
 
-  if (reg.value_kind == w1::rewind::register_value_kind::bytes) {
-    bool known = false;
-    if (!services_.session->read_register_bytes(static_cast<uint16_t>(*reg.trace_index), out, known)) {
-      return gdbstub::target_status::invalid;
-    }
-    if (!known) {
-      fill_unknown(out);
-    }
-    return gdbstub::target_status::ok;
-  }
-
-  auto regs = services_.session->read_registers();
-  if (*reg.trace_index >= regs.size()) {
-    fill_unknown(out);
-    return gdbstub::target_status::ok;
-  }
-  if (!regs[*reg.trace_index].has_value()) {
-    fill_unknown(out);
-    return gdbstub::target_status::ok;
-  }
-  if (!encode_uint64(*regs[*reg.trace_index], size, out, services_.target_endian)) {
+  bool known = false;
+  if (!services_.session->read_register_bytes(static_cast<uint32_t>(*reg.trace_index), out, known)) {
     return gdbstub::target_status::invalid;
+  }
+  if (!known) {
+    fill_unknown(out);
   }
   return gdbstub::target_status::ok;
 }

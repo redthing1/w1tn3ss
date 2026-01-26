@@ -3,15 +3,16 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <istream>
+#include <limits>
 #include <ostream>
 #include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace w1::rewind {
-
-constexpr size_t k_trace_string_max = 0xFFFFu;
 
 class trace_buffer_writer {
 public:
@@ -36,21 +37,23 @@ public:
     }
   }
 
-  void write_bytes(const uint8_t* data, size_t size) {
+  void write_bytes(const void* data, size_t size) {
     if (size == 0) {
       return;
     }
-    out_.insert(out_.end(), data, data + static_cast<std::ptrdiff_t>(size));
+    const auto* bytes = static_cast<const uint8_t*>(data);
+    out_.insert(out_.end(), bytes, bytes + static_cast<std::ptrdiff_t>(size));
   }
 
-  bool write_string(const std::string& value) {
-    if (value.size() > k_trace_string_max) {
+  void write_bytes(std::span<const uint8_t> data) { write_bytes(data.data(), data.size()); }
+
+  bool write_string(std::string_view value) {
+    if (value.size() > static_cast<size_t>(std::numeric_limits<uint32_t>::max())) {
       return false;
     }
-    write_u16(static_cast<uint16_t>(value.size()));
+    write_u32(static_cast<uint32_t>(value.size()));
     if (!value.empty()) {
-      const auto* data = reinterpret_cast<const uint8_t*>(value.data());
-      write_bytes(data, value.size());
+      write_bytes(value.data(), value.size());
     }
     return true;
   }
@@ -69,8 +72,8 @@ public:
   bool read_u64(uint64_t& value) { return read_scalar(value); }
 
   bool read_string(std::string& value) {
-    uint16_t len = 0;
-    if (!read_u16(len)) {
+    uint32_t len = 0;
+    if (!read_u32(len)) {
       return false;
     }
     if (cursor_ + len > data_.size()) {
@@ -88,6 +91,18 @@ public:
     auto start = data_.begin() + static_cast<std::ptrdiff_t>(cursor_);
     auto end = start + static_cast<std::ptrdiff_t>(size);
     out.assign(start, end);
+    cursor_ += size;
+    return true;
+  }
+
+  bool read_bytes(void* out, size_t size) {
+    if (cursor_ + size > data_.size()) {
+      return false;
+    }
+    if (size == 0) {
+      return true;
+    }
+    std::memcpy(out, data_.data() + cursor_, size);
     cursor_ += size;
     return true;
   }

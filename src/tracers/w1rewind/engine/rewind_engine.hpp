@@ -12,13 +12,12 @@
 #include <redlog.hpp>
 
 #include "config/rewind_config.hpp"
-#include "engine/module_table_builder.hpp"
+#include "engine/image_inventory.hpp"
+#include "engine/image_inventory_pipeline.hpp"
 #include "engine/register_schema.hpp"
+#include "engine/register_schema_provider.hpp"
 #include "engine/trace_emitter.hpp"
-#include "engine/target_environment_provider.hpp"
-#include "w1instrument/core/module_registry.hpp"
-#include "w1instrument/tracer/trace_context.hpp"
-#include "w1runtime/process_event.hpp"
+#include "w1rewind/format/trace_format.hpp"
 #include "w1rewind/record/trace_builder.hpp"
 #include "w1rewind/trace/trace_file_writer.hpp"
 
@@ -32,63 +31,61 @@ class rewind_engine {
 public:
   explicit rewind_engine(rewind_config config);
 
-  void configure(w1::runtime::module_catalog& modules);
-  bool ensure_trace_ready(w1::trace_context& ctx, const w1::util::register_state& regs);
+  void configure(std::shared_ptr<image_inventory_provider> provider);
+  bool ensure_trace_ready(const w1::util::register_state& regs);
 
   bool trace_ready() const { return trace_ready_.load(std::memory_order_acquire); }
   bool instruction_flow() const { return instruction_flow_; }
 
   const rewind_config& config() const { return config_; }
   const register_schema& schema() const { return register_schema_; }
-  const w1::arch::arch_spec& arch_spec() const { return arch_spec_; }
+  void set_register_schema(std::vector<w1::rewind::register_spec> specs);
+  void set_register_schema_provider(std::shared_ptr<register_schema_provider> provider);
+  void set_arch_descriptor(w1::rewind::arch_descriptor_record arch);
+  void set_environment_record(w1::rewind::environment_record env);
+  const w1::rewind::arch_descriptor_record& arch_descriptor() const { return arch_desc_; }
+  w1::rewind::endian byte_order() const { return arch_desc_.byte_order; }
+  uint16_t resolve_mode_id(const w1::util::register_state* regs) const;
 
   bool begin_thread(uint64_t thread_id, const std::string& name);
-  bool emit_block(uint64_t thread_id, uint64_t address, uint32_t size, uint32_t flags, uint64_t& sequence_out);
+  bool emit_block(
+      uint64_t thread_id, uint64_t address, uint32_t size, uint32_t space_id, uint16_t mode_id,
+      uint64_t& sequence_out
+  );
   void flush_pending(std::optional<pending_instruction>& pending);
   bool emit_snapshot(
       uint64_t thread_id, uint64_t sequence, uint64_t snapshot_id,
-      std::span<const w1::rewind::register_delta> registers, std::span<const w1::rewind::stack_segment> stack_segments,
-      std::string reason
+      std::span<const w1::rewind::reg_write_entry> registers,
+      std::span<const w1::rewind::memory_segment> memory_segments
   );
   void finalize_thread(uint64_t thread_id, const std::string& name, std::optional<pending_instruction>& pending);
 
-  void on_process_event(const w1::runtime::process_event& event);
+  void on_image_event(const image_inventory_event& event);
+  std::shared_ptr<image_inventory_provider> image_provider() const { return image_provider_; }
 
   bool export_trace();
-  size_t module_count() const;
+  size_t image_count() const;
   std::string output_path() const;
 
 private:
-  using registry_type = w1::core::module_registry<w1::core::instrumented_module_policy, uint64_t>;
-
-  bool start_trace_locked(w1::trace_context& ctx, const w1::util::register_state& regs);
-  void rebuild_module_state_locked(const w1::runtime::module_catalog& modules);
-  std::optional<w1::runtime::module_info> find_module_info(const w1::monitor::module_event& event) const;
-  bool handle_module_loaded_locked(const w1::runtime::module_info& module);
-  void handle_module_unloaded_locked(const w1::monitor::module_event& event);
-
-  void upsert_module_record(w1::rewind::module_record record);
-  std::optional<w1::rewind::module_record> remove_module_record(
-      uint64_t module_id, uint64_t base, const std::string& path
-  );
-
-  bool emit_memory_map_locked();
+  bool start_trace_locked(const w1::util::register_state& regs);
 
   rewind_config config_{};
-  registry_type registry_{};
-  w1::runtime::module_catalog* modules_ = nullptr;
+  std::shared_ptr<image_inventory_provider> image_provider_{};
+  std::shared_ptr<register_schema_provider> register_schema_provider_{};
 
-  w1::arch::arch_spec arch_spec_{};
-  std::optional<module_metadata_cache> metadata_cache_;
+  w1::rewind::arch_descriptor_record arch_desc_{};
+  w1::rewind::environment_record environment_record_{};
+  bool arch_configured_ = false;
+  bool environment_configured_ = false;
   register_schema register_schema_{};
 
   std::shared_ptr<w1::rewind::trace_file_writer> writer_{};
   std::unique_ptr<w1::rewind::trace_builder> builder_{};
   std::unique_ptr<trace_emitter> emitter_{};
 
-  std::vector<w1::rewind::module_record> module_table_{};
-
   redlog::logger log_;
+  image_inventory_pipeline image_pipeline_;
   bool instruction_flow_ = false;
   bool configured_ = false;
   std::atomic<bool> trace_ready_{false};
