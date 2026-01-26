@@ -4,7 +4,6 @@
 #include "w1rewind/replay/replay_session.hpp"
 #include "w1rewind/trace/trace_index.hpp"
 #include "w1rewind/trace/trace_reader.hpp"
-#include "w1rewind/trace/trace_file_writer.hpp"
 
 namespace {
 
@@ -37,38 +36,28 @@ TEST_CASE("w1rewind replay session normalizes to instruction start/end") {
   using namespace w1::rewind::test_helpers;
 
   fs::path trace_path = temp_path("w1rewind_replay_session_pos.trace");
-  fs::path index_path = temp_path("w1rewind_replay_session_pos.trace.idx");
-
-  w1::rewind::trace_file_writer_config writer_config;
-  writer_config.path = trace_path.string();
-  writer_config.log = redlog::get_logger("test.w1rewind.replay.session_position");
-  writer_config.chunk_size = 64;
-
-  auto writer = w1::rewind::make_trace_file_writer(writer_config);
-  REQUIRE(writer);
-  REQUIRE(writer->open());
+  fs::path index_path = temp_path("w1rewind_replay_session_pos.trace.w1ridx");
 
   auto arch = parse_arch_or_fail("x86_64");
-  w1::rewind::trace_header header{};
-  header.arch = arch;
-  header.flags = w1::rewind::trace_flag_blocks;
-  REQUIRE(writer->write_header(header));
+  auto header = make_header(0, 64);
+  auto handle = open_trace(trace_path, header, redlog::get_logger("test.w1rewind.replay.session_position"));
 
-  write_basic_metadata(*writer, header.arch, minimal_registers(header.arch));
-  write_module_table(*writer, 1, 0x2000);
-  write_thread_start(*writer, 1, "thread1");
-  write_block_def(*writer, 1, 0x2000 + 0x20, 4);
-  write_block_exec(*writer, 1, 0, 1);
-  write_thread_end(*writer, 1);
+  write_basic_metadata(handle.builder, "x86_64", arch, minimal_registers(arch));
+  write_image_mapping(handle.builder, 1, 0x2000, 0x1000);
+  write_thread_start(handle.builder, 1, "thread1");
+  write_block_def(handle.builder, 1, 0x2000 + 0x20, 4);
+  write_block_exec(handle.builder, 1, 0, 1);
+  write_thread_end(handle.builder, 1);
 
-  writer->flush();
-  writer->close();
+  handle.builder.flush();
+  handle.writer->close();
 
   w1::rewind::trace_index_options index_options;
   auto index = std::make_shared<w1::rewind::trace_index>();
   REQUIRE(
       w1::rewind::build_trace_index(
-          trace_path.string(), index_path.string(), index_options, index.get(), writer_config.log
+          trace_path.string(), index_path.string(), index_options, index.get(),
+          redlog::get_logger("test.w1rewind.replay.session_position")
       )
   );
 

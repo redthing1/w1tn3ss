@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <limits>
+#include <optional>
 
 namespace w1rewind {
 namespace {
@@ -77,47 +78,59 @@ uint64_t overlap_size(const stack_window_segment& a, const stack_window_segment&
   return end - start;
 }
 
-stack_window_segment make_fp_window(const w1::util::register_state& regs, uint64_t sp, bool& valid) {
+uint64_t byte_size_for_bits(uint16_t bits) { return bits == 0 ? 0u : static_cast<uint64_t>((bits + 7u) / 8u); }
+
+std::optional<uint64_t> read_register_value(
+    const w1::util::register_state& regs, const w1::rewind::register_spec* spec
+) {
+  if (!spec || spec->name.empty()) {
+    return std::nullopt;
+  }
+  uint64_t value = 0;
+  if (!regs.get_register(spec->name, value)) {
+    return std::nullopt;
+  }
+  return value;
+}
+
+uint64_t resolve_pointer_bytes(const register_schema& schema) {
+  if (const auto* sp_spec = schema.find_spec_by_flag(w1::rewind::register_flag_sp)) {
+    uint64_t bytes = byte_size_for_bits(sp_spec->bit_size);
+    if (bytes != 0) {
+      return bytes;
+    }
+  }
+  if (const auto* fp_spec = schema.find_spec_by_flag(w1::rewind::register_flag_fp)) {
+    uint64_t bytes = byte_size_for_bits(fp_spec->bit_size);
+    if (bytes != 0) {
+      return bytes;
+    }
+  }
+  return 0;
+}
+
+stack_window_segment make_fp_window(
+    const w1::util::register_state& regs, const register_schema& schema, uint64_t pointer_bytes, bool& valid
+) {
   stack_window_segment segment{};
   valid = false;
-  uint64_t fp = regs.get_frame_pointer();
-  if (fp == 0) {
+  const auto* fp_spec = schema.find_spec_by_flag(w1::rewind::register_flag_fp);
+  auto fp_value = read_register_value(regs, fp_spec);
+  if (!fp_value.has_value() || *fp_value == 0) {
+    return segment;
+  }
+  if (pointer_bytes == 0) {
     return segment;
   }
 
-  switch (regs.get_architecture()) {
-  case w1::util::register_state::architecture::x86_64:
-    if (fp > sp) {
-      segment.base = fp;
-      segment.size = 16;
-      valid = true;
-    }
-    break;
-  case w1::util::register_state::architecture::x86:
-    if (fp > sp) {
-      segment.base = fp;
-      segment.size = 8;
-      valid = true;
-    }
-    break;
-  case w1::util::register_state::architecture::aarch64:
-    if (fp >= sp) {
-      segment.base = fp;
-      segment.size = 16;
-      valid = true;
-    }
-    break;
-  case w1::util::register_state::architecture::arm32:
-    if (fp >= sp) {
-      segment.base = fp;
-      segment.size = 8;
-      valid = true;
-    }
-    break;
-  default:
-    break;
+  uint64_t window_bytes = pointer_bytes * 2;
+  if (window_bytes == 0) {
+    return segment;
   }
 
+  segment.base = *fp_value;
+  segment.size = window_bytes;
+  valid = true;
   return segment;
 }
 
@@ -155,7 +168,8 @@ void merge_segments(std::vector<stack_window_segment>& segments) {
 } // namespace
 
 stack_window_result compute_stack_window_segments(
-    const w1::util::register_state& regs, const rewind_config::stack_window_options& options
+    const w1::util::register_state& regs, const register_schema& schema,
+    const rewind_config::stack_window_options& options
 ) {
   stack_window_result result{};
 
@@ -163,10 +177,12 @@ stack_window_result compute_stack_window_segments(
     return result;
   }
 
-  uint64_t sp = regs.get_stack_pointer();
-  if (sp == 0) {
+  const auto* sp_spec = schema.find_spec_by_flag(w1::rewind::register_flag_sp);
+  auto sp_value = read_register_value(regs, sp_spec);
+  if (!sp_value.has_value() || *sp_value == 0) {
     return result;
   }
+  uint64_t sp = *sp_value;
 
   sp_window sp_seg = compute_sp_window(sp, options.above_bytes, options.below_bytes);
 
@@ -178,8 +194,9 @@ stack_window_result compute_stack_window_segments(
     return result;
   }
 
+  uint64_t pointer_bytes = resolve_pointer_bytes(schema);
   bool fp_valid = false;
-  stack_window_segment fp_seg = make_fp_window(regs, sp, fp_valid);
+  stack_window_segment fp_seg = make_fp_window(regs, schema, pointer_bytes, fp_valid);
   if (!fp_valid) {
     result.frame_window_missing = true;
   }

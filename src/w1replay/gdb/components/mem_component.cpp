@@ -13,7 +13,7 @@ gdbstub::target_status mem_component::read_mem(uint64_t addr, std::span<std::byt
     return gdbstub::target_status::unsupported;
   }
 
-  auto read = services_.memory->read(addr, out.size());
+  auto read = services_.memory->read(0, addr, out.size());
   if (read.bytes.size() < out.size()) {
     return gdbstub::target_status::fault;
   }

@@ -1,63 +1,47 @@
 #include "replay_context_builder.hpp"
 
 #include <algorithm>
+#include <limits>
 #include <unordered_map>
 
-#include "w1rewind/format/register_metadata.hpp"
-#include "w1rewind/format/trace_validator.hpp"
-
+#include "mapping_state.hpp"
 namespace w1::rewind {
 
 namespace {
 
-std::optional<uint16_t> find_register_with_flag(const std::vector<register_spec>& specs, uint16_t flag) {
-  for (const auto& spec : specs) {
-    if ((spec.flags & flag) != 0) {
-      return spec.reg_id;
-    }
+void upsert_address_space(replay_context& context, address_space_record record) {
+  auto it = context.address_spaces_by_id.find(record.space_id);
+  if (it != context.address_spaces_by_id.end() && it->second < context.address_spaces.size()) {
+    context.address_spaces[it->second] = std::move(record);
+    return;
   }
-  return std::nullopt;
+  size_t index = context.address_spaces.size();
+  context.address_spaces.push_back(std::move(record));
+  context.address_spaces_by_id[context.address_spaces.back().space_id] = index;
 }
 
-void apply_module_load(std::vector<module_record>& modules, module_record module) {
-  auto it =
-      std::find_if(modules.begin(), modules.end(), [&](const module_record& entry) { return entry.id == module.id; });
-  if (it != modules.end()) {
-    *it = std::move(module);
+void upsert_register_file(replay_context& context, register_file_record record) {
+  auto it = context.register_files_by_id.find(record.regfile_id);
+  if (it != context.register_files_by_id.end() && it->second.record_index < context.register_files.size()) {
+    context.register_files[it->second.record_index] = std::move(record);
     return;
   }
-  modules.push_back(std::move(module));
+  size_t index = context.register_files.size();
+  context.register_files.push_back(std::move(record));
+  register_file_index index_entry{};
+  index_entry.record_index = index;
+  context.register_files_by_id[context.register_files.back().regfile_id] = std::move(index_entry);
 }
 
-void apply_module_unload(std::vector<module_record>& modules, const module_unload_record& record) {
-  auto it = std::find_if(modules.begin(), modules.end(), [&](const module_record& entry) {
-    return entry.id == record.module_id;
-  });
-  if (it != modules.end()) {
-    modules.erase(it);
+void upsert_image(replay_context& context, image_record record) {
+  auto it = context.images_by_id.find(record.image_id);
+  if (it != context.images_by_id.end() && it->second < context.images.size()) {
+    context.images[it->second] = std::move(record);
     return;
   }
-
-  if (record.base == 0 && record.size == 0 && record.path.empty()) {
-    return;
-  }
-
-  auto fallback = std::find_if(modules.begin(), modules.end(), [&](const module_record& entry) {
-    if (record.base != 0 && entry.base != record.base) {
-      return false;
-    }
-    if (record.size != 0 && entry.size != record.size) {
-      return false;
-    }
-    if (!record.path.empty() && entry.path != record.path) {
-      return false;
-    }
-    return true;
-  });
-
-  if (fallback != modules.end()) {
-    modules.erase(fallback);
-  }
+  size_t index = context.images.size();
+  context.images.push_back(std::move(record));
+  context.images_by_id[context.images.back().image_id] = index;
 }
 
 } // namespace
@@ -71,21 +55,39 @@ bool build_replay_context(trace_record_stream& stream, replay_context& out, std:
   std::unordered_map<uint64_t, replay_thread_info> thread_map;
 
   trace_record record;
+  bool seen_flow = false;
+  mapping_state preflow_mappings;
   while (stream.read_next(record, nullptr)) {
-    if (std::holds_alternative<target_info_record>(record)) {
-      context.target_info = std::get<target_info_record>(record);
-    } else if (std::holds_alternative<target_environment_record>(record)) {
-      context.target_environment = std::get<target_environment_record>(record);
-    } else if (std::holds_alternative<register_spec_record>(record)) {
-      context.register_specs = std::get<register_spec_record>(record).registers;
-    } else if (std::holds_alternative<module_table_record>(record)) {
-      context.modules = std::get<module_table_record>(record).modules;
-    } else if (std::holds_alternative<module_load_record>(record)) {
-      apply_module_load(context.modules, std::get<module_load_record>(record).module);
-    } else if (std::holds_alternative<module_unload_record>(record)) {
-      apply_module_unload(context.modules, std::get<module_unload_record>(record));
-    } else if (std::holds_alternative<memory_map_record>(record)) {
-      context.memory_map = std::get<memory_map_record>(record).regions;
+    if (std::holds_alternative<arch_descriptor_record>(record)) {
+      context.arch = std::get<arch_descriptor_record>(record);
+    } else if (std::holds_alternative<environment_record>(record)) {
+      context.environment = std::get<environment_record>(record);
+    } else if (std::holds_alternative<address_space_record>(record)) {
+      upsert_address_space(context, std::get<address_space_record>(record));
+    } else if (std::holds_alternative<register_file_record>(record)) {
+      upsert_register_file(context, std::get<register_file_record>(record));
+    } else if (std::holds_alternative<image_record>(record)) {
+      upsert_image(context, std::get<image_record>(record));
+    } else if (std::holds_alternative<image_metadata_record>(record)) {
+      const auto& meta = std::get<image_metadata_record>(record);
+      context.image_metadata_by_id[meta.image_id] = meta;
+      context.features.has_image_metadata = true;
+    } else if (std::holds_alternative<image_blob_record>(record)) {
+      const auto& blob = std::get<image_blob_record>(record);
+      context.image_blobs_by_id[blob.image_id].push_back(blob);
+      context.features.has_image_blobs = true;
+    } else if (std::holds_alternative<mapping_record>(record)) {
+      const auto& mapping = std::get<mapping_record>(record);
+      if (!seen_flow) {
+        std::string mapping_error;
+        if (!preflow_mappings.apply_event(mapping, mapping_error)) {
+          error = mapping_error.empty() ? "invalid mapping record" : mapping_error;
+          return false;
+        }
+      } else {
+        context.mapping_events.push_back(mapping);
+        context.features.has_mapping_events = true;
+      }
     } else if (std::holds_alternative<block_definition_record>(record)) {
       const auto& def = std::get<block_definition_record>(record);
       context.blocks_by_id[def.block_id] = def;
@@ -102,6 +104,18 @@ bool build_replay_context(trace_record_stream& stream, replay_context& out, std:
       auto& info = thread_map[end.thread_id];
       info.thread_id = end.thread_id;
       info.ended = true;
+    } else if (std::holds_alternative<flow_instruction_record>(record)) {
+      context.features.has_flow_instruction = true;
+      seen_flow = true;
+    } else if (std::holds_alternative<block_exec_record>(record)) {
+      context.features.has_block_exec = true;
+      seen_flow = true;
+    } else if (std::holds_alternative<reg_write_record>(record)) {
+      context.features.has_reg_writes = true;
+    } else if (std::holds_alternative<mem_access_record>(record)) {
+      context.features.has_mem_access = true;
+    } else if (std::holds_alternative<snapshot_record>(record)) {
+      context.features.has_snapshots = true;
     }
   }
 
@@ -110,25 +124,8 @@ bool build_replay_context(trace_record_stream& stream, replay_context& out, std:
     return false;
   }
 
-  if (!validate_trace_arch(context.header.arch, error)) {
+  if (!preflow_mappings.snapshot(context.mappings, error)) {
     return false;
-  }
-
-  register_spec_validation_options reg_options{};
-  reg_options.allow_empty = (context.header.flags & trace_flag_register_deltas) == 0;
-  if (!normalize_register_specs(context.register_specs, error, reg_options)) {
-    return false;
-  }
-  context.register_names.clear();
-  context.register_names.reserve(context.register_specs.size());
-  for (const auto& spec : context.register_specs) {
-    context.register_names.push_back(spec.name);
-  }
-
-  context.modules_by_id.clear();
-  context.modules_by_id.reserve(context.modules.size());
-  for (const auto& module : context.modules) {
-    context.modules_by_id[module.id] = module;
   }
 
   context.threads.reserve(thread_map.size());
@@ -140,11 +137,8 @@ bool build_replay_context(trace_record_stream& stream, replay_context& out, std:
       [](const replay_thread_info& lhs, const replay_thread_info& rhs) { return lhs.thread_id < rhs.thread_id; }
   );
 
-  if (!context.register_names.empty()) {
-    context.sp_reg_id = find_register_with_flag(context.register_specs, register_flag_sp);
-    if (!context.sp_reg_id.has_value()) {
-      context.sp_reg_id = resolve_sp_reg_id(context.header.arch, context.register_names);
-    }
+  if (!finalize_replay_context(context, error)) {
+    return false;
   }
 
   out = std::move(context);

@@ -17,6 +17,7 @@
 #include "replay_state.hpp"
 #include "replay_state_applier.hpp"
 #include "stateful_flow_cursor.hpp"
+#include "mapping_state.hpp"
 
 namespace w1::rewind {
 
@@ -28,6 +29,8 @@ struct replay_session_config {
   uint32_t history_size = 1024;
   bool track_registers = false;
   bool track_memory = false;
+  bool track_mappings = false;
+  bool strict_instructions = false;
   uint64_t thread_id = 0;
   uint64_t start_sequence = 0;
   block_decoder* block_decoder = nullptr;
@@ -49,15 +52,16 @@ public:
 
   const flow_step& current_step() const { return current_step_; }
   const replay_context& context() const { return context_; }
-  const std::vector<std::string>& register_names() const { return context_.register_names; }
-  const std::vector<register_spec>& register_specs() const { return context_.register_specs; }
+  const std::vector<std::string>& register_names() const { return context_.default_register_names; }
+  const std::vector<register_spec>& register_specs() const { return context_.default_registers; }
   std::vector<std::optional<uint64_t>> read_registers() const;
-  bool read_register_bytes(uint16_t reg_id, std::span<std::byte> out, bool& known) const;
+  bool read_register_bytes(uint32_t reg_id, std::span<std::byte> out, bool& known) const;
   memory_read read_memory(uint64_t address, size_t size) const;
-  const trace_header& header() const { return context_.header; }
-  const std::vector<module_record>& modules() const { return context_.modules; }
+  const file_header& header() const { return context_.header; }
+  const std::vector<image_record>& images() const { return context_.images; }
   const std::vector<replay_thread_info>& threads() const { return context_.threads; }
   const replay_state* state() const;
+  const mapping_state* mappings() const;
   std::optional<replay_notice> take_notice();
   const std::string& error() const { return error_; }
   enum class replay_error_kind { none, begin_of_trace, end_of_trace, other };
@@ -81,6 +85,7 @@ private:
   std::optional<stateful_flow_cursor> stateful_flow_cursor_;
   std::optional<replay_state_applier> state_applier_;
   replay_state state_{};
+  std::optional<mapping_state> mapping_state_;
   std::optional<replay_instruction_cursor> instruction_cursor_;
   std::optional<replay_notice> notice_;
   replay_position current_position_{};

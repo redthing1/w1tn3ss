@@ -119,7 +119,7 @@ struct rewind_recipe {
         log.inf("trace export completed", redlog::field("output", output));
       }
       auto& engine = active.engine();
-      log.inf("trace summary", redlog::field("modules", engine.module_count()));
+      log.inf("trace summary", redlog::field("images", engine.image_count()));
     });
 
     log.inf("qbdipreload_on_exit completed");

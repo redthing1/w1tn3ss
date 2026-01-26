@@ -23,12 +23,13 @@ namespace w1replay::gdb {
 struct adapter_services {
   w1::rewind::replay_session* session = nullptr;
   const w1::rewind::replay_context* context = nullptr;
+  const w1::rewind::mapping_state* mappings = nullptr;
   const register_layout* layout = nullptr;
   const gdbstub::arch_spec* arch_spec = nullptr;
-  module_path_resolver* module_resolver = nullptr;
-  module_image_reader* module_reader = nullptr;
-  module_metadata_provider* module_metadata = nullptr;
-  module_address_index* module_index = nullptr;
+  image_path_resolver* image_resolver = nullptr;
+  image_reader* image_reader = nullptr;
+  image_metadata_provider* image_metadata = nullptr;
+  image_address_index* image_index = nullptr;
   memory_view* memory = nullptr;
   loaded_libraries_provider* loaded_libraries = nullptr;
   breakpoint_store* breakpoints = nullptr;

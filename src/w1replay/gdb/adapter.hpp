@@ -11,6 +11,7 @@
 #include "adapter_components.hpp"
 #include "adapter_services.hpp"
 #include "thread_state.hpp"
+#include "w1replay/modules/image_layout_provider.hpp"
 #include "w1replay/modules/image_reader.hpp"
 #include "w1replay/modules/address_index.hpp"
 
@@ -26,12 +27,14 @@ public:
     std::string trace_path;
     std::string index_path;
     std::string checkpoint_path;
+    uint32_t index_stride = 0;
     uint64_t thread_id = 0;
     uint64_t start_sequence = 0;
     bool prefer_instruction_steps = false;
-    std::vector<std::string> module_mappings;
-    std::vector<std::string> module_dirs;
-    module_address_reader module_reader;
+    std::vector<std::string> image_mappings;
+    std::vector<std::string> image_dirs;
+    image_layout_mode image_layout = image_layout_mode::trace;
+    image_address_reader image_reader;
   };
 
   explicit adapter(config config);
@@ -74,12 +77,13 @@ private:
   bool has_stack_snapshot_ = false;
   breakpoint_store breakpoints_{};
   std::unique_ptr<w1replay::asmr_block_decoder> decoder_;
-  std::unique_ptr<module_path_resolver> module_resolver_;
-  std::shared_ptr<module_image_reader> module_image_reader_;
-  std::shared_ptr<module_metadata_provider> module_metadata_provider_;
+  std::unique_ptr<image_path_resolver> image_resolver_;
+  std::shared_ptr<image_layout_provider> image_layout_provider_;
+  std::shared_ptr<image_reader> image_reader_;
+  std::shared_ptr<image_metadata_provider> image_metadata_provider_;
   std::unique_ptr<memory_view> memory_view_;
   std::unique_ptr<loaded_libraries_provider> loaded_libraries_provider_;
-  std::unique_ptr<module_address_index> module_index_;
+  std::unique_ptr<image_address_index> image_index_;
   adapter_services services_{};
   thread_state thread_state_{};
 

@@ -11,9 +11,7 @@ std::vector<gdbstub::memory_region> memory_layout_component::memory_map() const 
     return {};
   }
   const auto* replay_state = (services_.session && services_.track_memory) ? services_.session->state() : nullptr;
-  return build_memory_map(
-      services_.context->modules, services_.context->memory_map, replay_state, services_.module_resolver
-  );
+  return build_memory_map(*services_.context, replay_state, services_.mappings, services_.image_resolver);
 }
 
 } // namespace w1replay::gdb

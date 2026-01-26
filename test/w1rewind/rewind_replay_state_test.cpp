@@ -11,10 +11,8 @@
 #include "w1rewind/replay/replay_state.hpp"
 #include "w1rewind/replay/replay_state_applier.hpp"
 #include "w1rewind/replay/stateful_flow_cursor.hpp"
-#include "w1rewind/format/trace_format.hpp"
 #include "w1rewind/trace/trace_index.hpp"
 #include "w1rewind/trace/trace_reader.hpp"
-#include "w1rewind/trace/trace_file_writer.hpp"
 
 namespace {
 
@@ -41,75 +39,48 @@ TEST_CASE("w1rewind replay cursor applies register and memory state") {
   using namespace w1::rewind::test_helpers;
 
   fs::path trace_path = temp_path("w1rewind_replay_state.trace");
-  fs::path index_path = temp_path("w1rewind_replay_state.trace.idx");
+  fs::path index_path = temp_path("w1rewind_replay_state.trace.w1ridx");
 
-  w1::rewind::trace_file_writer_config config;
-  config.path = trace_path.string();
-  config.log = redlog::get_logger("test.w1rewind.replay_state");
-  config.chunk_size = 64;
+  auto arch = parse_arch_or_fail("x86_64");
+  auto header = make_header(0, 64);
 
-  auto writer = w1::rewind::make_trace_file_writer(config);
-  REQUIRE(writer);
-  REQUIRE(writer->open());
+  auto handle = open_trace(trace_path, header, redlog::get_logger("test.w1rewind.replay_state"));
+  write_basic_metadata(handle.builder, "x86_64", arch, make_register_names(arch));
+  write_image_mapping(handle.builder, 1, 0x1000, 0x1000);
 
-  w1::rewind::trace_header header{};
-  header.arch = w1::arch::detect_host_arch_spec();
-  header.flags = w1::rewind::trace_flag_instructions | w1::rewind::trace_flag_register_deltas |
-                 w1::rewind::trace_flag_memory_access | w1::rewind::trace_flag_memory_values |
-                 w1::rewind::trace_flag_snapshots | w1::rewind::trace_flag_stack_snapshot;
-  REQUIRE(writer->write_header(header));
+  write_thread_start(handle.builder, 1, "main");
 
-  write_basic_metadata(*writer, header.arch, make_register_names(header.arch));
-  write_module_table(*writer, 1, 0x1000);
+  write_instruction(handle.builder, 1, 1, 0x1000 + 0x10);
 
-  write_thread_start(*writer, 1, "main");
-
-  write_instruction(*writer, 1, 1, 0x1000 + 0x10);
-
-  w1::rewind::register_delta_record deltas{};
+  w1::rewind::reg_write_record deltas{};
   deltas.sequence = 1;
   deltas.thread_id = 1;
-  deltas.deltas = {
-      w1::rewind::register_delta{0, 0x1111},
-      w1::rewind::register_delta{1, 0x9000},
-  };
-  REQUIRE(writer->write_register_deltas(deltas));
+  deltas.regfile_id = 0;
+  deltas.entries = {make_reg_write_entry(0, 0x1111), make_reg_write_entry(1, 0x9000)};
+  REQUIRE(handle.builder.emit_reg_write(deltas));
 
-  w1::rewind::memory_access_record mem{};
-  mem.sequence = 1;
-  mem.thread_id = 1;
-  mem.kind = w1::rewind::memory_access_kind::write;
-  mem.address = 0x2000;
-  mem.size = 2;
-  mem.value_known = true;
-  mem.data = {0xDE, 0xAD};
-  REQUIRE(writer->write_memory_access(mem));
+  write_memory_access(handle.builder, 1, 1, w1::rewind::mem_access_op::write, 0x2000, {0xDE, 0xAD});
 
-  w1::rewind::snapshot_record snapshot{};
-  snapshot.snapshot_id = 1;
-  snapshot.sequence = 1;
-  snapshot.thread_id = 1;
-  snapshot.registers = {
-      w1::rewind::register_delta{0, 0x2222},
-      w1::rewind::register_delta{1, 0x3000},
-  };
-  w1::rewind::stack_segment stack_segment{};
+  w1::rewind::memory_segment stack_segment{};
+  stack_segment.space_id = 0;
   stack_segment.base = 0x3000;
-  stack_segment.size = 2;
   stack_segment.bytes = {0x10, 0x20};
-  snapshot.stack_segments.push_back(std::move(stack_segment));
-  snapshot.reason = "test";
-  REQUIRE(writer->write_snapshot(snapshot));
+  write_snapshot(
+      handle.builder, 1, 1, {make_reg_write_entry(0, 0x2222), make_reg_write_entry(1, 0x3000)}, {stack_segment}
+  );
 
-  write_thread_end(*writer, 1);
+  write_thread_end(handle.builder, 1);
 
-  writer->flush();
-  writer->close();
+  handle.builder.flush();
+  handle.writer->close();
 
   w1::rewind::trace_index_options index_options;
   auto index = std::make_shared<w1::rewind::trace_index>();
   REQUIRE(
-      w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, index.get(), config.log)
+      w1::rewind::build_trace_index(
+          trace_path.string(), index_path.string(), index_options, index.get(),
+          redlog::get_logger("test.w1rewind.replay_state")
+      )
   );
 
   w1::rewind::replay_context context;
@@ -126,17 +97,17 @@ TEST_CASE("w1rewind replay cursor applies register and memory state") {
   w1::rewind::replay_state state;
   w1::rewind::replay_state_applier applier(context);
   w1::rewind::stateful_flow_cursor stateful_cursor(cursor, applier, state);
-  stateful_cursor.configure(context, true, true);
+  REQUIRE(stateful_cursor.configure(context, true, true, nullptr));
   REQUIRE(cursor.seek(1, 1));
 
   w1::rewind::flow_step step{};
   REQUIRE(cursor.step_forward(step));
 
   const auto& state_view = stateful_cursor.state();
-  CHECK(state_view.register_value(0) == 0x2222);
-  CHECK(state_view.register_value(1) == 0x3000);
+  CHECK(state_view.register_value(0, 0, w1::rewind::endian::little) == 0x2222);
+  CHECK(state_view.register_value(0, 1, w1::rewind::endian::little) == 0x3000);
 
-  auto mem_bytes = state_view.read_memory(0x2000, 2);
+  auto mem_bytes = state_view.read_memory(0, 0x2000, 2);
   REQUIRE(mem_bytes.bytes.size() == 2);
   REQUIRE(mem_bytes.known.size() == 2);
   CHECK(mem_bytes.known[0] == 1);
@@ -144,7 +115,7 @@ TEST_CASE("w1rewind replay cursor applies register and memory state") {
   CHECK(std::to_integer<uint8_t>(mem_bytes.bytes[0]) == 0xDE);
   CHECK(std::to_integer<uint8_t>(mem_bytes.bytes[1]) == 0xAD);
 
-  auto stack_bytes = state_view.read_memory(0x3000, 2);
+  auto stack_bytes = state_view.read_memory(0, 0x3000, 2);
   REQUIRE(stack_bytes.bytes.size() == 2);
   REQUIRE(stack_bytes.known.size() == 2);
   CHECK(stack_bytes.known[0] == 1);
@@ -152,7 +123,7 @@ TEST_CASE("w1rewind replay cursor applies register and memory state") {
   CHECK(std::to_integer<uint8_t>(stack_bytes.bytes[0]) == 0x10);
   CHECK(std::to_integer<uint8_t>(stack_bytes.bytes[1]) == 0x20);
 
-  auto unknown = state_view.read_memory(0x2002, 1);
+  auto unknown = state_view.read_memory(0, 0x2002, 1);
   REQUIRE(unknown.bytes.size() == 1);
   REQUIRE(unknown.known.size() == 1);
   CHECK(unknown.known[0] == 0);

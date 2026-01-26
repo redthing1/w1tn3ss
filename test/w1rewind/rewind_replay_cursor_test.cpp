@@ -31,47 +31,35 @@ TEST_CASE("w1rewind replay cursor steps through instruction flow") {
   using namespace w1::rewind::test_helpers;
 
   fs::path trace_path = temp_path("w1rewind_replay_inst.trace");
-  fs::path index_path = temp_path("w1rewind_replay_inst.trace.idx");
-
-  w1::rewind::trace_file_writer_config writer_config;
-  writer_config.path = trace_path.string();
-  writer_config.log = redlog::get_logger("test.w1rewind.replay");
-  writer_config.chunk_size = 64;
-
-  auto writer = w1::rewind::make_trace_file_writer(writer_config);
-  REQUIRE(writer);
-  REQUIRE(writer->open());
+  fs::path index_path = temp_path("w1rewind_replay_inst.trace.w1ridx");
 
   auto arch = parse_arch_or_fail("x86_64");
-  w1::rewind::trace_header header{};
-  header.arch = arch;
-  header.flags = w1::rewind::trace_flag_instructions;
-  REQUIRE(writer->write_header(header));
+  auto header = make_header(0, 64);
+  auto logger = redlog::get_logger("test.w1rewind.replay");
+  auto handle = open_trace(trace_path, header, logger);
 
-  write_basic_metadata(*writer, header.arch, minimal_registers(header.arch));
-  write_module_table(*writer, 1, 0x1000);
-  write_thread_start(*writer, 1, "thread1");
-  write_thread_start(*writer, 2, "thread2");
+  write_basic_metadata(handle.builder, "x86_64", arch, minimal_registers(arch));
+  write_image_mapping(handle.builder, 1, 0x1000, 0x1000);
+  write_thread_start(handle.builder, 1, "thread1");
+  write_thread_start(handle.builder, 2, "thread2");
 
   for (uint64_t i = 0; i < 4; ++i) {
-    write_instruction(*writer, 1, i, 0x1000 + 0x10 + i * 4);
+    write_instruction(handle.builder, 1, i, 0x1000 + 0x10 + i * 4);
     if (i < 2) {
-      write_instruction(*writer, 2, i, 0x1000 + 0x40 + i * 4);
+      write_instruction(handle.builder, 2, i, 0x1000 + 0x40 + i * 4);
     }
   }
 
-  write_thread_end(*writer, 1);
-  write_thread_end(*writer, 2);
+  write_thread_end(handle.builder, 1);
+  write_thread_end(handle.builder, 2);
 
-  writer->flush();
-  writer->close();
+  handle.builder.flush();
+  handle.writer->close();
 
   w1::rewind::trace_index_options index_options;
   auto index = std::make_shared<w1::rewind::trace_index>();
   REQUIRE(
-      w1::rewind::build_trace_index(
-          trace_path.string(), index_path.string(), index_options, index.get(), writer_config.log
-      )
+      w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, index.get(), logger)
   );
 
   w1::rewind::replay_context context;
@@ -101,43 +89,31 @@ TEST_CASE("w1rewind replay cursor resolves block flow addresses") {
   using namespace w1::rewind::test_helpers;
 
   fs::path trace_path = temp_path("w1rewind_replay_block.trace");
-  fs::path index_path = temp_path("w1rewind_replay_block.trace.idx");
-
-  w1::rewind::trace_file_writer_config writer_config;
-  writer_config.path = trace_path.string();
-  writer_config.log = redlog::get_logger("test.w1rewind.replay");
-  writer_config.chunk_size = 64;
-
-  auto writer = w1::rewind::make_trace_file_writer(writer_config);
-  REQUIRE(writer);
-  REQUIRE(writer->open());
+  fs::path index_path = temp_path("w1rewind_replay_block.trace.w1ridx");
 
   auto arch = parse_arch_or_fail("x86_64");
-  w1::rewind::trace_header header{};
-  header.arch = arch;
-  header.flags = w1::rewind::trace_flag_blocks;
-  REQUIRE(writer->write_header(header));
+  auto header = make_header(0, 64);
+  auto logger = redlog::get_logger("test.w1rewind.replay");
+  auto handle = open_trace(trace_path, header, logger);
 
-  write_basic_metadata(*writer, header.arch, minimal_registers(header.arch));
-  write_module_table(*writer, 7, 0x2000);
-  write_thread_start(*writer, 1, "thread1");
+  write_basic_metadata(handle.builder, "x86_64", arch, minimal_registers(arch));
+  write_image_mapping(handle.builder, 7, 0x2000, 0x1000);
+  write_thread_start(handle.builder, 1, "thread1");
 
-  write_block_def(*writer, 1, 0x2000 + 0x10, 4);
-  write_block_def(*writer, 2, 0x2000 + 0x20, 4);
-  write_block_exec(*writer, 1, 0, 1);
-  write_block_exec(*writer, 1, 1, 2);
+  write_block_def(handle.builder, 1, 0x2000 + 0x10, 4);
+  write_block_def(handle.builder, 2, 0x2000 + 0x20, 4);
+  write_block_exec(handle.builder, 1, 0, 1);
+  write_block_exec(handle.builder, 1, 1, 2);
 
-  write_thread_end(*writer, 1);
+  write_thread_end(handle.builder, 1);
 
-  writer->flush();
-  writer->close();
+  handle.builder.flush();
+  handle.writer->close();
 
   w1::rewind::trace_index_options index_options;
   auto index = std::make_shared<w1::rewind::trace_index>();
   REQUIRE(
-      w1::rewind::build_trace_index(
-          trace_path.string(), index_path.string(), index_options, index.get(), writer_config.log
-      )
+      w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, index.get(), logger)
   );
 
   w1::rewind::replay_context context;
@@ -165,38 +141,26 @@ TEST_CASE("w1rewind replay cursor handles module-less traces") {
   using namespace w1::rewind::test_helpers;
 
   fs::path trace_path = temp_path("w1rewind_replay_moduleless.trace");
-  fs::path index_path = temp_path("w1rewind_replay_moduleless.trace.idx");
-
-  w1::rewind::trace_file_writer_config writer_config;
-  writer_config.path = trace_path.string();
-  writer_config.log = redlog::get_logger("test.w1rewind.replay");
-  writer_config.chunk_size = 64;
-
-  auto writer = w1::rewind::make_trace_file_writer(writer_config);
-  REQUIRE(writer);
-  REQUIRE(writer->open());
+  fs::path index_path = temp_path("w1rewind_replay_moduleless.trace.w1ridx");
 
   auto arch = parse_arch_or_fail("x86_64");
-  w1::rewind::trace_header header{};
-  header.arch = arch;
-  header.flags = w1::rewind::trace_flag_instructions;
-  REQUIRE(writer->write_header(header));
+  auto header = make_header(0, 64);
+  auto logger = redlog::get_logger("test.w1rewind.replay");
+  auto handle = open_trace(trace_path, header, logger);
 
-  write_basic_metadata(*writer, header.arch, minimal_registers(header.arch));
-  write_thread_start(*writer, 1, "thread1");
-  write_instruction(*writer, 1, 0, 0x4000);
-  write_instruction(*writer, 1, 1, 0x4004);
-  write_thread_end(*writer, 1);
+  write_basic_metadata(handle.builder, "x86_64", arch, minimal_registers(arch));
+  write_thread_start(handle.builder, 1, "thread1");
+  write_instruction(handle.builder, 1, 0, 0x4000);
+  write_instruction(handle.builder, 1, 1, 0x4004);
+  write_thread_end(handle.builder, 1);
 
-  writer->flush();
-  writer->close();
+  handle.builder.flush();
+  handle.writer->close();
 
   w1::rewind::trace_index_options index_options;
   auto index = std::make_shared<w1::rewind::trace_index>();
   REQUIRE(
-      w1::rewind::build_trace_index(
-          trace_path.string(), index_path.string(), index_options, index.get(), writer_config.log
-      )
+      w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, index.get(), logger)
   );
 
   w1::rewind::replay_context context;
@@ -221,7 +185,7 @@ struct cursor_delta_observer final : public w1::rewind::flow_record_observer {
   size_t delta_count = 0;
 
   bool on_record(const w1::rewind::trace_record& record, uint64_t, std::string&) override {
-    if (std::holds_alternative<w1::rewind::register_delta_record>(record)) {
+    if (std::holds_alternative<w1::rewind::reg_write_record>(record)) {
       delta_count += 1;
     }
     return true;
@@ -233,42 +197,30 @@ TEST_CASE("w1rewind replay cursor backfills history window when stepping backwar
   using namespace w1::rewind::test_helpers;
 
   fs::path trace_path = temp_path("w1rewind_replay_history.trace");
-  fs::path index_path = temp_path("w1rewind_replay_history.trace.idx");
-
-  w1::rewind::trace_file_writer_config writer_config;
-  writer_config.path = trace_path.string();
-  writer_config.log = redlog::get_logger("test.w1rewind.replay");
-  writer_config.chunk_size = 64;
-
-  auto writer = w1::rewind::make_trace_file_writer(writer_config);
-  REQUIRE(writer);
-  REQUIRE(writer->open());
+  fs::path index_path = temp_path("w1rewind_replay_history.trace.w1ridx");
 
   auto arch = parse_arch_or_fail("x86_64");
-  w1::rewind::trace_header header{};
-  header.arch = arch;
-  header.flags = w1::rewind::trace_flag_instructions;
-  REQUIRE(writer->write_header(header));
+  auto header = make_header(0, 64);
+  auto logger = redlog::get_logger("test.w1rewind.replay");
+  auto handle = open_trace(trace_path, header, logger);
 
-  write_basic_metadata(*writer, header.arch, minimal_registers(header.arch));
-  write_module_table(*writer, 1, 0x1000);
-  write_thread_start(*writer, 1, "thread1");
+  write_basic_metadata(handle.builder, "x86_64", arch, minimal_registers(arch));
+  write_image_mapping(handle.builder, 1, 0x1000, 0x1000);
+  write_thread_start(handle.builder, 1, "thread1");
 
   for (uint64_t i = 0; i < 8; ++i) {
-    write_instruction(*writer, 1, i, 0x1000 + 0x10 + i * 4);
+    write_instruction(handle.builder, 1, i, 0x1000 + 0x10 + i * 4);
   }
 
-  write_thread_end(*writer, 1);
+  write_thread_end(handle.builder, 1);
 
-  writer->flush();
-  writer->close();
+  handle.builder.flush();
+  handle.writer->close();
 
   w1::rewind::trace_index_options index_options;
   auto index = std::make_shared<w1::rewind::trace_index>();
   REQUIRE(
-      w1::rewind::build_trace_index(
-          trace_path.string(), index_path.string(), index_options, index.get(), writer_config.log
-      )
+      w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, index.get(), logger)
   );
 
   w1::rewind::replay_context context;
@@ -301,43 +253,31 @@ TEST_CASE("w1rewind replay cursor supports history with observer") {
   using namespace w1::rewind::test_helpers;
 
   fs::path trace_path = temp_path("w1rewind_replay_observer.trace");
-  fs::path index_path = temp_path("w1rewind_replay_observer.trace.idx");
-
-  w1::rewind::trace_file_writer_config writer_config;
-  writer_config.path = trace_path.string();
-  writer_config.log = redlog::get_logger("test.w1rewind.replay");
-  writer_config.chunk_size = 64;
-
-  auto writer = w1::rewind::make_trace_file_writer(writer_config);
-  REQUIRE(writer);
-  REQUIRE(writer->open());
+  fs::path index_path = temp_path("w1rewind_replay_observer.trace.w1ridx");
 
   auto arch = parse_arch_or_fail("x86_64");
-  w1::rewind::trace_header header{};
-  header.arch = arch;
-  header.flags = w1::rewind::trace_flag_instructions;
-  REQUIRE(writer->write_header(header));
+  auto header = make_header(0, 64);
+  auto logger = redlog::get_logger("test.w1rewind.replay");
+  auto handle = open_trace(trace_path, header, logger);
 
-  write_basic_metadata(*writer, header.arch, minimal_registers(header.arch));
-  write_module_table(*writer, 1, 0x2000);
-  write_thread_start(*writer, 1, "thread1");
+  write_basic_metadata(handle.builder, "x86_64", arch, minimal_registers(arch));
+  write_image_mapping(handle.builder, 1, 0x2000, 0x1000);
+  write_thread_start(handle.builder, 1, "thread1");
 
   for (uint64_t i = 0; i < 4; ++i) {
-    write_instruction(*writer, 1, i, 0x2000 + 0x10 + i * 4);
-    write_register_delta(*writer, 1, i, 0, 0x1000 + i);
+    write_instruction(handle.builder, 1, i, 0x2000 + 0x10 + i * 4);
+    write_register_delta(handle.builder, 1, i, 0, 0x1000 + i);
   }
 
-  write_thread_end(*writer, 1);
+  write_thread_end(handle.builder, 1);
 
-  writer->flush();
-  writer->close();
+  handle.builder.flush();
+  handle.writer->close();
 
   w1::rewind::trace_index_options index_options;
   auto index = std::make_shared<w1::rewind::trace_index>();
   REQUIRE(
-      w1::rewind::build_trace_index(
-          trace_path.string(), index_path.string(), index_options, index.get(), writer_config.log
-      )
+      w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, index.get(), logger)
   );
 
   w1::rewind::replay_context context;
@@ -368,41 +308,29 @@ TEST_CASE("w1rewind replay cursor cancels during forward step") {
   using namespace w1::rewind::test_helpers;
 
   fs::path trace_path = temp_path("w1rewind_replay_cancel.trace");
-  fs::path index_path = temp_path("w1rewind_replay_cancel.trace.idx");
-
-  w1::rewind::trace_file_writer_config writer_config;
-  writer_config.path = trace_path.string();
-  writer_config.log = redlog::get_logger("test.w1rewind.replay");
-  writer_config.chunk_size = 64;
-
-  auto writer = w1::rewind::make_trace_file_writer(writer_config);
-  REQUIRE(writer);
-  REQUIRE(writer->open());
+  fs::path index_path = temp_path("w1rewind_replay_cancel.trace.w1ridx");
 
   auto arch = parse_arch_or_fail("x86_64");
-  w1::rewind::trace_header header{};
-  header.arch = arch;
-  header.flags = w1::rewind::trace_flag_instructions;
-  REQUIRE(writer->write_header(header));
+  auto header = make_header(0, 64);
+  auto logger = redlog::get_logger("test.w1rewind.replay");
+  auto handle = open_trace(trace_path, header, logger);
 
-  write_basic_metadata(*writer, header.arch, minimal_registers(header.arch));
-  write_thread_start(*writer, 1, "thread1");
+  write_basic_metadata(handle.builder, "x86_64", arch, minimal_registers(arch));
+  write_thread_start(handle.builder, 1, "thread1");
 
   for (uint64_t i = 0; i < 3; ++i) {
-    write_instruction(*writer, 1, i, 0x3000 + 0x10 + i * 4);
+    write_instruction(handle.builder, 1, i, 0x3000 + 0x10 + i * 4);
   }
 
-  write_thread_end(*writer, 1);
+  write_thread_end(handle.builder, 1);
 
-  writer->flush();
-  writer->close();
+  handle.builder.flush();
+  handle.writer->close();
 
   w1::rewind::trace_index_options index_options;
   auto index = std::make_shared<w1::rewind::trace_index>();
   REQUIRE(
-      w1::rewind::build_trace_index(
-          trace_path.string(), index_path.string(), index_options, index.get(), writer_config.log
-      )
+      w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, index.get(), logger)
   );
 
   w1::rewind::replay_context context;

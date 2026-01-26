@@ -300,7 +300,7 @@ int rewind(
   const std::string stack_window = get_config_value_or(params.config_map, "stack_window_mode", "none");
   const std::string threads = get_config_value_or(params.config_map, "threads", "main");
   const std::string reg_deltas = get_config_value_or(params.config_map, "reg_deltas", "false");
-  const std::string compress = get_config_value_or(params.config_map, "compress", "false");
+  const std::string compress = get_config_value_or(params.config_map, "compress", "true");
   const std::string chunk_size = get_config_value_or(params.config_map, "chunk_size", "default");
 
   log.info(

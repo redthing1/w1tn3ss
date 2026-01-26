@@ -11,8 +11,6 @@
 #include "w1rewind/replay/replay_session.hpp"
 #include "w1rewind/trace/trace_index.hpp"
 #include "w1rewind/trace/trace_reader.hpp"
-#include "w1rewind/trace/trace_file_writer.hpp"
-
 #include "w1rewind/rewind_test_helpers.hpp"
 
 namespace {
@@ -61,7 +59,9 @@ session_inputs build_session_inputs(const std::filesystem::path& trace_path) {
   w1::rewind::trace_index_options options;
   w1::rewind::trace_index index;
   error.clear();
-  REQUIRE(w1::rewind::ensure_trace_index(trace_path, {}, options, index, error));
+  auto index_path = trace_path;
+  index_path += ".w1ridx";
+  REQUIRE(w1::rewind::ensure_trace_index(trace_path, index_path, options, index, error));
   inputs.index = std::make_shared<w1::rewind::trace_index>(std::move(index));
   return inputs;
 }
@@ -72,35 +72,25 @@ std::filesystem::path write_block_trace(const char* name) {
 
   fs::path trace_path = temp_path(name);
 
-  w1::rewind::trace_file_writer_config writer_config;
-  writer_config.path = trace_path.string();
-  writer_config.log = redlog::get_logger("test.w1replay.gdb");
-  writer_config.chunk_size = 64;
-
-  auto writer = w1::rewind::make_trace_file_writer(writer_config);
-  REQUIRE(writer);
-  REQUIRE(writer->open());
-
   auto arch = parse_arch_or_fail("arm64");
-  w1::rewind::trace_header header{};
-  header.arch = arch;
-  header.flags = w1::rewind::trace_flag_blocks;
-  REQUIRE(writer->write_header(header));
+  auto header = make_header(0, 64);
+  auto handle = open_trace(trace_path, header, redlog::get_logger("test.w1replay.gdb"));
 
   std::vector<std::string> registers = {"pc"};
-  write_basic_metadata(*writer, arch, registers);
-  write_module_table(*writer, 1, 0x1000);
-  write_thread_start(*writer, 1, "thread1");
+  write_basic_metadata(handle.builder, "arm64", arch, registers);
+  write_image_mapping(handle.builder, 1, 0x1000, 0x100);
+  write_thread_start(handle.builder, 1, "thread1");
 
-  write_block_def(*writer, 1, 0x1000 + 0x10, 4);
-  write_block_def(*writer, 2, 0x1000 + 0x20, 4);
-  write_block_exec(*writer, 1, 0, 1);
-  write_block_exec(*writer, 1, 1, 2);
+  write_block_def(handle.builder, 1, 0x1000 + 0x10, 4);
+  write_block_def(handle.builder, 2, 0x1000 + 0x20, 4);
+  write_block_exec(handle.builder, 1, 0, 1);
+  write_block_exec(handle.builder, 1, 1, 2);
 
-  write_thread_end(*writer, 1);
+  write_thread_end(handle.builder, 1);
 
-  writer->flush();
-  writer->close();
+  handle.builder.flush();
+  handle.writer->flush();
+  handle.writer->close();
   return trace_path;
 }
 
@@ -110,31 +100,21 @@ std::filesystem::path write_instruction_trace(const char* name) {
 
   fs::path trace_path = temp_path(name);
 
-  w1::rewind::trace_file_writer_config writer_config;
-  writer_config.path = trace_path.string();
-  writer_config.log = redlog::get_logger("test.w1replay.gdb");
-  writer_config.chunk_size = 64;
-
-  auto writer = w1::rewind::make_trace_file_writer(writer_config);
-  REQUIRE(writer);
-  REQUIRE(writer->open());
-
   auto arch = parse_arch_or_fail("arm64");
-  w1::rewind::trace_header header{};
-  header.arch = arch;
-  header.flags = w1::rewind::trace_flag_instructions;
-  REQUIRE(writer->write_header(header));
+  auto header = make_header(0, 64);
+  auto handle = open_trace(trace_path, header, redlog::get_logger("test.w1replay.gdb"));
 
   std::vector<std::string> registers = {"pc"};
-  write_basic_metadata(*writer, arch, registers);
-  write_module_table(*writer, 1, 0x2000);
-  write_thread_start(*writer, 1, "thread1");
-  write_instruction(*writer, 1, 0, 0x2000 + 0x10);
-  write_instruction(*writer, 1, 1, 0x2000 + 0x14);
-  write_thread_end(*writer, 1);
+  write_basic_metadata(handle.builder, "arm64", arch, registers);
+  write_image_mapping(handle.builder, 1, 0x2000, 0x100);
+  write_thread_start(handle.builder, 1, "thread1");
+  write_instruction(handle.builder, 1, 0, 0x2000 + 0x10);
+  write_instruction(handle.builder, 1, 1, 0x2000 + 0x14);
+  write_thread_end(handle.builder, 1);
 
-  writer->flush();
-  writer->close();
+  handle.builder.flush();
+  handle.writer->flush();
+  handle.writer->close();
   return trace_path;
 }
 

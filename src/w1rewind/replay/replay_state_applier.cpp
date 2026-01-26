@@ -3,55 +3,45 @@
 namespace w1::rewind {
 
 bool replay_state_applier::apply_record(
-    const trace_record& record, uint64_t active_thread_id, bool track_registers, bool track_memory, replay_state& state
+    const trace_record& record, uint64_t active_thread_id, bool track_registers, bool track_memory,
+    replay_state& state, std::string& error
 ) const {
+  error.clear();
   if (!(track_registers || track_memory) || active_thread_id == 0) {
     return true;
   }
 
-  if (std::holds_alternative<register_delta_record>(record)) {
-    return apply_register_deltas(std::get<register_delta_record>(record), active_thread_id, track_registers, state);
+  if (std::holds_alternative<reg_write_record>(record)) {
+    return apply_reg_write(std::get<reg_write_record>(record), active_thread_id, track_registers, state, error);
   }
-  if (std::holds_alternative<register_bytes_record>(record)) {
-    return apply_register_bytes(std::get<register_bytes_record>(record), active_thread_id, track_registers, state);
-  }
-  if (std::holds_alternative<memory_access_record>(record)) {
-    return apply_memory_access(std::get<memory_access_record>(record), active_thread_id, track_memory, state);
+  if (std::holds_alternative<mem_access_record>(record)) {
+    return apply_memory_access(std::get<mem_access_record>(record), active_thread_id, track_memory, state);
   }
   if (std::holds_alternative<snapshot_record>(record)) {
-    return apply_snapshot(std::get<snapshot_record>(record), active_thread_id, track_registers, track_memory, state);
+    return apply_snapshot(
+        std::get<snapshot_record>(record), active_thread_id, track_registers, track_memory, state, error
+    );
   }
 
   return true;
 }
 
-bool replay_state_applier::apply_register_deltas(
-    const register_delta_record& record, uint64_t active_thread_id, bool track_registers, replay_state& state
+bool replay_state_applier::apply_reg_write(
+    const reg_write_record& record, uint64_t active_thread_id, bool track_registers, replay_state& state,
+    std::string& error
 ) const {
+  error.clear();
   if (!track_registers) {
     return true;
   }
   if (record.thread_id != active_thread_id) {
     return true;
   }
-  state.apply_register_deltas(record.deltas);
-  return true;
-}
-
-bool replay_state_applier::apply_register_bytes(
-    const register_bytes_record& record, uint64_t active_thread_id, bool track_registers, replay_state& state
-) const {
-  if (!track_registers) {
-    return true;
-  }
-  if (record.thread_id != active_thread_id) {
-    return true;
-  }
-  return state.apply_register_bytes(record.entries, record.data);
+  return state.apply_reg_write(record.regfile_id, record.entries, error);
 }
 
 bool replay_state_applier::apply_memory_access(
-    const memory_access_record& record, uint64_t active_thread_id, bool track_memory, replay_state& state
+    const mem_access_record& record, uint64_t active_thread_id, bool track_memory, replay_state& state
 ) const {
   if (!track_memory) {
     return true;
@@ -59,30 +49,33 @@ bool replay_state_applier::apply_memory_access(
   if (record.thread_id != active_thread_id) {
     return true;
   }
-  if (!record.value_known || record.data.empty()) {
+  if ((record.flags & mem_access_value_known) == 0 || record.value.empty()) {
     return true;
   }
-  state.apply_memory_bytes(record.address, record.data);
+  state.apply_memory_bytes(record.space_id, record.address, record.value);
   return true;
 }
 
 bool replay_state_applier::apply_snapshot(
     const snapshot_record& record, uint64_t active_thread_id, bool track_registers, bool track_memory,
-    replay_state& state
+    replay_state& state, std::string& error
 ) const {
+  error.clear();
   if (record.thread_id != active_thread_id) {
     return true;
   }
 
   if (track_registers && !record.registers.empty()) {
-    state.apply_register_snapshot(record.registers);
+    if (!state.apply_register_snapshot(record.regfile_id, record.registers, error)) {
+      return false;
+    }
   }
 
-  if (!track_memory || record.stack_segments.empty()) {
+  if (!track_memory || record.memory_segments.empty()) {
     return true;
   }
 
-  state.apply_stack_segments(record.stack_segments);
+  state.apply_memory_segments(record.memory_segments);
 
   return true;
 }

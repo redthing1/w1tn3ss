@@ -5,6 +5,7 @@
 #include "doctest/doctest.hpp"
 
 #include "tracers/w1rewind/runtime/rewind_runtime.hpp"
+#include "w1rewind/replay/replay_context.hpp"
 #include "w1rewind/trace/trace_reader.hpp"
 
 namespace {
@@ -71,8 +72,8 @@ TEST_CASE("w1rewind records instruction flow, memory, and snapshots") {
 
   w1::rewind::trace_record record;
   while (reader.read_next(record)) {
-    if (std::holds_alternative<w1::rewind::instruction_record>(record)) {
-      const auto& inst = std::get<w1::rewind::instruction_record>(record);
+    if (std::holds_alternative<w1::rewind::flow_instruction_record>(record)) {
+      const auto& inst = std::get<w1::rewind::flow_instruction_record>(record);
       if (first_instruction) {
         first_instruction = false;
       } else {
@@ -81,20 +82,20 @@ TEST_CASE("w1rewind records instruction flow, memory, and snapshots") {
       last_sequence = inst.sequence;
       instruction_sequences.insert(inst.sequence);
       instruction_count += 1;
-    } else if (std::holds_alternative<w1::rewind::register_delta_record>(record)) {
-      const auto& deltas = std::get<w1::rewind::register_delta_record>(record);
+    } else if (std::holds_alternative<w1::rewind::reg_write_record>(record)) {
+      const auto& deltas = std::get<w1::rewind::reg_write_record>(record);
       CHECK(instruction_sequences.find(deltas.sequence) != instruction_sequences.end());
       delta_count += 1;
-    } else if (std::holds_alternative<w1::rewind::memory_access_record>(record)) {
-      const auto& mem = std::get<w1::rewind::memory_access_record>(record);
+    } else if (std::holds_alternative<w1::rewind::mem_access_record>(record)) {
+      const auto& mem = std::get<w1::rewind::mem_access_record>(record);
       CHECK(instruction_sequences.find(mem.sequence) != instruction_sequences.end());
-      if (mem.size > memory_max_bytes) {
-        CHECK(mem.value_truncated);
+      if (mem.access_size > memory_max_bytes) {
+        CHECK((mem.flags & w1::rewind::mem_access_value_truncated) != 0);
         saw_truncated = true;
       }
-      if (mem.value_known) {
-        CHECK(!mem.data.empty());
-        CHECK(mem.data.size() <= memory_max_bytes);
+      if ((mem.flags & w1::rewind::mem_access_value_known) != 0) {
+        CHECK(!mem.value.empty());
+        CHECK(mem.value.size() <= memory_max_bytes);
       }
       memory_count += 1;
     } else if (std::holds_alternative<w1::rewind::snapshot_record>(record)) {
@@ -110,17 +111,18 @@ TEST_CASE("w1rewind records instruction flow, memory, and snapshots") {
 
   CHECK(reader.error().empty());
   CHECK(reader.header().version == w1::rewind::k_trace_version);
-  CHECK((reader.header().flags & w1::rewind::trace_flag_instructions) != 0);
-  CHECK((reader.header().flags & w1::rewind::trace_flag_blocks) == 0);
-  CHECK((reader.header().flags & w1::rewind::trace_flag_register_deltas) != 0);
-  CHECK((reader.header().flags & w1::rewind::trace_flag_memory_access) != 0);
-  CHECK((reader.header().flags & w1::rewind::trace_flag_memory_values) != 0);
-  CHECK((reader.header().flags & w1::rewind::trace_flag_snapshots) != 0);
-  CHECK(reader.target_info().has_value());
-  CHECK(reader.target_environment().has_value());
-  CHECK(!reader.register_specs().empty());
-  CHECK(!reader.module_table().empty());
-  CHECK(!reader.memory_map().empty());
+  w1::rewind::replay_context context;
+  std::string error;
+  REQUIRE(w1::rewind::load_replay_context(path.string(), context, error));
+  CHECK(context.arch.has_value());
+  CHECK(context.environment.has_value());
+  CHECK(!context.register_files.empty());
+  CHECK(!context.images.empty());
+  CHECK(!context.mappings.empty());
+  CHECK(context.features.has_flow_instruction);
+  CHECK(context.features.has_reg_writes);
+  CHECK(context.features.has_mem_access);
+  CHECK(context.features.has_snapshots);
 
   CHECK(instruction_count > 0);
   CHECK(delta_count > 0);

@@ -12,35 +12,25 @@ std::optional<gdbstub::host_info> host_info_component::get_host_info() const {
   }
   gdbstub::host_info info{};
   const auto& context = *services_.context;
-  const auto* env = context.target_environment ? &*context.target_environment : nullptr;
-  std::string os_id;
-  std::string abi;
-  if (context.target_info) {
-    os_id = context.target_info->os;
-    abi = context.target_info->abi;
+  const auto* env = context.environment ? &*context.environment : nullptr;
+  std::string os_id = env ? env->os_id : std::string{};
+  std::string abi = env ? env->abi : std::string{};
+  if (context.arch.has_value()) {
+    info.triple = build_process_triple(*context.arch, os_id, abi);
   }
-  info.triple = build_process_triple(context.header.arch, os_id, abi);
   info.endian = (services_.target_endian == endian::big) ? "big" : "little";
-  info.ptr_size = static_cast<int>(context.header.arch.pointer_bits / 8);
+  uint16_t pointer_bits = 0;
+  if (context.arch.has_value()) {
+    pointer_bits = context.arch->pointer_bits;
+    if (pointer_bits == 0) {
+      pointer_bits = context.arch->address_bits;
+    }
+  }
+  if (pointer_bits % 8 != 0) {
+    pointer_bits = 0;
+  }
+  info.ptr_size = static_cast<int>(pointer_bits / 8);
   info.hostname = (env && !env->hostname.empty()) ? env->hostname : "w1replay";
-  if (env && env->addressing_bits > 0) {
-    info.addressing_bits = static_cast<int>(env->addressing_bits);
-  }
-  if (env && env->low_mem_addressing_bits > 0) {
-    info.low_mem_addressing_bits = static_cast<int>(env->low_mem_addressing_bits);
-  }
-  if (env && env->high_mem_addressing_bits > 0) {
-    info.high_mem_addressing_bits = static_cast<int>(env->high_mem_addressing_bits);
-  }
-  if (env && !env->os_version.empty()) {
-    info.os_version = env->os_version;
-  }
-  if (env && !env->os_build.empty()) {
-    info.os_build = env->os_build;
-  }
-  if (env && !env->os_kernel.empty()) {
-    info.os_kernel = env->os_kernel;
-  }
   if (info.ptr_size <= 0 || info.triple.empty()) {
     return std::nullopt;
   }

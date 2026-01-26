@@ -5,31 +5,31 @@
 #include <string>
 #include <vector>
 
-#include "trace_reader.hpp"
-#include "w1rewind/replay/memory_store.hpp"
+#include "record_stream.hpp"
+#include "w1rewind/format/trace_format.hpp"
 
 namespace w1::rewind {
 
-constexpr uint16_t k_replay_checkpoint_version = 4;
-constexpr std::array<uint8_t, 8> k_replay_checkpoint_magic = {'W', '1', 'R', 'C', 'H', 'K', '4', '\0'};
-
 struct replay_checkpoint_header {
-  uint16_t version = k_replay_checkpoint_version;
-  uint16_t trace_version = 0;
-  w1::arch::arch_spec arch{};
-  uint64_t trace_flags = 0;
-  uint32_t register_count = 0;
+  uint16_t version = k_trace_checkpoint_version;
+  uint16_t header_size = 0;
+  std::array<uint8_t, 16> trace_uuid{};
+  uint32_t flags = 0;
   uint32_t stride = 0;
+  uint32_t thread_count = 0;
+  uint32_t entry_count = 0;
 };
+
+constexpr uint32_t k_checkpoint_flag_has_mappings = 1u << 0;
 
 struct replay_checkpoint_entry {
   uint64_t thread_id = 0;
   uint64_t sequence = 0;
   trace_record_location location{};
-  std::vector<register_delta> registers;
-  std::vector<register_bytes_entry> register_bytes_entries;
-  std::vector<uint8_t> register_bytes;
-  std::vector<memory_span> memory;
+  uint32_t regfile_id = 0;
+  std::vector<reg_write_entry> registers;
+  std::vector<memory_segment> memory_segments;
+  std::vector<mapping_record> mappings;
 };
 
 struct replay_checkpoint_thread_index {

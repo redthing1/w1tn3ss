@@ -16,12 +16,14 @@ bool flow_extractor::try_extract(
   }
 
   if (kind_ == flow_kind::instructions) {
-    if (!std::holds_alternative<instruction_record>(record)) {
+    if (!std::holds_alternative<flow_instruction_record>(record)) {
       return true;
     }
-    const auto& inst = std::get<instruction_record>(record);
+    const auto& inst = std::get<flow_instruction_record>(record);
     out.thread_id = inst.thread_id;
     out.sequence = inst.sequence;
+    out.space_id = inst.space_id;
+    out.mode_id = inst.mode_id;
     out.size = inst.size;
     out.address = inst.address;
     out.block_id = 0;
@@ -45,6 +47,8 @@ bool flow_extractor::try_extract(
   const auto& def = it->second;
   out.thread_id = exec.thread_id;
   out.sequence = exec.sequence;
+  out.space_id = def.space_id;
+  out.mode_id = def.mode_id;
   out.size = def.size;
   out.address = def.address;
   out.block_id = exec.block_id;

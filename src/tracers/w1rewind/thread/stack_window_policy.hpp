@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "config/rewind_config.hpp"
+#include "engine/register_schema.hpp"
 #include "w1runtime/register_capture.hpp"
 
 namespace w1rewind {
@@ -19,7 +20,8 @@ struct stack_window_result {
 };
 
 stack_window_result compute_stack_window_segments(
-    const w1::util::register_state& regs, const rewind_config::stack_window_options& options
+    const w1::util::register_state& regs, const register_schema& schema,
+    const rewind_config::stack_window_options& options
 );
 
 } // namespace w1rewind

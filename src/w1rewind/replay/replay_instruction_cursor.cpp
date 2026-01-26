@@ -42,6 +42,10 @@ bool replay_instruction_cursor::set_position(const flow_step& step, position_bia
     return true;
   }
   if (decoder_ == nullptr) {
+    if (strict_) {
+      error_ = "block decoder unavailable";
+      return false;
+    }
     notice_ = make_notice(replay_notice_kind::decode_unavailable, "block decoder unavailable; using flow steps");
     return true;
   }
@@ -51,6 +55,10 @@ bool replay_instruction_cursor::set_position(const flow_step& step, position_bia
 
   auto it = flow_.context().blocks_by_id.find(step.block_id);
   if (it == flow_.context().blocks_by_id.end()) {
+    if (strict_) {
+      error_ = "block id not found";
+      return false;
+    }
     notice_ = make_notice(replay_notice_kind::decode_failed, "block id not found");
     return true;
   }
@@ -60,8 +68,8 @@ bool replay_instruction_cursor::set_position(const flow_step& step, position_bia
   base.address = it->second.address;
   base.size = it->second.size;
 
-  if (!set_instruction_state(base, 0, true)) {
-    return true;
+  if (!set_instruction_state(base, 0, !strict_)) {
+    return !strict_;
   }
 
   size_t index = 0;
@@ -75,6 +83,10 @@ bool replay_instruction_cursor::set_position(const flow_step& step, position_bia
       }
     }
     if (!found) {
+      if (strict_) {
+        error_ = "instruction address not found in block";
+        return false;
+      }
       notice_ = make_notice(replay_notice_kind::decode_failed, "instruction address not found in block");
       instruction_state_ = instruction_state{};
       return true;
@@ -89,6 +101,11 @@ bool replay_instruction_cursor::set_position(const flow_step& step, position_bia
   flow_step inst_step{};
   if (build_instruction_step(instruction_state_, inst_step)) {
     current_step_ = inst_step;
+    return true;
+  }
+  if (strict_) {
+    error_ = "failed to build instruction step";
+    return false;
   }
   return true;
 }
@@ -100,6 +117,10 @@ bool replay_instruction_cursor::step_forward(flow_step& out) {
     return fallback_to_flow_forward(out, replay_notice{});
   }
   if (decoder_ == nullptr) {
+    if (strict_) {
+      error_ = "block decoder unavailable";
+      return false;
+    }
     return fallback_to_flow_forward(
         out, make_notice(replay_notice_kind::decode_unavailable, "block decoder unavailable; using flow steps")
     );
@@ -135,6 +156,9 @@ bool replay_instruction_cursor::step_forward(flow_step& out) {
   }
 
   if (!set_instruction_state(flow, 0, true)) {
+    if (strict_) {
+      return false;
+    }
     current_step_ = flow;
     has_position_ = true;
     out = flow;
@@ -143,6 +167,10 @@ bool replay_instruction_cursor::step_forward(flow_step& out) {
 
   flow_step step{};
   if (!build_instruction_step(instruction_state_, step)) {
+    if (strict_) {
+      error_ = "failed to build instruction step";
+      return false;
+    }
     current_step_ = flow;
     has_position_ = true;
     out = flow;
@@ -167,6 +195,10 @@ bool replay_instruction_cursor::step_backward(flow_step& out) {
     return fallback_to_flow_backward(out, replay_notice{});
   }
   if (decoder_ == nullptr) {
+    if (strict_) {
+      error_ = "block decoder unavailable";
+      return false;
+    }
     return fallback_to_flow_backward(
         out, make_notice(replay_notice_kind::decode_unavailable, "block decoder unavailable; using flow steps")
     );
@@ -188,16 +220,23 @@ bool replay_instruction_cursor::step_backward(flow_step& out) {
   }
 
   if (has_position_ && current_step_.is_block) {
-    if (set_instruction_state(current_step_, 0, true)) {
+    if (set_instruction_state(current_step_, 0, !strict_)) {
       instruction_state_.instruction_index = instruction_state_.block.instructions.size() - 1;
       flow_step step{};
       if (!build_instruction_step(instruction_state_, step)) {
+        if (strict_) {
+          error_ = "failed to build instruction step";
+          return false;
+        }
         return false;
       }
       current_step_ = step;
       has_position_ = true;
       out = step;
       return true;
+    }
+    if (strict_) {
+      return false;
     }
   }
 
@@ -215,6 +254,9 @@ bool replay_instruction_cursor::step_backward(flow_step& out) {
   }
 
   if (!set_instruction_state(flow, 0, true)) {
+    if (strict_) {
+      return false;
+    }
     current_step_ = flow;
     has_position_ = true;
     out = flow;
@@ -224,6 +266,10 @@ bool replay_instruction_cursor::step_backward(flow_step& out) {
   instruction_state_.instruction_index = instruction_state_.block.instructions.size() - 1;
   flow_step step{};
   if (!build_instruction_step(instruction_state_, step)) {
+    if (strict_) {
+      error_ = "failed to build instruction step";
+      return false;
+    }
     current_step_ = flow;
     has_position_ = true;
     out = flow;
@@ -245,7 +291,7 @@ std::optional<replay_notice> replay_instruction_cursor::take_notice() {
   return out;
 }
 
-bool replay_instruction_cursor::is_block_trace() const { return flow_.context().has_blocks(); }
+bool replay_instruction_cursor::is_block_trace() const { return flow_.context().has_block_flow(); }
 
 bool replay_instruction_cursor::set_instruction_state(
     const flow_step& flow, size_t instruction_index, bool set_notice_on_failure
@@ -257,15 +303,28 @@ bool replay_instruction_cursor::set_instruction_state(
   std::string decode_error;
   if (!decoder_ || !decoder_->decode_block(flow_.context(), flow, decoded, decode_error) ||
       decoded.instructions.empty()) {
-    if (set_notice_on_failure) {
-      std::string message = decode_error.empty() ? "block decode failed; using flow steps" : decode_error;
+    std::string message;
+    if (!decoder_) {
+      message = "block decoder unavailable";
+    } else if (!decode_error.empty()) {
+      message = decode_error;
+    } else if (decoded.instructions.empty()) {
+      message = "decoded block has no instructions";
+    } else {
+      message = "block decode failed";
+    }
+    if (strict_) {
+      error_ = message;
+    } else if (set_notice_on_failure) {
       notice_ = make_notice(replay_notice_kind::decode_failed, message);
     }
     return false;
   }
 
   if (instruction_index >= decoded.instructions.size()) {
-    if (set_notice_on_failure) {
+    if (strict_) {
+      error_ = "decoded instruction index out of range";
+    } else if (set_notice_on_failure) {
       notice_ = make_notice(replay_notice_kind::decode_failed, "decoded instruction index out of range");
     }
     return false;

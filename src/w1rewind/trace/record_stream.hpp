@@ -11,6 +11,8 @@ struct trace_chunk_info {
   uint64_t file_offset = 0;
   uint32_t compressed_size = 0;
   uint32_t uncompressed_size = 0;
+  compression codec = compression::none;
+  uint16_t flags = 0;
 };
 
 struct trace_record_location {
@@ -25,7 +27,7 @@ public:
   virtual void close() = 0;
   virtual bool read_next(trace_record& record, trace_record_location* location) = 0;
   virtual bool seek_to_location(const trace_record_location& location) = 0;
-  virtual const trace_header& header() const = 0;
+  virtual const file_header& header() const = 0;
   virtual const std::optional<trace_chunk_info>& last_chunk_info() const = 0;
   virtual std::string_view error() const = 0;
 };

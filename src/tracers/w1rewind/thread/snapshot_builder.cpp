@@ -8,11 +8,11 @@ namespace w1rewind {
 
 namespace {
 
-std::vector<w1::rewind::stack_segment> capture_stack_segments(
-    w1::trace_context& ctx, const w1::util::register_state& regs, const rewind_config& config, snapshot_state& state,
-    redlog::logger log
+std::vector<w1::rewind::memory_segment> capture_stack_segments(
+    w1::trace_context& ctx, const w1::util::register_state& regs, const register_schema& schema,
+    const rewind_config& config, snapshot_state& state, redlog::logger log
 ) {
-  std::vector<w1::rewind::stack_segment> out;
+  std::vector<w1::rewind::memory_segment> out;
   if (config.stack_snapshots.interval == 0 ||
       config.stack_window.mode == rewind_config::stack_window_options::window_mode::none) {
     return out;
@@ -21,7 +21,7 @@ std::vector<w1::rewind::stack_segment> capture_stack_segments(
     return out;
   }
 
-  auto window = compute_stack_window_segments(regs, config.stack_window);
+  auto window = compute_stack_window_segments(regs, schema, config.stack_window);
   if (window.frame_window_missing && !state.warned_missing_frame) {
     log.wrn("frame pointer not available; stack snapshot will use SP-only segments");
     state.warned_missing_frame = true;
@@ -36,9 +36,9 @@ std::vector<w1::rewind::stack_segment> capture_stack_segments(
     if (!bytes.has_value()) {
       continue;
     }
-    w1::rewind::stack_segment record{};
+    w1::rewind::memory_segment record{};
+    record.space_id = 0;
     record.base = segment.base;
-    record.size = segment.size;
     record.bytes = std::move(*bytes);
     out.push_back(std::move(record));
   }
@@ -50,7 +50,7 @@ std::vector<w1::rewind::stack_segment> capture_stack_segments(
 
 std::optional<pending_snapshot> maybe_capture_snapshot(
     w1::trace_context& ctx, const w1::util::register_state& regs, const register_schema& schema,
-    const rewind_config& config, snapshot_state& state, redlog::logger log
+    const rewind_config& config, snapshot_state& state, redlog::logger log, w1::rewind::endian byte_order
 ) {
   bool want_register_snapshot = config.registers.snapshot_interval > 0;
   bool want_stack_snapshot = config.stack_snapshots.interval > 0;
@@ -81,10 +81,10 @@ std::optional<pending_snapshot> maybe_capture_snapshot(
   pending_snapshot snapshot{};
   snapshot.snapshot_id = state.snapshot_count++;
   if (register_due) {
-    snapshot.registers = capture_register_snapshot(schema, regs);
+    snapshot.registers = capture_register_snapshot(schema, regs, byte_order);
   }
   if (stack_due) {
-    snapshot.stack_segments = capture_stack_segments(ctx, regs, config, state, log);
+    snapshot.memory_segments = capture_stack_segments(ctx, regs, schema, config, state, log);
   }
   snapshot.reason = "interval";
   return snapshot;

@@ -9,40 +9,30 @@
 
 #include "w1replay/gdb/adapter.hpp"
 #include "w1replay/gdb/layout.hpp"
-#include "w1rewind/trace/trace_file_writer.hpp"
 #include "w1rewind/rewind_test_helpers.hpp"
 
 namespace {
 std::unique_ptr<w1replay::gdb::adapter> open_adapter_with_registers(
-    const char* trace_name, const w1::arch::arch_spec& arch, const std::vector<std::string>& registers
+    const char* trace_name, std::string_view arch_id, const w1::arch::arch_spec& arch,
+    const std::vector<std::string>& registers
 ) {
   namespace fs = std::filesystem;
   using namespace w1::rewind::test_helpers;
 
   fs::path trace_path = temp_path(trace_name);
 
-  w1::rewind::trace_file_writer_config writer_config;
-  writer_config.path = trace_path.string();
-  writer_config.log = redlog::get_logger("test.w1replay.gdb");
-  writer_config.chunk_size = 64;
+  auto header = make_header(0, 64);
+  auto handle = open_trace(trace_path, header, redlog::get_logger("test.w1replay.gdb"));
 
-  auto writer = w1::rewind::make_trace_file_writer(writer_config);
-  REQUIRE(writer);
-  REQUIRE(writer->open());
+  write_basic_metadata(handle.builder, arch_id, arch, registers);
+  write_image_mapping(handle.builder, 1, 0x1000, 0x1000);
+  write_thread_start(handle.builder, 1, "thread1");
+  write_instruction(handle.builder, 1, 0, 0x1000 + 0x10);
+  write_thread_end(handle.builder, 1);
 
-  w1::rewind::trace_header header{};
-  header.arch = arch;
-  header.flags = w1::rewind::trace_flag_instructions;
-  REQUIRE(writer->write_header(header));
-
-  write_basic_metadata(*writer, arch, registers);
-  write_module_table(*writer, 1, 0x1000);
-  write_thread_start(*writer, 1, "thread1");
-  write_instruction(*writer, 1, 0, 0x1000 + 0x10);
-  write_thread_end(*writer, 1);
-
-  writer->flush();
-  writer->close();
+  handle.builder.flush();
+  handle.writer->flush();
+  handle.writer->close();
 
   w1replay::gdb::adapter::config config;
   config.trace_path = trace_path.string();
@@ -68,13 +58,15 @@ TEST_CASE("gdb adapter exposes register info with pc/sp generics") {
   auto arch = parse_arch_or_fail("arm64");
 
   std::vector<std::string> registers = {"x0", "sp", "pc", "nzcv"};
-  auto adapter = open_adapter_with_registers("w1replay_gdb_reginfo.trace", arch, registers);
+  auto adapter = open_adapter_with_registers("w1replay_gdb_reginfo.trace", "arm64", arch, registers);
 
   auto gdb_target = adapter->make_target();
   REQUIRE(gdb_target.view().reg_info.has_value());
 
   auto specs = w1::rewind::test_helpers::make_register_specs(registers, arch);
-  auto layout = w1replay::gdb::build_register_layout(arch, specs);
+  w1::rewind::replay_context context{};
+  context.arch = w1::rewind::test_helpers::make_arch_descriptor("arm64", arch);
+  auto layout = w1replay::gdb::build_register_layout(context, specs);
   REQUIRE(layout.pc_reg_num >= 0);
   REQUIRE(layout.sp_reg_num >= 0);
 
@@ -121,12 +113,14 @@ TEST_CASE("gdb adapter exposes dwarf numbers for x86_64 gprs") {
   auto arch = parse_arch_or_fail("x86_64");
   std::vector<std::string> registers = {"rax", "rbp", "rsp", "rip", "eflags"};
 
-  auto adapter = open_adapter_with_registers("w1replay_gdb_reginfo_x86_64.trace", arch, registers);
+  auto adapter = open_adapter_with_registers("w1replay_gdb_reginfo_x86_64.trace", "x86_64", arch, registers);
   auto gdb_target = adapter->make_target();
   REQUIRE(gdb_target.view().reg_info.has_value());
 
   auto specs = w1::rewind::test_helpers::make_register_specs(registers, arch);
-  auto layout = w1replay::gdb::build_register_layout(arch, specs);
+  w1::rewind::replay_context context{};
+  context.arch = w1::rewind::test_helpers::make_arch_descriptor("x86_64", arch);
+  auto layout = w1replay::gdb::build_register_layout(context, specs);
 
   int rip_reg_num = find_reg_num(layout, "rip");
   REQUIRE(rip_reg_num >= 0);

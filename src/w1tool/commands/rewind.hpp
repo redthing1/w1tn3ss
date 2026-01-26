@@ -29,7 +29,7 @@ namespace w1tool::commands {
  * @param module_filter_flag comma-separated list of modules to filter (optional)
  * @param system_policy_flag system module policy (exclude_all, include_critical, include_all) (optional)
  * @param threads_flag thread attach policy (main, auto) (optional)
- * @param compress_flag enable zstd compression (optional)
+ * @param compress_flag enable zstd compression (default on if available)
  * @param chunk_size_flag trace chunk size (optional)
  * @param config_flags configuration key=value pairs (optional)
  * @param debug_level_flag debug level override - defaults to passthrough verbosity (optional)

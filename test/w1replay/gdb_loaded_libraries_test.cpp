@@ -10,18 +10,18 @@ namespace w1replay::gdb {
 
 namespace {
 
-struct stub_metadata_provider final : public module_metadata_provider {
-  std::optional<std::string> module_uuid(const w1::rewind::module_record&, std::string&) override {
+struct stub_metadata_provider final : public image_metadata_provider {
+  std::optional<std::string> image_uuid(const w1::rewind::image_record&, std::string&) override {
     return std::nullopt;
   }
-  std::optional<macho_header_info> macho_header(const w1::rewind::module_record&, std::string&) override {
+  std::optional<macho_header_info> macho_header(const w1::rewind::image_record&, std::string&) override {
     return std::nullopt;
   }
-  std::vector<macho_segment_info> macho_segments(const w1::rewind::module_record&, std::string&) override { return {}; }
+  std::vector<macho_segment_info> macho_segments(const w1::rewind::image_record&, std::string&) override { return {}; }
 };
 
-struct stub_path_resolver final : public module_path_resolver {
-  std::optional<std::string> resolve_module_path(const w1::rewind::module_record&) const override {
+struct stub_path_resolver final : public image_path_resolver {
+  std::optional<std::string> resolve_image_path(const w1::rewind::image_record&) const override {
     return std::nullopt;
   }
   std::optional<std::string> resolve_region_name(std::string_view) const override { return std::nullopt; }
@@ -70,16 +70,16 @@ TEST_CASE("darwin loaded libraries json omits load commands when disabled") {
 
 TEST_CASE("loaded libraries provider selection respects target os") {
   w1::rewind::replay_context context{};
-  context.target_info = w1::rewind::target_info_record{};
   stub_metadata_provider metadata_provider;
   stub_path_resolver resolver;
 
-  context.target_info->os = "macos";
-  auto darwin_provider = make_loaded_libraries_provider(context, metadata_provider, resolver);
+  context.environment = w1::rewind::environment_record{};
+  context.environment->os_id = "macos";
+  auto darwin_provider = make_loaded_libraries_provider(context, nullptr, metadata_provider, resolver);
   CHECK(darwin_provider != nullptr);
 
-  context.target_info->os = "linux";
-  auto linux_provider = make_loaded_libraries_provider(context, metadata_provider, resolver);
+  context.environment->os_id = "linux";
+  auto linux_provider = make_loaded_libraries_provider(context, nullptr, metadata_provider, resolver);
   CHECK(linux_provider == nullptr);
 }
 

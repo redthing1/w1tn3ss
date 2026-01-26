@@ -13,12 +13,12 @@ bool trace_emitter::begin_thread(uint64_t thread_id, const std::string& name) {
 }
 
 bool trace_emitter::emit_block(
-    uint64_t thread_id, uint64_t address, uint32_t size, uint32_t flags, uint64_t& sequence_out
+    uint64_t thread_id, uint64_t address, uint32_t size, uint32_t space_id, uint16_t mode_id, uint64_t& sequence_out
 ) {
   if (!builder_ || !builder_->good()) {
     return false;
   }
-  return builder_->emit_block(thread_id, address, size, flags, sequence_out);
+  return builder_->emit_block(thread_id, address, size, space_id, mode_id, sequence_out);
 }
 
 void trace_emitter::flush_pending(std::optional<pending_instruction>& pending) {
@@ -37,32 +37,49 @@ void trace_emitter::flush_pending(std::optional<pending_instruction>& pending) {
   }
 
   uint64_t sequence = 0;
-  if (!builder_->emit_instruction(record.thread_id, record.address, record.size, record.flags, sequence)) {
+  if (!builder_->emit_instruction(
+          record.thread_id, record.address, record.size, record.space_id, record.mode_id, sequence
+      )) {
     return;
   }
 
-  if (config_->registers.deltas && !record.register_deltas.empty()) {
-    if (!builder_->emit_register_deltas(record.thread_id, sequence, record.register_deltas)) {
+  bool capture_regs = config_->registers.deltas || config_->registers.bytes;
+  if (capture_regs && !record.register_writes.empty()) {
+    w1::rewind::reg_write_record reg_record{};
+    reg_record.thread_id = record.thread_id;
+    reg_record.sequence = sequence;
+    reg_record.regfile_id = 0;
+    reg_record.entries = std::move(record.register_writes);
+    if (!builder_->emit_reg_write(reg_record)) {
       return;
     }
   }
 
   if (config_->memory.access != rewind_config::memory_access::none) {
     for (const auto& access : record.memory_accesses) {
-      if (!builder_->emit_memory_access(
-              record.thread_id, sequence, access.kind, access.address, access.size, access.value_known,
-              access.value_truncated, access.data
-          )) {
+      w1::rewind::mem_access_record mem_record{};
+      mem_record.thread_id = record.thread_id;
+      mem_record.sequence = sequence;
+      mem_record.space_id = access.space_id;
+      mem_record.op = access.op;
+      mem_record.flags = access.flags;
+      mem_record.address = access.address;
+      mem_record.access_size = access.size;
+      mem_record.value = access.data;
+      if (!builder_->emit_mem_access(mem_record)) {
         return;
       }
     }
   }
 
   if (record.snapshot.has_value()) {
-    builder_->emit_snapshot(
-        record.thread_id, sequence, record.snapshot->snapshot_id, record.snapshot->registers,
-        record.snapshot->stack_segments, std::move(record.snapshot->reason)
-    );
+    w1::rewind::snapshot_record snapshot{};
+    snapshot.thread_id = record.thread_id;
+    snapshot.sequence = sequence;
+    snapshot.regfile_id = 0;
+    snapshot.registers = std::move(record.snapshot->registers);
+    snapshot.memory_segments = std::move(record.snapshot->memory_segments);
+    builder_->emit_snapshot(snapshot);
   }
 }
 

@@ -7,42 +7,31 @@
 #include <redlog.hpp>
 
 #include "w1replay/gdb/adapter.hpp"
-#include "w1rewind/trace/trace_file_writer.hpp"
 
 #include "w1rewind/rewind_test_helpers.hpp"
 
 namespace {
 
 std::filesystem::path write_trace(
-    const char* name, const w1::arch::arch_spec& arch, std::vector<std::string> registers, uint64_t module_offset,
-    uint64_t module_base = 0x1000
+    const char* name, std::string_view arch_id, const w1::arch::arch_spec& arch,
+    std::vector<std::string> registers, uint64_t image_offset, uint64_t image_base = 0x1000
 ) {
   using namespace w1::rewind::test_helpers;
 
   std::filesystem::path trace_path = temp_path(name);
 
-  w1::rewind::trace_file_writer_config writer_config;
-  writer_config.path = trace_path.string();
-  writer_config.log = redlog::get_logger("test.w1replay.gdb");
-  writer_config.chunk_size = 64;
+  auto header = make_header(0, 64);
+  auto handle = open_trace(trace_path, header, redlog::get_logger("test.w1replay.gdb"));
 
-  auto writer = w1::rewind::make_trace_file_writer(writer_config);
-  REQUIRE(writer);
-  REQUIRE(writer->open());
+  write_basic_metadata(handle.builder, arch_id, arch, registers);
+  write_image_mapping(handle.builder, 1, image_base, 0x1000);
+  write_thread_start(handle.builder, 1, "thread1");
+  write_instruction(handle.builder, 1, 0, image_base + image_offset);
+  write_thread_end(handle.builder, 1);
 
-  w1::rewind::trace_header header{};
-  header.arch = arch;
-  header.flags = w1::rewind::trace_flag_instructions;
-  REQUIRE(writer->write_header(header));
-
-  write_basic_metadata(*writer, arch, registers);
-  write_module_table(*writer, 1, module_base);
-  write_thread_start(*writer, 1, "thread1");
-  write_instruction(*writer, 1, 0, module_base + module_offset);
-  write_thread_end(*writer, 1);
-
-  writer->flush();
-  writer->close();
+  handle.builder.flush();
+  handle.writer->flush();
+  handle.writer->close();
   return trace_path;
 }
 
@@ -55,7 +44,7 @@ bool has_reg_bitsize(const std::string& xml, const std::string& name, uint32_t b
 
 TEST_CASE("w1replay gdb adapter builds x86_64 target xml and pc") {
   auto trace_path = write_trace(
-      "w1replay_gdb_x86_64.trace", w1::rewind::test_helpers::parse_arch_or_fail("x86_64"),
+      "w1replay_gdb_x86_64.trace", "x86_64", w1::rewind::test_helpers::parse_arch_or_fail("x86_64"),
       {"rax", "rflags", "fs", "gs", "rip", "rsp"}, 0x1234
   );
 
@@ -78,7 +67,8 @@ TEST_CASE("w1replay gdb adapter builds x86_64 target xml and pc") {
 
 TEST_CASE("w1replay gdb adapter encodes arm64 register sizes") {
   auto trace_path = write_trace(
-      "w1replay_gdb_arm64.trace", w1::rewind::test_helpers::parse_arch_or_fail("arm64"), {"x0", "sp", "pc", "nzcv"},
+      "w1replay_gdb_arm64.trace", "arm64", w1::rewind::test_helpers::parse_arch_or_fail("arm64"),
+      {"x0", "sp", "pc", "nzcv"},
       0x2000
   );
 

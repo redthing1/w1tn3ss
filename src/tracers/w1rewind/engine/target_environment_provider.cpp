@@ -1,13 +1,12 @@
 #include "target_environment_provider.hpp"
 
-#include <algorithm>
-#include <limits>
+#include <string_view>
 
 #if defined(_WIN32)
 #include <windows.h>
 #else
-#include <unistd.h>
 #include <sys/utsname.h>
+#include <unistd.h>
 #endif
 
 #if defined(__APPLE__)
@@ -15,107 +14,8 @@
 #endif
 
 namespace {
-struct addressing_bits_info {
-  uint32_t addressing_bits = 0;
-  uint32_t low_mem_addressing_bits = 0;
-  uint32_t high_mem_addressing_bits = 0;
-};
 
-uint32_t bit_length_u64(uint64_t value) {
-  uint32_t bits = 0;
-  while (value != 0) {
-    value >>= 1;
-    ++bits;
-  }
-  return bits;
-}
-
-addressing_bits_info compute_addressing_bits(
-    const std::vector<w1::rewind::memory_region_record>& memory_map,
-    const std::vector<w1::rewind::module_record>& modules, uint32_t pointer_bits
-) {
-  addressing_bits_info out{};
-  uint32_t address_bits = pointer_bits == 0 ? 64u : pointer_bits;
-  if (address_bits <= 32) {
-    out.addressing_bits = address_bits;
-    out.low_mem_addressing_bits = address_bits;
-    out.high_mem_addressing_bits = address_bits;
-    return out;
-  }
-
-  bool found = false;
-  uint32_t low_bits = 0;
-  uint32_t high_bits = 0;
-
-  auto consider_end = [&](uint64_t end) {
-    found = true;
-    if ((end & (1ull << 63)) != 0) {
-      uint32_t bits = bit_length_u64(~end) + 1;
-      high_bits = std::max(high_bits, bits);
-    } else {
-      uint32_t bits = bit_length_u64(end) + 1;
-      low_bits = std::max(low_bits, bits);
-    }
-  };
-
-  auto consider_range = [&](uint64_t base, uint64_t size) {
-    if (size == 0) {
-      return;
-    }
-    uint64_t end = base + size - 1;
-    if (end < base) {
-      end = std::numeric_limits<uint64_t>::max();
-    }
-    consider_end(end);
-  };
-
-  if (!memory_map.empty()) {
-    for (const auto& region : memory_map) {
-      consider_range(region.base, region.size);
-    }
-  } else {
-    for (const auto& module : modules) {
-      consider_range(module.base, module.size);
-    }
-  }
-
-  if (!found) {
-    out.addressing_bits = address_bits;
-    out.low_mem_addressing_bits = address_bits;
-    out.high_mem_addressing_bits = address_bits;
-    return out;
-  }
-
-  if (low_bits == 0) {
-    low_bits = high_bits;
-  }
-  if (high_bits == 0) {
-    high_bits = low_bits;
-  }
-  if (low_bits == 0) {
-    low_bits = address_bits;
-  }
-  if (high_bits == 0) {
-    high_bits = address_bits;
-  }
-
-  if (low_bits > address_bits) {
-    low_bits = address_bits;
-  }
-  if (high_bits > address_bits) {
-    high_bits = address_bits;
-  }
-
-  uint32_t max_bits = std::max(low_bits, high_bits);
-  if (max_bits == 0 || max_bits > address_bits) {
-    max_bits = address_bits;
-  }
-
-  out.addressing_bits = max_bits;
-  out.low_mem_addressing_bits = low_bits;
-  out.high_mem_addressing_bits = high_bits;
-  return out;
-}
+using w1::rewind::endian;
 
 #if defined(__APPLE__)
 std::string sysctl_string(const char* key) {
@@ -197,11 +97,62 @@ uint64_t detect_pid() {
 #endif
 }
 
+endian to_endian(w1::arch::byte_order order) {
+  switch (order) {
+  case w1::arch::byte_order::little:
+    return endian::little;
+  case w1::arch::byte_order::big:
+    return endian::big;
+  default:
+    return endian::unknown;
+  }
+}
+
+std::string_view arch_mode_name(w1::arch::mode mode) {
+  switch (mode) {
+  case w1::arch::mode::x86_64:
+    return "x86_64";
+  case w1::arch::mode::x86_32:
+    return "x86_32";
+  case w1::arch::mode::arm:
+    return "arm";
+  case w1::arch::mode::thumb:
+    return "thumb";
+  case w1::arch::mode::aarch64:
+    return "aarch64";
+  case w1::arch::mode::riscv64:
+    return "riscv64";
+  case w1::arch::mode::riscv32:
+    return "riscv32";
+  case w1::arch::mode::mips64:
+    return "mips64";
+  case w1::arch::mode::mips32:
+    return "mips32";
+  case w1::arch::mode::ppc32:
+    return "ppc32";
+  case w1::arch::mode::ppc64:
+    return "ppc64";
+  case w1::arch::mode::sparc32:
+    return "sparc32";
+  case w1::arch::mode::sparc64:
+    return "sparc64";
+  case w1::arch::mode::systemz:
+    return "systemz";
+  case w1::arch::mode::wasm32:
+    return "wasm32";
+  case w1::arch::mode::wasm64:
+    return "wasm64";
+  case w1::arch::mode::unknown:
+  default:
+    return "unknown";
+  }
+}
+
 } // namespace
 
 namespace w1rewind {
 
-std::string detect_os_id() {
+std::string detect_host_os_id() {
 #if defined(_WIN32)
   return "windows";
 #elif defined(__APPLE__)
@@ -213,23 +164,58 @@ std::string detect_os_id() {
 #endif
 }
 
-w1::rewind::target_environment_record build_target_environment(
-    const std::vector<w1::rewind::memory_region_record>& memory_map,
-    const std::vector<w1::rewind::module_record>& modules, const w1::arch::arch_spec& arch
-) {
-  w1::rewind::target_environment_record env{};
-  env.os_version = detect_os_version();
-  env.os_build = detect_os_build();
-  env.os_kernel = detect_os_kernel();
+w1::rewind::arch_descriptor_record build_arch_descriptor(const w1::arch::arch_spec& arch) {
+  w1::rewind::arch_descriptor_record record{};
+  record.arch_id = std::string(arch_mode_name(arch.arch_mode));
+  record.byte_order = to_endian(arch.arch_byte_order);
+  record.pointer_bits = static_cast<uint16_t>(arch.pointer_bits);
+  record.address_bits = static_cast<uint16_t>(arch.pointer_bits);
+  record.gdb_arch = std::string(w1::arch::gdb_arch_name(arch));
+  record.gdb_feature = std::string(w1::arch::gdb_feature_name(arch));
+
+  record.modes.clear();
+  if (arch.arch_family == w1::arch::family::arm && arch.arch_mode != w1::arch::mode::aarch64) {
+    record.modes.push_back({0, "arm"});
+    record.modes.push_back({1, "thumb"});
+  } else {
+    record.modes.push_back({0, record.arch_id});
+  }
+  return record;
+}
+
+w1::rewind::environment_record build_host_environment_record(const w1::rewind::arch_descriptor_record& arch) {
+  w1::rewind::environment_record env{};
+  env.os_id = detect_host_os_id();
+  if (env.os_id.empty()) {
+    env.os_id = "unknown";
+  }
+  if (!arch.arch_id.empty()) {
+    env.cpu = arch.arch_id;
+  } else if (!arch.gdb_arch.empty()) {
+    env.cpu = arch.gdb_arch;
+  }
+  if (env.cpu.empty()) {
+    env.cpu = "unknown";
+  }
   env.hostname = detect_host_name();
   if (env.hostname.empty()) {
     env.hostname = "w1rewind";
   }
   env.pid = detect_pid();
-  auto bits = compute_addressing_bits(memory_map, modules, arch.pointer_bits);
-  env.addressing_bits = bits.addressing_bits;
-  env.low_mem_addressing_bits = bits.low_mem_addressing_bits;
-  env.high_mem_addressing_bits = bits.high_mem_addressing_bits;
+
+  const std::string os_version = detect_os_version();
+  const std::string os_build = detect_os_build();
+  const std::string os_kernel = detect_os_kernel();
+  if (!os_version.empty()) {
+    env.attrs.emplace_back("os_version", os_version);
+  }
+  if (!os_build.empty()) {
+    env.attrs.emplace_back("os_build", os_build);
+  }
+  if (!os_kernel.empty()) {
+    env.attrs.emplace_back("os_kernel", os_kernel);
+  }
+
   return env;
 }
 

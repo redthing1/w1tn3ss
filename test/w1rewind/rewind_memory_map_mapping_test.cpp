@@ -1,48 +1,76 @@
+#include <filesystem>
+
 #include "doctest/doctest.hpp"
 
-#include "w1rewind/record/memory_map_utils.hpp"
+#include "w1rewind/replay/replay_context.hpp"
+#include "w1rewind/rewind_test_helpers.hpp"
 
-TEST_CASE("assign_memory_map_image_ids matches regions to modules") {
-  w1::rewind::module_record mod1{};
-  mod1.id = 1;
-  mod1.base = 0x1000;
-  mod1.size = 0x100;
+TEST_CASE("replay context finds mapping for addresses") {
+  namespace fs = std::filesystem;
+  using namespace w1::rewind::test_helpers;
 
-  w1::rewind::module_record mod2{};
-  mod2.id = 2;
-  mod2.base = 0x2000;
-  mod2.size = 0x80;
+  fs::path trace_path = temp_path("w1rewind_mapping_lookup.trace");
 
-  std::vector<w1::rewind::module_record> modules{mod1, mod2};
+  auto arch = parse_arch_or_fail("x86_64");
+  auto header = make_header();
+  auto handle = open_trace(trace_path, header);
+  write_basic_metadata(handle.builder, "x86_64", arch, {"pc"});
 
-  w1::rewind::memory_region_record region1{};
-  region1.base = 0x1000;
-  region1.size = 0x10;
+  write_image_mapping(handle.builder, 1, 0x1000, 0x100, "mod1");
+  write_image_mapping(handle.builder, 2, 0x2000, 0x80, "mod2");
 
-  w1::rewind::memory_region_record region2{};
-  region2.base = 0x2050;
-  region2.size = 0x10;
+  handle.builder.flush();
+  handle.writer->close();
 
-  w1::rewind::memory_region_record region3{};
-  region3.base = 0x3000;
-  region3.size = 0x10;
+  w1::rewind::replay_context context;
+  std::string error;
+  REQUIRE(w1::rewind::load_replay_context(trace_path.string(), context, error));
 
-  w1::rewind::memory_region_record region4{};
-  region4.base = 0x1008;
-  region4.size = 0x8;
-  region4.image_id = 99;
+  uint64_t offset = 0;
+  auto mapping1 = context.find_mapping_for_address(0, 0x1000, 0x10, offset);
+  REQUIRE(mapping1);
+  CHECK(mapping1->image_id == 1);
 
-  w1::rewind::memory_region_record region5{};
-  region5.base = 0x0FF0;
-  region5.size = 0x30;
+  auto mapping2 = context.find_mapping_for_address(0, 0x2050, 0x10, offset);
+  REQUIRE(mapping2);
+  CHECK(mapping2->image_id == 2);
 
-  std::vector<w1::rewind::memory_region_record> regions{region1, region2, region3, region4, region5};
+  auto mapping_none = context.find_mapping_for_address(0, 0x3000, 0x10, offset);
+  CHECK(mapping_none == nullptr);
 
-  w1::rewind::assign_memory_map_image_ids(regions, modules);
+  fs::remove(trace_path);
+}
 
-  CHECK(regions[0].image_id == 1);
-  CHECK(regions[1].image_id == 2);
-  CHECK(regions[2].image_id == 0);
-  CHECK(regions[3].image_id == 99);
-  CHECK(regions[4].image_id == 1);
+TEST_CASE("replay context resolves overlapping mappings with latest wins") {
+  namespace fs = std::filesystem;
+  using namespace w1::rewind::test_helpers;
+
+  fs::path trace_path = temp_path("w1rewind_mapping_overlap.trace");
+
+  auto arch = parse_arch_or_fail("x86_64");
+  auto header = make_header();
+  auto handle = open_trace(trace_path, header);
+  write_basic_metadata(handle.builder, "x86_64", arch, {"pc"});
+
+  write_image_mapping(handle.builder, 1, 0x1000, 0x200, "mod1");
+  write_image_mapping(handle.builder, 2, 0x1100, 0x100, "mod2");
+
+  handle.builder.flush();
+  handle.writer->close();
+
+  w1::rewind::replay_context context;
+  std::string error;
+  REQUIRE(w1::rewind::load_replay_context(trace_path.string(), context, error));
+
+  uint64_t offset = 0;
+  auto mapping_left = context.find_mapping_for_address(0, 0x1080, 1, offset);
+  REQUIRE(mapping_left);
+  CHECK(mapping_left->image_id == 1);
+
+  offset = 0;
+  auto mapping_overlap = context.find_mapping_for_address(0, 0x1180, 1, offset);
+  REQUIRE(mapping_overlap);
+  CHECK(mapping_overlap->image_id == 2);
+
+  fs::remove(trace_path);
 }

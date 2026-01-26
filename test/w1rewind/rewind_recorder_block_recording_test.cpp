@@ -5,6 +5,7 @@
 #include "doctest/doctest.hpp"
 
 #include "tracers/w1rewind/runtime/rewind_runtime.hpp"
+#include "w1rewind/replay/replay_context.hpp"
 #include "w1rewind/trace/trace_reader.hpp"
 
 namespace {
@@ -87,7 +88,7 @@ TEST_CASE("w1rewind records block flow and snapshots") {
       const auto& snapshot = std::get<w1::rewind::snapshot_record>(record);
       CHECK(block_sequences.find(snapshot.sequence) != block_sequences.end());
       snapshot_count += 1;
-    } else if (std::holds_alternative<w1::rewind::instruction_record>(record)) {
+    } else if (std::holds_alternative<w1::rewind::flow_instruction_record>(record)) {
       instruction_count += 1;
     } else if (std::holds_alternative<w1::rewind::thread_start_record>(record)) {
       thread_start_count += 1;
@@ -98,15 +99,16 @@ TEST_CASE("w1rewind records block flow and snapshots") {
 
   CHECK(reader.error().empty());
   CHECK(reader.header().version == w1::rewind::k_trace_version);
-  CHECK((reader.header().flags & w1::rewind::trace_flag_blocks) != 0);
-  CHECK((reader.header().flags & w1::rewind::trace_flag_instructions) == 0);
-  CHECK((reader.header().flags & w1::rewind::trace_flag_register_deltas) == 0);
-  CHECK((reader.header().flags & w1::rewind::trace_flag_memory_access) == 0);
-  CHECK((reader.header().flags & w1::rewind::trace_flag_snapshots) != 0);
-  CHECK(reader.target_info().has_value());
-  CHECK(reader.target_environment().has_value());
-  CHECK(!reader.register_specs().empty());
-  CHECK(!reader.module_table().empty());
+  w1::rewind::replay_context context;
+  std::string error;
+  REQUIRE(w1::rewind::load_replay_context(path.string(), context, error));
+  CHECK(context.arch.has_value());
+  CHECK(context.environment.has_value());
+  CHECK(!context.register_files.empty());
+  CHECK(!context.images.empty());
+  CHECK(context.features.has_block_exec);
+  CHECK(!context.features.has_flow_instruction);
+  CHECK(context.features.has_snapshots);
 
   CHECK(block_def_count > 0);
   CHECK(block_exec_count > 0);

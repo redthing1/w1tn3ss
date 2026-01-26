@@ -1,48 +1,151 @@
 #include "rewind_engine.hpp"
 
 #include <algorithm>
+#include <cctype>
+#include <random>
+#include <string>
 #include <string_view>
 #include <utility>
-
-#include "w1base/arch_spec.hpp"
 
 namespace w1rewind {
 namespace {
 
-constexpr uint64_t k_module_id_offset = 1;
+std::string lower_ascii(std::string_view value) {
+  std::string out(value);
+  std::transform(out.begin(), out.end(), out.begin(), [](unsigned char ch) {
+    return static_cast<char>(std::tolower(ch));
+  });
+  return out;
+}
 
-std::string_view basename_view(std::string_view path) {
-  const auto pos = path.find_last_of("/\\");
-  if (pos == std::string_view::npos) {
-    return path;
+std::optional<uint16_t> find_mode_id(const w1::rewind::arch_descriptor_record& arch, std::string_view name) {
+  std::string target = lower_ascii(name);
+  for (const auto& mode : arch.modes) {
+    if (lower_ascii(mode.name) == target) {
+      return mode.mode_id;
+    }
   }
-  return path.substr(pos + 1);
+  return std::nullopt;
+}
+
+uint16_t resolve_mode_id_for_arch(
+    const w1::util::register_state* regs, const w1::rewind::arch_descriptor_record& arch
+) {
+  if (arch.modes.empty()) {
+    return 0;
+  }
+
+  uint16_t default_mode = arch.modes.front().mode_id;
+  if (!arch.arch_id.empty()) {
+    if (auto arch_mode = find_mode_id(arch, arch.arch_id)) {
+      default_mode = *arch_mode;
+    }
+  }
+  auto arm_mode = find_mode_id(arch, "arm");
+  auto thumb_mode = find_mode_id(arch, "thumb");
+
+  bool thumb = false;
+  std::string id = lower_ascii(arch.arch_id);
+  if (id == "thumb") {
+    thumb = true;
+  }
+  if (regs && thumb_mode.has_value()) {
+    uint64_t cpsr = 0;
+    if (regs->get_register("cpsr", cpsr)) {
+      thumb = ((cpsr >> 5) & 1u) != 0;
+    }
+  }
+
+  if (thumb && thumb_mode.has_value()) {
+    return *thumb_mode;
+  }
+  if (arm_mode.has_value()) {
+    return *arm_mode;
+  }
+  return default_mode;
+}
+
+std::array<uint8_t, 16> generate_trace_uuid() {
+  std::array<uint8_t, 16> uuid{};
+  std::random_device rd;
+  for (auto& byte : uuid) {
+    byte = static_cast<uint8_t>(rd());
+  }
+  bool all_zero = true;
+  for (auto byte : uuid) {
+    if (byte != 0) {
+      all_zero = false;
+      break;
+    }
+  }
+  if (all_zero) {
+    uuid[0] = 1;
+  }
+  return uuid;
 }
 
 } // namespace
 
-using module_record = w1::rewind::module_record;
-using module_load_record = w1::rewind::module_load_record;
-using module_unload_record = w1::rewind::module_unload_record;
-
 rewind_engine::rewind_engine(rewind_config config)
-    : config_(std::move(config)), registry_(w1::core::instrumented_module_policy{config_.common.instrumentation}),
-      log_(redlog::get_logger("w1rewind.engine")),
+    : config_(std::move(config)), log_(redlog::get_logger("w1rewind.engine")), image_pipeline_(log_),
       instruction_flow_(config_.flow.mode == rewind_config::flow_options::flow_mode::instruction) {}
 
-void rewind_engine::configure(w1::runtime::module_catalog& modules) {
+uint16_t rewind_engine::resolve_mode_id(const w1::util::register_state* regs) const {
+  return resolve_mode_id_for_arch(regs, arch_desc_);
+}
+
+void rewind_engine::set_register_schema(std::vector<w1::rewind::register_spec> specs) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  register_schema_.set_specs(std::move(specs));
+}
+
+void rewind_engine::set_register_schema_provider(std::shared_ptr<register_schema_provider> provider) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  register_schema_provider_ = std::move(provider);
+}
+
+void rewind_engine::set_arch_descriptor(w1::rewind::arch_descriptor_record arch) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  arch_desc_ = std::move(arch);
+  arch_configured_ = true;
+}
+
+void rewind_engine::set_environment_record(w1::rewind::environment_record env) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  environment_record_ = std::move(env);
+  environment_configured_ = true;
+}
+
+void rewind_engine::configure(std::shared_ptr<image_inventory_provider> provider) {
   std::lock_guard<std::mutex> lock(mutex_);
 
-  modules_ = &modules;
-  if (configured_) {
+  if (!arch_configured_) {
+    trace_failed_.store(true, std::memory_order_release);
+    log_.err("arch descriptor not configured");
     return;
   }
 
-  registry_.configure(modules);
+  if (provider) {
+    image_provider_ = std::move(provider);
+  }
+
+  if (configured_) {
+    if (image_provider_) {
+      image_provider_->reset(arch_desc_);
+      image_pipeline_.snapshot(*image_provider_, 0);
+    }
+    return;
+  }
+  if (!image_provider_) {
+    trace_failed_.store(true, std::memory_order_release);
+    log_.err("image inventory provider not configured");
+    return;
+  }
+
   trace_ready_.store(false, std::memory_order_release);
   trace_failed_.store(false, std::memory_order_release);
   register_schema_.clear();
-  module_table_.clear();
+  image_pipeline_.reset();
 
   if (writer_) {
     writer_->close();
@@ -51,16 +154,26 @@ void rewind_engine::configure(w1::runtime::module_catalog& modules) {
   builder_.reset();
   emitter_.reset();
 
-  arch_spec_ = w1::arch::detect_host_arch_spec();
-  metadata_cache_.emplace(arch_spec_);
+  if (arch_desc_.arch_id.empty()) {
+    arch_desc_.arch_id = "unknown";
+  }
 
-  rebuild_module_state_locked(modules);
+  image_provider_->reset(arch_desc_);
+  image_pipeline_.snapshot(*image_provider_, 0);
+
+  if (config_.image_blobs.enabled) {
+    auto* blob_provider = dynamic_cast<image_blob_provider*>(image_provider_.get());
+    if (!blob_provider) {
+      trace_failed_.store(true, std::memory_order_release);
+      log_.err("image blob provider not configured");
+      return;
+    }
+  }
 
   w1::rewind::trace_file_writer_config writer_config;
   writer_config.path = config_.output_path;
   writer_config.log = redlog::get_logger("w1rewind.trace");
-  writer_config.compression =
-      config_.compress_trace ? w1::rewind::trace_compression::zstd : w1::rewind::trace_compression::none;
+  writer_config.codec = config_.compress_trace ? w1::rewind::compression::zstd : w1::rewind::compression::none;
   writer_config.chunk_size = config_.chunk_size;
 
   writer_ = w1::rewind::make_trace_file_writer(writer_config);
@@ -73,20 +186,13 @@ void rewind_engine::configure(w1::runtime::module_catalog& modules) {
   w1::rewind::trace_builder_config builder_config;
   builder_config.sink = writer_;
   builder_config.log = writer_config.log;
-  builder_config.options.record_instructions = instruction_flow_;
-  builder_config.options.record_register_deltas = config_.registers.deltas;
-  builder_config.options.record_memory_access = config_.memory.access != rewind_config::memory_access::none;
-  builder_config.options.record_memory_values = config_.memory.values;
-  builder_config.options.record_snapshots =
-      config_.registers.snapshot_interval > 0 || config_.stack_snapshots.interval > 0;
-  builder_config.options.record_stack_segments = config_.stack_snapshots.interval > 0;
 
   builder_ = std::make_unique<w1::rewind::trace_builder>(std::move(builder_config));
   emitter_ = std::make_unique<trace_emitter>(builder_.get(), config_, instruction_flow_);
   configured_ = true;
 }
 
-bool rewind_engine::ensure_trace_ready(w1::trace_context& ctx, const w1::util::register_state& regs) {
+bool rewind_engine::ensure_trace_ready(const w1::util::register_state& regs) {
   if (trace_ready()) {
     return true;
   }
@@ -102,7 +208,7 @@ bool rewind_engine::ensure_trace_ready(w1::trace_context& ctx, const w1::util::r
     return false;
   }
 
-  if (!start_trace_locked(ctx, regs)) {
+  if (!start_trace_locked(regs)) {
     trace_failed_.store(true, std::memory_order_release);
     return false;
   }
@@ -111,215 +217,114 @@ bool rewind_engine::ensure_trace_ready(w1::trace_context& ctx, const w1::util::r
   return true;
 }
 
-bool rewind_engine::start_trace_locked(w1::trace_context& ctx, const w1::util::register_state& regs) {
+bool rewind_engine::start_trace_locked(const w1::util::register_state& regs) {
   if (!builder_ || !builder_->good()) {
     log_.err("trace builder not ready");
     return false;
   }
 
-  if (arch_spec_.arch_family == w1::arch::family::unknown || arch_spec_.arch_mode == w1::arch::mode::unknown) {
-    log_.err("unsupported host architecture");
-    return false;
+  bool want_registers = config_.registers.deltas || config_.registers.bytes || config_.registers.snapshot_interval > 0 ||
+                        config_.stack_snapshots.interval > 0;
+  bool need_schema = want_registers || config_.stack_window.mode != rewind_config::stack_window_options::window_mode::none;
+  if (register_schema_.empty() && register_schema_provider_) {
+    std::vector<w1::rewind::register_spec> specs;
+    std::string error;
+    if (!register_schema_provider_->build_register_schema(arch_desc_, specs, error)) {
+      log_.err("register schema provider failed", redlog::field("error", error));
+      return false;
+    }
+    register_schema_.set_specs(std::move(specs));
+  }
+  if (need_schema) {
+    if (register_schema_.empty()) {
+      log_.err("register schema missing");
+      return false;
+    }
+    if (!register_schema_.has_sizing()) {
+      log_.err("register schema missing size information");
+      return false;
+    }
+    std::string error;
+    if (!register_schema_.covers_registers(regs, error)) {
+      log_.err("register schema does not cover captured registers", redlog::field("error", error));
+      return false;
+    }
+    for (const auto& name : regs.get_register_names()) {
+      const auto* spec = register_schema_.find_spec(name);
+      if (!spec) {
+        continue;
+      }
+      uint32_t byte_size = (spec->bit_size + 7u) / 8u;
+      if (byte_size > sizeof(uint64_t)) {
+        log_.err(
+            "register schema contains registers wider than 64 bits", redlog::field("register", name),
+            redlog::field("bit_size", spec->bit_size)
+        );
+        return false;
+      }
+    }
   }
 
-  register_schema_.update(regs, arch_spec_);
-  if (register_schema_.empty()) {
-    log_.err("register specs missing");
-    return false;
+  if (image_provider_) {
+    image_pipeline_.snapshot(*image_provider_, 0);
   }
 
-  ctx.modules().refresh();
-  rebuild_module_state_locked(ctx.modules());
+  w1::rewind::file_header header{};
+  header.trace_uuid = generate_trace_uuid();
+  header.default_chunk_size = config_.chunk_size;
 
-  auto memory_map = collect_memory_map(module_table_);
-
-  w1::rewind::target_info_record target{};
-  target.os = detect_os_id();
-
-  auto environment = build_target_environment(memory_map, module_table_, arch_spec_);
-
-  if (!builder_->begin_trace(arch_spec_, target, environment, register_schema_.specs())) {
+  if (!builder_->begin_trace(header)) {
     log_.err("failed to begin trace", redlog::field("error", builder_->error()));
     return false;
   }
 
-  if (!module_table_.empty()) {
-    if (!builder_->set_module_table(module_table_)) {
-      log_.err("failed to write module table", redlog::field("error", builder_->error()));
-      return false;
-    }
-  }
-
-  if (!memory_map.empty()) {
-    if (!builder_->set_memory_map(std::move(memory_map))) {
-      log_.err("failed to write memory map", redlog::field("error", builder_->error()));
-      return false;
-    }
-  }
-
-  return true;
-}
-
-void rewind_engine::rebuild_module_state_locked(const w1::runtime::module_catalog& modules) {
-  module_table_.clear();
-  auto list = modules.list_modules();
-  module_table_.reserve(list.size());
-
-  if (!metadata_cache_.has_value()) {
-    metadata_cache_.emplace(arch_spec_);
-  }
-
-  for (const auto& module : list) {
-    auto lookup = registry_.find(module.base_address);
-    if (!lookup) {
-      continue;
-    }
-
-    const uint64_t id = lookup->value + k_module_id_offset;
-    module_table_.push_back(build_module_record(module, id, *metadata_cache_));
-  }
-}
-
-std::optional<w1::runtime::module_info> rewind_engine::find_module_info(const w1::monitor::module_event& event) const {
-  if (!modules_) {
-    return std::nullopt;
-  }
-
-  const uint64_t base = reinterpret_cast<uint64_t>(event.base);
-  auto list = modules_->list_modules();
-
-  if (base != 0) {
-    auto it = std::find_if(list.begin(), list.end(), [&](const w1::runtime::module_info& module) {
-      return module.full_range.start <= base && base < module.full_range.end;
-    });
-    if (it != list.end()) {
-      return *it;
-    }
-  }
-
-  if (!event.path.empty()) {
-    const std::string_view event_path = event.path;
-    const std::string_view event_name = basename_view(event_path);
-    auto it = std::find_if(list.begin(), list.end(), [&](const w1::runtime::module_info& module) {
-      if (module.path == event_path || module.name == event_path) {
-        return true;
-      }
-      if (!event_name.empty() && (module.name == event_name || basename_view(module.path) == event_name)) {
-        return true;
-      }
-      return false;
-    });
-    if (it != list.end()) {
-      return *it;
-    }
-  }
-
-  return std::nullopt;
-}
-
-bool rewind_engine::handle_module_loaded_locked(const w1::runtime::module_info& module) {
-  if (!metadata_cache_.has_value()) {
-    metadata_cache_.emplace(arch_spec_);
-  }
-
-  auto lookup = registry_.find(module.base_address);
-  if (!lookup) {
+  if (!builder_->emit_arch_descriptor_checked(arch_desc_)) {
+    log_.err("failed to write arch descriptor", redlog::field("error", builder_->error()));
     return false;
   }
 
-  const uint64_t id = lookup->value + k_module_id_offset;
-  module_record record = build_module_record(module, id, *metadata_cache_);
-  upsert_module_record(record);
+  if (!environment_configured_) {
+    log_.err("environment record not configured");
+    return false;
+  }
+  if (!builder_->emit_environment_checked(environment_record_)) {
+    log_.err("failed to write environment", redlog::field("error", builder_->error()));
+    return false;
+  }
 
-  if (trace_ready_.load(std::memory_order_acquire) && builder_ && builder_->good()) {
-    if (!builder_->emit_module_load(module_load_record{record})) {
-      log_.err("failed to write module load", redlog::field("error", builder_->error()));
-    } else if (!emit_memory_map_locked()) {
-      log_.err("failed to update memory map", redlog::field("error", builder_->error()));
+  w1::rewind::address_space_record space{};
+  space.space_id = 0;
+  space.name = "default";
+  space.address_bits = arch_desc_.address_bits;
+  space.byte_order = arch_desc_.byte_order;
+  if (!builder_->emit_address_space(space)) {
+    log_.err("failed to write address space", redlog::field("error", builder_->error()));
+    return false;
+  }
+
+  if (!register_schema_.empty()) {
+    w1::rewind::register_file_record reg_file{};
+    reg_file.regfile_id = 0;
+    reg_file.name = "gpr";
+    reg_file.registers = register_schema_.specs();
+    if (!builder_->emit_register_file(reg_file)) {
+      log_.err("failed to write register file", redlog::field("error", builder_->error()));
+      return false;
     }
+  }
+
+  image_blob_request request{};
+  request.exec_only = config_.image_blobs.exec_only;
+  request.max_bytes = config_.image_blobs.max_bytes;
+  image_blob_provider* blob_provider = nullptr;
+  if (config_.image_blobs.enabled) {
+    blob_provider = dynamic_cast<image_blob_provider*>(image_provider_.get());
+  }
+  if (!image_pipeline_.emit_snapshot(*builder_, config_.image_blobs.enabled, request, blob_provider)) {
+    return false;
   }
 
   return true;
-}
-
-void rewind_engine::handle_module_unloaded_locked(const w1::monitor::module_event& event) {
-  const uint64_t base = reinterpret_cast<uint64_t>(event.base);
-  auto removed = remove_module_record(0, base, event.path);
-  if (!removed.has_value()) {
-    return;
-  }
-
-  module_unload_record record{};
-  record.module_id = removed->id;
-  record.base = removed->base;
-  record.size = removed->size;
-  record.path = removed->path;
-
-  if (trace_ready_.load(std::memory_order_acquire) && builder_ && builder_->good()) {
-    if (!builder_->emit_module_unload(record)) {
-      log_.err("failed to write module unload", redlog::field("error", builder_->error()));
-    } else if (!emit_memory_map_locked()) {
-      log_.err("failed to update memory map", redlog::field("error", builder_->error()));
-    }
-  }
-}
-
-void rewind_engine::upsert_module_record(module_record record) {
-  auto it = std::find_if(module_table_.begin(), module_table_.end(), [&](const module_record& entry) {
-    return entry.id == record.id;
-  });
-  if (it == module_table_.end()) {
-    it = std::find_if(module_table_.begin(), module_table_.end(), [&](const module_record& entry) {
-      return entry.base == record.base && entry.base != 0;
-    });
-  }
-  if (it != module_table_.end()) {
-    *it = std::move(record);
-    return;
-  }
-  module_table_.push_back(std::move(record));
-}
-
-std::optional<module_record> rewind_engine::remove_module_record(
-    uint64_t module_id, uint64_t base, const std::string& path
-) {
-  auto it = module_table_.end();
-  if (module_id != 0) {
-    it = std::find_if(module_table_.begin(), module_table_.end(), [&](const module_record& entry) {
-      return entry.id == module_id;
-    });
-  }
-
-  if (it == module_table_.end() && base != 0) {
-    it = std::find_if(module_table_.begin(), module_table_.end(), [&](const module_record& entry) {
-      return entry.base == base;
-    });
-  }
-
-  if (it == module_table_.end() && !path.empty()) {
-    it = std::find_if(module_table_.begin(), module_table_.end(), [&](const module_record& entry) {
-      return entry.path == path;
-    });
-  }
-
-  if (it == module_table_.end()) {
-    return std::nullopt;
-  }
-
-  module_record removed = *it;
-  module_table_.erase(it);
-  return removed;
-}
-
-bool rewind_engine::emit_memory_map_locked() {
-  if (!builder_ || !builder_->good()) {
-    return false;
-  }
-  auto memory_map = collect_memory_map(module_table_);
-  if (memory_map.empty()) {
-    return true;
-  }
-  return builder_->set_memory_map(std::move(memory_map));
 }
 
 bool rewind_engine::begin_thread(uint64_t thread_id, const std::string& name) {
@@ -331,13 +336,13 @@ bool rewind_engine::begin_thread(uint64_t thread_id, const std::string& name) {
 }
 
 bool rewind_engine::emit_block(
-    uint64_t thread_id, uint64_t address, uint32_t size, uint32_t flags, uint64_t& sequence_out
+    uint64_t thread_id, uint64_t address, uint32_t size, uint32_t space_id, uint16_t mode_id, uint64_t& sequence_out
 ) {
   std::lock_guard<std::mutex> lock(mutex_);
   if (!emitter_) {
     return false;
   }
-  return emitter_->emit_block(thread_id, address, size, flags, sequence_out);
+  return emitter_->emit_block(thread_id, address, size, space_id, mode_id, sequence_out);
 }
 
 void rewind_engine::flush_pending(std::optional<pending_instruction>& pending) {
@@ -348,14 +353,22 @@ void rewind_engine::flush_pending(std::optional<pending_instruction>& pending) {
 }
 
 bool rewind_engine::emit_snapshot(
-    uint64_t thread_id, uint64_t sequence, uint64_t snapshot_id, std::span<const w1::rewind::register_delta> registers,
-    std::span<const w1::rewind::stack_segment> stack_segments, std::string reason
+    uint64_t thread_id, uint64_t sequence, uint64_t snapshot_id,
+    std::span<const w1::rewind::reg_write_entry> registers,
+    std::span<const w1::rewind::memory_segment> memory_segments
 ) {
   std::lock_guard<std::mutex> lock(mutex_);
   if (!builder_ || !builder_->good()) {
     return false;
   }
-  return builder_->emit_snapshot(thread_id, sequence, snapshot_id, registers, stack_segments, std::move(reason));
+  w1::rewind::snapshot_record record{};
+  record.thread_id = thread_id;
+  record.sequence = sequence;
+  record.regfile_id = 0;
+  record.registers.assign(registers.begin(), registers.end());
+  record.memory_segments.assign(memory_segments.begin(), memory_segments.end());
+  (void) snapshot_id;
+  return builder_->emit_snapshot(record);
 }
 
 void rewind_engine::finalize_thread(
@@ -368,28 +381,23 @@ void rewind_engine::finalize_thread(
   }
 }
 
-void rewind_engine::on_process_event(const w1::runtime::process_event& event) {
+void rewind_engine::on_image_event(const image_inventory_event& event) {
   if (trace_failed_.load(std::memory_order_acquire)) {
     return;
   }
 
-  if (event.type != w1::runtime::process_event::kind::module_loaded &&
-      event.type != w1::runtime::process_event::kind::module_unloaded) {
-    return;
-  }
-
   std::lock_guard<std::mutex> lock(mutex_);
-  auto info = find_module_info(event.module);
-
-  if (event.type == w1::runtime::process_event::kind::module_loaded) {
-    if (info.has_value()) {
-      handle_module_loaded_locked(*info);
-    } else {
-      log_.wrn("module load event missing module info", redlog::field("path", event.module.path));
-    }
-  } else if (event.type == w1::runtime::process_event::kind::module_unloaded) {
-    handle_module_unloaded_locked(event.module);
+  image_blob_request request{};
+  request.exec_only = config_.image_blobs.exec_only;
+  request.max_bytes = config_.image_blobs.max_bytes;
+  image_blob_provider* blob_provider = nullptr;
+  if (config_.image_blobs.enabled) {
+    blob_provider = dynamic_cast<image_blob_provider*>(image_provider_.get());
   }
+  image_pipeline_.apply_event(
+      event, builder_.get(), trace_ready_.load(std::memory_order_acquire), config_.image_blobs.enabled, request,
+      blob_provider
+  );
 }
 
 bool rewind_engine::export_trace() {
@@ -406,9 +414,9 @@ bool rewind_engine::export_trace() {
   return ok;
 }
 
-size_t rewind_engine::module_count() const {
+size_t rewind_engine::image_count() const {
   std::lock_guard<std::mutex> lock(mutex_);
-  return module_table_.size();
+  return image_pipeline_.image_count();
 }
 
 std::string rewind_engine::output_path() const {

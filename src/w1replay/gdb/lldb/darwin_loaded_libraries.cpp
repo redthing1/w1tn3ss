@@ -1,10 +1,13 @@
 #include "darwin_loaded_libraries.hpp"
 
+#include "w1rewind/replay/replay_context.hpp"
+#include "w1rewind/replay/mapping_state.hpp"
+
+#include <algorithm>
 #include <cstdio>
 #include <string_view>
+#include <unordered_map>
 #include <unordered_set>
-
-#include "w1rewind/replay/replay_context.hpp"
 
 namespace w1replay::gdb {
 
@@ -52,13 +55,37 @@ void append_json_key(std::string& out, std::string_view key) {
   append_json_string(out, key);
   out.push_back(':');
 }
+
+const w1::rewind::mapping_range* find_range_for_address(
+    const w1::rewind::mapping_state* mappings, uint32_t space_id, uint64_t address
+) {
+  if (!mappings) {
+    return nullptr;
+  }
+  auto it = mappings->ranges_by_space().find(space_id);
+  if (it == mappings->ranges_by_space().end() || it->second.empty()) {
+    return nullptr;
+  }
+  const auto& ranges = it->second;
+  auto upper = std::upper_bound(ranges.begin(), ranges.end(), address, [](uint64_t value, const auto& range) {
+    return value < range.start;
+  });
+  if (upper == ranges.begin()) {
+    return nullptr;
+  }
+  --upper;
+  if (address >= upper->end) {
+    return nullptr;
+  }
+  return &*upper;
+}
 } // namespace
 
 darwin_loaded_libraries_provider::darwin_loaded_libraries_provider(
-    const w1::rewind::replay_context& context, module_metadata_provider& metadata_provider,
-    module_path_resolver& resolver
+    const w1::rewind::replay_context& context, const w1::rewind::mapping_state* mappings,
+    image_metadata_provider& metadata_provider, image_path_resolver& resolver
 )
-    : context_(context), metadata_provider_(metadata_provider), resolver_(resolver) {}
+    : context_(context), mappings_(mappings), metadata_provider_(metadata_provider), resolver_(resolver) {}
 
 std::vector<darwin_loaded_image> darwin_loaded_libraries_provider::collect_loaded_images(
     const gdbstub::lldb::loaded_libraries_request& request
@@ -68,44 +95,76 @@ std::vector<darwin_loaded_image> darwin_loaded_libraries_provider::collect_loade
     filter.insert(request.addresses.begin(), request.addresses.end());
   }
 
+  std::unordered_map<uint64_t, uint64_t> image_bases;
+  if (mappings_) {
+    auto it = mappings_->ranges_by_space().find(0);
+    if (it != mappings_->ranges_by_space().end()) {
+      for (const auto& range : it->second) {
+        if (!range.mapping || range.end <= range.start) {
+          continue;
+        }
+        if (range.mapping->image_id == 0) {
+          continue;
+        }
+        auto base_it = image_bases.find(range.mapping->image_id);
+        if (base_it == image_bases.end() || range.start < base_it->second) {
+          image_bases[range.mapping->image_id] = range.start;
+        }
+      }
+    }
+  } else {
+    for (const auto& mapping : context_.mappings) {
+      if (mapping.space_id != 0 || mapping.image_id == 0 || mapping.size == 0) {
+        continue;
+      }
+      auto it = image_bases.find(mapping.image_id);
+      if (it == image_bases.end() || mapping.base < it->second) {
+        image_bases[mapping.image_id] = mapping.base;
+      }
+    }
+  }
+
   bool include_load_commands = request.report_load_commands;
   std::vector<darwin_loaded_image> images;
-  const auto& modules = context_.modules;
-  images.reserve(modules.size());
+  images.reserve(context_.images.size());
 
-  for (const auto& module : modules) {
-    if (!filter.empty() && filter.find(module.base) == filter.end()) {
+  for (const auto& image : context_.images) {
+    auto base_it = image_bases.find(image.image_id);
+    if (base_it == image_bases.end()) {
+      continue;
+    }
+    if (!filter.empty() && filter.find(base_it->second) == filter.end()) {
       continue;
     }
 
-    darwin_loaded_image image{};
-    image.load_address = module.base;
-    if (!module.path.empty()) {
-      if (auto resolved = resolver_.resolve_module_path(module)) {
-        image.pathname = *resolved;
-      } else {
-        image.pathname = module.path;
-      }
+    darwin_loaded_image loaded{};
+    loaded.load_address = base_it->second;
+    if (auto resolved = resolver_.resolve_image_path(image)) {
+      loaded.pathname = *resolved;
+    } else if (!image.identity.empty()) {
+      loaded.pathname = image.identity;
+    } else if (!image.name.empty()) {
+      loaded.pathname = image.name;
     }
 
     std::string error;
-    auto uuid = metadata_provider_.module_uuid(module, error);
+    auto uuid = metadata_provider_.image_uuid(image, error);
     if (uuid) {
-      image.uuid = *uuid;
+      loaded.uuid = *uuid;
     }
 
     if (include_load_commands) {
-      auto header = metadata_provider_.macho_header(module, error);
+      auto header = metadata_provider_.macho_header(image, error);
       if (header) {
-        image.header = *header;
+        loaded.header = *header;
       }
-      auto segments = metadata_provider_.macho_segments(module, error);
+      auto segments = metadata_provider_.macho_segments(image, error);
       if (!segments.empty()) {
-        image.segments = std::move(segments);
+        loaded.segments = std::move(segments);
       }
     }
 
-    images.push_back(std::move(image));
+    images.push_back(std::move(loaded));
   }
 
   return images;
@@ -200,20 +259,37 @@ std::optional<std::vector<gdbstub::lldb::process_kv_pair>> darwin_loaded_librari
     return extras;
   }
 
-  uint64_t module_offset = 0;
-  auto* module = context_.find_module_for_address(*current_pc, 1, module_offset);
-  if (!module || module->path.empty()) {
+  const w1::rewind::mapping_record* mapping = nullptr;
+  uint64_t mapping_base = 0;
+  uint64_t mapping_offset = 0;
+  if (mappings_) {
+    if (const auto* range = find_range_for_address(mappings_, 0, *current_pc)) {
+      mapping = range->mapping;
+      mapping_base = range->start;
+    }
+  }
+  if (!mapping) {
+    mapping = context_.find_mapping_for_address(0, *current_pc, 1, mapping_offset);
+    if (mapping) {
+      mapping_base = mapping->base;
+    }
+  }
+  if (!mapping) {
+    return extras;
+  }
+  const auto* image = context_.find_image(mapping->image_id);
+  if (!image) {
     return extras;
   }
 
   gdbstub::lldb::process_kv_pair addr{};
   addr.key = "main-binary-address";
-  addr.u64_value = module->base;
+  addr.u64_value = mapping_base;
   addr.encoding = gdbstub::lldb::kv_encoding::hex_u64;
   extras.push_back(std::move(addr));
 
   std::string uuid_error;
-  auto uuid = metadata_provider_.module_uuid(*module, uuid_error);
+  auto uuid = metadata_provider_.image_uuid(*image, uuid_error);
   if (uuid) {
     gdbstub::lldb::process_kv_pair uuid_pair{};
     uuid_pair.key = "main-binary-uuid";

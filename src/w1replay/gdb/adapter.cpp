@@ -1,7 +1,7 @@
 #include "adapter.hpp"
 
 #include "w1replay/modules/asmr_block_decoder.hpp"
-#include "w1replay/modules/lief_module_provider.hpp"
+#include "w1replay/modules/composite_image_provider.hpp"
 #include "w1replay/memory/memory_view.hpp"
 #include "target_xml.hpp"
 #include "loaded_libraries_provider.hpp"
@@ -31,32 +31,52 @@ bool adapter::open() {
   has_stack_snapshot_ = false;
   breakpoints_ = breakpoint_store{};
   decoder_.reset();
-  module_resolver_.reset();
-  module_image_reader_.reset();
-  module_metadata_provider_.reset();
+  image_resolver_.reset();
+  image_layout_provider_.reset();
+  image_reader_.reset();
+  image_metadata_provider_.reset();
   memory_view_.reset();
   loaded_libraries_provider_.reset();
-  module_index_.reset();
+  image_index_.reset();
   services_ = adapter_services{};
   thread_state_ = thread_state{};
-  module_resolver_ = make_module_path_resolver(config_.module_mappings, config_.module_dirs);
+  image_resolver_ = make_image_path_resolver(config_.image_mappings, config_.image_dirs);
+  {
+    std::string layout_error;
+    image_layout_provider_ = make_layout_provider(config_.image_layout, layout_error);
+    if (!layout_error.empty()) {
+      error_ = layout_error;
+      return false;
+    }
+  }
 
   if (!load_context()) {
     return false;
   }
-  module_index_ = std::make_unique<module_address_index>(context_);
-
-  w1replay::lief_module_provider_config provider_config{};
-  provider_config.resolver = module_resolver_.get();
-  provider_config.address_index = module_index_.get();
-  provider_config.address_reader = config_.module_reader;
-  auto provider = std::make_shared<w1replay::lief_module_provider>(std::move(provider_config));
-  module_image_reader_ = provider;
-  module_metadata_provider_ = provider;
 
   if (!open_session()) {
     return false;
   }
+
+  image_index_ = std::make_unique<image_address_index>(context_, session_ ? session_->mappings() : nullptr);
+
+  w1replay::composite_image_provider_config provider_config{};
+  provider_config.context = &context_;
+  provider_config.resolver = image_resolver_.get();
+  provider_config.address_index = image_index_.get();
+  provider_config.mapping_state = session_ ? session_->mappings() : nullptr;
+  provider_config.layout_provider = image_layout_provider_;
+  provider_config.address_reader = config_.image_reader;
+  auto provider = std::make_shared<w1replay::composite_image_provider>(std::move(provider_config));
+  image_reader_ = provider;
+  image_metadata_provider_ = provider;
+
+  memory_view_ =
+      std::make_unique<w1replay::replay_memory_view>(&context_, session_->state(), image_reader_.get());
+  if (decoder_ && memory_view_) {
+    decoder_->set_memory_view(memory_view_.get());
+  }
+
   if (!prime_position()) {
     return false;
   }
@@ -72,12 +92,13 @@ bool adapter::open() {
 
   services_.session = session_ ? &*session_ : nullptr;
   services_.context = &context_;
+  services_.mappings = session_ ? session_->mappings() : nullptr;
   services_.layout = &layout_;
   services_.arch_spec = &arch_spec_;
-  services_.module_resolver = module_resolver_.get();
-  services_.module_reader = module_image_reader_.get();
-  services_.module_metadata = module_metadata_provider_.get();
-  services_.module_index = module_index_.get();
+  services_.image_resolver = image_resolver_.get();
+  services_.image_reader = image_reader_.get();
+  services_.image_metadata = image_metadata_provider_.get();
+  services_.image_index = image_index_.get();
   services_.memory = memory_view_.get();
   services_.breakpoints = &breakpoints_;
   services_.target_endian = target_endian_;
@@ -95,9 +116,10 @@ bool adapter::open() {
   memory_layout_component_ = std::make_unique<memory_layout_component>(services_);
   loaded_libraries_component_.reset();
   libraries_component_ = std::make_unique<libraries_component>(services_);
-  if (module_metadata_provider_ && module_resolver_) {
+  if (image_metadata_provider_ && image_resolver_) {
     loaded_libraries_provider_ =
-        make_loaded_libraries_provider(context_, *module_metadata_provider_, *module_resolver_);
+        make_loaded_libraries_provider(context_, session_ ? session_->mappings() : nullptr, *image_metadata_provider_,
+                                       *image_resolver_);
   }
   if (loaded_libraries_provider_ && !loaded_libraries_provider_->has_loaded_images()) {
     loaded_libraries_provider_.reset();
@@ -160,6 +182,7 @@ bool adapter::load_context() {
   load_options.trace_path = config_.trace_path;
   load_options.index_path = config_.index_path;
   load_options.checkpoint_path = config_.checkpoint_path;
+  load_options.index_stride = config_.index_stride;
   load_options.auto_build_checkpoint = false;
 
   w1replay::trace_loader::trace_load_result load_result;
@@ -195,19 +218,13 @@ bool adapter::load_context() {
     thread_state_.active_thread_id = context_.threads.front().thread_id;
   }
 
-  auto features = context_.features();
-  trace_is_block_ = features.has_blocks;
-  track_memory_ = features.track_memory;
-  has_stack_snapshot_ = features.has_stack_snapshot;
-  switch (context_.header.arch.arch_byte_order) {
-  case w1::arch::byte_order::big:
+  trace_is_block_ = context_.features.has_block_exec && !context_.blocks_by_id.empty();
+  track_memory_ = context_.features.has_mem_access || context_.features.has_snapshots;
+  has_stack_snapshot_ = context_.features.has_snapshots;
+  if (context_.arch.has_value() && context_.arch->byte_order == w1::rewind::endian::big) {
     target_endian_ = endian::big;
-    break;
-  case w1::arch::byte_order::little:
-  case w1::arch::byte_order::unknown:
-  default:
+  } else {
     target_endian_ = endian::little;
-    break;
   }
 
   return true;
@@ -219,7 +236,7 @@ bool adapter::open_session() {
   }
   decoder_available_ = decoder_ != nullptr;
 
-  bool has_registers = context_.features().has_registers;
+  bool has_registers = context_.features.has_reg_writes;
 
   if (!stream_ || !index_) {
     error_ = "trace loader not ready";
@@ -235,6 +252,7 @@ bool adapter::open_session() {
   config.start_sequence = config_.start_sequence;
   config.track_registers = has_registers;
   config.track_memory = track_memory_;
+  config.strict_instructions = true;
   if (decoder_) {
     config.block_decoder = decoder_.get();
   }
@@ -243,12 +261,6 @@ bool adapter::open_session() {
   if (!session_->open()) {
     error_ = session_->error();
     return false;
-  }
-
-  memory_view_ =
-      std::make_unique<w1replay::replay_memory_view>(&context_, session_->state(), module_image_reader_.get());
-  if (decoder_ && memory_view_) {
-    decoder_->set_memory_view(memory_view_.get());
   }
 
   return true;
@@ -273,9 +285,9 @@ bool adapter::prime_position() {
 }
 
 bool adapter::build_layout() {
-  layout_ = build_register_layout(context_.header.arch, context_.register_specs);
+  layout_ = build_register_layout(context_, context_.default_registers);
   if (layout_.architecture.empty() || layout_.registers.empty()) {
-    error_ = "unsupported trace architecture";
+    error_ = "trace is missing gdb architecture or register file";
     return false;
   }
   if (layout_.pc_reg_num < 0) {
@@ -306,7 +318,11 @@ bool adapter::build_arch_spec() {
   arch_spec_.osabi.clear();
   arch_spec_.reg_count = static_cast<int>(layout_.registers.size());
   arch_spec_.pc_reg_num = pc_reg_num_;
-  arch_spec_.address_bits = static_cast<int>(context_.header.arch.pointer_bits);
+  uint16_t address_bits = 0;
+  if (context_.arch.has_value()) {
+    address_bits = context_.arch->address_bits != 0 ? context_.arch->address_bits : context_.arch->pointer_bits;
+  }
+  arch_spec_.address_bits = static_cast<int>(address_bits);
   arch_spec_.swap_register_endianness = false;
   return true;
 }

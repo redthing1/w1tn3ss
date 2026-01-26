@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <filesystem>
@@ -9,6 +10,7 @@
 #include <redlog.hpp>
 
 #include "w1replay/gdb/adapter.hpp"
+#include "w1replay/modules/image_bytes.hpp"
 #include "w1rewind/trace/trace_file_writer.hpp"
 #include "w1rewind/rewind_test_helpers.hpp"
 
@@ -18,43 +20,20 @@ TEST_CASE("gdb adapter reads recorded memory bytes") {
 
   fs::path trace_path = temp_path("w1replay_gdb_mem_read.trace");
 
-  w1::rewind::trace_file_writer_config writer_config;
-  writer_config.path = trace_path.string();
-  writer_config.log = redlog::get_logger("test.w1replay.gdb");
-  writer_config.chunk_size = 64;
-
-  auto writer = w1::rewind::make_trace_file_writer(writer_config);
-  REQUIRE(writer);
-  REQUIRE(writer->open());
-
   auto arch = parse_arch_or_fail("arm64");
-  w1::rewind::trace_header header{};
-  header.arch = arch;
-  header.flags =
-      w1::rewind::trace_flag_instructions | w1::rewind::trace_flag_memory_access | w1::rewind::trace_flag_memory_values;
-  REQUIRE(writer->write_header(header));
+  auto header = make_header(0, 64);
+  auto handle = open_trace(trace_path, header, redlog::get_logger("test.w1replay.gdb"));
 
   std::vector<std::string> registers = {"pc", "sp"};
-  write_basic_metadata(*writer, arch, registers);
-  write_module_table(*writer, 1, 0x1000);
-  write_thread_start(*writer, 1, "thread1");
-  write_instruction(*writer, 1, 0, 0x1000 + 0x10);
+  write_basic_metadata(handle.builder, "arm64", arch, registers);
+  write_image_mapping(handle.builder, 1, 0x1000, 0x1000);
+  write_thread_start(handle.builder, 1, "thread1");
+  write_instruction(handle.builder, 1, 0, 0x1000 + 0x10);
+  write_memory_access(handle.builder, 1, 0, w1::rewind::mem_access_op::write, 0x3000, {0xDE, 0xAD, 0xBE, 0xEF});
+  write_thread_end(handle.builder, 1);
 
-  w1::rewind::memory_access_record access{};
-  access.sequence = 0;
-  access.thread_id = 1;
-  access.kind = w1::rewind::memory_access_kind::write;
-  access.address = 0x3000;
-  access.size = 4;
-  access.value_known = true;
-  access.value_truncated = false;
-  access.data = {0xDE, 0xAD, 0xBE, 0xEF};
-  REQUIRE(writer->write_memory_access(access));
-
-  write_thread_end(*writer, 1);
-
-  writer->flush();
-  writer->close();
+  handle.builder.flush();
+  handle.writer->close();
 
   w1replay::gdb::adapter::config config;
   config.trace_path = trace_path.string();
@@ -78,43 +57,20 @@ TEST_CASE("gdb adapter reads memory access read values") {
 
   fs::path trace_path = temp_path("w1replay_gdb_mem_read_access.trace");
 
-  w1::rewind::trace_file_writer_config writer_config;
-  writer_config.path = trace_path.string();
-  writer_config.log = redlog::get_logger("test.w1replay.gdb");
-  writer_config.chunk_size = 64;
-
-  auto writer = w1::rewind::make_trace_file_writer(writer_config);
-  REQUIRE(writer);
-  REQUIRE(writer->open());
-
   auto arch = parse_arch_or_fail("arm64");
-  w1::rewind::trace_header header{};
-  header.arch = arch;
-  header.flags =
-      w1::rewind::trace_flag_instructions | w1::rewind::trace_flag_memory_access | w1::rewind::trace_flag_memory_values;
-  REQUIRE(writer->write_header(header));
+  auto header = make_header(0, 64);
+  auto handle = open_trace(trace_path, header, redlog::get_logger("test.w1replay.gdb"));
 
   std::vector<std::string> registers = {"pc"};
-  write_basic_metadata(*writer, arch, registers);
-  write_module_table(*writer, 1, 0x1000);
-  write_thread_start(*writer, 1, "thread1");
-  write_instruction(*writer, 1, 0, 0x1000 + 0x10);
+  write_basic_metadata(handle.builder, "arm64", arch, registers);
+  write_image_mapping(handle.builder, 1, 0x1000, 0x1000);
+  write_thread_start(handle.builder, 1, "thread1");
+  write_instruction(handle.builder, 1, 0, 0x1000 + 0x10);
+  write_memory_access(handle.builder, 1, 0, w1::rewind::mem_access_op::read, 0x4000, {0xFE, 0xED});
+  write_thread_end(handle.builder, 1);
 
-  w1::rewind::memory_access_record access{};
-  access.sequence = 0;
-  access.thread_id = 1;
-  access.kind = w1::rewind::memory_access_kind::read;
-  access.address = 0x4000;
-  access.size = 2;
-  access.value_known = true;
-  access.value_truncated = false;
-  access.data = {0xFE, 0xED};
-  REQUIRE(writer->write_memory_access(access));
-
-  write_thread_end(*writer, 1);
-
-  writer->flush();
-  writer->close();
+  handle.builder.flush();
+  handle.writer->close();
 
   w1replay::gdb::adapter::config config;
   config.trace_path = trace_path.string();
@@ -130,45 +86,36 @@ TEST_CASE("gdb adapter reads memory access read values") {
   CHECK(buffer[1] == std::byte{0xED});
 }
 
-TEST_CASE("gdb adapter reads module bytes when memory missing") {
+TEST_CASE("gdb adapter reads image bytes when memory missing") {
   namespace fs = std::filesystem;
   using namespace w1::rewind::test_helpers;
 
-  fs::path trace_path = temp_path("w1replay_gdb_module_mem.trace");
-
-  w1::rewind::trace_file_writer_config writer_config;
-  writer_config.path = trace_path.string();
-  writer_config.log = redlog::get_logger("test.w1replay.gdb");
-  writer_config.chunk_size = 64;
-
-  auto writer = w1::rewind::make_trace_file_writer(writer_config);
-  REQUIRE(writer);
-  REQUIRE(writer->open());
+  fs::path trace_path = temp_path("w1replay_gdb_image_mem.trace");
 
   auto arch = parse_arch_or_fail("arm64");
-  w1::rewind::trace_header header{};
-  header.arch = arch;
-  header.flags = w1::rewind::trace_flag_instructions;
-  REQUIRE(writer->write_header(header));
+  auto header = make_header(0, 64);
+  auto handle = open_trace(trace_path, header, redlog::get_logger("test.w1replay.gdb"));
 
   std::vector<std::string> registers = {"pc"};
-  write_basic_metadata(*writer, arch, registers);
-  write_module_table(*writer, 1, 0x1000);
-  write_thread_start(*writer, 1, "thread1");
-  write_instruction(*writer, 1, 0, 0x1000 + 0x10);
-  write_thread_end(*writer, 1);
+  write_basic_metadata(handle.builder, "arm64", arch, registers);
+  write_image_mapping(handle.builder, 1, 0x1000, 0x1000);
+  write_thread_start(handle.builder, 1, "thread1");
+  write_instruction(handle.builder, 1, 0, 0x1000 + 0x10);
+  write_thread_end(handle.builder, 1);
 
-  writer->flush();
-  writer->close();
+  handle.builder.flush();
+  handle.writer->close();
 
   w1replay::gdb::adapter::config config;
   config.trace_path = trace_path.string();
-  config.module_reader = [](uint64_t addr, std::span<std::byte> out, std::string& error) {
-    error.clear();
-    for (size_t i = 0; i < out.size(); ++i) {
-      out[i] = static_cast<std::byte>(0xA0 + (addr + i) % 16);
+  config.image_reader = [](uint32_t, uint64_t addr, size_t size) {
+    auto result = w1replay::make_empty_image_read(size);
+    for (size_t i = 0; i < size; ++i) {
+      result.bytes[i] = static_cast<std::byte>(0xA0 + (addr + i) % 16);
+      result.known[i] = 1;
     }
-    return true;
+    result.complete = true;
+    return result;
   };
 
   w1replay::gdb::adapter adapter(std::move(config));
@@ -181,58 +128,39 @@ TEST_CASE("gdb adapter reads module bytes when memory missing") {
   CHECK(buffer[0] == std::byte{0xA0});
 }
 
-TEST_CASE("gdb adapter prefers recorded memory over module bytes") {
+TEST_CASE("gdb adapter prefers recorded memory over image bytes") {
   namespace fs = std::filesystem;
   using namespace w1::rewind::test_helpers;
 
   fs::path trace_path = temp_path("w1replay_gdb_recorded_overrides.trace");
 
-  w1::rewind::trace_file_writer_config writer_config;
-  writer_config.path = trace_path.string();
-  writer_config.log = redlog::get_logger("test.w1replay.gdb");
-  writer_config.chunk_size = 64;
-
-  auto writer = w1::rewind::make_trace_file_writer(writer_config);
-  REQUIRE(writer);
-  REQUIRE(writer->open());
-
   auto arch = parse_arch_or_fail("arm64");
-  w1::rewind::trace_header header{};
-  header.arch = arch;
-  header.flags =
-      w1::rewind::trace_flag_instructions | w1::rewind::trace_flag_memory_access | w1::rewind::trace_flag_memory_values;
-  REQUIRE(writer->write_header(header));
+  auto header = make_header(0, 64);
+  auto handle = open_trace(trace_path, header, redlog::get_logger("test.w1replay.gdb"));
 
   std::vector<std::string> registers = {"pc", "sp"};
-  write_basic_metadata(*writer, arch, registers);
-  write_module_table(*writer, 1, 0x1000);
-  write_thread_start(*writer, 1, "thread1");
-  write_instruction(*writer, 1, 0, 0x1000 + 0x10);
+  write_basic_metadata(handle.builder, "arm64", arch, registers);
+  write_image_mapping(handle.builder, 1, 0x1000, 0x1000);
+  write_thread_start(handle.builder, 1, "thread1");
+  write_instruction(handle.builder, 1, 0, 0x1000 + 0x10);
 
-  w1::rewind::memory_access_record access{};
-  access.sequence = 0;
-  access.thread_id = 1;
-  access.kind = w1::rewind::memory_access_kind::write;
-  access.address = 0x1010;
-  access.size = 4;
-  access.value_known = true;
-  access.value_truncated = false;
-  access.data = {0x11, 0x22, 0x33, 0x44};
-  REQUIRE(writer->write_memory_access(access));
+  write_memory_access(handle.builder, 1, 0, w1::rewind::mem_access_op::write, 0x1010, {0x11, 0x22, 0x33, 0x44});
 
-  write_thread_end(*writer, 1);
+  write_thread_end(handle.builder, 1);
 
-  writer->flush();
-  writer->close();
+  handle.builder.flush();
+  handle.writer->close();
 
   w1replay::gdb::adapter::config config;
   config.trace_path = trace_path.string();
-  config.module_reader = [](uint64_t, std::span<std::byte> out, std::string& error) {
-    error.clear();
-    for (auto& byte : out) {
+  config.image_reader = [](uint32_t, uint64_t, size_t size) {
+    auto result = w1replay::make_empty_image_read(size);
+    for (auto& byte : result.bytes) {
       byte = std::byte{0xFF};
     }
-    return true;
+    std::fill(result.known.begin(), result.known.end(), 1);
+    result.complete = true;
+    return result;
   };
 
   w1replay::gdb::adapter adapter(std::move(config));

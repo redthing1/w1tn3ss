@@ -4,6 +4,7 @@
 
 #include "w1replay/gdb/layout.hpp"
 #include "w1replay/gdb/target_xml.hpp"
+#include "w1rewind/replay/replay_context.hpp"
 #include "w1rewind/rewind_test_helpers.hpp"
 
 namespace {
@@ -33,7 +34,9 @@ TEST_CASE("gdb target xml encodes architecture and regnums") {
   std::vector<std::string> regs = {"x0", "x1", "lr", "sp", "pc", "nzcv"};
   auto arch = w1::rewind::test_helpers::parse_arch_or_fail("arm64");
   auto specs = w1::rewind::test_helpers::make_register_specs(regs, arch);
-  auto layout = w1replay::gdb::build_register_layout(arch, specs);
+  w1::rewind::replay_context context;
+  context.arch = w1::rewind::test_helpers::make_arch_descriptor("arm64", arch);
+  auto layout = w1replay::gdb::build_register_layout(context, specs);
 
   auto xml = w1replay::gdb::build_target_xml(layout);
   CHECK(xml.find("<architecture>aarch64</architecture>") != std::string::npos);
@@ -52,7 +55,9 @@ TEST_CASE("gdb target xml uses explicit generic register flags") {
   std::vector<std::string> regs = {"rip", "rsp", "rbp", "rflags"};
   auto arch = w1::rewind::test_helpers::parse_arch_or_fail("x86_64");
   auto specs = w1::rewind::test_helpers::make_register_specs(regs, arch);
-  auto layout = w1replay::gdb::build_register_layout(arch, specs);
+  w1::rewind::replay_context context;
+  context.arch = w1::rewind::test_helpers::make_arch_descriptor("x86_64", arch);
+  auto layout = w1replay::gdb::build_register_layout(context, specs);
 
   auto xml = w1replay::gdb::build_target_xml(layout);
   CHECK(xml_has_reg_attr(xml, "rip", "generic=\"pc\""));

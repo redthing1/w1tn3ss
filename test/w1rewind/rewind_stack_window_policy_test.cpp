@@ -1,10 +1,33 @@
 #include <cstdint>
+#include <string>
+#include <vector>
 
 #include <QBDI.h>
 #include "doctest/doctest.hpp"
 
+#include "tracers/w1rewind/engine/qbdi_register_schema_provider.hpp"
+#include "tracers/w1rewind/engine/register_schema.hpp"
+#include "tracers/w1rewind/engine/target_environment_provider.hpp"
 #include "tracers/w1rewind/thread/stack_window_policy.hpp"
+#include "w1base/arch_spec.hpp"
 #include "w1runtime/register_capture.hpp"
+
+namespace {
+
+w1rewind::register_schema build_host_schema() {
+  const auto host_arch = w1::arch::detect_host_arch_spec();
+  const auto arch_desc = w1rewind::build_arch_descriptor(host_arch);
+  w1rewind::qbdi_register_schema_provider provider{};
+  std::vector<w1::rewind::register_spec> specs;
+  std::string error;
+  REQUIRE(provider.build_register_schema(arch_desc, specs, error));
+
+  w1rewind::register_schema schema;
+  schema.set_specs(std::move(specs));
+  return schema;
+}
+
+} // namespace
 
 TEST_CASE("stack window policy clamps fixed window size") {
   QBDI::GPRState gpr{};
@@ -27,7 +50,8 @@ TEST_CASE("stack window policy clamps fixed window size") {
   options.below_bytes = 32;
   options.max_total_bytes = 40;
 
-  auto result = w1rewind::compute_stack_window_segments(regs, options);
+  const auto schema = build_host_schema();
+  auto result = w1rewind::compute_stack_window_segments(regs, schema, options);
   REQUIRE(result.segments.size() == 1);
   CHECK(result.segments[0].base == 0x2000 - 32);
   CHECK(result.segments[0].size == 40);
@@ -71,7 +95,8 @@ TEST_CASE("stack window policy emits frame window segment") {
   options.below_bytes = 32;
   options.max_total_bytes = 128;
 
-  auto result = w1rewind::compute_stack_window_segments(regs, options);
+  const auto schema = build_host_schema();
+  auto result = w1rewind::compute_stack_window_segments(regs, schema, options);
   REQUIRE(result.segments.size() == 2);
 
   bool saw_fp = false;

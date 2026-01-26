@@ -78,7 +78,7 @@ private:
     std::optional<pending_instruction> pending;
   };
 
-  bool ensure_trace_ready(w1::trace_context& ctx, const std::optional<w1::util::register_state>& regs);
+  bool ensure_trace_ready(const std::optional<w1::util::register_state>& regs);
   bool should_capture_registers() const;
   bool uses_arm_flags() const;
 

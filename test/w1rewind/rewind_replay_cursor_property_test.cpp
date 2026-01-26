@@ -14,7 +14,6 @@ namespace {
 struct trace_bundle {
   std::filesystem::path trace_path;
   std::filesystem::path index_path;
-  w1::rewind::trace_file_writer_config writer_config;
   std::shared_ptr<w1::rewind::trace_index> index;
   w1::rewind::replay_context context;
   std::shared_ptr<w1::rewind::trace_reader> stream;
@@ -33,39 +32,29 @@ trace_bundle build_instruction_trace(const char* name, uint64_t count) {
 
   trace_bundle out;
   out.trace_path = temp_path(name);
-  out.index_path = temp_path((std::string(name) + ".idx").c_str());
-
-  out.writer_config.path = out.trace_path.string();
-  out.writer_config.log = redlog::get_logger("test.w1rewind.cursor_property");
-  out.writer_config.chunk_size = 64;
-
-  auto writer = w1::rewind::make_trace_file_writer(out.writer_config);
-  REQUIRE(writer);
-  REQUIRE(writer->open());
-
+  out.index_path = temp_path((std::string(name) + ".w1ridx").c_str());
+  auto logger = redlog::get_logger("test.w1rewind.cursor_property");
   auto arch = parse_arch_or_fail("x86_64");
-  w1::rewind::trace_header header{};
-  header.arch = arch;
-  header.flags = w1::rewind::trace_flag_instructions;
-  REQUIRE(writer->write_header(header));
+  auto header = make_header(0, 64);
+  auto handle = open_trace(out.trace_path, header, logger);
 
-  write_basic_metadata(*writer, header.arch, minimal_registers(header.arch));
-  write_module_table(*writer, 1, 0x1000);
-  write_thread_start(*writer, 1, "thread1");
+  write_basic_metadata(handle.builder, "x86_64", arch, minimal_registers(arch));
+  write_image_mapping(handle.builder, 1, 0x1000, 0x1000);
+  write_thread_start(handle.builder, 1, "thread1");
 
   for (uint64_t i = 0; i < count; ++i) {
-    write_instruction(*writer, 1, i, 0x1000 + i * 4);
+    write_instruction(handle.builder, 1, i, 0x1000 + i * 4);
   }
 
-  write_thread_end(*writer, 1);
-  writer->flush();
-  writer->close();
+  write_thread_end(handle.builder, 1);
+  handle.builder.flush();
+  handle.writer->close();
 
   w1::rewind::trace_index_options options;
   out.index = std::make_shared<w1::rewind::trace_index>();
   REQUIRE(
       w1::rewind::build_trace_index(
-          out.trace_path.string(), out.index_path.string(), options, out.index.get(), out.writer_config.log
+          out.trace_path.string(), out.index_path.string(), options, out.index.get(), logger
       )
   );
 
@@ -81,40 +70,30 @@ trace_bundle build_block_trace(const char* name, uint64_t count) {
 
   trace_bundle out;
   out.trace_path = temp_path(name);
-  out.index_path = temp_path((std::string(name) + ".idx").c_str());
-
-  out.writer_config.path = out.trace_path.string();
-  out.writer_config.log = redlog::get_logger("test.w1rewind.cursor_property");
-  out.writer_config.chunk_size = 64;
-
-  auto writer = w1::rewind::make_trace_file_writer(out.writer_config);
-  REQUIRE(writer);
-  REQUIRE(writer->open());
-
+  out.index_path = temp_path((std::string(name) + ".w1ridx").c_str());
+  auto logger = redlog::get_logger("test.w1rewind.cursor_property");
   auto arch = parse_arch_or_fail("x86_64");
-  w1::rewind::trace_header header{};
-  header.arch = arch;
-  header.flags = w1::rewind::trace_flag_blocks;
-  REQUIRE(writer->write_header(header));
+  auto header = make_header(0, 64);
+  auto handle = open_trace(out.trace_path, header, logger);
 
-  write_basic_metadata(*writer, header.arch, minimal_registers(header.arch));
-  write_module_table(*writer, 1, 0x2000);
-  write_thread_start(*writer, 1, "thread1");
+  write_basic_metadata(handle.builder, "x86_64", arch, minimal_registers(arch));
+  write_image_mapping(handle.builder, 1, 0x2000, 0x1000);
+  write_thread_start(handle.builder, 1, "thread1");
 
   for (uint64_t i = 0; i < count; ++i) {
-    write_block_def(*writer, i + 1, 0x2000 + i * 8, 4);
-    write_block_exec(*writer, 1, i, i + 1);
+    write_block_def(handle.builder, i + 1, 0x2000 + i * 8, 4);
+    write_block_exec(handle.builder, 1, i, i + 1);
   }
 
-  write_thread_end(*writer, 1);
-  writer->flush();
-  writer->close();
+  write_thread_end(handle.builder, 1);
+  handle.builder.flush();
+  handle.writer->close();
 
   w1::rewind::trace_index_options options;
   out.index = std::make_shared<w1::rewind::trace_index>();
   REQUIRE(
       w1::rewind::build_trace_index(
-          out.trace_path.string(), out.index_path.string(), options, out.index.get(), out.writer_config.log
+          out.trace_path.string(), out.index_path.string(), options, out.index.get(), logger
       )
   );
 

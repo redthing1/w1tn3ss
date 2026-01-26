@@ -10,11 +10,12 @@
 
 namespace w1::rewind {
 struct replay_context;
+class mapping_state;
 }
 
 namespace w1replay {
-class module_metadata_provider;
-class module_path_resolver;
+class image_metadata_provider;
+class image_path_resolver;
 } // namespace w1replay
 
 namespace w1replay::gdb {
@@ -31,8 +32,8 @@ public:
 };
 
 std::unique_ptr<loaded_libraries_provider> make_loaded_libraries_provider(
-    const w1::rewind::replay_context& context, module_metadata_provider& metadata_provider,
-    module_path_resolver& resolver
+    const w1::rewind::replay_context& context, const w1::rewind::mapping_state* mappings,
+    image_metadata_provider& metadata_provider, image_path_resolver& resolver
 );
 
 } // namespace w1replay::gdb

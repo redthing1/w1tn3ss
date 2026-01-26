@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import queue
 import re
@@ -154,6 +155,9 @@ def run_inspect(
     regs: bool = False,
     mem: Optional[str] = None,
     start: Optional[int] = None,
+    json_output: bool = True,
+    image_mappings: Optional[Sequence[str]] = None,
+    image_dirs: Optional[Sequence[str]] = None,
 ) -> str:
     cmd = [
         w1replay,
@@ -173,6 +177,14 @@ def run_inspect(
         cmd.extend(["--mem", mem])
     if start is not None:
         cmd.extend(["--start", str(start)])
+    if json_output:
+        cmd.append("--json")
+    if image_mappings:
+        for mapping in image_mappings:
+            cmd.extend(["--image", mapping])
+    if image_dirs:
+        for directory in image_dirs:
+            cmd.extend(["--image-dir", directory])
     result = run_cmd(cmd, timeout=timeout)
     if result.returncode != 0:
         raise RuntimeError(
@@ -184,21 +196,74 @@ def run_inspect(
 
 
 def parse_inspect_output(output: str) -> InspectTrace:
-    steps: List[InspectStep] = []
+    trimmed = output.strip()
+    start = trimmed.find("{")
+    end = trimmed.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        payload = trimmed[start : end + 1]
+        try:
+            data = json.loads(payload)
+        except json.JSONDecodeError:
+            data = None
+        if isinstance(data, dict) and "steps" in data:
+            steps: List[InspectStep] = []
+            for step in data.get("steps", []):
+                try:
+                    seq = int(step.get("seq", 0))
+                except (TypeError, ValueError):
+                    seq = 0
+                addr_raw = step.get("addr", "0x0")
+                try:
+                    addr = int(addr_raw, 0)
+                except (TypeError, ValueError):
+                    addr = 0
+                kind = str(step.get("kind", ""))
+                regs: Dict[str, int] = {}
+                for name, value in (step.get("regs") or {}).items():
+                    if not isinstance(value, str):
+                        continue
+                    try:
+                        regs[name] = int(value, 0)
+                    except ValueError:
+                        continue
+                mem_dump = None
+                mem = step.get("mem")
+                if isinstance(mem, dict):
+                    addr_text = mem.get("addr", "0x0")
+                    try:
+                        mem_addr = int(addr_text, 0)
+                    except (TypeError, ValueError):
+                        mem_addr = 0
+                    parsed: List[Optional[int]] = []
+                    for entry in mem.get("bytes", []) or []:
+                        if entry is None:
+                            parsed.append(None)
+                        elif isinstance(entry, str):
+                            try:
+                                parsed.append(int(entry, 16))
+                            except ValueError:
+                                parsed.append(None)
+                    mem_dump = MemoryDump(address=mem_addr, bytes=parsed)
+                steps.append(InspectStep(seq=seq, addr=addr, kind=kind, regs=regs, memory=mem_dump))
+            return InspectTrace(steps=steps)
+
+    steps = []
     current: Optional[InspectStep] = None
 
-    step_re = re.compile(
-        r"seq=(\d+)\s+addr=(0x[0-9a-fA-F]+)\s+module=(.+?)\s+kind=(\w+)"
-    )
+    seq_re = re.compile(r"\bseq=(\d+)\b")
+    addr_re = re.compile(r"\baddr=(0x[0-9a-fA-F]+)\b")
+    kind_re = re.compile(r"\bkind=(\w+)\b")
     regs_re = re.compile(r"^\s*regs:\s*(.*)$")
     mem_re = re.compile(r"^\s*mem\[(0x[0-9a-fA-F]+):(\d+)\]:\s*(.*)$")
 
     for line in output.splitlines():
-        match = step_re.search(line)
-        if match:
-            seq = int(match.group(1))
-            addr = int(match.group(2), 16)
-            kind = match.group(4)
+        seq_match = seq_re.search(line)
+        addr_match = addr_re.search(line)
+        kind_match = kind_re.search(line)
+        if seq_match and addr_match and kind_match:
+            seq = int(seq_match.group(1))
+            addr = int(addr_match.group(1), 16)
+            kind = kind_match.group(1)
             current = InspectStep(seq=seq, addr=addr, kind=kind, regs={}, memory=None)
             steps.append(current)
             continue
@@ -219,7 +284,7 @@ def parse_inspect_output(output: str) -> InspectTrace:
         if match and current is not None:
             address = int(match.group(1), 16)
             bytes_part = match.group(3).strip()
-            parsed: List[Optional[int]] = []
+            parsed = []
             if bytes_part:
                 for token in bytes_part.split():
                     if token == "??":
@@ -321,8 +386,8 @@ def start_server(
     timeout: float,
     start: Optional[int] = None,
     thread_id: Optional[int] = None,
-    module_mappings: Optional[Sequence[str]] = None,
-    module_dirs: Optional[Sequence[str]] = None,
+    image_mappings: Optional[Sequence[str]] = None,
+    image_dirs: Optional[Sequence[str]] = None,
 ) -> ProcessResult:
     cmd = [w1replay, "server", "--gdb", f"127.0.0.1:{port}", "--trace", trace_path]
     if inst:
@@ -331,12 +396,12 @@ def start_server(
         cmd.extend(["--start", str(start)])
     if thread_id is not None and thread_id != 0:
         cmd.extend(["--thread", str(thread_id)])
-    if module_mappings:
-        for mapping in module_mappings:
-            cmd.extend(["--module", mapping])
-    if module_dirs:
-        for directory in module_dirs:
-            cmd.extend(["--module-dir", directory])
+    if image_mappings:
+        for mapping in image_mappings:
+            cmd.extend(["--image", mapping])
+    if image_dirs:
+        for directory in image_dirs:
+            cmd.extend(["--image-dir", directory])
     result = start_process(cmd)
     line = wait_for_output_line(result, lambda l: "listening" in l, timeout)
     if line is None:

@@ -28,8 +28,8 @@ std::string build_darwin_loaded_libraries_json(
 class darwin_loaded_libraries_provider final : public loaded_libraries_provider {
 public:
   darwin_loaded_libraries_provider(
-      const w1::rewind::replay_context& context, module_metadata_provider& metadata_provider,
-      module_path_resolver& resolver
+      const w1::rewind::replay_context& context, const w1::rewind::mapping_state* mappings,
+      image_metadata_provider& metadata_provider, image_path_resolver& resolver
   );
 
   std::optional<std::string> loaded_libraries_json(const gdbstub::lldb::loaded_libraries_request& request) override;
@@ -42,8 +42,9 @@ private:
   std::vector<darwin_loaded_image> collect_loaded_images(const gdbstub::lldb::loaded_libraries_request& request) const;
 
   const w1::rewind::replay_context& context_;
-  module_metadata_provider& metadata_provider_;
-  module_path_resolver& resolver_;
+  const w1::rewind::mapping_state* mappings_ = nullptr;
+  image_metadata_provider& metadata_provider_;
+  image_path_resolver& resolver_;
 };
 
 } // namespace w1replay::gdb

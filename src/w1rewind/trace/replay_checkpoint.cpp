@@ -7,9 +7,10 @@
 #include <map>
 
 #include "w1rewind/format/trace_io.hpp"
-#include "w1rewind/trace/flow_classifier.hpp"
 #include "w1rewind/replay/replay_context.hpp"
+#include "w1rewind/replay/mapping_state.hpp"
 #include "w1rewind/replay/replay_state_applier.hpp"
+#include "w1rewind/trace/trace_reader.hpp"
 
 namespace w1::rewind {
 
@@ -17,86 +18,213 @@ namespace {
 
 struct thread_build_state {
   uint64_t flow_count = 0;
+  uint32_t last_regfile_id = 0;
   replay_state state{};
+  bool initialized = false;
   std::vector<replay_checkpoint_entry> entries;
 };
 
-replay_checkpoint_entry snapshot_entry(
-    uint64_t thread_id, uint64_t sequence, const trace_record_location& location, const replay_state& state,
-    bool include_memory
+bool write_string(std::ostream& out, const std::string& value) {
+  uint32_t size = static_cast<uint32_t>(value.size());
+  if (!write_stream_u32(out, size)) {
+    return false;
+  }
+  if (size == 0) {
+    return true;
+  }
+  return write_stream_bytes(out, value.data(), value.size());
+}
+
+bool read_string(std::istream& in, std::string& out) {
+  uint32_t size = 0;
+  if (!read_stream_u32(in, size)) {
+    return false;
+  }
+  if (size == 0) {
+    out.clear();
+    return true;
+  }
+  if (size > static_cast<uint32_t>(std::numeric_limits<size_t>::max())) {
+    return false;
+  }
+  out.resize(size);
+  return read_stream_bytes(in, out.data(), out.size());
+}
+
+bool write_reg_write_entry(std::ostream& out, const reg_write_entry& entry) {
+  uint8_t kind = static_cast<uint8_t>(entry.ref_kind);
+  if (!write_stream_bytes(out, &kind, sizeof(kind))) {
+    return false;
+  }
+  uint8_t reserved = entry.reserved;
+  if (!write_stream_bytes(out, &reserved, sizeof(reserved))) {
+    return false;
+  }
+  if (!write_stream_u32(out, entry.byte_offset) || !write_stream_u32(out, entry.byte_size) ||
+      !write_stream_u32(out, entry.reg_id)) {
+    return false;
+  }
+  if (!write_string(out, entry.reg_name)) {
+    return false;
+  }
+  uint32_t value_size = static_cast<uint32_t>(entry.value.size());
+  if (!write_stream_u32(out, value_size)) {
+    return false;
+  }
+  if (value_size == 0) {
+    return true;
+  }
+  return write_stream_bytes(out, entry.value.data(), entry.value.size());
+}
+
+bool read_reg_write_entry(std::istream& in, reg_write_entry& entry) {
+  uint8_t kind = 0;
+  uint8_t reserved = 0;
+  if (!read_stream_bytes(in, &kind, sizeof(kind)) || !read_stream_bytes(in, &reserved, sizeof(reserved))) {
+    return false;
+  }
+  entry.ref_kind = static_cast<reg_ref_kind>(kind);
+  entry.reserved = reserved;
+  if (!read_stream_u32(in, entry.byte_offset) || !read_stream_u32(in, entry.byte_size) ||
+      !read_stream_u32(in, entry.reg_id)) {
+    return false;
+  }
+  if (!read_string(in, entry.reg_name)) {
+    return false;
+  }
+  uint32_t value_size = 0;
+  if (!read_stream_u32(in, value_size)) {
+    return false;
+  }
+  if (value_size > static_cast<uint32_t>(std::numeric_limits<size_t>::max())) {
+    return false;
+  }
+  entry.value.resize(value_size);
+  if (value_size == 0) {
+    return true;
+  }
+  return read_stream_bytes(in, entry.value.data(), entry.value.size());
+}
+
+bool write_memory_segment(std::ostream& out, const memory_segment& segment) {
+  if (!write_stream_u32(out, segment.space_id) || !write_stream_u64(out, segment.base)) {
+    return false;
+  }
+  uint64_t size = static_cast<uint64_t>(segment.bytes.size());
+  if (!write_stream_u64(out, size)) {
+    return false;
+  }
+  if (size == 0) {
+    return true;
+  }
+  return write_stream_bytes(out, segment.bytes.data(), segment.bytes.size());
+}
+
+bool read_memory_segment(std::istream& in, memory_segment& segment) {
+  if (!read_stream_u32(in, segment.space_id) || !read_stream_u64(in, segment.base)) {
+    return false;
+  }
+  uint64_t size = 0;
+  if (!read_stream_u64(in, size)) {
+    return false;
+  }
+  if (size > static_cast<uint64_t>(std::numeric_limits<size_t>::max())) {
+    return false;
+  }
+  segment.bytes.resize(static_cast<size_t>(size));
+  if (size == 0) {
+    return true;
+  }
+  return read_stream_bytes(in, segment.bytes.data(), segment.bytes.size());
+}
+
+bool write_mapping_record(std::ostream& out, const mapping_record& record) {
+  uint8_t kind = static_cast<uint8_t>(record.kind);
+  uint8_t perms = static_cast<uint8_t>(record.perms);
+  uint8_t flags = record.flags;
+  if (!write_stream_bytes(out, &kind, sizeof(kind)) || !write_stream_u32(out, record.space_id) ||
+      !write_stream_u64(out, record.base) || !write_stream_u64(out, record.size) ||
+      !write_stream_bytes(out, &perms, sizeof(perms)) || !write_stream_bytes(out, &flags, sizeof(flags)) ||
+      !write_stream_u64(out, record.image_id) || !write_stream_u64(out, record.image_offset)) {
+    return false;
+  }
+  return write_string(out, record.name);
+}
+
+bool read_mapping_record(std::istream& in, mapping_record& record) {
+  uint8_t kind = 0;
+  uint8_t perms = 0;
+  uint8_t flags = 0;
+  if (!read_stream_bytes(in, &kind, sizeof(kind)) || !read_stream_u32(in, record.space_id) ||
+      !read_stream_u64(in, record.base) || !read_stream_u64(in, record.size) ||
+      !read_stream_bytes(in, &perms, sizeof(perms)) || !read_stream_bytes(in, &flags, sizeof(flags)) ||
+      !read_stream_u64(in, record.image_id) || !read_stream_u64(in, record.image_offset)) {
+    return false;
+  }
+  record.kind = static_cast<mapping_event_kind>(kind);
+  record.perms = static_cast<mapping_perm>(perms);
+  record.flags = flags;
+  return read_string(in, record.name);
+}
+
+bool snapshot_entry(
+    uint64_t thread_id, uint64_t sequence, const trace_record_location& location, uint32_t regfile_id,
+    const replay_state& state, const mapping_state* mappings, bool include_memory, replay_checkpoint_entry& entry,
+    std::string& error
 ) {
-  replay_checkpoint_entry entry{};
+  entry = replay_checkpoint_entry{};
   entry.thread_id = thread_id;
   entry.sequence = sequence;
   entry.location = location;
-
-  const auto& regs = state.registers();
-  entry.registers.reserve(regs.size());
-  for (size_t i = 0; i < regs.size(); ++i) {
-    if (!regs[i].has_value()) {
-      continue;
-    }
-    register_delta delta{};
-    delta.reg_id = static_cast<uint16_t>(i);
-    delta.value = *regs[i];
-    entry.registers.push_back(delta);
-  }
-
-  state.collect_register_bytes(entry.register_bytes_entries, entry.register_bytes);
+  entry.regfile_id = regfile_id;
+  entry.registers = state.collect_register_writes(regfile_id);
 
   if (include_memory) {
-    entry.memory = state.memory_store().spans();
+    auto spans = state.memory_store().spans();
+    entry.memory_segments.reserve(spans.size());
+    for (const auto& span : spans) {
+      memory_segment segment{};
+      segment.space_id = span.space_id;
+      segment.base = span.base;
+      segment.bytes = span.bytes;
+      entry.memory_segments.push_back(std::move(segment));
+    }
   }
 
-  return entry;
+  if (mappings) {
+    if (!mappings->snapshot(entry.mappings, error)) {
+      if (error.empty()) {
+        error = "failed to snapshot mappings";
+      }
+      return false;
+    }
+  }
+
+  return true;
 }
 
-bool write_checkpoint_header(
-    std::ostream& out, const replay_checkpoint_header& header, uint32_t thread_count, uint32_t entry_count
-) {
-  if (!write_stream_bytes(out, k_replay_checkpoint_magic.data(), k_replay_checkpoint_magic.size())) {
+bool write_checkpoint_header(std::ostream& out, const replay_checkpoint_header& header) {
+  if (!write_stream_bytes(out, k_trace_checkpoint_magic.data(), k_trace_checkpoint_magic.size())) {
     return false;
   }
-  uint8_t arch_order = static_cast<uint8_t>(header.arch.arch_byte_order);
-  uint8_t reserved = 0;
-  return write_stream_u16(out, header.version) && write_stream_u16(out, header.trace_version) &&
-         write_stream_u16(out, static_cast<uint16_t>(header.arch.arch_family)) &&
-         write_stream_u16(out, static_cast<uint16_t>(header.arch.arch_mode)) &&
-         write_stream_bytes(out, &arch_order, sizeof(arch_order)) &&
-         write_stream_bytes(out, &reserved, sizeof(reserved)) && write_stream_u32(out, header.arch.pointer_bits) &&
-         write_stream_u32(out, header.arch.flags) && write_stream_u64(out, header.trace_flags) &&
-         write_stream_u32(out, header.register_count) && write_stream_u32(out, header.stride) &&
-         write_stream_u32(out, thread_count) && write_stream_u32(out, entry_count);
+  return write_stream_u16(out, header.version) && write_stream_u16(out, header.header_size) &&
+         write_stream_bytes(out, header.trace_uuid.data(), header.trace_uuid.size()) &&
+         write_stream_u32(out, header.flags) && write_stream_u32(out, header.stride) &&
+         write_stream_u32(out, header.thread_count) && write_stream_u32(out, header.entry_count);
 }
 
-bool read_checkpoint_header(
-    std::istream& in, replay_checkpoint_header& header, uint32_t& thread_count, uint32_t& entry_count
-) {
+bool read_checkpoint_header(std::istream& in, replay_checkpoint_header& header) {
   std::array<uint8_t, 8> magic{};
   if (!read_stream_bytes(in, magic.data(), magic.size())) {
     return false;
   }
-  if (std::memcmp(magic.data(), k_replay_checkpoint_magic.data(), k_replay_checkpoint_magic.size()) != 0) {
+  if (std::memcmp(magic.data(), k_trace_checkpoint_magic.data(), k_trace_checkpoint_magic.size()) != 0) {
     return false;
   }
-
-  uint16_t arch_family = 0;
-  uint16_t arch_mode = 0;
-  uint8_t arch_order = 0;
-  uint8_t reserved = 0;
-  if (!read_stream_u16(in, header.version) || !read_stream_u16(in, header.trace_version) ||
-      !read_stream_u16(in, arch_family) || !read_stream_u16(in, arch_mode) ||
-      !read_stream_bytes(in, &arch_order, sizeof(arch_order)) || !read_stream_bytes(in, &reserved, sizeof(reserved)) ||
-      !read_stream_u32(in, header.arch.pointer_bits) || !read_stream_u32(in, header.arch.flags) ||
-      !read_stream_u64(in, header.trace_flags) || !read_stream_u32(in, header.register_count) ||
-      !read_stream_u32(in, header.stride) || !read_stream_u32(in, thread_count) || !read_stream_u32(in, entry_count)) {
-    return false;
-  }
-
-  header.arch.arch_family = static_cast<w1::arch::family>(arch_family);
-  header.arch.arch_mode = static_cast<w1::arch::mode>(arch_mode);
-  header.arch.arch_byte_order = static_cast<w1::arch::byte_order>(arch_order);
-  return true;
+  return read_stream_u16(in, header.version) && read_stream_u16(in, header.header_size) &&
+         read_stream_bytes(in, header.trace_uuid.data(), header.trace_uuid.size()) &&
+         read_stream_u32(in, header.flags) && read_stream_u32(in, header.stride) &&
+         read_stream_u32(in, header.thread_count) && read_stream_u32(in, header.entry_count);
 }
 
 } // namespace
@@ -156,7 +284,7 @@ bool build_replay_checkpoint(const replay_checkpoint_config& config, replay_chec
 
   trace_reader reader(config.trace_path);
   if (!reader.open()) {
-    error = reader.error().empty() ? "failed to open trace" : reader.error();
+    error = reader.error().empty() ? "failed to open trace" : std::string(reader.error());
     return false;
   }
 
@@ -165,70 +293,70 @@ bool build_replay_checkpoint(const replay_checkpoint_config& config, replay_chec
     return false;
   }
 
-  bool use_blocks = (reader.header().flags & trace_flag_blocks) != 0;
-  bool use_instructions = (reader.header().flags & trace_flag_instructions) != 0;
-  if (use_blocks == use_instructions) {
-    error = "trace has unsupported flow flags";
+  bool use_blocks = context.features.has_block_exec && !context.blocks_by_id.empty();
+  bool use_instructions = context.features.has_flow_instruction;
+  if (!use_blocks && !use_instructions) {
+    error = "trace has no flow records";
     return false;
   }
 
-  uint32_t max_register_id = 0;
-  bool have_register_specs = !context.register_specs.empty();
-  bool have_registers = false;
-
   std::map<uint64_t, thread_build_state> threads;
   replay_state_applier applier(context);
+  mapping_state mapping_snapshot;
+  std::string mapping_error;
+  if (!mapping_snapshot.reset(context.mappings, mapping_error)) {
+    error = mapping_error.empty() ? "invalid mapping snapshot" : mapping_error;
+    return false;
+  }
+  bool include_mappings = context.features.has_mapping_events;
 
   trace_record record;
   trace_record_location location{};
   while (reader.read_next(record, &location)) {
-    if (std::holds_alternative<register_delta_record>(record)) {
-      const auto& deltas = std::get<register_delta_record>(record);
-      if (config.thread_id != 0 && deltas.thread_id != config.thread_id) {
-        continue;
-      }
-      auto& state = threads[deltas.thread_id];
-      if (state.state.registers().empty() && !context.register_specs.empty()) {
-        state.state.set_register_specs(context.register_specs);
-      }
-      applier.apply_register_deltas(deltas, deltas.thread_id, true, state.state);
-      for (const auto& delta : deltas.deltas) {
-        max_register_id = std::max(max_register_id, static_cast<uint32_t>(delta.reg_id));
-        have_registers = true;
+    if (std::holds_alternative<mapping_record>(record)) {
+      if (include_mappings) {
+        std::string mapping_error;
+        if (!mapping_snapshot.apply_event(std::get<mapping_record>(record), mapping_error)) {
+          error = mapping_error.empty() ? "failed to apply mapping event" : mapping_error;
+          return false;
+        }
       }
       continue;
     }
 
-    if (std::holds_alternative<register_bytes_record>(record)) {
-      const auto& bytes = std::get<register_bytes_record>(record);
-      if (config.thread_id != 0 && bytes.thread_id != config.thread_id) {
+    if (std::holds_alternative<reg_write_record>(record)) {
+      const auto& write = std::get<reg_write_record>(record);
+      if (config.thread_id != 0 && write.thread_id != config.thread_id) {
         continue;
       }
-      auto& state = threads[bytes.thread_id];
-      if (state.state.registers().empty() && !context.register_specs.empty()) {
-        state.state.set_register_specs(context.register_specs);
+      auto& state = threads[write.thread_id];
+      if (!state.initialized) {
+        state.state.set_register_files(context.register_files);
+        state.initialized = true;
       }
-      applier.apply_register_bytes(bytes, bytes.thread_id, true, state.state);
-      have_registers = true;
-      for (const auto& entry : bytes.entries) {
-        max_register_id = std::max(max_register_id, static_cast<uint32_t>(entry.reg_id));
+      state.last_regfile_id = write.regfile_id;
+      std::string apply_error;
+      if (!applier.apply_reg_write(write, write.thread_id, true, state.state, apply_error)) {
+        error = apply_error.empty() ? "failed to apply register write" : apply_error;
+        return false;
       }
       continue;
     }
 
-    if (std::holds_alternative<memory_access_record>(record)) {
+    if (std::holds_alternative<mem_access_record>(record)) {
       if (!config.include_memory) {
         continue;
       }
-      const auto& access = std::get<memory_access_record>(record);
+      const auto& access = std::get<mem_access_record>(record);
       if (config.thread_id != 0 && access.thread_id != config.thread_id) {
         continue;
       }
       auto& state = threads[access.thread_id];
-      if (state.state.registers().empty() && !context.register_specs.empty()) {
-        state.state.set_register_specs(context.register_specs);
+      if (!state.initialized) {
+        state.state.set_register_files(context.register_files);
+        state.initialized = true;
       }
-      applier.apply_memory_access(access, access.thread_id, config.include_memory, state.state);
+      applier.apply_memory_access(access, access.thread_id, true, state.state);
       continue;
     }
 
@@ -238,33 +366,69 @@ bool build_replay_checkpoint(const replay_checkpoint_config& config, replay_chec
         continue;
       }
       auto& state = threads[snapshot.thread_id];
-      if (state.state.registers().empty() && !context.register_specs.empty()) {
-        state.state.set_register_specs(context.register_specs);
+      if (!state.initialized) {
+        state.state.set_register_files(context.register_files);
+        state.initialized = true;
       }
-      applier.apply_snapshot(snapshot, snapshot.thread_id, true, config.include_memory, state.state);
-      for (const auto& delta : snapshot.registers) {
-        max_register_id = std::max(max_register_id, static_cast<uint32_t>(delta.reg_id));
-        have_registers = true;
+      state.last_regfile_id = snapshot.regfile_id;
+      std::string apply_error;
+      if (!applier.apply_snapshot(snapshot, snapshot.thread_id, true, config.include_memory, state.state, apply_error)) {
+        error = apply_error.empty() ? "failed to apply snapshot" : apply_error;
+        return false;
       }
       continue;
     }
 
-    auto flow = classify_flow_record(record, use_blocks);
-    if (!flow) {
+    if (use_blocks) {
+      if (const auto* exec = std::get_if<block_exec_record>(&record)) {
+        if (config.thread_id != 0 && exec->thread_id != config.thread_id) {
+          continue;
+        }
+        auto& state = threads[exec->thread_id];
+        if (!state.initialized) {
+          state.state.set_register_files(context.register_files);
+          state.initialized = true;
+        }
+        if (state.flow_count % config.stride == 0) {
+          replay_checkpoint_entry entry{};
+          std::string snapshot_error;
+          if (!snapshot_entry(
+                  exec->thread_id, exec->sequence, location, state.last_regfile_id, state.state,
+                  include_mappings ? &mapping_snapshot : nullptr, config.include_memory, entry, snapshot_error
+              )) {
+            error = snapshot_error.empty() ? "failed to capture checkpoint" : snapshot_error;
+            return false;
+          }
+          state.entries.push_back(std::move(entry));
+        }
+        state.flow_count += 1;
+      }
       continue;
     }
 
-    if (config.thread_id != 0 && flow->thread_id != config.thread_id) {
-      continue;
+    if (const auto* inst = std::get_if<flow_instruction_record>(&record)) {
+      if (config.thread_id != 0 && inst->thread_id != config.thread_id) {
+        continue;
+      }
+      auto& state = threads[inst->thread_id];
+      if (!state.initialized) {
+        state.state.set_register_files(context.register_files);
+        state.initialized = true;
+      }
+      if (state.flow_count % config.stride == 0) {
+        replay_checkpoint_entry entry{};
+        std::string snapshot_error;
+        if (!snapshot_entry(
+                inst->thread_id, inst->sequence, location, state.last_regfile_id, state.state,
+                include_mappings ? &mapping_snapshot : nullptr, config.include_memory, entry, snapshot_error
+            )) {
+          error = snapshot_error.empty() ? "failed to capture checkpoint" : snapshot_error;
+          return false;
+        }
+        state.entries.push_back(std::move(entry));
+      }
+      state.flow_count += 1;
     }
-
-    auto& state = threads[flow->thread_id];
-    if (state.flow_count % config.stride == 0) {
-      state.entries.push_back(
-          snapshot_entry(flow->thread_id, flow->sequence, location, state.state, config.include_memory)
-      );
-    }
-    state.flow_count += 1;
   }
 
   if (!reader.error().empty()) {
@@ -273,18 +437,24 @@ bool build_replay_checkpoint(const replay_checkpoint_config& config, replay_chec
   }
 
   replay_checkpoint_index index;
-  index.header.trace_version = context.header.version;
-  index.header.arch = context.header.arch;
-  index.header.trace_flags = context.header.flags;
+  index.header.version = k_trace_checkpoint_version;
+  index.header.header_size = static_cast<uint16_t>(sizeof(replay_checkpoint_header));
+  index.header.trace_uuid = context.header.trace_uuid;
+  index.header.flags = include_mappings ? k_checkpoint_flag_has_mappings : 0;
   index.header.stride = config.stride;
 
-  if (have_register_specs) {
-    index.header.register_count = static_cast<uint32_t>(context.register_specs.size());
-  } else if (have_registers) {
-    index.header.register_count = max_register_id + 1;
+  std::vector<uint64_t> thread_ids;
+  thread_ids.reserve(threads.size());
+  for (const auto& [thread_id, _] : threads) {
+    thread_ids.push_back(thread_id);
   }
+  std::sort(thread_ids.begin(), thread_ids.end());
 
-  for (const auto& [thread_id, state] : threads) {
+  for (uint64_t thread_id : thread_ids) {
+    auto& state = threads[thread_id];
+    if (state.entries.empty()) {
+      continue;
+    }
     replay_checkpoint_thread_index entry{};
     entry.thread_id = thread_id;
     entry.entry_start = static_cast<uint32_t>(index.entries.size());
@@ -293,16 +463,16 @@ bool build_replay_checkpoint(const replay_checkpoint_config& config, replay_chec
     index.threads.push_back(entry);
   }
 
+  index.header.thread_count = static_cast<uint32_t>(index.threads.size());
+  index.header.entry_count = static_cast<uint32_t>(index.entries.size());
+
   std::ofstream out_stream(output_path, std::ios::binary | std::ios::out | std::ios::trunc);
   if (!out_stream.is_open()) {
     error = "failed to open checkpoint output";
     return false;
   }
 
-  if (!write_checkpoint_header(
-          out_stream, index.header, static_cast<uint32_t>(index.threads.size()),
-          static_cast<uint32_t>(index.entries.size())
-      )) {
+  if (!write_checkpoint_header(out_stream, index.header)) {
     error = "failed to write checkpoint header";
     return false;
   }
@@ -318,54 +488,39 @@ bool build_replay_checkpoint(const replay_checkpoint_config& config, replay_chec
   for (const auto& entry : index.entries) {
     if (!write_stream_u64(out_stream, entry.thread_id) || !write_stream_u64(out_stream, entry.sequence) ||
         !write_stream_u32(out_stream, entry.location.chunk_index) ||
-        !write_stream_u32(out_stream, entry.location.record_offset)) {
+        !write_stream_u32(out_stream, entry.location.record_offset) ||
+        !write_stream_u32(out_stream, entry.regfile_id)) {
       error = "failed to write checkpoint entry header";
       return false;
     }
 
     uint32_t reg_count = static_cast<uint32_t>(entry.registers.size());
-    uint32_t reg_bytes_count = static_cast<uint32_t>(entry.register_bytes_entries.size());
-    uint32_t reg_bytes_size = static_cast<uint32_t>(entry.register_bytes.size());
-    uint32_t mem_span_count = static_cast<uint32_t>(entry.memory.size());
-    if (!write_stream_u32(out_stream, reg_count) || !write_stream_u32(out_stream, reg_bytes_count) ||
-        !write_stream_u32(out_stream, reg_bytes_size) || !write_stream_u32(out_stream, mem_span_count)) {
+    uint32_t mem_count = static_cast<uint32_t>(entry.memory_segments.size());
+    uint32_t map_count = static_cast<uint32_t>(entry.mappings.size());
+    if (!write_stream_u32(out_stream, reg_count) || !write_stream_u32(out_stream, mem_count) ||
+        !write_stream_u32(out_stream, map_count)) {
       error = "failed to write checkpoint entry counts";
       return false;
     }
 
     for (const auto& reg : entry.registers) {
-      if (!write_stream_u16(out_stream, reg.reg_id) || !write_stream_u64(out_stream, reg.value)) {
+      if (!write_reg_write_entry(out_stream, reg)) {
         error = "failed to write checkpoint register entry";
         return false;
       }
     }
 
-    for (const auto& reg : entry.register_bytes_entries) {
-      if (!write_stream_u16(out_stream, reg.reg_id) || !write_stream_u32(out_stream, reg.offset) ||
-          !write_stream_u16(out_stream, reg.size)) {
-        error = "failed to write checkpoint register bytes entry";
+    for (const auto& segment : entry.memory_segments) {
+      if (!write_memory_segment(out_stream, segment)) {
+        error = "failed to write checkpoint memory segment";
         return false;
       }
     }
 
-    if (!entry.register_bytes.empty()) {
-      if (!write_stream_bytes(out_stream, entry.register_bytes.data(), entry.register_bytes.size())) {
-        error = "failed to write checkpoint register bytes data";
+    for (const auto& mapping : entry.mappings) {
+      if (!write_mapping_record(out_stream, mapping)) {
+        error = "failed to write checkpoint mapping entry";
         return false;
-      }
-    }
-
-    for (const auto& mem : entry.memory) {
-      uint64_t span_size = static_cast<uint64_t>(mem.bytes.size());
-      if (!write_stream_u64(out_stream, mem.base) || !write_stream_u64(out_stream, span_size)) {
-        error = "failed to write checkpoint memory entry";
-        return false;
-      }
-      if (span_size > 0) {
-        if (!write_stream_bytes(out_stream, mem.bytes.data(), mem.bytes.size())) {
-          error = "failed to write checkpoint memory bytes";
-          return false;
-        }
       }
     }
   }
@@ -388,19 +543,17 @@ bool load_replay_checkpoint(const std::string& path, replay_checkpoint_index& ou
   }
 
   replay_checkpoint_index index;
-  uint32_t thread_count = 0;
-  uint32_t entry_count = 0;
-  if (!read_checkpoint_header(in, index.header, thread_count, entry_count)) {
+  if (!read_checkpoint_header(in, index.header)) {
     error = "invalid checkpoint header";
     return false;
   }
-  if (index.header.version != k_replay_checkpoint_version) {
+  if (index.header.version != k_trace_checkpoint_version) {
     error = "checkpoint version mismatch";
     return false;
   }
 
-  index.threads.resize(thread_count);
-  for (uint32_t i = 0; i < thread_count; ++i) {
+  index.threads.resize(index.header.thread_count);
+  for (uint32_t i = 0; i < index.header.thread_count; ++i) {
     auto& thread = index.threads[i];
     if (!read_stream_u64(in, thread.thread_id) || !read_stream_u32(in, thread.entry_start) ||
         !read_stream_u32(in, thread.entry_count)) {
@@ -409,77 +562,41 @@ bool load_replay_checkpoint(const std::string& path, replay_checkpoint_index& ou
     }
   }
 
-  index.entries.resize(entry_count);
-  for (uint32_t i = 0; i < entry_count; ++i) {
+  index.entries.resize(index.header.entry_count);
+  for (uint32_t i = 0; i < index.header.entry_count; ++i) {
     auto& entry = index.entries[i];
     uint32_t reg_count = 0;
-    uint32_t reg_bytes_count = 0;
-    uint32_t reg_bytes_size = 0;
-    uint32_t mem_span_count = 0;
+    uint32_t mem_count = 0;
+    uint32_t map_count = 0;
 
     if (!read_stream_u64(in, entry.thread_id) || !read_stream_u64(in, entry.sequence) ||
         !read_stream_u32(in, entry.location.chunk_index) || !read_stream_u32(in, entry.location.record_offset) ||
-        !read_stream_u32(in, reg_count) || !read_stream_u32(in, reg_bytes_count) ||
-        !read_stream_u32(in, reg_bytes_size) || !read_stream_u32(in, mem_span_count)) {
+        !read_stream_u32(in, entry.regfile_id) || !read_stream_u32(in, reg_count) ||
+        !read_stream_u32(in, mem_count) || !read_stream_u32(in, map_count)) {
       error = "failed to read checkpoint entry header";
       return false;
     }
 
     entry.registers.resize(reg_count);
     for (uint32_t j = 0; j < reg_count; ++j) {
-      uint16_t reg_id = 0;
-      uint64_t value = 0;
-      if (!read_stream_u16(in, reg_id) || !read_stream_u64(in, value)) {
+      if (!read_reg_write_entry(in, entry.registers[j])) {
         error = "failed to read checkpoint register entry";
         return false;
       }
-      entry.registers[j] = register_delta{reg_id, value};
     }
 
-    entry.register_bytes_entries.resize(reg_bytes_count);
-    for (uint32_t j = 0; j < reg_bytes_count; ++j) {
-      register_bytes_entry reg{};
-      if (!read_stream_u16(in, reg.reg_id) || !read_stream_u32(in, reg.offset) || !read_stream_u16(in, reg.size)) {
-        error = "failed to read checkpoint register bytes entry";
-        return false;
-      }
-      entry.register_bytes_entries[j] = reg;
-    }
-
-    entry.register_bytes.resize(reg_bytes_size);
-    if (reg_bytes_size > 0) {
-      if (!read_stream_bytes(in, entry.register_bytes.data(), entry.register_bytes.size())) {
-        error = "failed to read checkpoint register bytes data";
+    entry.memory_segments.resize(mem_count);
+    for (uint32_t j = 0; j < mem_count; ++j) {
+      if (!read_memory_segment(in, entry.memory_segments[j])) {
+        error = "failed to read checkpoint memory segment";
         return false;
       }
     }
 
-    entry.memory.resize(mem_span_count);
-    for (uint32_t j = 0; j < mem_span_count; ++j) {
-      uint64_t base = 0;
-      uint64_t span_size = 0;
-      if (!read_stream_u64(in, base) || !read_stream_u64(in, span_size)) {
-        error = "failed to read checkpoint memory entry";
-        return false;
-      }
-      if (span_size > static_cast<uint64_t>(std::numeric_limits<size_t>::max())) {
-        error = "checkpoint memory span too large";
-        return false;
-      }
-      entry.memory[j].base = base;
-      entry.memory[j].bytes.resize(static_cast<size_t>(span_size));
-      if (span_size > 0) {
-        if (!read_stream_bytes(in, entry.memory[j].bytes.data(), entry.memory[j].bytes.size())) {
-          error = "failed to read checkpoint memory bytes";
-          return false;
-        }
-      }
-    }
-
-    for (const auto& reg : entry.register_bytes_entries) {
-      uint64_t end = static_cast<uint64_t>(reg.offset) + static_cast<uint64_t>(reg.size);
-      if (end > entry.register_bytes.size()) {
-        error = "checkpoint register bytes entry out of range";
+    entry.mappings.resize(map_count);
+    for (uint32_t j = 0; j < map_count; ++j) {
+      if (!read_mapping_record(in, entry.mappings[j])) {
+        error = "failed to read checkpoint mapping entry";
         return false;
       }
     }

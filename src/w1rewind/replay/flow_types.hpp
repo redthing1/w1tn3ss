@@ -10,6 +10,8 @@ namespace w1::rewind {
 struct flow_step {
   uint64_t thread_id = 0;
   uint64_t sequence = 0;
+  uint32_t space_id = 0;
+  uint16_t mode_id = 0;
   uint32_t size = 0;
   uint64_t address = 0;
   uint64_t block_id = 0;

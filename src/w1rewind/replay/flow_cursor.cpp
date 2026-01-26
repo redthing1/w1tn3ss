@@ -83,35 +83,25 @@ bool flow_cursor::open() {
   }
 
   const auto& header = stream_.header();
-  if (index_->header.trace_version != header.version) {
-    set_error(flow_error_kind::other, "trace index version mismatch");
+  if (index_->header.trace_uuid != header.trace_uuid) {
+    set_error(flow_error_kind::other, "trace index uuid mismatch");
     return false;
   }
-  if (index_->header.trace_flags != header.flags) {
-    set_error(flow_error_kind::other, "trace index flags mismatch");
-    return false;
-  }
-  if (index_->header.chunk_size != header.chunk_size) {
-    set_error(flow_error_kind::other, "trace index chunk size mismatch");
-    return false;
-  }
-
-  bool use_blocks = (header.flags & trace_flag_blocks) != 0;
-  bool use_instructions = (header.flags & trace_flag_instructions) != 0;
-  if (use_blocks == use_instructions) {
-    set_error(flow_error_kind::other, "trace has unsupported flow flags");
-    return false;
-  }
-  extractor_.set_flow_kind(use_blocks ? flow_kind::blocks : flow_kind::instructions);
 
   const auto& context = *extractor_.context();
-  if (context.header.version != header.version || context.header.flags != header.flags ||
-      context.header.arch != header.arch) {
-    set_error(flow_error_kind::other, "replay context header mismatch");
+  if (context.header.trace_uuid != header.trace_uuid) {
+    set_error(flow_error_kind::other, "replay context trace uuid mismatch");
     return false;
   }
-  if (extractor_.kind() == flow_kind::blocks && context.blocks_by_id.empty()) {
-    set_error(flow_error_kind::other, "block definitions missing");
+
+  bool can_blocks = context.features.has_block_exec && !context.blocks_by_id.empty();
+  bool can_instructions = context.features.has_flow_instruction;
+  if (can_blocks) {
+    extractor_.set_flow_kind(flow_kind::blocks);
+  } else if (can_instructions) {
+    extractor_.set_flow_kind(flow_kind::instructions);
+  } else {
+    set_error(flow_error_kind::other, "trace has no flow records");
     return false;
   }
 

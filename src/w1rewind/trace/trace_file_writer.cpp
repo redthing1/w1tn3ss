@@ -5,7 +5,6 @@
 #include <sstream>
 #include <system_error>
 
-#include "w1rewind/format/trace_codec.hpp"
 #include "w1rewind/format/trace_io.hpp"
 
 #if defined(W1_REWIND_HAVE_ZSTD)
@@ -21,9 +20,7 @@
 namespace w1::rewind {
 
 namespace {
-
 constexpr int k_zstd_level = 3;
-
 } // namespace
 
 trace_file_writer::trace_file_writer(trace_file_writer_config config) : config_(std::move(config)) {}
@@ -37,16 +34,13 @@ std::shared_ptr<trace_file_writer> make_trace_file_writer(trace_file_writer_conf
 bool trace_file_writer::open() {
   std::lock_guard<std::mutex> guard(mutex_);
 #if !defined(W1_REWIND_HAVE_ZSTD)
-  if (config_.compression == trace_compression::zstd) {
+  if (config_.codec == compression::zstd) {
     config_.log.err("zstd compression requested but zstd is not available");
     good_ = false;
     return false;
   }
 #endif
 
-  if (config_.chunk_size == 0) {
-    config_.chunk_size = k_trace_chunk_bytes;
-  }
   if (stream_.is_open()) {
     stream_.close();
   }
@@ -73,8 +67,10 @@ bool trace_file_writer::open() {
   stream_.open(fs_path, std::ios::binary | std::ios::out | std::ios::trunc);
   good_ = stream_.good();
   header_written_ = false;
+  chunk_size_ = 0;
   chunk_buffer_.clear();
   chunk_encoded_.clear();
+  chunk_directory_.clear();
 
   if (!good_) {
     config_.log.err("failed to open trace", redlog::field("path", path_));
@@ -90,17 +86,41 @@ void trace_file_writer::close() {
   if (stream_.is_open()) {
     if (good_ && header_written_) {
       flush_chunk_locked();
+      // write chunk directory and footer
+      uint64_t directory_offset = static_cast<uint64_t>(stream_.tellp());
+      for (const auto& entry : chunk_directory_) {
+        write_u64(entry.chunk_file_offset);
+        write_u32(entry.compressed_size);
+        write_u32(entry.uncompressed_size);
+        write_u16(static_cast<uint16_t>(entry.codec));
+        write_u16(entry.flags);
+      }
+      uint64_t directory_size = static_cast<uint64_t>(chunk_directory_.size() * k_chunk_dir_entry_size);
+
+      write_bytes(k_trace_footer_magic.data(), k_trace_footer_magic.size());
+      write_u16(k_trace_version);
+      uint16_t footer_size = static_cast<uint16_t>(
+          sizeof(k_trace_footer_magic) + sizeof(uint16_t) + sizeof(uint16_t) + sizeof(uint32_t) +
+          sizeof(uint64_t) + sizeof(uint64_t) + sizeof(uint32_t));
+      write_u16(footer_size);
+      write_u32(static_cast<uint32_t>(chunk_directory_.size()));
+      write_u64(directory_offset);
+      write_u64(directory_size);
+      write_u32(0);
+
       stream_.flush();
     }
     stream_.close();
   }
   good_ = false;
   header_written_ = false;
+  chunk_size_ = 0;
   chunk_buffer_.clear();
   chunk_encoded_.clear();
+  chunk_directory_.clear();
 }
 
-bool trace_file_writer::write_header(const trace_header& header) {
+bool trace_file_writer::write_header(const file_header& header) {
   std::lock_guard<std::mutex> guard(mutex_);
   if (!stream_.is_open()) {
     config_.log.err("trace writer not open");
@@ -110,26 +130,24 @@ bool trace_file_writer::write_header(const trace_header& header) {
     return true;
   }
 
-  trace_header updated = header;
-  updated.compression = config_.compression;
-  updated.chunk_size = config_.chunk_size;
+  file_header updated = header;
+  updated.header_size = static_cast<uint16_t>(sizeof(file_header));
+  if (config_.chunk_size == 0) {
+    config_.chunk_size = header.default_chunk_size == 0 ? (8u * 1024u * 1024u) : header.default_chunk_size;
+  }
+  updated.default_chunk_size = config_.chunk_size;
 
   write_bytes(k_trace_magic.data(), k_trace_magic.size());
   write_u16(updated.version);
-  write_u16(static_cast<uint16_t>(updated.arch.arch_family));
-  write_u16(static_cast<uint16_t>(updated.arch.arch_mode));
-  uint8_t byte_order = static_cast<uint8_t>(updated.arch.arch_byte_order);
-  write_bytes(&byte_order, sizeof(byte_order));
-  uint8_t reserved = 0;
-  write_bytes(&reserved, sizeof(reserved));
-  write_u32(updated.arch.pointer_bits);
-  write_u32(updated.arch.flags);
-  write_u64(updated.flags);
-  write_u32(static_cast<uint32_t>(updated.compression));
-  write_u32(updated.chunk_size);
+  write_u16(updated.header_size);
+  write_u32(updated.flags);
+  write_bytes(updated.trace_uuid.data(), updated.trace_uuid.size());
+  write_u32(updated.default_chunk_size);
+  write_u32(updated.reserved);
 
   if (good_) {
     header_written_ = true;
+    chunk_size_ = updated.default_chunk_size;
   } else {
     config_.log.err("failed to write trace header", redlog::field("path", path_));
   }
@@ -137,140 +155,50 @@ bool trace_file_writer::write_header(const trace_header& header) {
   return good_;
 }
 
-bool trace_file_writer::write_target_info(const target_info_record& record) {
-  std::vector<uint8_t> payload;
-  trace_buffer_writer writer(payload);
-  if (!encode_target_info(record, writer, config_.log)) {
+bool trace_file_writer::write_record(const record_header& header, std::span<const uint8_t> payload) {
+  std::lock_guard<std::mutex> guard(mutex_);
+  if (!good_) {
     return false;
   }
-  return write_record(record_kind::target_info, 0, payload);
-}
-
-bool trace_file_writer::write_target_environment(const target_environment_record& record) {
-  std::vector<uint8_t> payload;
-  trace_buffer_writer writer(payload);
-  if (!encode_target_environment(record, writer, config_.log)) {
+  if (!header_written_) {
+    config_.log.err("trace header not written", redlog::field("path", path_));
+    mark_failure();
     return false;
   }
-  return write_record(record_kind::target_environment, 0, payload);
-}
-
-bool trace_file_writer::write_register_spec(const register_spec_record& record) {
-  std::vector<uint8_t> payload;
-  trace_buffer_writer writer(payload);
-  if (!encode_register_spec(record, writer, config_.log)) {
+  if (chunk_size_ == 0) {
+    config_.log.err("trace chunk size invalid");
+    mark_failure();
     return false;
   }
-  return write_record(record_kind::register_spec, 0, payload);
-}
-
-bool trace_file_writer::write_module_table(const module_table_record& record) {
-  std::vector<uint8_t> payload;
-  trace_buffer_writer writer(payload);
-  if (!encode_module_table(record, writer, config_.log)) {
+  if (header.payload_size != payload.size()) {
+    config_.log.err("record payload size mismatch", redlog::field("size", payload.size()));
+    mark_failure();
     return false;
   }
-  return write_record(record_kind::module_table, 0, payload);
-}
 
-bool trace_file_writer::write_module_load(const module_load_record& record) {
-  std::vector<uint8_t> payload;
-  trace_buffer_writer writer(payload);
-  if (!encode_module_load(record, writer, config_.log)) {
+  uint64_t record_size = sizeof(record_header) + payload.size();
+  if (record_size > chunk_size_) {
+    config_.log.err("record larger than chunk size", redlog::field("size", record_size));
+    mark_failure();
     return false;
   }
-  return write_record(record_kind::module_load, 0, payload);
-}
 
-bool trace_file_writer::write_module_unload(const module_unload_record& record) {
-  std::vector<uint8_t> payload;
-  trace_buffer_writer writer(payload);
-  if (!encode_module_unload(record, writer, config_.log)) {
-    return false;
+  if (chunk_buffer_.size() + record_size > chunk_size_) {
+    if (!flush_chunk_locked()) {
+      return false;
+    }
   }
-  return write_record(record_kind::module_unload, 0, payload);
-}
 
-bool trace_file_writer::write_memory_map(const memory_map_record& record) {
-  std::vector<uint8_t> payload;
-  trace_buffer_writer writer(payload);
-  if (!encode_memory_map(record, writer, config_.log)) {
-    return false;
+  trace_buffer_writer writer(chunk_buffer_);
+  writer.write_u32(header.type_id);
+  writer.write_u16(header.version);
+  writer.write_u16(header.flags);
+  writer.write_u32(header.payload_size);
+  if (!payload.empty()) {
+    writer.write_bytes(payload.data(), payload.size());
   }
-  return write_record(record_kind::memory_map, 0, payload);
-}
 
-bool trace_file_writer::write_thread_start(const thread_start_record& record) {
-  std::vector<uint8_t> payload;
-  trace_buffer_writer writer(payload);
-  if (!encode_thread_start(record, writer, config_.log)) {
-    return false;
-  }
-  return write_record(record_kind::thread_start, 0, payload);
-}
-
-bool trace_file_writer::write_instruction(const instruction_record& record) {
-  std::vector<uint8_t> payload;
-  trace_buffer_writer writer(payload);
-  encode_instruction(record, writer);
-  return write_record(record_kind::instruction, 0, payload);
-}
-
-bool trace_file_writer::write_block_definition(const block_definition_record& record) {
-  std::vector<uint8_t> payload;
-  trace_buffer_writer writer(payload);
-  encode_block_definition(record, writer);
-  return write_record(record_kind::block_definition, 0, payload);
-}
-
-bool trace_file_writer::write_block_exec(const block_exec_record& record) {
-  std::vector<uint8_t> payload;
-  trace_buffer_writer writer(payload);
-  encode_block_exec(record, writer);
-  return write_record(record_kind::block_exec, 0, payload);
-}
-
-bool trace_file_writer::write_register_deltas(const register_delta_record& record) {
-  std::vector<uint8_t> payload;
-  trace_buffer_writer writer(payload);
-  if (!encode_register_deltas(record, writer, config_.log)) {
-    return false;
-  }
-  return write_record(record_kind::register_deltas, 0, payload);
-}
-
-bool trace_file_writer::write_register_bytes(const register_bytes_record& record) {
-  std::vector<uint8_t> payload;
-  trace_buffer_writer writer(payload);
-  if (!encode_register_bytes(record, writer, config_.log)) {
-    return false;
-  }
-  return write_record(record_kind::register_bytes, 0, payload);
-}
-
-bool trace_file_writer::write_memory_access(const memory_access_record& record) {
-  std::vector<uint8_t> payload;
-  trace_buffer_writer writer(payload);
-  if (!encode_memory_access(record, writer, config_.log)) {
-    return false;
-  }
-  return write_record(record_kind::memory_access, 0, payload);
-}
-
-bool trace_file_writer::write_snapshot(const snapshot_record& record) {
-  std::vector<uint8_t> payload;
-  trace_buffer_writer writer(payload);
-  if (!encode_snapshot(record, writer, config_.log)) {
-    return false;
-  }
-  return write_record(record_kind::snapshot, 0, payload);
-}
-
-bool trace_file_writer::write_thread_end(const thread_end_record& record) {
-  std::vector<uint8_t> payload;
-  trace_buffer_writer writer(payload);
-  encode_thread_end(record, writer);
-  return write_record(record_kind::thread_end, 0, payload);
+  return good_;
 }
 
 void trace_file_writer::flush() {
@@ -283,32 +211,6 @@ void trace_file_writer::flush() {
   if (!stream_.good()) {
     mark_failure();
   }
-}
-
-bool trace_file_writer::write_record(record_kind kind, uint16_t flags, const std::vector<uint8_t>& payload) {
-  std::lock_guard<std::mutex> guard(mutex_);
-  if (!good_) {
-    return false;
-  }
-  if (!header_written_) {
-    config_.log.err("trace header not written", redlog::field("path", path_));
-    mark_failure();
-    return false;
-  }
-
-  trace_buffer_writer writer(chunk_buffer_);
-  writer.write_u16(static_cast<uint16_t>(kind));
-  writer.write_u16(flags);
-  writer.write_u32(static_cast<uint32_t>(payload.size()));
-  if (!payload.empty()) {
-    writer.write_bytes(payload.data(), payload.size());
-  }
-
-  if (chunk_buffer_.size() >= config_.chunk_size) {
-    return flush_chunk_locked();
-  }
-
-  return good_;
 }
 
 bool trace_file_writer::flush_chunk_locked() {
@@ -325,15 +227,29 @@ bool trace_file_writer::flush_chunk_locked() {
   }
 
   uint32_t uncompressed_size = static_cast<uint32_t>(chunk_buffer_.size());
-  if (config_.compression == trace_compression::none) {
+  uint64_t chunk_offset = static_cast<uint64_t>(stream_.tellp());
+
+  if (config_.codec == compression::none) {
     write_u32(uncompressed_size);
     write_u32(uncompressed_size);
+    write_u16(static_cast<uint16_t>(config_.codec));
+    write_u16(0);
+    write_u32(0);
     write_bytes(chunk_buffer_.data(), chunk_buffer_.size());
+
+    chunk_dir_entry entry{};
+    entry.chunk_file_offset = chunk_offset;
+    entry.compressed_size = uncompressed_size;
+    entry.uncompressed_size = uncompressed_size;
+    entry.codec = config_.codec;
+    entry.flags = 0;
+    chunk_directory_.push_back(entry);
+
     chunk_buffer_.clear();
     return good_;
   }
 
-  if (config_.compression != trace_compression::zstd) {
+  if (config_.codec != compression::zstd) {
     config_.log.err("unsupported trace compression mode");
     mark_failure();
     return false;
@@ -359,9 +275,22 @@ bool trace_file_writer::flush_chunk_locked() {
     mark_failure();
     return false;
   }
+
   write_u32(static_cast<uint32_t>(compressed_size));
   write_u32(uncompressed_size);
+  write_u16(static_cast<uint16_t>(config_.codec));
+  write_u16(0);
+  write_u32(0);
   write_bytes(chunk_encoded_.data(), compressed_size);
+
+  chunk_dir_entry entry{};
+  entry.chunk_file_offset = chunk_offset;
+  entry.compressed_size = static_cast<uint32_t>(compressed_size);
+  entry.uncompressed_size = uncompressed_size;
+  entry.codec = config_.codec;
+  entry.flags = 0;
+  chunk_directory_.push_back(entry);
+
   chunk_buffer_.clear();
   return good_;
 #else

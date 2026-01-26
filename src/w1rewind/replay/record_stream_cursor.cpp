@@ -51,6 +51,6 @@ bool record_stream_cursor::read_next(trace_record& out, trace_record_location& l
   return true;
 }
 
-const trace_header& record_stream_cursor::header() const { return stream_->header(); }
+const file_header& record_stream_cursor::header() const { return stream_->header(); }
 
 } // namespace w1::rewind

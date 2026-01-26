@@ -12,9 +12,15 @@ w1_add_executable(w1replay
     cli/commands/threads.cpp
     modules/asmr_block_decoder.cpp
     modules/address_index.cpp
-    modules/module_image.cpp
-    modules/module_image_lief.cpp
-    modules/lief_module_provider.cpp
+    modules/address_read_cursor.cpp
+    modules/image_blob_reader.cpp
+    modules/image_bytes.cpp
+    modules/image_layout_from_metadata.cpp
+    modules/trace_metadata_provider.cpp
+    modules/composite_image_provider.cpp
+    modules/file_image_reader.cpp
+    modules/image_layout_provider.cpp
+    modules/lief_image_layout_provider.cpp
     modules/path_resolver.cpp
     trace_loader/trace_loader.cpp
     gdb/adapter.cpp
