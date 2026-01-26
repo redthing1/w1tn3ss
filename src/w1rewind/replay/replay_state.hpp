@@ -39,7 +39,7 @@ private:
   struct register_bank {
     std::unordered_map<uint32_t, size_t> id_to_index;
     std::unordered_map<std::string, uint32_t> name_to_id;
-    std::vector<register_slot> slots;
+    std::vector<register_slot> register_slots;
   };
 
   register_bank* find_bank(uint32_t regfile_id);
