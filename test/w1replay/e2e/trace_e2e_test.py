@@ -29,7 +29,8 @@ def main() -> int:
     parser.add_argument("--w1tool", required=True)
     parser.add_argument("--w1replay", required=True)
     parser.add_argument("--samples-dir", required=True)
-    parser.add_argument("--timeout", type=float, default=40.0)
+    default_timeout = 120.0 if os.name == "nt" else 40.0
+    parser.add_argument("--timeout", type=float, default=default_timeout)
     args = parser.parse_args()
 
     ensure_binaries_exist([args.w1tool, args.w1replay])
