@@ -115,10 +115,13 @@ bool replay_session::open() {
 }
 
 void replay_session::close() {
-  flow_cursor_.reset();
-  stateful_flow_cursor_.reset();
-  state_applier_.reset();
   instruction_cursor_.reset();
+  stateful_flow_cursor_.reset();
+  if (flow_cursor_.has_value()) {
+    flow_cursor_->close();
+  }
+  flow_cursor_.reset();
+  state_applier_.reset();
   context_ = replay_context{};
   state_.reset();
   mapping_state_.reset();
