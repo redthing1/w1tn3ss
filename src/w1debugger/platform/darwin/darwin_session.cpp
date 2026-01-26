@@ -3,7 +3,7 @@
 
 namespace w1::debugger::darwin {
 
-darwin_session::darwin_session(pid pid, mach_port_t task) : target_pid(pid), task_port(task) {
+darwin_session::darwin_session(pid pid, mach_port_t task) : task_port(task), target_pid(pid) {
   // detect architecture
 #ifdef __arm64__
   target_arch = arch::arm64;

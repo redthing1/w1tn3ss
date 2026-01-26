@@ -58,7 +58,7 @@ std::vector<bool> find_byte_differences(const uint8_t* a, const uint8_t* b, size
 /**
  * format a line of hex bytes with optional highlighting.
  */
-std::string format_hex_line(
+[[maybe_unused]] std::string format_hex_line(
     const uint8_t* data, size_t line_size, size_t bytes_per_line, const std::vector<bool>& highlight_mask = {},
     redlog::color highlight_color = redlog::color::none
 ) {
@@ -92,7 +92,7 @@ std::string format_hex_line(
 /**
  * format ascii representation of a line with optional highlighting.
  */
-std::string format_ascii_line(
+[[maybe_unused]] std::string format_ascii_line(
     const uint8_t* data, size_t line_size, const std::vector<bool>& highlight_mask = {},
     redlog::color highlight_color = redlog::color::none
 ) {

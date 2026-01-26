@@ -46,7 +46,7 @@ void injector__set_errmsg(const char* format, ...) {
   va_start(ap, format);
   rv = vsnprintf(injector__errmsg, sizeof(injector__errmsg), format, ap);
   va_end(ap);
-  if (rv == -1 || rv >= sizeof(injector__errmsg)) {
+  if (rv == -1 || (size_t) rv >= sizeof(injector__errmsg)) {
     injector__errmsg[sizeof(injector__errmsg) - 1] = '\0';
   }
 }
