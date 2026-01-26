@@ -157,9 +157,7 @@ image_read_result read_image_bytes(const image_layout& layout, uint64_t image_of
         file_available = 0;
       } else {
         uint64_t available64 = range.file_size - range_offset64;
-        file_available = static_cast<size_t>(
-            std::min<uint64_t>(available64, static_cast<uint64_t>(overlap_size))
-        );
+        file_available = static_cast<size_t>(std::min<uint64_t>(available64, static_cast<uint64_t>(overlap_size)));
       }
       if (file_available > 0) {
         if (!layout.file_reader) {
@@ -171,10 +169,7 @@ image_read_result read_image_bytes(const image_layout& layout, uint64_t image_of
           return result;
         }
         const uint64_t file_offset = range.file_offset + range_offset64;
-        std::span<std::byte> dest(
-            result.bytes.data() + output_offset,
-            file_available
-        );
+        std::span<std::byte> dest(result.bytes.data() + output_offset, file_available);
         std::string error;
         if (!layout.file_reader->read(file_offset, dest, error)) {
           result.error = error.empty() ? "image read failed" : error;

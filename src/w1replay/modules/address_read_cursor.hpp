@@ -26,12 +26,8 @@ struct address_read_sources {
 };
 
 image_read_result read_address_bytes_with_sources(
-    const w1::rewind::replay_context& context,
-    const w1::rewind::mapping_state* mapping_state,
-    const image_address_index& index,
-    uint64_t address,
-    size_t size,
-    uint32_t space_id,
+    const w1::rewind::replay_context& context, const w1::rewind::mapping_state* mapping_state,
+    const image_address_index& index, uint64_t address, size_t size, uint32_t space_id,
     const address_read_sources& sources
 );
 

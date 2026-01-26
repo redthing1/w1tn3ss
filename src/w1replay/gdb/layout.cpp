@@ -4,8 +4,7 @@
 
 namespace w1replay::gdb {
 
-namespace {
-} // namespace
+namespace {} // namespace
 
 register_layout build_register_layout(
     const w1::rewind::replay_context& context, const std::vector<w1::rewind::register_spec>& register_specs

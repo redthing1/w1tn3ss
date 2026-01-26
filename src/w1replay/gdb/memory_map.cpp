@@ -165,15 +165,14 @@ std::vector<gdbstub::memory_region> build_memory_map(
   const uint32_t space_id = 0;
   static const std::vector<w1::rewind::mapping_range> k_empty_ranges;
   const bool use_mapping_state = mappings != nullptr;
-  const auto* mapping_ranges =
-      mappings ? [&]() -> const std::vector<w1::rewind::mapping_range>* {
-        auto it = mappings->ranges_by_space().find(space_id);
-        if (it == mappings->ranges_by_space().end()) {
-          return &k_empty_ranges;
-        }
-        return &it->second;
-      }()
-               : nullptr;
+  const auto* mapping_ranges = mappings ? [&]() -> const std::vector<w1::rewind::mapping_range>* {
+    auto it = mappings->ranges_by_space().find(space_id);
+    if (it == mappings->ranges_by_space().end()) {
+      return &k_empty_ranges;
+    }
+    return &it->second;
+  }()
+      : nullptr;
   auto ranges_it = context.mapping_ranges_by_space.find(space_id);
 
   if (use_mapping_state) {

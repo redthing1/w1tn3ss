@@ -47,7 +47,9 @@ void accumulate_image_bases(
   }
 }
 
-std::optional<std::string> resolve_image_path(const image_path_resolver* resolver, const w1::rewind::image_record& image) {
+std::optional<std::string> resolve_image_path(
+    const image_path_resolver* resolver, const w1::rewind::image_record& image
+) {
   if (resolver) {
     if (auto resolved = resolver->resolve_image_path(image)) {
       return resolved;

@@ -12,9 +12,7 @@ namespace w1::rewind {
 
 namespace {
 
-uint32_t normalize_anchor_stride(uint32_t stride) {
-  return stride == 0 ? 1u : stride;
-}
+uint32_t normalize_anchor_stride(uint32_t stride) { return stride == 0 ? 1u : stride; }
 
 bool write_index_file(const std::string& path, const trace_index& index, redlog::logger log) {
   std::ofstream out(path, std::ios::binary | std::ios::out | std::ios::trunc);

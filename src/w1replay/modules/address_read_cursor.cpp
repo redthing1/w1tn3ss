@@ -9,12 +9,8 @@
 namespace w1replay {
 
 image_read_result read_address_bytes_with_sources(
-    const w1::rewind::replay_context& context,
-    const w1::rewind::mapping_state* mapping_state,
-    const image_address_index& index,
-    uint64_t address,
-    size_t size,
-    uint32_t space_id,
+    const w1::rewind::replay_context& context, const w1::rewind::mapping_state* mapping_state,
+    const image_address_index& index, uint64_t address, size_t size, uint32_t space_id,
     const address_read_sources& sources
 ) {
   image_read_result result = make_empty_image_read(size);
@@ -39,9 +35,8 @@ image_read_result read_address_bytes_with_sources(
     auto match = index.find(cursor, 1, space_id);
 
     if (!match.has_value() || !match->mapping) {
-      const auto* next =
-          mapping_state ? mapping_state->find_mapping_after(space_id, cursor)
-                        : context.find_mapping_after(space_id, cursor);
+      const auto* next = mapping_state ? mapping_state->find_mapping_after(space_id, cursor)
+                                       : context.find_mapping_after(space_id, cursor);
       if (!next || next->start <= cursor) {
         break;
       }

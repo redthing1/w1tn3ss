@@ -54,9 +54,7 @@ void image_inventory_pipeline::snapshot(image_inventory_provider& provider, uint
 }
 
 bool image_inventory_pipeline::emit_snapshot(
-    w1::rewind::trace_builder& builder,
-    bool blobs_enabled,
-    const image_blob_request& request,
+    w1::rewind::trace_builder& builder, bool blobs_enabled, const image_blob_request& request,
     image_blob_provider* blob_provider
 ) {
   for (const auto& image : images_) {
@@ -87,12 +85,8 @@ bool image_inventory_pipeline::emit_snapshot(
 }
 
 void image_inventory_pipeline::apply_event(
-    const image_inventory_event& event,
-    w1::rewind::trace_builder* builder,
-    bool trace_ready,
-    bool blobs_enabled,
-    const image_blob_request& request,
-    image_blob_provider* blob_provider
+    const image_inventory_event& event, w1::rewind::trace_builder* builder, bool trace_ready, bool blobs_enabled,
+    const image_blob_request& request, image_blob_provider* blob_provider
 ) {
   const uint64_t image_id = event.image.has_value() ? event.image->image_id : event.image_id;
 
@@ -141,14 +135,20 @@ void image_inventory_pipeline::apply_event(
   emitted_images_.erase(image_id);
   emitted_metadata_.erase(image_id);
   emitted_blob_images_.erase(image_id);
-  images_.erase(std::remove_if(images_.begin(), images_.end(),
-                               [&](const w1::rewind::image_record& record) { return record.image_id == image_id; }),
-                images_.end());
-  metadata_records_.erase(std::remove_if(metadata_records_.begin(), metadata_records_.end(),
-                                         [&](const w1::rewind::image_metadata_record& record) {
-                                           return record.image_id == image_id;
-                                         }),
-                          metadata_records_.end());
+  images_.erase(
+      std::remove_if(
+          images_.begin(), images_.end(),
+          [&](const w1::rewind::image_record& record) { return record.image_id == image_id; }
+      ),
+      images_.end()
+  );
+  metadata_records_.erase(
+      std::remove_if(
+          metadata_records_.begin(), metadata_records_.end(),
+          [&](const w1::rewind::image_metadata_record& record) { return record.image_id == image_id; }
+      ),
+      metadata_records_.end()
+  );
 
   if (event.mappings.empty()) {
     for (const auto& mapping : mappings_) {
@@ -156,11 +156,13 @@ void image_inventory_pipeline::apply_event(
         emit_unmap(mapping, builder, trace_ready);
       }
     }
-    mappings_.erase(std::remove_if(mappings_.begin(), mappings_.end(),
-                                   [&](const w1::rewind::mapping_record& record) {
-                                     return record.image_id == image_id;
-                                   }),
-                    mappings_.end());
+    mappings_.erase(
+        std::remove_if(
+            mappings_.begin(), mappings_.end(),
+            [&](const w1::rewind::mapping_record& record) { return record.image_id == image_id; }
+        ),
+        mappings_.end()
+    );
     return;
   }
 
@@ -172,19 +174,21 @@ void image_inventory_pipeline::apply_event(
         break;
       }
     }
-    mappings_.erase(std::remove_if(mappings_.begin(), mappings_.end(),
-                                   [&](const w1::rewind::mapping_record& record) {
-                                     return record.image_id == image_id && record.space_id == mapping.space_id &&
-                                            record.base == mapping.base && record.size == mapping.size;
-                                   }),
-                    mappings_.end());
+    mappings_.erase(
+        std::remove_if(
+            mappings_.begin(), mappings_.end(),
+            [&](const w1::rewind::mapping_record& record) {
+              return record.image_id == image_id && record.space_id == mapping.space_id &&
+                     record.base == mapping.base && record.size == mapping.size;
+            }
+        ),
+        mappings_.end()
+    );
   }
 }
 
 void image_inventory_pipeline::emit_image_blobs(
-    w1::rewind::trace_builder& builder,
-    bool blobs_enabled,
-    const image_blob_request& request,
+    w1::rewind::trace_builder& builder, bool blobs_enabled, const image_blob_request& request,
     image_blob_provider* blob_provider
 ) {
   if (!blobs_enabled || !builder.good()) {
@@ -196,11 +200,8 @@ void image_inventory_pipeline::emit_image_blobs(
 }
 
 void image_inventory_pipeline::emit_image_blobs_for_image(
-    const w1::rewind::image_record& image,
-    w1::rewind::trace_builder& builder,
-    bool blobs_enabled,
-    const image_blob_request& request,
-    image_blob_provider* blob_provider
+    const w1::rewind::image_record& image, w1::rewind::trace_builder& builder, bool blobs_enabled,
+    const image_blob_request& request, image_blob_provider* blob_provider
 ) {
   if (!blobs_enabled || !builder.good()) {
     return;
@@ -217,7 +218,9 @@ void image_inventory_pipeline::emit_image_blobs_for_image(
 
   builder_blob_sink sink(&builder);
   std::string error;
-  if (!blob_provider->emit_image_blobs(image, std::span<const w1::rewind::mapping_record>(mappings_), request, sink, error)) {
+  if (!blob_provider->emit_image_blobs(
+          image, std::span<const w1::rewind::mapping_record>(mappings_), request, sink, error
+      )) {
     log_.err(
         "failed to emit image blobs", redlog::field("image_id", image.image_id),
         redlog::field("error", error.empty() ? "unknown error" : error)
@@ -227,9 +230,7 @@ void image_inventory_pipeline::emit_image_blobs_for_image(
 }
 
 void image_inventory_pipeline::emit_unmap(
-    const w1::rewind::mapping_record& mapping,
-    w1::rewind::trace_builder* builder,
-    bool trace_ready
+    const w1::rewind::mapping_record& mapping, w1::rewind::trace_builder* builder, bool trace_ready
 ) {
   if (!trace_ready || !builder || !builder->good()) {
     return;

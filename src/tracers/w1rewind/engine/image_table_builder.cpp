@@ -133,9 +133,7 @@ LIEF::MachO::Header::CPU_TYPE macho_cpu_type_for_arch(const w1::rewind::arch_des
   return cpu_type::ANY;
 }
 
-std::optional<std::string> read_macho_uuid(
-    const std::string& path, const w1::rewind::arch_descriptor_record& arch
-) {
+std::optional<std::string> read_macho_uuid(const std::string& path, const w1::rewind::arch_descriptor_record& arch) {
   auto fat = LIEF::MachO::Parser::parse(path);
   if (!fat || fat->empty()) {
     return std::nullopt;
@@ -166,9 +164,7 @@ std::optional<std::string> read_macho_uuid(
   return w1::util::format_uuid(uuid_bytes);
 }
 
-std::optional<uint64_t> read_macho_link_base(
-    const std::string& path, const w1::rewind::arch_descriptor_record& arch
-) {
+std::optional<uint64_t> read_macho_link_base(const std::string& path, const w1::rewind::arch_descriptor_record& arch) {
   auto fat = LIEF::MachO::Parser::parse(path);
   if (!fat || fat->empty()) {
     return std::nullopt;
@@ -354,8 +350,7 @@ image_metadata image_metadata_cache::lookup(const std::string& path) {
 }
 
 w1::rewind::image_record build_image_record(
-    const w1::runtime::module_info& module, uint64_t image_id, image_metadata_cache& cache,
-    image_metadata* metadata_out
+    const w1::runtime::module_info& module, uint64_t image_id, image_metadata_cache& cache, image_metadata* metadata_out
 ) {
   w1::rewind::image_record record{};
   record.image_id = image_id;
@@ -445,9 +440,9 @@ std::vector<w1::rewind::mapping_record> collect_process_mappings(
       continue;
     }
 
-  w1::rewind::mapping_record record{};
-  record.kind = w1::rewind::mapping_event_kind::map;
-  record.space_id = space_id;
+    w1::rewind::mapping_record record{};
+    record.kind = w1::rewind::mapping_event_kind::map;
+    record.space_id = space_id;
     record.base = start;
     record.size = end - start;
     record.perms = mapping_perm_from_qbdi(map.permission);

@@ -60,14 +60,12 @@ static W1_NO_INLINE W1_OPTNONE uint64_t run_workload(uint8_t* buffer, size_t len
       buffer[idx] = rotl8(buffer[idx], (unsigned int) (state & 7u));
       acc += (uint64_t) (buffer[idx] * 3u);
       break;
-    default:
-      {
-        uint8_t tmp = buffer[idx];
-        buffer[idx] = buffer[alt];
-        buffer[alt] = (uint8_t) (tmp ^ (uint8_t) (state >> 16));
-        acc ^= (uint64_t) buffer[alt];
-      }
-      break;
+    default: {
+      uint8_t tmp = buffer[idx];
+      buffer[idx] = buffer[alt];
+      buffer[alt] = (uint8_t) (tmp ^ (uint8_t) (state >> 16));
+      acc ^= (uint64_t) buffer[alt];
+    } break;
     }
 
     if ((i & 1023u) == 0u) {

@@ -12,9 +12,7 @@ void write_instruction_range(
     w1::rewind::trace_builder& builder, uint64_t thread_id, uint64_t start_seq, uint64_t count, uint64_t base_address
 ) {
   for (uint64_t i = 0; i < count; ++i) {
-    w1::rewind::test_helpers::write_instruction(
-        builder, thread_id, start_seq + i, base_address + 0x100 + i * 4, 4
-    );
+    w1::rewind::test_helpers::write_instruction(builder, thread_id, start_seq + i, base_address + 0x100 + i * 4, 4);
   }
 }
 
@@ -60,9 +58,11 @@ TEST_CASE("w1rewind trace index builds anchors for instruction flow") {
   options.anchor_stride = 3;
 
   w1::rewind::trace_index index;
-  REQUIRE(w1::rewind::build_trace_index(
-      trace_path.string(), index_path.string(), options, &index, redlog::get_logger("test.w1rewind.index")
-  ));
+  REQUIRE(
+      w1::rewind::build_trace_index(
+          trace_path.string(), index_path.string(), options, &index, redlog::get_logger("test.w1rewind.index")
+      )
+  );
 
   w1::rewind::trace_index loaded;
   REQUIRE(w1::rewind::load_trace_index(index_path.string(), loaded, redlog::get_logger("test.w1rewind.index")));
@@ -113,10 +113,11 @@ TEST_CASE("w1rewind trace index rebuilds when anchor stride mismatches") {
   build_options.anchor_stride = 5;
 
   w1::rewind::trace_index initial;
-  REQUIRE(w1::rewind::build_trace_index(
-      trace_path.string(), index_path.string(), build_options, &initial,
-      redlog::get_logger("test.w1rewind.index")
-  ));
+  REQUIRE(
+      w1::rewind::build_trace_index(
+          trace_path.string(), index_path.string(), build_options, &initial, redlog::get_logger("test.w1rewind.index")
+      )
+  );
 
   w1::rewind::trace_index_options ensure_options;
   ensure_options.anchor_stride = 2;
@@ -147,9 +148,11 @@ TEST_CASE("w1rewind trace index is empty when no flow records exist") {
 
   w1::rewind::trace_index index;
   w1::rewind::trace_index_options options;
-  REQUIRE(w1::rewind::build_trace_index(
-      trace_path.string(), index_path.string(), options, &index, redlog::get_logger("test.w1rewind.index")
-  ));
+  REQUIRE(
+      w1::rewind::build_trace_index(
+          trace_path.string(), index_path.string(), options, &index, redlog::get_logger("test.w1rewind.index")
+      )
+  );
 
   CHECK(index.threads.empty());
   CHECK(index.anchors.empty());

@@ -15,8 +15,7 @@ namespace {
 class test_block_decoder final : public w1::rewind::block_decoder {
 public:
   bool decode_block(
-      const w1::rewind::replay_context&, const w1::rewind::flow_step& flow, w1::rewind::decoded_block& out,
-      std::string&
+      const w1::rewind::replay_context&, const w1::rewind::flow_step& flow, w1::rewind::decoded_block& out, std::string&
   ) override {
     out.start = flow.address;
     out.size = flow.size;
@@ -64,9 +63,7 @@ TEST_CASE("w1rewind replay session steps across block boundaries") {
 
   w1::rewind::trace_index_options index_options;
   auto index = std::make_shared<w1::rewind::trace_index>();
-  REQUIRE(
-      w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, index.get(), logger)
-  );
+  REQUIRE(w1::rewind::build_trace_index(trace_path.string(), index_path.string(), index_options, index.get(), logger));
 
   w1::rewind::replay_context context;
   std::string error;

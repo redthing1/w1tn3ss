@@ -57,8 +57,8 @@ const char* set_test_register(QBDI::GPRState& gpr, uint64_t value) {
   gpr.r0 = static_cast<uint32_t>(value);
   return "r0";
 #else
-  (void)gpr;
-  (void)value;
+  (void) gpr;
+  (void) value;
   return "";
 #endif
 }

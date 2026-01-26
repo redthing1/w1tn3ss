@@ -11,9 +11,7 @@ namespace w1replay::gdb {
 namespace {
 
 struct stub_metadata_provider final : public image_metadata_provider {
-  std::optional<std::string> image_uuid(const w1::rewind::image_record&, std::string&) override {
-    return std::nullopt;
-  }
+  std::optional<std::string> image_uuid(const w1::rewind::image_record&, std::string&) override { return std::nullopt; }
   std::optional<macho_header_info> macho_header(const w1::rewind::image_record&, std::string&) override {
     return std::nullopt;
   }
@@ -21,9 +19,7 @@ struct stub_metadata_provider final : public image_metadata_provider {
 };
 
 struct stub_path_resolver final : public image_path_resolver {
-  std::optional<std::string> resolve_image_path(const w1::rewind::image_record&) const override {
-    return std::nullopt;
-  }
+  std::optional<std::string> resolve_image_path(const w1::rewind::image_record&) const override { return std::nullopt; }
   std::optional<std::string> resolve_region_name(std::string_view) const override { return std::nullopt; }
 };
 

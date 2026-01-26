@@ -13,9 +13,7 @@ public:
 
   std::optional<std::string> image_uuid(const w1::rewind::image_record& image, std::string& error) override;
   std::optional<macho_header_info> macho_header(const w1::rewind::image_record& image, std::string& error) override;
-  std::vector<macho_segment_info> macho_segments(
-      const w1::rewind::image_record& image, std::string& error
-  ) override;
+  std::vector<macho_segment_info> macho_segments(const w1::rewind::image_record& image, std::string& error) override;
 
 private:
   const w1::rewind::replay_context* context_ = nullptr;

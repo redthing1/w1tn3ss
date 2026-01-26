@@ -2,8 +2,7 @@
 
 namespace w1::rewind {
 
-record_stream_cursor::record_stream_cursor(std::shared_ptr<trace_record_stream> stream)
-    : stream_(std::move(stream)) {}
+record_stream_cursor::record_stream_cursor(std::shared_ptr<trace_record_stream> stream) : stream_(std::move(stream)) {}
 
 bool record_stream_cursor::open(std::string& error) {
   if (!stream_) {

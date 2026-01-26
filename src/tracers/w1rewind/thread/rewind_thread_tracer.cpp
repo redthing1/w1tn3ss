@@ -320,8 +320,12 @@ template <rewind_flow Mode, bool CaptureMemory> bool rewind_thread_tracer<Mode, 
   const auto& arch = engine_->arch_descriptor();
   std::string id = arch.arch_id;
   std::string gdb = arch.gdb_arch;
-  std::transform(id.begin(), id.end(), id.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
-  std::transform(gdb.begin(), gdb.end(), gdb.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+  std::transform(id.begin(), id.end(), id.begin(), [](unsigned char ch) {
+    return static_cast<char>(std::tolower(ch));
+  });
+  std::transform(gdb.begin(), gdb.end(), gdb.begin(), [](unsigned char ch) {
+    return static_cast<char>(std::tolower(ch));
+  });
   if (id.find("arm") != std::string::npos || id == "thumb") {
     return true;
   }

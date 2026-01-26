@@ -10,8 +10,7 @@ namespace {
 class test_block_decoder final : public w1::rewind::block_decoder {
 public:
   bool decode_block(
-      const w1::rewind::replay_context&, const w1::rewind::flow_step& flow, w1::rewind::decoded_block& out,
-      std::string&
+      const w1::rewind::replay_context&, const w1::rewind::flow_step& flow, w1::rewind::decoded_block& out, std::string&
   ) override {
     out.start = flow.address;
     out.size = flow.size;

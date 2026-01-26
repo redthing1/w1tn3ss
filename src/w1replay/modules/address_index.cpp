@@ -20,16 +20,14 @@ uint64_t safe_end(uint64_t base, uint64_t size) {
   return end;
 }
 
-const w1::rewind::mapping_range* find_range(
-    const std::vector<w1::rewind::mapping_range>& ranges, uint64_t address
-) {
+const w1::rewind::mapping_range* find_range(const std::vector<w1::rewind::mapping_range>& ranges, uint64_t address) {
   if (ranges.empty()) {
     return nullptr;
   }
-  auto upper = std::upper_bound(ranges.begin(), ranges.end(), address,
-                                [](uint64_t value, const w1::rewind::mapping_range& range) {
-                                  return value < range.start;
-                                });
+  auto upper = std::upper_bound(
+      ranges.begin(), ranges.end(), address,
+      [](uint64_t value, const w1::rewind::mapping_range& range) { return value < range.start; }
+  );
   if (upper == ranges.begin()) {
     return nullptr;
   }
@@ -47,9 +45,7 @@ image_address_index::image_address_index(
 )
     : context_(context), mappings_(mappings) {}
 
-std::optional<image_address_match> image_address_index::find(
-    uint64_t address, uint64_t size, uint32_t space_id
-) const {
+std::optional<image_address_match> image_address_index::find(uint64_t address, uint64_t size, uint32_t space_id) const {
   if (size == 0) {
     return std::nullopt;
   }

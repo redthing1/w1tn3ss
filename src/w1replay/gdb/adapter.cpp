@@ -71,8 +71,7 @@ bool adapter::open() {
   image_reader_ = provider;
   image_metadata_provider_ = provider;
 
-  memory_view_ =
-      std::make_unique<w1replay::replay_memory_view>(&context_, session_->state(), image_reader_.get());
+  memory_view_ = std::make_unique<w1replay::replay_memory_view>(&context_, session_->state(), image_reader_.get());
   if (decoder_ && memory_view_) {
     decoder_->set_memory_view(memory_view_.get());
   }
@@ -117,9 +116,9 @@ bool adapter::open() {
   loaded_libraries_component_.reset();
   libraries_component_ = std::make_unique<libraries_component>(services_);
   if (image_metadata_provider_ && image_resolver_) {
-    loaded_libraries_provider_ =
-        make_loaded_libraries_provider(context_, session_ ? session_->mappings() : nullptr, *image_metadata_provider_,
-                                       *image_resolver_);
+    loaded_libraries_provider_ = make_loaded_libraries_provider(
+        context_, session_ ? session_->mappings() : nullptr, *image_metadata_provider_, *image_resolver_
+    );
   }
   if (loaded_libraries_provider_ && !loaded_libraries_provider_->has_loaded_images()) {
     loaded_libraries_provider_.reset();

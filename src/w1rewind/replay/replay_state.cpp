@@ -87,9 +87,7 @@ void replay_state::reset_register_bank(register_bank& bank) {
   }
 }
 
-replay_state::register_slot* replay_state::ensure_slot(
-    register_bank& bank, uint32_t reg_id, uint32_t min_size
-) {
+replay_state::register_slot* replay_state::ensure_slot(register_bank& bank, uint32_t reg_id, uint32_t min_size) {
   auto it = bank.id_to_index.find(reg_id);
   if (it == bank.id_to_index.end()) {
     return nullptr;
@@ -178,9 +176,7 @@ bool replay_state::apply_register_snapshot(
   return apply_reg_write(regfile_id, entries, error);
 }
 
-std::optional<uint64_t> replay_state::register_value(
-    uint32_t regfile_id, uint32_t reg_id, endian byte_order
-) const {
+std::optional<uint64_t> replay_state::register_value(uint32_t regfile_id, uint32_t reg_id, endian byte_order) const {
   const register_bank* bank = find_bank(regfile_id);
   if (!bank) {
     return std::nullopt;
@@ -269,8 +265,10 @@ std::vector<reg_write_entry> replay_state::collect_register_writes(uint32_t regf
       entry.byte_offset = static_cast<uint32_t>(start);
       entry.byte_size = static_cast<uint32_t>(length);
       entry.reg_id = slot.reg_id;
-      entry.value.insert(entry.value.end(), slot.bytes.begin() + static_cast<std::ptrdiff_t>(start),
-                         slot.bytes.begin() + static_cast<std::ptrdiff_t>(start + length));
+      entry.value.insert(
+          entry.value.end(), slot.bytes.begin() + static_cast<std::ptrdiff_t>(start),
+          slot.bytes.begin() + static_cast<std::ptrdiff_t>(start + length)
+      );
       out.push_back(std::move(entry));
     }
   }

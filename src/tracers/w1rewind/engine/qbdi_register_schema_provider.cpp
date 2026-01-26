@@ -11,16 +11,18 @@
 namespace {
 
 using w1::rewind::arch_descriptor_record;
-using w1::rewind::register_spec;
 using w1::rewind::k_register_regnum_unknown;
 using w1::rewind::register_flag_flags;
 using w1::rewind::register_flag_fp;
 using w1::rewind::register_flag_pc;
 using w1::rewind::register_flag_sp;
+using w1::rewind::register_spec;
 
 std::string lower_ascii(std::string_view value) {
   std::string out(value);
-  std::transform(out.begin(), out.end(), out.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+  std::transform(out.begin(), out.end(), out.begin(), [](unsigned char ch) {
+    return static_cast<char>(std::tolower(ch));
+  });
   return out;
 }
 
@@ -200,8 +202,7 @@ void apply_regnums(std::vector<register_spec>& specs, bool aarch64, bool x86_64)
 namespace w1rewind {
 
 bool qbdi_register_schema_provider::build_register_schema(
-    const w1::rewind::arch_descriptor_record& arch, std::vector<w1::rewind::register_spec>& out,
-    std::string& error
+    const w1::rewind::arch_descriptor_record& arch, std::vector<w1::rewind::register_spec>& out, std::string& error
 ) const {
   out.clear();
   error.clear();

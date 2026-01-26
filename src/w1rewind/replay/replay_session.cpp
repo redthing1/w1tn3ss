@@ -358,8 +358,9 @@ bool replay_session::sync_instruction_position(bool forward) {
             *normalized.instruction,
             forward ? replay_instruction_cursor::position_bias::start : replay_instruction_cursor::position_bias::end
         )) {
-      set_error(instruction_cursor_->error().empty() ? "failed to sync instruction position"
-                                                     : instruction_cursor_->error());
+      set_error(
+          instruction_cursor_->error().empty() ? "failed to sync instruction position" : instruction_cursor_->error()
+      );
       return false;
     }
     if (auto notice = instruction_cursor_->take_notice(); notice.has_value()) {
@@ -596,9 +597,7 @@ bool replay_session::step_flow_backward_internal(flow_step& out) {
       return false;
     }
     if (anchor.has_value()) {
-      if (!flow_cursor_->seek_from_location(
-              active_thread_id_, target, {anchor->chunk_index, anchor->record_offset}
-          )) {
+      if (!flow_cursor_->seek_from_location(active_thread_id_, target, {anchor->chunk_index, anchor->record_offset})) {
         set_error(map_flow_error_kind(flow_cursor_->error_kind()), std::string(flow_cursor_->error()));
         return false;
       }

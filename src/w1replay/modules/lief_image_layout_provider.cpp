@@ -19,9 +19,7 @@ namespace w1replay {
 
 namespace {
 
-bool add_overflows(uint64_t base, uint64_t addend) {
-  return base > std::numeric_limits<uint64_t>::max() - addend;
-}
+bool add_overflows(uint64_t base, uint64_t addend) { return base > std::numeric_limits<uint64_t>::max() - addend; }
 
 std::string hex_encode(LIEF::span<const uint8_t> bytes) {
   static constexpr char k_hex[] = "0123456789abcdef";
@@ -68,7 +66,7 @@ public:
       const std::string& path, image_layout& layout, image_layout_identity* identity, std::string& error
   ) override {
     error.clear();
-    (void)image;
+    (void) image;
     if (path.empty()) {
       error = "image path missing";
       return false;
@@ -109,8 +107,10 @@ public:
         if (mem_size == 0) {
           continue;
         }
-        if (!add_range(layout, segment.virtual_address(), mem_size, segment.file_offset(), segment.physical_size(),
-                       file_size, error)) {
+        if (!add_range(
+                layout, segment.virtual_address(), mem_size, segment.file_offset(), segment.physical_size(), file_size,
+                error
+            )) {
           return false;
         }
         if (!saw_range || segment.virtual_address() < link_base) {
@@ -148,8 +148,10 @@ public:
         if (segment.name() == "__PAGEZERO") {
           continue;
         }
-        if (!add_range(layout, segment.virtual_address(), segment.virtual_size(),
-                       segment.file_offset(), segment.file_size(), file_size, error)) {
+        if (!add_range(
+                layout, segment.virtual_address(), segment.virtual_size(), segment.file_offset(), segment.file_size(),
+                file_size, error
+            )) {
           return false;
         }
         if (!saw_range || segment.virtual_address() < link_base) {

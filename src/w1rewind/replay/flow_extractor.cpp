@@ -6,9 +6,7 @@ flow_extractor::flow_extractor(const replay_context* context) : context_(context
 
 void flow_extractor::set_flow_kind(flow_kind kind) { kind_ = kind; }
 
-bool flow_extractor::try_extract(
-    const trace_record& record, flow_step& out, bool& is_flow, std::string& error
-) const {
+bool flow_extractor::try_extract(const trace_record& record, flow_step& out, bool& is_flow, std::string& error) const {
   is_flow = false;
   if (!context_) {
     error = "replay context missing";

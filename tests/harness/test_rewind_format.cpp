@@ -287,8 +287,8 @@ int run_test() {
     return 1;
   }
 
-  if (!saw_arch || !saw_environment || !saw_regs || !saw_instruction || !saw_memory || !saw_snapshot ||
-      !saw_image || !saw_mapping) {
+  if (!saw_arch || !saw_environment || !saw_regs || !saw_instruction || !saw_memory || !saw_snapshot || !saw_image ||
+      !saw_mapping) {
     std::cerr << "missing expected records\n";
     return 1;
   }

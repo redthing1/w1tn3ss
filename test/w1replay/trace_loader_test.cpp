@@ -87,10 +87,12 @@ TEST_CASE("trace_loader rebuilds index when stride mismatches") {
   w1::rewind::trace_index_options build_options;
   build_options.anchor_stride = 1;
   w1::rewind::trace_index initial;
-  REQUIRE(w1::rewind::build_trace_index(
-      trace_path.string(), index_path.string(), build_options, &initial,
-      redlog::get_logger("test.w1replay.trace_loader")
-  ));
+  REQUIRE(
+      w1::rewind::build_trace_index(
+          trace_path.string(), index_path.string(), build_options, &initial,
+          redlog::get_logger("test.w1replay.trace_loader")
+      )
+  );
   REQUIRE(initial.header.anchor_stride == 1);
 
   w1replay::trace_loader::trace_load_options options;

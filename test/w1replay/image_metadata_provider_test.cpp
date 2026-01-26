@@ -15,8 +15,8 @@ TEST_CASE("composite_image_provider uses trace image metadata") {
   w1::rewind::image_metadata_record meta{};
   meta.image_id = 1;
   meta.format = "macho";
-  meta.flags = w1::rewind::image_meta_has_uuid | w1::rewind::image_meta_has_macho_header |
-               w1::rewind::image_meta_has_segments;
+  meta.flags =
+      w1::rewind::image_meta_has_uuid | w1::rewind::image_meta_has_macho_header | w1::rewind::image_meta_has_segments;
   meta.uuid = "TRACE-UUID";
   meta.macho_header.magic = 1;
   meta.macho_header.cputype = 2;

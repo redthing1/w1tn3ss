@@ -54,8 +54,6 @@ w1::rewind::mapping_record build_module_mapping(
     const w1::runtime::module_info& module, uint64_t image_id, uint32_t space_id
 );
 
-std::vector<w1::rewind::mapping_record> collect_process_mappings(
-    std::span<const image_span> images, uint32_t space_id
-);
+std::vector<w1::rewind::mapping_record> collect_process_mappings(std::span<const image_span> images, uint32_t space_id);
 
 } // namespace w1rewind

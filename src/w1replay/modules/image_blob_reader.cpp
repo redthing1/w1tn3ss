@@ -11,9 +11,7 @@ bool add_overflows(uint64_t base, uint64_t addend) { return base > std::numeric_
 
 } // namespace
 
-image_read_result read_image_blob_index(
-    const w1::rewind::image_blob_index& index, uint64_t image_offset, size_t size
-) {
+image_read_result read_image_blob_index(const w1::rewind::image_blob_index& index, uint64_t image_offset, size_t size) {
   image_read_result result = make_empty_image_read(size);
   if (size == 0) {
     result.error = "image read size is zero";
@@ -28,10 +26,10 @@ image_read_result read_image_blob_index(
   }
   const uint64_t end = image_offset + size;
 
-  auto it = std::upper_bound(index.spans.begin(), index.spans.end(), image_offset,
-                             [](uint64_t value, const w1::rewind::image_blob_span& span) {
-                               return value < span.offset;
-                             });
+  auto it = std::upper_bound(
+      index.spans.begin(), index.spans.end(), image_offset,
+      [](uint64_t value, const w1::rewind::image_blob_span& span) { return value < span.offset; }
+  );
   if (it != index.spans.begin()) {
     --it;
   }
@@ -54,8 +52,7 @@ image_read_result read_image_blob_index(
     if (overlap_size64 == 0) {
       continue;
     }
-    if (overlap_size64 > std::numeric_limits<size_t>::max() ||
-        blob_offset64 > std::numeric_limits<size_t>::max() ||
+    if (overlap_size64 > std::numeric_limits<size_t>::max() || blob_offset64 > std::numeric_limits<size_t>::max() ||
         out_offset64 > std::numeric_limits<size_t>::max()) {
       result.error = "image blob read exceeds host limits";
       return result;
@@ -75,10 +72,7 @@ image_read_result read_image_blob_index(
     std::copy(src, src + overlap_size, dest);
     const auto known_offset = static_cast<std::ptrdiff_t>(out_offset);
     const auto known_end = known_offset + static_cast<std::ptrdiff_t>(overlap_size);
-    std::fill(
-        result.known.begin() + known_offset,
-        result.known.begin() + known_end, 1
-    );
+    std::fill(result.known.begin() + known_offset, result.known.begin() + known_end, 1);
   }
 
   result.complete = all_known(result);

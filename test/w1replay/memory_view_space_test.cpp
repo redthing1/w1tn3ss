@@ -13,9 +13,7 @@
 namespace {
 
 struct null_image_reader final : w1replay::image_reader {
-  w1replay::image_read_result read_image_bytes(
-      const w1::rewind::image_record&, uint64_t, size_t size
-  ) override {
+  w1replay::image_read_result read_image_bytes(const w1::rewind::image_record&, uint64_t, size_t size) override {
     return w1replay::make_empty_image_read(size);
   }
 

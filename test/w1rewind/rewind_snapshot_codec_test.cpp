@@ -11,10 +11,12 @@ TEST_CASE("snapshot codec round trip with memory segments") {
   input.thread_id = 1;
   input.regfile_id = 0;
   input.registers = {
-      w1::rewind::reg_write_entry{w1::rewind::reg_ref_kind::reg_id, 0, 0, 8, 0, "", {0x11, 0x11, 0x00, 0x00,
-                                                                                       0x00, 0x00, 0x00, 0x00}},
-      w1::rewind::reg_write_entry{w1::rewind::reg_ref_kind::reg_id, 0, 0, 8, 1, "", {0x22, 0x22, 0x00, 0x00,
-                                                                                       0x00, 0x00, 0x00, 0x00}},
+      w1::rewind::reg_write_entry{
+          w1::rewind::reg_ref_kind::reg_id, 0, 0, 8, 0, "", {0x11, 0x11, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
+      },
+      w1::rewind::reg_write_entry{
+          w1::rewind::reg_ref_kind::reg_id, 0, 0, 8, 1, "", {0x22, 0x22, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
+      },
   };
 
   w1::rewind::memory_segment seg0{};

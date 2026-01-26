@@ -13,8 +13,8 @@
 namespace {
 
 std::filesystem::path write_trace(
-    const char* name, std::string_view arch_id, const w1::arch::arch_spec& arch,
-    std::vector<std::string> registers, uint64_t image_offset, uint64_t image_base = 0x1000
+    const char* name, std::string_view arch_id, const w1::arch::arch_spec& arch, std::vector<std::string> registers,
+    uint64_t image_offset, uint64_t image_base = 0x1000
 ) {
   using namespace w1::rewind::test_helpers;
 
@@ -68,8 +68,7 @@ TEST_CASE("w1replay gdb adapter builds x86_64 target xml and pc") {
 TEST_CASE("w1replay gdb adapter encodes arm64 register sizes") {
   auto trace_path = write_trace(
       "w1replay_gdb_arm64.trace", "arm64", w1::rewind::test_helpers::parse_arch_or_fail("arm64"),
-      {"x0", "sp", "pc", "nzcv"},
-      0x2000
+      {"x0", "sp", "pc", "nzcv"}, 0x2000
   );
 
   w1replay::gdb::adapter::config config;

@@ -33,9 +33,7 @@ inline bool encode_string_map(
   return true;
 }
 
-inline bool decode_string_map(
-    trace_buffer_reader& reader, std::vector<std::pair<std::string, std::string>>& out
-) {
+inline bool decode_string_map(trace_buffer_reader& reader, std::vector<std::pair<std::string, std::string>>& out) {
   uint32_t count = 0;
   if (!reader.read_u32(count)) {
     return false;
@@ -178,9 +176,7 @@ inline bool decode_environment(trace_buffer_reader& reader, environment_record& 
   return true;
 }
 
-inline bool encode_address_space(
-    const address_space_record& record, trace_buffer_writer& writer, redlog::logger& log
-) {
+inline bool encode_address_space(const address_space_record& record, trace_buffer_writer& writer, redlog::logger& log) {
   writer.write_u32(record.space_id);
   if (!write_string_checked(writer, record.name, log)) {
     return false;
@@ -201,9 +197,7 @@ inline bool decode_address_space(trace_buffer_reader& reader, address_space_reco
   return true;
 }
 
-inline bool encode_register_file(
-    const register_file_record& record, trace_buffer_writer& writer, redlog::logger& log
-) {
+inline bool encode_register_file(const register_file_record& record, trace_buffer_writer& writer, redlog::logger& log) {
   writer.write_u32(record.regfile_id);
   if (!write_string_checked(writer, record.name, log)) {
     return false;
@@ -342,9 +336,7 @@ inline bool decode_image_metadata(trace_buffer_reader& reader, image_metadata_re
   return true;
 }
 
-inline bool encode_image_blob(
-    const image_blob_record& record, trace_buffer_writer& writer, redlog::logger& log
-) {
+inline bool encode_image_blob(const image_blob_record& record, trace_buffer_writer& writer, redlog::logger& log) {
   writer.write_u64(record.image_id);
   writer.write_u64(record.offset);
   if (record.data.size() > std::numeric_limits<uint32_t>::max()) {
@@ -401,10 +393,7 @@ inline bool decode_mapping(trace_buffer_reader& reader, mapping_record& out) {
   return true;
 }
 
-
-inline bool encode_thread_start(
-    const thread_start_record& record, trace_buffer_writer& writer, redlog::logger& log
-) {
+inline bool encode_thread_start(const thread_start_record& record, trace_buffer_writer& writer, redlog::logger& log) {
   writer.write_u64(record.thread_id);
   if (!write_string_checked(writer, record.name, log)) {
     return false;

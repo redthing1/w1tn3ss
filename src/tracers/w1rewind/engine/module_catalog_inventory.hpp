@@ -29,9 +29,7 @@ public:
 
 private:
   std::optional<w1::runtime::module_info> find_module_info(const image_inventory_source_event& event) const;
-  image_inventory_event make_loaded_event(
-      const w1::runtime::module_info& module, uint64_t image_id, uint32_t space_id
-  );
+  image_inventory_event make_loaded_event(const w1::runtime::module_info& module, uint64_t image_id, uint32_t space_id);
   image_inventory_event make_unloaded_event(
       const w1::runtime::module_info& module, uint64_t image_id, uint32_t space_id
   );

@@ -126,8 +126,9 @@ std::string join_list(const std::vector<std::string>& items, char delimiter = ',
   return joined.str();
 }
 
-std::string get_config_value_or(const std::map<std::string, std::string>& config, const char* key,
-                                const char* fallback) {
+std::string get_config_value_or(
+    const std::map<std::string, std::string>& config, const char* key, const char* fallback
+) {
   auto it = config.find(key);
   if (it != config.end()) {
     return it->second;
@@ -149,9 +150,8 @@ int rewind(
     args::ValueFlagList<std::string>& mem_ranges_flag, args::ValueFlag<std::string>& module_filter_flag,
     args::ValueFlag<std::string>& system_policy_flag, args::ValueFlag<std::string>& threads_flag,
     args::Flag& compress_flag, args::ValueFlag<uint32_t>& chunk_size_flag,
-    args::ValueFlagList<std::string>& config_flags, args::ValueFlag<int>& debug_level_flag,
-    args::Flag& suspended_flag, args::Flag& no_aslr_flag, args::PositionalList<std::string>& args_list,
-    const std::string& executable_path
+    args::ValueFlagList<std::string>& config_flags, args::ValueFlag<int>& debug_level_flag, args::Flag& suspended_flag,
+    args::Flag& no_aslr_flag, args::PositionalList<std::string>& args_list, const std::string& executable_path
 ) {
   auto log = redlog::get_logger("w1tool.rewind");
 
@@ -264,9 +264,7 @@ int rewind(
     for (const auto& entry : args::get(mem_filter_flag)) {
       std::string normalized;
       if (!normalize_mem_filter(entry, normalized)) {
-        log.err(
-            "invalid mem-filter value, expected: all, ranges, stack_window", redlog::field("mem_filter", entry)
-        );
+        log.err("invalid mem-filter value, expected: all, ranges, stack_window", redlog::field("mem_filter", entry));
         return 1;
       }
       normalized_filters.push_back(normalized);
@@ -306,9 +304,8 @@ int rewind(
   log.info(
       "rewind tracing configuration", redlog::field("output_file", output_file), redlog::field("flow", flow),
       redlog::field("mem_access", mem_access), redlog::field("stack_window", stack_window),
-      redlog::field("threads", threads), redlog::field("reg_deltas", reg_deltas),
-      redlog::field("compress", compress), redlog::field("chunk_size", chunk_size),
-      redlog::field("debug_level", params.debug_level)
+      redlog::field("threads", threads), redlog::field("reg_deltas", reg_deltas), redlog::field("compress", compress),
+      redlog::field("chunk_size", chunk_size), redlog::field("debug_level", params.debug_level)
   );
 
   int result = execute_tracer_impl(params);

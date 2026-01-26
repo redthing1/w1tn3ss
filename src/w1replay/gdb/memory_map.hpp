@@ -15,7 +15,7 @@ class image_path_resolver;
 namespace w1::rewind {
 struct replay_context;
 class mapping_state;
-}
+} // namespace w1::rewind
 
 namespace w1replay::gdb {
 

@@ -61,9 +61,7 @@ std::vector<blob_range> collect_blob_ranges(
     return ranges;
   }
 
-  std::sort(ranges.begin(), ranges.end(), [](const blob_range& a, const blob_range& b) {
-    return a.offset < b.offset;
-  });
+  std::sort(ranges.begin(), ranges.end(), [](const blob_range& a, const blob_range& b) { return a.offset < b.offset; });
 
   std::vector<blob_range> merged;
   merged.reserve(ranges.size());

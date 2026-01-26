@@ -339,23 +339,9 @@ struct meta_record {
 };
 
 using trace_record = std::variant<
-    record_type_dictionary_record,
-    arch_descriptor_record,
-    environment_record,
-    address_space_record,
-    register_file_record,
-    image_record,
-    image_metadata_record,
-    image_blob_record,
-    mapping_record,
-    thread_start_record,
-    thread_end_record,
-    flow_instruction_record,
-    block_definition_record,
-    block_exec_record,
-    reg_write_record,
-    mem_access_record,
-    snapshot_record,
-    meta_record>;
+    record_type_dictionary_record, arch_descriptor_record, environment_record, address_space_record,
+    register_file_record, image_record, image_metadata_record, image_blob_record, mapping_record, thread_start_record,
+    thread_end_record, flow_instruction_record, block_definition_record, block_exec_record, reg_write_record,
+    mem_access_record, snapshot_record, meta_record>;
 
 } // namespace w1::rewind

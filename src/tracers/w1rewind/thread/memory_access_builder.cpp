@@ -9,9 +9,9 @@
 namespace w1rewind {
 
 void append_memory_access(
-    const rewind_config& config, w1::trace_context& ctx, const w1::memory_event& event,
-    w1::rewind::mem_access_op op, std::span<const w1::address_range> segments,
-    std::vector<pending_memory_access>& out, uint64_t& memory_events, uint32_t space_id
+    const rewind_config& config, w1::trace_context& ctx, const w1::memory_event& event, w1::rewind::mem_access_op op,
+    std::span<const w1::address_range> segments, std::vector<pending_memory_access>& out, uint64_t& memory_events,
+    uint32_t space_id
 ) {
   if (segments.empty()) {
     return;

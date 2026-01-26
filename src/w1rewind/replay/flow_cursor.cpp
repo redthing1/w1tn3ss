@@ -7,7 +7,8 @@ namespace w1::rewind {
 flow_cursor::flow_cursor(
     record_stream_cursor stream, flow_extractor extractor, history_window history, std::shared_ptr<trace_index> index
 )
-    : stream_(std::move(stream)), extractor_(std::move(extractor)), history_(std::move(history)), index_(std::move(index)) {
+    : stream_(std::move(stream)), extractor_(std::move(extractor)), history_(std::move(history)),
+      index_(std::move(index)) {
   history_size_ = static_cast<uint32_t>(history_.capacity());
 }
 

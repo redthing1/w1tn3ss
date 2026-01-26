@@ -372,7 +372,9 @@ bool build_replay_checkpoint(const replay_checkpoint_config& config, replay_chec
       }
       state.last_regfile_id = snapshot.regfile_id;
       std::string apply_error;
-      if (!applier.apply_snapshot(snapshot, snapshot.thread_id, true, config.include_memory, state.state, apply_error)) {
+      if (!applier.apply_snapshot(
+              snapshot, snapshot.thread_id, true, config.include_memory, state.state, apply_error
+          )) {
         error = apply_error.empty() ? "failed to apply snapshot" : apply_error;
         return false;
       }
@@ -571,8 +573,8 @@ bool load_replay_checkpoint(const std::string& path, replay_checkpoint_index& ou
 
     if (!read_stream_u64(in, entry.thread_id) || !read_stream_u64(in, entry.sequence) ||
         !read_stream_u32(in, entry.location.chunk_index) || !read_stream_u32(in, entry.location.record_offset) ||
-        !read_stream_u32(in, entry.regfile_id) || !read_stream_u32(in, reg_count) ||
-        !read_stream_u32(in, mem_count) || !read_stream_u32(in, map_count)) {
+        !read_stream_u32(in, entry.regfile_id) || !read_stream_u32(in, reg_count) || !read_stream_u32(in, mem_count) ||
+        !read_stream_u32(in, map_count)) {
       error = "failed to read checkpoint entry header";
       return false;
     }

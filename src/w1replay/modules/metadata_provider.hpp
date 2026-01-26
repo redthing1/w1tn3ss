@@ -32,12 +32,8 @@ public:
   virtual ~image_metadata_provider() = default;
 
   virtual std::optional<std::string> image_uuid(const w1::rewind::image_record& image, std::string& error) = 0;
-  virtual std::optional<macho_header_info> macho_header(
-      const w1::rewind::image_record& image, std::string& error
-  ) = 0;
-  virtual std::vector<macho_segment_info> macho_segments(
-      const w1::rewind::image_record& image, std::string& error
-  ) = 0;
+  virtual std::optional<macho_header_info> macho_header(const w1::rewind::image_record& image, std::string& error) = 0;
+  virtual std::vector<macho_segment_info> macho_segments(const w1::rewind::image_record& image, std::string& error) = 0;
 };
 
 } // namespace w1replay

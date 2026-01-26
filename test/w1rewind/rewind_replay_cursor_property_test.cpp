@@ -53,9 +53,7 @@ trace_bundle build_instruction_trace(const char* name, uint64_t count) {
   w1::rewind::trace_index_options options;
   out.index = std::make_shared<w1::rewind::trace_index>();
   REQUIRE(
-      w1::rewind::build_trace_index(
-          out.trace_path.string(), out.index_path.string(), options, out.index.get(), logger
-      )
+      w1::rewind::build_trace_index(out.trace_path.string(), out.index_path.string(), options, out.index.get(), logger)
   );
 
   std::string error;
@@ -92,9 +90,7 @@ trace_bundle build_block_trace(const char* name, uint64_t count) {
   w1::rewind::trace_index_options options;
   out.index = std::make_shared<w1::rewind::trace_index>();
   REQUIRE(
-      w1::rewind::build_trace_index(
-          out.trace_path.string(), out.index_path.string(), options, out.index.get(), logger
-      )
+      w1::rewind::build_trace_index(out.trace_path.string(), out.index_path.string(), options, out.index.get(), logger)
   );
 
   std::string error;

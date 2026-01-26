@@ -29,8 +29,7 @@ public:
 
   bool begin_thread(uint64_t thread_id, const std::string& name);
   bool emit_block(
-      uint64_t thread_id, uint64_t address, uint32_t size, uint32_t space_id, uint16_t mode_id,
-      uint64_t& sequence_out
+      uint64_t thread_id, uint64_t address, uint32_t size, uint32_t space_id, uint16_t mode_id, uint64_t& sequence_out
   );
   void flush_pending(std::optional<pending_instruction>& pending);
   void finalize_thread(uint64_t thread_id, const std::string& name);

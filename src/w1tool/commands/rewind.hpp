@@ -51,9 +51,8 @@ int rewind(
     args::ValueFlagList<std::string>& mem_ranges_flag, args::ValueFlag<std::string>& module_filter_flag,
     args::ValueFlag<std::string>& system_policy_flag, args::ValueFlag<std::string>& threads_flag,
     args::Flag& compress_flag, args::ValueFlag<uint32_t>& chunk_size_flag,
-    args::ValueFlagList<std::string>& config_flags, args::ValueFlag<int>& debug_level_flag,
-    args::Flag& suspended_flag, args::Flag& no_aslr_flag, args::PositionalList<std::string>& args_list,
-    const std::string& executable_path
+    args::ValueFlagList<std::string>& config_flags, args::ValueFlag<int>& debug_level_flag, args::Flag& suspended_flag,
+    args::Flag& no_aslr_flag, args::PositionalList<std::string>& args_list, const std::string& executable_path
 );
 
 } // namespace w1tool::commands

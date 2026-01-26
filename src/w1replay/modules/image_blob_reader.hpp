@@ -8,8 +8,6 @@
 
 namespace w1replay {
 
-image_read_result read_image_blob_index(
-    const w1::rewind::image_blob_index& index, uint64_t image_offset, size_t size
-);
+image_read_result read_image_blob_index(const w1::rewind::image_blob_index& index, uint64_t image_offset, size_t size);
 
 } // namespace w1replay

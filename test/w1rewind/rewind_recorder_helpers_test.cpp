@@ -143,9 +143,8 @@ TEST_CASE("register schema and delta builder track changes") {
 
   std::optional<w1::util::register_state> last;
   auto deltas1 = w1rewind::capture_register_deltas(schema, capture1.regs, arch_desc.byte_order, last);
-  auto it1 = std::find_if(deltas1.begin(), deltas1.end(), [reg_id](const auto& delta) {
-    return delta.reg_id == reg_id;
-  });
+  auto it1 =
+      std::find_if(deltas1.begin(), deltas1.end(), [reg_id](const auto& delta) { return delta.reg_id == reg_id; });
   REQUIRE(it1 != deltas1.end());
   REQUIRE(it1->value.size() >= 2);
   CHECK(it1->value[0] == 0x11);
@@ -231,9 +230,7 @@ TEST_CASE("memory access builder captures inline values and truncation") {
 
   std::vector<w1rewind::pending_memory_access> out;
   uint64_t memory_events = 0;
-  w1rewind::append_memory_access(
-      config, ctx, event, w1::rewind::mem_access_op::read, segments, out, memory_events
-  );
+  w1rewind::append_memory_access(config, ctx, event, w1::rewind::mem_access_op::read, segments, out, memory_events);
 
   REQUIRE(out.size() == 1);
   const auto& record = out.front();

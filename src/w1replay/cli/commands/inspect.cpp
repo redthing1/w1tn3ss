@@ -430,8 +430,7 @@ int inspect(const inspect_options& options) {
             mem_space_label = space->name;
           }
         }
-        out << "  mem[" << mem_space_label << ":" << format_address(mem_dump->address) << ":" << mem_dump->size
-            << "]:";
+        out << "  mem[" << mem_space_label << ":" << format_address(mem_dump->address) << ":" << mem_dump->size << "]:";
         for (const auto& entry : mem_dump->bytes) {
           if (entry.has_value()) {
             out << " " << format_byte(static_cast<std::byte>(*entry), true);
@@ -500,8 +499,7 @@ int inspect(const inspect_options& options) {
           std::cout << "null";
         } else {
           std::ostringstream byte_hex;
-          byte_hex << std::hex << std::setw(2) << std::setfill('0')
-                   << static_cast<int>(*mem_dump->bytes[i]);
+          byte_hex << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(*mem_dump->bytes[i]);
           write_json_string(std::cout, byte_hex.str());
         }
       }

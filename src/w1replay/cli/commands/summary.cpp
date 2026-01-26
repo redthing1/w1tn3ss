@@ -727,9 +727,10 @@ void render_address_spaces_section(const summary_context& ctx) {
   std::vector<std::vector<std::string>> rows;
   rows.reserve(ctx.scan.context.address_spaces.size());
   for (const auto& space : ctx.scan.context.address_spaces) {
-    rows.push_back({format_number(space.space_id), space.name.empty() ? "unknown" : space.name,
-                    space.address_bits == 0 ? "n/a" : format_number(space.address_bits),
-                    format_endian(space.byte_order)});
+    rows.push_back(
+        {format_number(space.space_id), space.name.empty() ? "unknown" : space.name,
+         space.address_bits == 0 ? "n/a" : format_number(space.address_bits), format_endian(space.byte_order)}
+    );
   }
   print_table(columns, rows);
 }
@@ -757,8 +758,10 @@ void render_register_files_section(const summary_context& ctx) {
   std::vector<std::vector<std::string>> rows;
   rows.reserve(ctx.scan.context.register_files.size());
   for (const auto& regfile : ctx.scan.context.register_files) {
-    rows.push_back({format_number(regfile.regfile_id), regfile.name.empty() ? "unknown" : regfile.name,
-                    format_number(regfile.registers.size())});
+    rows.push_back(
+        {format_number(regfile.regfile_id), regfile.name.empty() ? "unknown" : regfile.name,
+         format_number(regfile.registers.size())}
+    );
   }
   print_table(columns, rows);
 }
@@ -794,8 +797,8 @@ void render_images_section(const summary_context& ctx) {
   }
 
   if (!ctx.scan.context.mappings.empty()) {
-    std::vector<column_spec> columns{
-        {"space", false}, {"base", true}, {"size", true}, {"perms", false}, {"image_id", true}, {"name", false}};
+    std::vector<column_spec> columns{{"space", false}, {"base", true},     {"size", true},
+                                     {"perms", false}, {"image_id", true}, {"name", false}};
     std::vector<std::vector<std::string>> rows;
     rows.reserve(ctx.scan.context.mappings.size());
     for (const auto& mapping : ctx.scan.context.mappings) {
@@ -805,9 +808,10 @@ void render_images_section(const summary_context& ctx) {
           space_label = space->name;
         }
       }
-      rows.push_back({space_label, format_address(mapping.base), format_bytes(mapping.size),
-                      format_perms(mapping.perms), format_number(mapping.image_id),
-                      mapping.name.empty() ? "unknown" : mapping.name});
+      rows.push_back(
+          {space_label, format_address(mapping.base), format_bytes(mapping.size), format_perms(mapping.perms),
+           format_number(mapping.image_id), mapping.name.empty() ? "unknown" : mapping.name}
+      );
     }
     print_table(columns, rows);
   }
@@ -851,9 +855,9 @@ void render_threads_section(const summary_context& ctx) {
   }
 
   std::vector<column_spec> columns{
-      {"id", true},        {"name", false},     {"started", false}, {"ended", false},    {"flow_count", true},
-      {"first_seq", true}, {"last_seq", true},  {"anchors", true},  {"reg_writes", true}, {"mem_access", true},
-      {"snapshots", true},
+      {"id", true},         {"name", false},      {"started", false},  {"ended", false},
+      {"flow_count", true}, {"first_seq", true},  {"last_seq", true},  {"anchors", true},
+      {"reg_writes", true}, {"mem_access", true}, {"snapshots", true},
   };
   std::vector<std::vector<std::string>> rows;
   rows.reserve(ctx.scan.context.threads.size());

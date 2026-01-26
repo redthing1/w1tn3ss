@@ -31,9 +31,7 @@ void cmd_inspect(args::Subparser& parser) {
 
   args::ValueFlag<std::string> trace_flag(parser, "path", "path to trace file", {'t', "trace"});
   args::ValueFlag<std::string> index_flag(parser, "path", "path to index file", {'i', "index"});
-  args::ValueFlag<uint32_t> index_stride_flag(
-      parser, "count", "index anchor stride (flow records)", {"index-stride"}
-  );
+  args::ValueFlag<uint32_t> index_stride_flag(parser, "count", "index anchor stride (flow records)", {"index-stride"});
   args::ValueFlag<uint64_t> thread_flag(parser, "thread", "thread id", {'T', "thread"});
   args::ValueFlag<uint64_t> start_flag(parser, "sequence", "start sequence", {'s', "start"});
   args::ValueFlag<uint32_t> count_flag(parser, "count", "number of steps", {'n', "count"});
@@ -49,12 +47,8 @@ void cmd_inspect(args::Subparser& parser) {
       parser, "space", "address space name or id for --mem (example: code or 1)", {"space"}
   );
   args::ValueFlagList<std::string> image_flag(parser, "mapping", "image mapping name=path (repeatable)", {"image"});
-  args::ValueFlagList<std::string> image_dir_flag(
-      parser, "dir", "image search directory (repeatable)", {"image-dir"}
-  );
-  args::ValueFlag<std::string> image_layout_flag(
-      parser, "mode", "image layout source (trace|lief)", {"image-layout"}
-  );
+  args::ValueFlagList<std::string> image_dir_flag(parser, "dir", "image search directory (repeatable)", {"image-dir"});
+  args::ValueFlag<std::string> image_layout_flag(parser, "mode", "image layout source (trace|lief)", {"image-layout"});
   args::ValueFlag<std::string> checkpoint_flag(parser, "path", "path to replay checkpoint file", {"checkpoint"});
   parser.Parse();
 
@@ -188,12 +182,8 @@ void cmd_server(args::Subparser& parser) {
   args::ValueFlag<uint64_t> start_flag(parser, "sequence", "start sequence", {'s', "start"});
   args::Flag inst_flag(parser, "inst", "prefer instruction steps when possible", {"inst"});
   args::ValueFlagList<std::string> image_flag(parser, "mapping", "image mapping name=path (repeatable)", {"image"});
-  args::ValueFlagList<std::string> image_dir_flag(
-      parser, "dir", "image search directory (repeatable)", {"image-dir"}
-  );
-  args::ValueFlag<std::string> image_layout_flag(
-      parser, "mode", "image layout source (trace|lief)", {"image-layout"}
-  );
+  args::ValueFlagList<std::string> image_dir_flag(parser, "dir", "image search directory (repeatable)", {"image-dir"});
+  args::ValueFlag<std::string> image_layout_flag(parser, "mode", "image layout source (trace|lief)", {"image-layout"});
   parser.Parse();
 
   if (!trace_flag) {

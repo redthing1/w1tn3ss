@@ -15,9 +15,7 @@ struct mapping_view {
   uint64_t image_offset = 0;
 };
 
-bool add_overflows(uint64_t base, uint64_t addend) {
-  return base > std::numeric_limits<uint64_t>::max() - addend;
-}
+bool add_overflows(uint64_t base, uint64_t addend) { return base > std::numeric_limits<uint64_t>::max() - addend; }
 
 const w1::rewind::image_record* find_main_image(const adapter_services& services) {
   if (!services.context) {

@@ -120,8 +120,8 @@ image_read_result composite_image_provider::read_address_bytes(
       index = &*stack_index;
     }
   }
-  auto find_blob_index = [&](const w1::rewind::replay_context& ctx, uint64_t image_id, std::string& error)
-      -> const w1::rewind::image_blob_index* {
+  auto find_blob_index = [&](const w1::rewind::replay_context& ctx, uint64_t image_id,
+                             std::string& error) -> const w1::rewind::image_blob_index* {
     if (&ctx == context_) {
       return blob_index_for_image(image_id, error);
     }

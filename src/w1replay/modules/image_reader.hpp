@@ -20,9 +20,7 @@ class image_reader {
 public:
   virtual ~image_reader() = default;
 
-  virtual image_read_result read_image_bytes(
-      const w1::rewind::image_record& image, uint64_t offset, size_t size
-  ) = 0;
+  virtual image_read_result read_image_bytes(const w1::rewind::image_record& image, uint64_t offset, size_t size) = 0;
   virtual image_read_result read_address_bytes(
       const w1::rewind::replay_context& context, uint64_t address, size_t size, uint32_t space_id = 0
   ) = 0;

@@ -100,8 +100,9 @@ void trace_file_writer::close() {
       write_bytes(k_trace_footer_magic.data(), k_trace_footer_magic.size());
       write_u16(k_trace_version);
       uint16_t footer_size = static_cast<uint16_t>(
-          sizeof(k_trace_footer_magic) + sizeof(uint16_t) + sizeof(uint16_t) + sizeof(uint32_t) +
-          sizeof(uint64_t) + sizeof(uint64_t) + sizeof(uint32_t));
+          sizeof(k_trace_footer_magic) + sizeof(uint16_t) + sizeof(uint16_t) + sizeof(uint32_t) + sizeof(uint64_t) +
+          sizeof(uint64_t) + sizeof(uint32_t)
+      );
       write_u16(footer_size);
       write_u32(static_cast<uint32_t>(chunk_directory_.size()));
       write_u64(directory_offset);

@@ -265,9 +265,7 @@ inline std::optional<uint32_t> dwarf_regnum_for_x86_64(std::string_view name) {
   return std::nullopt;
 }
 
-inline std::optional<uint32_t> dwarf_regnum_for_arch(
-    const w1::arch::arch_spec& arch, std::string_view name
-) {
+inline std::optional<uint32_t> dwarf_regnum_for_arch(const w1::arch::arch_spec& arch, std::string_view name) {
   switch (arch.arch_mode) {
   case w1::arch::mode::aarch64:
     return dwarf_regnum_for_aarch64(name);
@@ -372,8 +370,8 @@ inline void write_basic_metadata(
 }
 
 inline void write_image_mapping(
-    trace_builder& builder, uint64_t image_id, uint64_t base, uint64_t size,
-    const std::string& path = "test_module", uint32_t space_id = 0
+    trace_builder& builder, uint64_t image_id, uint64_t base, uint64_t size, const std::string& path = "test_module",
+    uint32_t space_id = 0
 ) {
   image_record image{};
   image.image_id = image_id;
@@ -460,8 +458,7 @@ inline std::vector<uint8_t> encode_value(uint64_t value, uint32_t byte_size, end
 }
 
 inline reg_write_entry make_reg_write_entry(
-    uint32_t reg_id, uint64_t value, uint32_t byte_size = 8, uint32_t byte_offset = 0,
-    endian order = endian::little
+    uint32_t reg_id, uint64_t value, uint32_t byte_size = 8, uint32_t byte_offset = 0, endian order = endian::little
 ) {
   reg_write_entry entry{};
   entry.ref_kind = reg_ref_kind::reg_id;

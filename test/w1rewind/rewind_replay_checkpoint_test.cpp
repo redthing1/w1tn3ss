@@ -51,15 +51,17 @@ TEST_CASE("w1rewind replay checkpoint restores register state") {
     reg_write.regfile_id = 0;
     reg_write.entries.push_back(make_reg_write_entry(0, 0x1000 + seq));
     if (seq == 0) {
-      reg_write.entries.push_back(w1::rewind::reg_write_entry{
-          w1::rewind::reg_ref_kind::reg_id,
-          0,
-          0,
-          16,
-          1,
-          "",
-          {0x10, 0x11, 0x12, 0x13, 0x20, 0x21, 0x22, 0x23, 0x30, 0x31, 0x32, 0x33, 0x40, 0x41, 0x42, 0x43},
-      });
+      reg_write.entries.push_back(
+          w1::rewind::reg_write_entry{
+              w1::rewind::reg_ref_kind::reg_id,
+              0,
+              0,
+              16,
+              1,
+              "",
+              {0x10, 0x11, 0x12, 0x13, 0x20, 0x21, 0x22, 0x23, 0x30, 0x31, 0x32, 0x33, 0x40, 0x41, 0x42, 0x43},
+          }
+      );
     }
     REQUIRE(handle.builder.emit_reg_write(reg_write));
   }
@@ -71,10 +73,12 @@ TEST_CASE("w1rewind replay checkpoint restores register state") {
 
   w1::rewind::trace_index_options index_options;
   auto index = std::make_shared<w1::rewind::trace_index>();
-  REQUIRE(w1::rewind::build_trace_index(
-      trace_path.string(), index_path.string(), index_options, index.get(),
-      redlog::get_logger("test.w1rewind.replay_checkpoint")
-  ));
+  REQUIRE(
+      w1::rewind::build_trace_index(
+          trace_path.string(), index_path.string(), index_options, index.get(),
+          redlog::get_logger("test.w1rewind.replay_checkpoint")
+      )
+  );
 
   w1::rewind::replay_context context;
   std::string context_error;
@@ -228,10 +232,12 @@ TEST_CASE("w1rewind replay checkpoint restores mapping snapshot") {
 
   w1::rewind::trace_index_options index_options;
   auto index = std::make_shared<w1::rewind::trace_index>();
-  REQUIRE(w1::rewind::build_trace_index(
-      trace_path.string(), index_path.string(), index_options, index.get(),
-      redlog::get_logger("test.w1rewind.replay_checkpoint")
-  ));
+  REQUIRE(
+      w1::rewind::build_trace_index(
+          trace_path.string(), index_path.string(), index_options, index.get(),
+          redlog::get_logger("test.w1rewind.replay_checkpoint")
+      )
+  );
 
   w1::rewind::replay_context context;
   std::string context_error;

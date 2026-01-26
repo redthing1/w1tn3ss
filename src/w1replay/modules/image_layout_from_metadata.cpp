@@ -38,10 +38,7 @@ std::optional<uint64_t> resolve_link_base(const w1::rewind::image_metadata_recor
 } // namespace
 
 bool build_layout_from_metadata(
-    const w1::rewind::image_metadata_record& meta,
-    const std::string& path,
-    image_layout& layout,
-    std::string& error
+    const w1::rewind::image_metadata_record& meta, const std::string& path, image_layout& layout, std::string& error
 ) {
   if (meta.segments.empty()) {
     error = "image metadata missing segments";

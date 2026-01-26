@@ -21,9 +21,7 @@ public:
   ) const;
   const mapping_range* find_mapping_after(uint32_t space_id, uint64_t address) const;
 
-  const std::unordered_map<uint32_t, std::vector<mapping_range>>& ranges_by_space() const {
-    return ranges_by_space_;
-  }
+  const std::unordered_map<uint32_t, std::vector<mapping_range>>& ranges_by_space() const { return ranges_by_space_; }
 
   bool snapshot(std::vector<mapping_record>& out, std::string& error) const;
 

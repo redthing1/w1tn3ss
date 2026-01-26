@@ -20,9 +20,7 @@ uint64_t safe_end(uint64_t base, uint64_t size) {
 
 } // namespace
 
-bool build_image_blob_index(
-    std::span<const image_blob_record> blobs, image_blob_index& out, std::string& error
-) {
+bool build_image_blob_index(std::span<const image_blob_record> blobs, image_blob_index& out, std::string& error) {
   error.clear();
   out.spans.clear();
   out.spans.reserve(blobs.size());

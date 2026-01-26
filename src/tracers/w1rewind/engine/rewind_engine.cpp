@@ -223,9 +223,10 @@ bool rewind_engine::start_trace_locked(const w1::util::register_state& regs) {
     return false;
   }
 
-  bool want_registers = config_.registers.deltas || config_.registers.bytes || config_.registers.snapshot_interval > 0 ||
-                        config_.stack_snapshots.interval > 0;
-  bool need_schema = want_registers || config_.stack_window.mode != rewind_config::stack_window_options::window_mode::none;
+  bool want_registers = config_.registers.deltas || config_.registers.bytes ||
+                        config_.registers.snapshot_interval > 0 || config_.stack_snapshots.interval > 0;
+  bool need_schema =
+      want_registers || config_.stack_window.mode != rewind_config::stack_window_options::window_mode::none;
   if (register_schema_.empty() && register_schema_provider_) {
     std::vector<w1::rewind::register_spec> specs;
     std::string error;
@@ -353,8 +354,7 @@ void rewind_engine::flush_pending(std::optional<pending_instruction>& pending) {
 }
 
 bool rewind_engine::emit_snapshot(
-    uint64_t thread_id, uint64_t sequence, uint64_t snapshot_id,
-    std::span<const w1::rewind::reg_write_entry> registers,
+    uint64_t thread_id, uint64_t sequence, uint64_t snapshot_id, std::span<const w1::rewind::reg_write_entry> registers,
     std::span<const w1::rewind::memory_segment> memory_segments
 ) {
   std::lock_guard<std::mutex> lock(mutex_);

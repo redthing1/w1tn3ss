@@ -49,12 +49,11 @@ bool load_trace(const trace_load_options& options, trace_load_result& out) {
     index_options.anchor_stride = options.index_stride;
   }
   std::string index_error;
-  std::filesystem::path index_path = options.index_path.empty()
-                                         ? w1::rewind::default_trace_index_path(options.trace_path)
-                                         : options.index_path;
+  std::filesystem::path index_path =
+      options.index_path.empty() ? w1::rewind::default_trace_index_path(options.trace_path) : options.index_path;
   if (!w1::rewind::ensure_trace_index(
-          std::filesystem::path(options.trace_path), index_path, index_options, index,
-          index_error, options.auto_build_index
+          std::filesystem::path(options.trace_path), index_path, index_options, index, index_error,
+          options.auto_build_index
       )) {
     out.error = index_error.empty() ? "failed to load trace index" : index_error;
     return false;

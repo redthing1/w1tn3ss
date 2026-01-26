@@ -44,9 +44,7 @@ TEST_CASE("rewind trace writer and reader round trip (instructions)") {
   segment.space_id = 0;
   segment.base = 0x3000;
   segment.bytes = {0x10, 0x20};
-  write_snapshot(
-      handle.builder, 1, 1, {make_reg_write_entry(0, 0xAAAA), make_reg_write_entry(1, 0xBBBB)}, {segment}
-  );
+  write_snapshot(handle.builder, 1, 1, {make_reg_write_entry(0, 0xAAAA), make_reg_write_entry(1, 0xBBBB)}, {segment});
 
   write_thread_end(handle.builder, 1);
 
@@ -238,8 +236,8 @@ TEST_CASE("rewind trace writer and reader round trip (image metadata)") {
   w1::rewind::image_metadata_record meta{};
   meta.image_id = 1;
   meta.format = "macho";
-  meta.flags = w1::rewind::image_meta_has_uuid | w1::rewind::image_meta_has_macho_header |
-               w1::rewind::image_meta_has_segments;
+  meta.flags =
+      w1::rewind::image_meta_has_uuid | w1::rewind::image_meta_has_macho_header | w1::rewind::image_meta_has_segments;
   meta.uuid = "TEST-UUID";
   meta.macho_header.magic = 1;
   meta.macho_header.cputype = 2;
@@ -365,8 +363,14 @@ TEST_CASE("rewind trace writer and reader round trip (reg write bytes)") {
   reg_write.regfile_id = 0;
   reg_write.entries = {
       w1::rewind::reg_write_entry{
-          w1::rewind::reg_ref_kind::reg_id, 0, 0, 16, 1, "", {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-                                                               0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f}},
+          w1::rewind::reg_ref_kind::reg_id,
+          0,
+          0,
+          16,
+          1,
+          "",
+          {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f}
+      },
   };
   REQUIRE(handle.builder.emit_reg_write(reg_write));
 

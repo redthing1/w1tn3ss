@@ -8,10 +8,7 @@
 namespace w1replay {
 
 bool build_layout_from_metadata(
-    const w1::rewind::image_metadata_record& meta,
-    const std::string& path,
-    image_layout& layout,
-    std::string& error
+    const w1::rewind::image_metadata_record& meta, const std::string& path, image_layout& layout, std::string& error
 );
 
 } // namespace w1replay

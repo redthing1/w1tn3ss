@@ -15,9 +15,8 @@
 namespace w1::rewind {
 
 namespace {
-constexpr uint64_t k_footer_size =
-    sizeof(k_trace_footer_magic) + sizeof(uint16_t) + sizeof(uint16_t) + sizeof(uint32_t) + sizeof(uint64_t) +
-    sizeof(uint64_t) + sizeof(uint32_t);
+constexpr uint64_t k_footer_size = sizeof(k_trace_footer_magic) + sizeof(uint16_t) + sizeof(uint16_t) +
+                                   sizeof(uint32_t) + sizeof(uint64_t) + sizeof(uint64_t) + sizeof(uint32_t);
 } // namespace
 
 trace_reader::trace_reader(std::string path) : path_(std::move(path)) {}
@@ -411,11 +410,7 @@ bool trace_reader::ensure_chunk_info(uint32_t chunk_index) {
       chunks_.resize(current + 1);
     }
     chunks_[current] = trace_chunk_info{
-        static_cast<uint64_t>(header_pos),
-        compressed_size,
-        uncompressed_size,
-        static_cast<compression>(codec),
-        flags,
+        static_cast<uint64_t>(header_pos), compressed_size, uncompressed_size, static_cast<compression>(codec), flags,
     };
 
     stream_.seekg(static_cast<std::streamoff>(compressed_size), std::ios::cur);
@@ -513,11 +508,7 @@ bool trace_reader::read_chunk_at(uint64_t file_offset, uint32_t chunk_index, con
   }
 
   last_chunk_info_ = trace_chunk_info{
-      static_cast<uint64_t>(header_pos),
-      compressed_size,
-      uncompressed_size,
-      static_cast<compression>(codec),
-      flags,
+      static_cast<uint64_t>(header_pos), compressed_size, uncompressed_size, static_cast<compression>(codec), flags,
   };
   if (chunks_.size() <= chunk_index) {
     chunks_.resize(chunk_index + 1);

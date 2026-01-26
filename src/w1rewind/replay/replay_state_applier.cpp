@@ -3,8 +3,8 @@
 namespace w1::rewind {
 
 bool replay_state_applier::apply_record(
-    const trace_record& record, uint64_t active_thread_id, bool track_registers, bool track_memory,
-    replay_state& state, std::string& error
+    const trace_record& record, uint64_t active_thread_id, bool track_registers, bool track_memory, replay_state& state,
+    std::string& error
 ) const {
   error.clear();
   if (!(track_registers || track_memory) || active_thread_id == 0) {

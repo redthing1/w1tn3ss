@@ -19,8 +19,8 @@ class image_layout_provider {
 public:
   virtual ~image_layout_provider() = default;
   virtual bool build_layout(
-      const w1::rewind::image_record& image, const w1::rewind::image_metadata_record* metadata,
-      const std::string& path, image_layout& layout, image_layout_identity* identity, std::string& error
+      const w1::rewind::image_record& image, const w1::rewind::image_metadata_record* metadata, const std::string& path,
+      image_layout& layout, image_layout_identity* identity, std::string& error
   ) = 0;
 };
 

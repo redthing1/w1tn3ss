@@ -8,7 +8,9 @@ namespace {
 
 std::string lower_ascii(std::string_view value) {
   std::string out(value);
-  std::transform(out.begin(), out.end(), out.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+  std::transform(out.begin(), out.end(), out.begin(), [](unsigned char ch) {
+    return static_cast<char>(std::tolower(ch));
+  });
   return out;
 }
 
