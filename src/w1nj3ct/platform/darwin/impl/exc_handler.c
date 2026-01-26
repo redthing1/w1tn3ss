@@ -126,6 +126,9 @@ kern_return_t catch_mach_exception_raise(
     mach_port_t exception_port, mach_port_t thread_port, mach_port_t task_port, exception_type_t exception_type,
     mach_exception_data_t codes, mach_msg_type_number_t num_codes, injector_t* injector
 ) {
+  (void) exception_port;
+  (void) task_port;
+  (void) num_codes;
   injector->handle_err = 0;
   bool bad_exc = true;
   int rv;
@@ -266,6 +269,15 @@ kern_return_t catch_mach_exception_raise_state(
     mach_msg_type_number_t codeCnt, int* flavor, const thread_state_t old_state, mach_msg_type_number_t old_stateCnt,
     thread_state_t new_state, mach_msg_type_number_t* new_stateCnt
 ) {
+  (void) exception_port;
+  (void) exception;
+  (void) code;
+  (void) codeCnt;
+  (void) flavor;
+  (void) old_state;
+  (void) old_stateCnt;
+  (void) new_state;
+  (void) new_stateCnt;
   return MACH_RCV_INVALID_TYPE;
 }
 
@@ -274,11 +286,22 @@ kern_return_t catch_mach_exception_raise_state_identity(
     mach_exception_data_t code, mach_msg_type_number_t codeCnt, int* flavor, thread_state_t old_state,
     mach_msg_type_number_t old_stateCnt, thread_state_t new_state, mach_msg_type_number_t* new_stateCnt
 ) {
+  (void) exception_port;
+  (void) thread;
+  (void) task;
+  (void) exception;
+  (void) code;
+  (void) codeCnt;
+  (void) flavor;
+  (void) old_state;
+  (void) old_stateCnt;
+  (void) new_state;
+  (void) new_stateCnt;
   return MACH_RCV_INVALID_TYPE;
 }
 
 int injector__release_exc_handler(injector_t* injector) {
-  for (int i = 0; i < injector->saved_exception_types_count; i++) {
+  for (mach_msg_type_number_t i = 0; i < injector->saved_exception_types_count; i++) {
     task_set_exception_ports(
         injector->remote_task, injector->saved_masks[i], injector->saved_ports[i], injector->saved_behaviors[i],
         injector->saved_flavors[i]
