@@ -4,8 +4,11 @@
 #include <string_view>
 
 #include "w1base/string_utils.hpp"
+
 namespace w1::tracers::script::runtime {
 namespace {
+
+bool has_wildcards(std::string_view pattern) { return pattern.find_first_of("*?") != std::string_view::npos; }
 
 sol::table build_state_table(sol::state_view lua, const QBDI::VMState* state) {
   sol::table out = lua.create_table();
@@ -22,77 +25,80 @@ sol::table build_state_table(sol::state_view lua, const QBDI::VMState* state) {
 
 } // namespace
 
-namespace {
-
-bool has_wildcards(std::string_view pattern) { return pattern.find_first_of("*?") != std::string_view::npos; }
-
-} // namespace
-
 callback_registry::callback_registry() : logger_(redlog::get_logger("w1script.callbacks")) {}
 
-uint64_t callback_registry::register_callback(
-    event_type event, sol::protected_function callback, const registration_options& options
+callback_registry::handle_t callback_registry::register_callback(
+    event_type event, sol::protected_function callback, const callback_filter& filter
 ) {
   if (!callback.valid()) {
     return 0;
   }
 
-  callback_entry entry;
-  entry.id = next_id_++;
-  entry.event = event;
-  entry.options = options;
-  if (!entry.options.mnemonic.empty()) {
-    entry.options.mnemonic = w1::util::to_lower(entry.options.mnemonic);
-    entry.options.mnemonic_has_wildcards = has_wildcards(entry.options.mnemonic);
+  callback_filter stored_filter = filter;
+  if (!stored_filter.mnemonic.empty()) {
+    stored_filter.mnemonic = w1::util::to_lower(stored_filter.mnemonic);
+    stored_filter.mnemonic_has_wildcards = has_wildcards(stored_filter.mnemonic);
     mnemonic_filter_counts_[event_index(event)] += 1;
   }
-  entry.callback = std::move(callback);
 
-  callbacks_.emplace(entry.id, entry);
+  slot_index index = allocate_slot();
+  callback_slot& slot = slots_[index];
+  slot.event = event;
+  slot.filter = std::move(stored_filter);
+  slot.callback = std::move(callback);
+  slot.active = true;
+
+  handle_t handle = make_handle(index, slot.generation);
+
   if (dispatch_depth_ > 0) {
-    pending_additions_.emplace_back(event, entry.id);
+    pending_additions_.emplace_back(event, index);
   } else {
-    event_handlers_[event].push_back(entry.id);
+    add_handler(event, index);
   }
 
-  return entry.id;
+  return handle;
 }
 
-bool callback_registry::remove_callback(uint64_t handle) {
-  auto it = callbacks_.find(handle);
-  if (it == callbacks_.end()) {
+bool callback_registry::remove_callback(handle_t handle) {
+  auto parsed = parse_handle(handle);
+  if (!parsed) {
     return false;
   }
 
-  auto event = it->second.event;
-  if (!it->second.options.mnemonic.empty()) {
-    size_t index = event_index(event);
+  callback_slot* slot = get_slot(parsed->index);
+  if (!slot || !slot->active || slot->generation != parsed->generation) {
+    return false;
+  }
+
+  slot->active = false;
+  if (!slot->filter.mnemonic.empty()) {
+    size_t index = event_index(slot->event);
     if (mnemonic_filter_counts_[index] > 0) {
       mnemonic_filter_counts_[index] -= 1;
     }
   }
 
-  callbacks_.erase(it);
   if (dispatch_depth_ > 0) {
-    pending_prune_[event_index(event)] = true;
-  } else {
-    auto handler_it = event_handlers_.find(event);
-    if (handler_it != event_handlers_.end()) {
-      auto& list = handler_it->second;
-      list.erase(std::remove(list.begin(), list.end(), handle), list.end());
-    }
+    pending_free_.push_back(parsed->index);
+    pending_prune_[event_index(slot->event)] = true;
+    return true;
   }
+
+  auto& handlers = handlers_[event_index(slot->event)];
+  handlers.erase(std::remove(handlers.begin(), handlers.end(), parsed->index), handlers.end());
+  release_slot(parsed->index);
   return true;
 }
 
 void callback_registry::shutdown() {
-  callbacks_.clear();
-  event_handlers_.clear();
+  handlers_ = {};
+  slots_.clear();
+  free_list_.clear();
   pending_additions_.clear();
-  pending_prune_.fill(false);
-  mnemonic_filter_counts_.fill(0);
+  pending_free_.clear();
+  pending_prune_ = {};
+  mnemonic_filter_counts_ = {};
   dispatch_depth_ = 0;
-  next_id_ = 1;
 }
 
 QBDI::VMAction callback_registry::dispatch_thread_start(const w1::thread_event& event) {
@@ -181,228 +187,210 @@ QBDI::VMAction callback_registry::dispatch_memory(
   return QBDI::VMAction::CONTINUE;
 }
 
-QBDI::VMAction callback_registry::dispatch_instruction(
-    event_type event_type, const w1::instruction_event& event, QBDI::VMInstanceRef vm, QBDI::GPRState* gpr,
-    QBDI::FPRState* fpr
-) {
-  dispatch_scope guard(*this);
-  auto handler_it = event_handlers_.find(event_type);
-  if (handler_it == event_handlers_.end()) {
-    return QBDI::VMAction::CONTINUE;
+callback_registry::handle_t callback_registry::make_handle(slot_index index, uint32_t generation) const {
+  return (static_cast<uint64_t>(generation) << 32) | (static_cast<uint64_t>(index) + handle_index_bias);
+}
+
+std::optional<callback_registry::handle_parts> callback_registry::parse_handle(handle_t handle) const {
+  if (handle == 0) {
+    return std::nullopt;
   }
 
-  const auto& handlers = handler_it->second;
+  uint32_t raw_index = static_cast<uint32_t>(handle & handle_index_mask);
+  if (raw_index < handle_index_bias) {
+    return std::nullopt;
+  }
+
+  handle_parts parts;
+  parts.index = raw_index - handle_index_bias;
+  parts.generation = static_cast<uint32_t>(handle >> 32);
+  return parts;
+}
+
+callback_registry::callback_slot* callback_registry::get_slot(slot_index index) {
+  if (index >= slots_.size()) {
+    return nullptr;
+  }
+  return &slots_[index];
+}
+
+const callback_registry::callback_slot* callback_registry::get_slot(slot_index index) const {
+  if (index >= slots_.size()) {
+    return nullptr;
+  }
+  return &slots_[index];
+}
+
+callback_registry::slot_index callback_registry::allocate_slot() {
+  slot_index index = 0;
+  if (!free_list_.empty()) {
+    index = free_list_.back();
+    free_list_.pop_back();
+  } else {
+    slots_.push_back(callback_slot{});
+    index = static_cast<slot_index>(slots_.size() - 1);
+  }
+
+  callback_slot& slot = slots_[index];
+  slot.event = event_type::thread_start;
+  slot.filter = callback_filter{};
+  slot.callback = sol::protected_function{};
+  slot.active = false;
+  if (slot.generation == 0) {
+    slot.generation = 1;
+  }
+
+  return index;
+}
+
+void callback_registry::release_slot(slot_index index) {
+  callback_slot* slot = get_slot(index);
+  if (!slot) {
+    return;
+  }
+
+  slot->callback = sol::protected_function{};
+  slot->filter = callback_filter{};
+  slot->event = event_type::thread_start;
+  slot->active = false;
+  slot->generation += 1;
+  if (slot->generation == 0) {
+    slot->generation = 1;
+  }
+  free_list_.push_back(index);
+}
+
+void callback_registry::add_handler(event_type event, slot_index index) {
+  handlers_[event_index(event)].push_back(index);
+}
+
+bool callback_registry::has_mnemonic_filters(event_type event) const {
+  return mnemonic_filter_counts_[event_index(event)] > 0;
+}
+
+QBDI::VMAction callback_registry::dispatch_instruction(
+    event_type event, const w1::instruction_event& event_data, QBDI::VMInstanceRef vm, QBDI::GPRState* gpr,
+    QBDI::FPRState* fpr
+) {
   std::string mnemonic_lower;
-  if (mnemonic_filter_counts_[event_index(event_type)] > 0 && vm) {
+  if (has_mnemonic_filters(event) && vm) {
     const QBDI::InstAnalysis* analysis = vm->getInstAnalysis(QBDI::ANALYSIS_INSTRUCTION);
     if (analysis && analysis->mnemonic) {
       mnemonic_lower = w1::util::to_lower(analysis->mnemonic);
     }
   }
 
-  for (uint64_t id : handlers) {
-    auto entry_it = callbacks_.find(id);
-    if (entry_it == callbacks_.end()) {
-      continue;
-    }
-    const auto& entry = entry_it->second;
-    if (!matches_address(entry.options, event.address)) {
-      continue;
-    }
-
-    if (!entry.options.mnemonic.empty()) {
-      if (mnemonic_lower.empty()) {
-        continue;
-      }
-      if (entry.options.mnemonic_has_wildcards) {
-        if (!is_mnemonic_match(entry.options.mnemonic, mnemonic_lower)) {
-          continue;
+  return dispatch_handlers(
+      event,
+      [&](const callback_slot& slot) {
+        if (!matches_address(slot.filter, event_data.address)) {
+          return false;
         }
-      } else if (entry.options.mnemonic != mnemonic_lower) {
-        continue;
-      }
-    }
-
-    auto result = entry.callback(vm, gpr, fpr);
-    QBDI::VMAction action = resolve_action(result);
-    if (action != QBDI::VMAction::CONTINUE) {
-      return action;
-    }
-  }
-
-  return QBDI::VMAction::CONTINUE;
+        if (!slot.filter.mnemonic.empty()) {
+          if (mnemonic_lower.empty()) {
+            return false;
+          }
+          if (slot.filter.mnemonic_has_wildcards) {
+            return is_mnemonic_match(slot.filter.mnemonic, mnemonic_lower);
+          }
+          return slot.filter.mnemonic == mnemonic_lower;
+        }
+        return true;
+      },
+      [&](callback_slot& slot) { return slot.callback(vm, gpr, fpr); }
+  );
 }
 
 QBDI::VMAction callback_registry::dispatch_basic_block(
-    event_type event_type, const w1::basic_block_event& event, QBDI::VMInstanceRef vm, const QBDI::VMState* state,
+    event_type event, const w1::basic_block_event& event_data, QBDI::VMInstanceRef vm, const QBDI::VMState* state,
     QBDI::GPRState* gpr, QBDI::FPRState* fpr
 ) {
-  dispatch_scope guard(*this);
-  auto handler_it = event_handlers_.find(event_type);
-  if (handler_it == event_handlers_.end()) {
-    return QBDI::VMAction::CONTINUE;
-  }
-
-  const auto& handlers = handler_it->second;
-  for (uint64_t id : handlers) {
-    auto entry_it = callbacks_.find(id);
-    if (entry_it == callbacks_.end()) {
-      continue;
-    }
-    const auto& entry = entry_it->second;
-    if (!matches_address(entry.options, event.address)) {
-      continue;
-    }
-
-    sol::state_view lua(entry.callback.lua_state());
-    sol::table state_table = build_state_table(lua, state);
-    auto result = entry.callback(vm, state_table, gpr, fpr);
-    QBDI::VMAction action = resolve_action(result);
-    if (action != QBDI::VMAction::CONTINUE) {
-      return action;
-    }
-  }
-
-  return QBDI::VMAction::CONTINUE;
+  return dispatch_handlers(
+      event, [&](const callback_slot& slot) { return matches_address(slot.filter, event_data.address); },
+      [&](callback_slot& slot) {
+        sol::state_view lua(slot.callback.lua_state());
+        sol::table state_table = build_state_table(lua, state);
+        return slot.callback(vm, state_table, gpr, fpr);
+      }
+  );
 }
 
 QBDI::VMAction callback_registry::dispatch_exec_transfer(
-    event_type event_type, [[maybe_unused]] const w1::exec_transfer_event& event, QBDI::VMInstanceRef vm,
-    const QBDI::VMState* state, QBDI::GPRState* gpr, QBDI::FPRState* fpr
+    event_type event, const w1::exec_transfer_event&, QBDI::VMInstanceRef vm, const QBDI::VMState* state,
+    QBDI::GPRState* gpr, QBDI::FPRState* fpr
 ) {
-  dispatch_scope guard(*this);
-  auto handler_it = event_handlers_.find(event_type);
-  if (handler_it == event_handlers_.end()) {
-    return QBDI::VMAction::CONTINUE;
-  }
-
-  const auto& handlers = handler_it->second;
-  for (uint64_t id : handlers) {
-    auto entry_it = callbacks_.find(id);
-    if (entry_it == callbacks_.end()) {
-      continue;
-    }
-    const auto& entry = entry_it->second;
-    sol::state_view lua(entry.callback.lua_state());
-    sol::table state_table = build_state_table(lua, state);
-    auto result = entry.callback(vm, state_table, gpr, fpr);
-    QBDI::VMAction action = resolve_action(result);
-    if (action != QBDI::VMAction::CONTINUE) {
-      return action;
-    }
-  }
-
-  return QBDI::VMAction::CONTINUE;
+  return dispatch_handlers(
+      event, [](const callback_slot&) { return true; },
+      [&](callback_slot& slot) {
+        sol::state_view lua(slot.callback.lua_state());
+        sol::table state_table = build_state_table(lua, state);
+        return slot.callback(vm, state_table, gpr, fpr);
+      }
+  );
 }
 
 QBDI::VMAction callback_registry::dispatch_sequence(
-    event_type event_type, [[maybe_unused]] const w1::sequence_event& event, QBDI::VMInstanceRef vm,
-    const QBDI::VMState* state, QBDI::GPRState* gpr, QBDI::FPRState* fpr
+    event_type event, const w1::sequence_event&, QBDI::VMInstanceRef vm, const QBDI::VMState* state,
+    QBDI::GPRState* gpr, QBDI::FPRState* fpr
 ) {
-  dispatch_scope guard(*this);
-  auto handler_it = event_handlers_.find(event_type);
-  if (handler_it == event_handlers_.end()) {
-    return QBDI::VMAction::CONTINUE;
-  }
-
-  const auto& handlers = handler_it->second;
-  for (uint64_t id : handlers) {
-    auto entry_it = callbacks_.find(id);
-    if (entry_it == callbacks_.end()) {
-      continue;
-    }
-    const auto& entry = entry_it->second;
-    sol::state_view lua(entry.callback.lua_state());
-    sol::table state_table = build_state_table(lua, state);
-    auto result = entry.callback(vm, state_table, gpr, fpr);
-    QBDI::VMAction action = resolve_action(result);
-    if (action != QBDI::VMAction::CONTINUE) {
-      return action;
-    }
-  }
-
-  return QBDI::VMAction::CONTINUE;
+  return dispatch_handlers(
+      event, [](const callback_slot&) { return true; },
+      [&](callback_slot& slot) {
+        sol::state_view lua(slot.callback.lua_state());
+        sol::table state_table = build_state_table(lua, state);
+        return slot.callback(vm, state_table, gpr, fpr);
+      }
+  );
 }
 
-QBDI::VMAction callback_registry::dispatch_thread(event_type event_type, const w1::thread_event& event) {
-  dispatch_scope guard(*this);
-  auto handler_it = event_handlers_.find(event_type);
-  if (handler_it == event_handlers_.end()) {
-    return QBDI::VMAction::CONTINUE;
-  }
-
-  const auto& handlers = handler_it->second;
-  for (uint64_t id : handlers) {
-    auto entry_it = callbacks_.find(id);
-    if (entry_it == callbacks_.end()) {
-      continue;
-    }
-    const auto& entry = entry_it->second;
-    sol::state_view lua(entry.callback.lua_state());
-    sol::table thread_info = lua.create_table();
-    thread_info["thread_id"] = event.thread_id;
-    thread_info["name"] = event.name ? event.name : "";
-
-    auto result = entry.callback(thread_info);
-    QBDI::VMAction action = resolve_action(result);
-    if (action != QBDI::VMAction::CONTINUE) {
-      return action;
-    }
-  }
-
-  return QBDI::VMAction::CONTINUE;
+QBDI::VMAction callback_registry::dispatch_thread(event_type event, const w1::thread_event& event_data) {
+  return dispatch_handlers(
+      event, [](const callback_slot&) { return true; },
+      [&](callback_slot& slot) {
+        sol::state_view lua(slot.callback.lua_state());
+        sol::table thread_info = lua.create_table();
+        thread_info["thread_id"] = event_data.thread_id;
+        thread_info["name"] = event_data.name ? event_data.name : "";
+        return slot.callback(thread_info);
+      }
+  );
 }
 
 QBDI::VMAction callback_registry::dispatch_memory_event(
-    event_type event_type, const w1::memory_event& event, QBDI::VMInstanceRef vm, QBDI::GPRState* gpr,
+    event_type event, const w1::memory_event& event_data, QBDI::VMInstanceRef vm, QBDI::GPRState* gpr,
     QBDI::FPRState* fpr
 ) {
-  dispatch_scope guard(*this);
-  auto handler_it = event_handlers_.find(event_type);
-  if (handler_it == event_handlers_.end()) {
-    return QBDI::VMAction::CONTINUE;
-  }
-
-  const auto& handlers = handler_it->second;
-  for (uint64_t id : handlers) {
-    auto entry_it = callbacks_.find(id);
-    if (entry_it == callbacks_.end()) {
-      continue;
-    }
-    const auto& entry = entry_it->second;
-    if (!matches_address(entry.options, event.address)) {
-      continue;
-    }
-
-    if (entry.options.access_type) {
-      auto access_type = *entry.options.access_type;
-      if ((access_type & QBDI::MEMORY_READ) != 0 && !event.is_read) {
-        continue;
+  return dispatch_handlers(
+      event,
+      [&](const callback_slot& slot) {
+        if (!matches_address(slot.filter, event_data.address)) {
+          return false;
+        }
+        if (slot.filter.access_type) {
+          auto access_type = *slot.filter.access_type;
+          if ((access_type & QBDI::MEMORY_READ) != 0 && !event_data.is_read) {
+            return false;
+          }
+          if ((access_type & QBDI::MEMORY_WRITE) != 0 && !event_data.is_write) {
+            return false;
+          }
+        }
+        return true;
+      },
+      [&](callback_slot& slot) {
+        sol::state_view lua(slot.callback.lua_state());
+        sol::table access = lua.create_table();
+        access["address"] = event_data.address;
+        access["instruction_address"] = event_data.instruction_address;
+        access["size"] = event_data.size;
+        access["flags"] = event_data.flags;
+        access["value"] = event_data.value_valid ? sol::make_object(lua, event_data.value) : sol::lua_nil;
+        access["value_valid"] = event_data.value_valid;
+        access["is_read"] = event_data.is_read;
+        access["is_write"] = event_data.is_write;
+        return slot.callback(vm, gpr, fpr, access);
       }
-      if ((access_type & QBDI::MEMORY_WRITE) != 0 && !event.is_write) {
-        continue;
-      }
-    }
-
-    sol::state_view lua(entry.callback.lua_state());
-    sol::table access = lua.create_table();
-    access["address"] = event.address;
-    access["instruction_address"] = event.instruction_address;
-    access["size"] = event.size;
-    access["flags"] = event.flags;
-    access["value"] = event.value_valid ? sol::make_object(lua, event.value) : sol::lua_nil;
-    access["value_valid"] = event.value_valid;
-    access["is_read"] = event.is_read;
-    access["is_write"] = event.is_write;
-
-    auto result = entry.callback(vm, gpr, fpr, access);
-    QBDI::VMAction action = resolve_action(result);
-    if (action != QBDI::VMAction::CONTINUE) {
-      return action;
-    }
-  }
-
-  return QBDI::VMAction::CONTINUE;
+  );
 }
 
 QBDI::VMAction callback_registry::resolve_action(const sol::protected_function_result& result) {
@@ -444,14 +432,16 @@ bool callback_registry::is_mnemonic_match(std::string_view pattern, std::string_
     }
 
     if (p_index < pattern.size() && pattern[p_index] == '*') {
-      star_index = p_index++;
+      star_index = p_index;
       match_index = m_index;
+      ++p_index;
       continue;
     }
 
     if (star_index != std::string::npos) {
       p_index = star_index + 1;
-      m_index = ++match_index;
+      ++match_index;
+      m_index = match_index;
       continue;
     }
 
@@ -465,13 +455,13 @@ bool callback_registry::is_mnemonic_match(std::string_view pattern, std::string_
   return p_index == pattern.size();
 }
 
-bool callback_registry::matches_address(const registration_options& options, uint64_t address) const {
-  if (options.address) {
-    return address == *options.address;
+bool callback_registry::matches_address(const callback_filter& filter, uint64_t address) const {
+  if (filter.address) {
+    return address == *filter.address;
   }
 
-  if (options.start && options.end) {
-    return address >= *options.start && address < *options.end;
+  if (filter.start && filter.end) {
+    return address >= *filter.start && address < *filter.end;
   }
 
   return true;
@@ -490,7 +480,7 @@ void callback_registry::finish_dispatch() {
 void callback_registry::flush_pending() {
   if (!pending_additions_.empty()) {
     for (const auto& entry : pending_additions_) {
-      event_handlers_[entry.first].push_back(entry.second);
+      add_handler(entry.first, entry.second);
     }
     pending_additions_.clear();
   }
@@ -500,18 +490,31 @@ void callback_registry::flush_pending() {
       continue;
     }
     pending_prune_[index] = false;
-    auto type = static_cast<event_type>(index);
-    auto handler_it = event_handlers_.find(type);
-    if (handler_it == event_handlers_.end()) {
-      continue;
-    }
-    auto& handlers = handler_it->second;
+
+    auto& handlers = handlers_[index];
     handlers.erase(
         std::remove_if(
-            handlers.begin(), handlers.end(), [this](uint64_t id) { return callbacks_.find(id) == callbacks_.end(); }
+            handlers.begin(), handlers.end(),
+            [&](slot_index slot_id) {
+              const callback_slot* slot = get_slot(slot_id);
+              if (!slot) {
+                return true;
+              }
+              if (!slot->active) {
+                return true;
+              }
+              return event_index(slot->event) != index;
+            }
         ),
         handlers.end()
     );
+  }
+
+  if (!pending_free_.empty()) {
+    for (slot_index index : pending_free_) {
+      release_slot(index);
+    }
+    pending_free_.clear();
   }
 }
 

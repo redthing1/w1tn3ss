@@ -51,8 +51,8 @@ std::optional<event_type> parse_event(const sol::object& value) {
   return std::nullopt;
 }
 
-runtime::callback_registry::registration_options parse_options(const sol::optional<sol::table>& opts) {
-  runtime::callback_registry::registration_options options;
+runtime::callback_registry::callback_filter parse_options(const sol::optional<sol::table>& opts) {
+  runtime::callback_registry::callback_filter options;
 
   if (!opts) {
     return options;
