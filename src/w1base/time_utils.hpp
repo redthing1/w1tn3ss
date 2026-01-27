@@ -19,7 +19,8 @@ inline std::string format_timestamp_local_ms(uint64_t ms_since_epoch, const char
 }
 
 inline std::string format_timestamp_utc_iso8601_ms(
-    std::chrono::system_clock::time_point tp = std::chrono::system_clock::now()) {
+    std::chrono::system_clock::time_point tp = std::chrono::system_clock::now()
+) {
   auto time_t = std::chrono::system_clock::to_time_t(tp);
   auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(tp.time_since_epoch()) % 1000;
 

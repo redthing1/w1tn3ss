@@ -63,9 +63,7 @@ inline std::string format_hex(uint64_t value, size_t width = 0, bool prefix = tr
   return out.str();
 }
 
-inline std::string format_address(uint64_t address) {
-  return format_hex(address, 0, true);
-}
+inline std::string format_address(uint64_t address) { return format_hex(address, 0, true); }
 
 inline std::string format_hex_byte(std::byte value, bool known = true) {
   if (!known) {

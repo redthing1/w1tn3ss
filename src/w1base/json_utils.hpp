@@ -51,8 +51,6 @@ inline std::string quote_json_string(std::string_view value) {
   return out;
 }
 
-inline void write_json_string(std::ostream& out, std::string_view value) {
-  out << quote_json_string(value);
-}
+inline void write_json_string(std::ostream& out, std::string_view value) { out << quote_json_string(value); }
 
 } // namespace w1::util
