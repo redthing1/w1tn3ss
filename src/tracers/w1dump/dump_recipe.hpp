@@ -37,10 +37,20 @@ struct dump_recipe {
     auto log = redlog::get_logger("w1dump.preload");
     log.inf(
         "qbdipreload_on_run configured", redlog::field("output", config.output),
-        redlog::field("dump_on_entry", config.dump_on_entry), redlog::field("dump_memory", config.dump_memory_content),
+        redlog::field("trigger", dump_config::trigger_name(config.trigger)),
+        redlog::field("dump_memory", config.dump_memory_content),
         redlog::field("filters", static_cast<uint64_t>(config.filters.size())),
         redlog::field("max_region_size", config.max_region_size)
     );
+    if (config.trigger_address) {
+      log.inf("dump trigger address", redlog::field("address", "0x%llx", config.trigger_address.value()));
+    }
+    if (!config.trigger_module.empty()) {
+      log.inf("dump trigger module", redlog::field("module", config.trigger_module));
+    }
+    if (config.trigger_offset) {
+      log.inf("dump trigger offset", redlog::field("offset", "0x%llx", config.trigger_offset.value()));
+    }
   }
 
   static runtime_t make_runtime(const config_t& config) { return make_dump_runtime(config); }

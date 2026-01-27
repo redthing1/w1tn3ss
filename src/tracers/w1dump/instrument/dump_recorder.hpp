@@ -1,6 +1,8 @@
 #pragma once
 
+#include <cstdint>
 #include <memory>
+#include <optional>
 
 #include <QBDI.h>
 
@@ -37,7 +39,14 @@ public:
   bool dump_completed() const;
 
 private:
+  std::optional<uint64_t> resolve_module_trigger(w1::trace_context& ctx);
+  bool should_dump_on_instruction(const w1::instruction_event& event, w1::trace_context& ctx);
+
   std::shared_ptr<dump_engine> engine_;
+  std::optional<uint64_t> resolved_address_;
+  uint64_t resolved_module_version_ = 0;
+  bool logged_invalid_trigger_ = false;
+  bool logged_missing_module_ = false;
 };
 
 } // namespace w1dump

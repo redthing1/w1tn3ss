@@ -231,6 +231,18 @@ void cmd_dump(args::Subparser& parser) {
   args::ValueFlag<std::string> name(parser, "name", "process name to attach to", {'n', "name"});
   args::ValueFlag<std::string> output(parser, "path", "output file path", {'o', "output"});
   args::Flag memory(parser, "memory", "dump memory content", {"memory"});
+  args::ValueFlag<std::string> trigger(
+      parser, "trigger", "dump trigger (entry, instruction, address, module-offset)", {"trigger"}
+  );
+  args::ValueFlag<std::string> trigger_address(
+      parser, "address", "absolute address for address trigger", {"trigger-address"}
+  );
+  args::ValueFlag<std::string> trigger_module(
+      parser, "module", "module name/path for module-offset trigger", {"trigger-module"}
+  );
+  args::ValueFlag<std::string> trigger_offset(
+      parser, "offset", "module offset for module-offset trigger", {"trigger-offset"}
+  );
   args::ValueFlagList<std::string> config(parser, "config", "configuration key=value pairs", {'c', "config"});
   args::ValueFlagList<std::string> filter(
       parser, "filter", "filter regions (format: type[:module1,module2])", {'f', "filter"}
@@ -245,8 +257,8 @@ void cmd_dump(args::Subparser& parser) {
   parser.Parse();
 
   w1tool::commands::dump(
-      library, spawn, pid, name, output, memory, config, filter, max_region_size, debug_level, suspended, no_aslr, args,
-      g_executable_path
+      library, spawn, pid, name, output, memory, trigger, trigger_address, trigger_module, trigger_offset, config,
+      filter, max_region_size, debug_level, suspended, no_aslr, args, g_executable_path
   );
 }
 

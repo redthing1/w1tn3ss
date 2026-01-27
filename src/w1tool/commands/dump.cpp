@@ -16,6 +16,8 @@ namespace w1tool::commands {
 int dump(
     args::ValueFlag<std::string>& library_flag, args::Flag& spawn_flag, args::ValueFlag<int>& pid_flag,
     args::ValueFlag<std::string>& name_flag, args::ValueFlag<std::string>& output_flag, args::Flag& memory_flag,
+    args::ValueFlag<std::string>& trigger_flag, args::ValueFlag<std::string>& trigger_address_flag,
+    args::ValueFlag<std::string>& trigger_module_flag, args::ValueFlag<std::string>& trigger_offset_flag,
     args::ValueFlagList<std::string>& config_flags, args::ValueFlagList<std::string>& filter_flag,
     args::ValueFlag<std::string>& max_region_size_flag, args::ValueFlag<int>& debug_level_flag,
     args::Flag& suspended_flag, args::Flag& no_aslr_flag, args::PositionalList<std::string>& args_list,
@@ -59,6 +61,49 @@ int dump(
     params.config_map["dump_memory_content"] = "false";
   }
 
+  auto set_trigger = [&](const std::string& trigger) {
+    if (!trigger.empty()) {
+      params.config_map["trigger"] = trigger;
+    }
+  };
+
+  std::string trigger;
+  if (trigger_flag) {
+    trigger = args::get(trigger_flag);
+  }
+
+  if (trigger.empty()) {
+    if (trigger_address_flag) {
+      trigger = "address";
+    } else if (trigger_module_flag || trigger_offset_flag) {
+      trigger = "module-offset";
+    }
+  }
+
+  if (!trigger.empty()) {
+    if (trigger != "entry" && trigger != "instruction" && trigger != "address" && trigger != "module-offset" &&
+        trigger != "module_offset") {
+      log.err("invalid trigger type", redlog::field("trigger", trigger));
+      return 1;
+    }
+    set_trigger(trigger);
+  }
+
+  if (trigger == "address") {
+    if (!trigger_address_flag) {
+      log.err("trigger address required for address trigger");
+      return 1;
+    }
+    params.config_map["trigger_address"] = args::get(trigger_address_flag);
+  } else if (trigger == "module-offset" || trigger == "module_offset") {
+    if (!trigger_module_flag || !trigger_offset_flag) {
+      log.err("trigger module and offset required for module-offset trigger");
+      return 1;
+    }
+    params.config_map["trigger_module"] = args::get(trigger_module_flag);
+    params.config_map["trigger_offset"] = args::get(trigger_offset_flag);
+  }
+
   // parse and validate filters
   if (filter_flag) {
     std::vector<std::string> filter_strings = args::get(filter_flag);
@@ -74,9 +119,6 @@ int dump(
     std::string size_str = args::get(max_region_size_flag);
     params.config_map["max_region_size"] = size_str;
   }
-
-  // dump on entry is always true for this command
-  params.config_map["dump_on_entry"] = "true";
 
   // set target
   std::string target_error;
