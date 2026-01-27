@@ -6,6 +6,7 @@ find_package(Threads REQUIRED)
 w1_add_executable(w1replay
     cli/main.cpp
     cli/commands/checkpoint.cpp
+    cli/commands/coverage.cpp
     cli/commands/inspect.cpp
     cli/commands/server.cpp
     cli/commands/summary.cpp

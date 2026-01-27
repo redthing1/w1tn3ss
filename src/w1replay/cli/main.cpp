@@ -8,6 +8,7 @@
 #include "w1base/cli/verbosity.hpp"
 
 #include "w1replay/cli/commands/checkpoint.hpp"
+#include "w1replay/cli/commands/coverage.hpp"
 #include "w1replay/cli/commands/inspect.hpp"
 #include "w1replay/cli/commands/server.hpp"
 #include "w1replay/cli/commands/summary.hpp"
@@ -144,6 +145,45 @@ void cmd_summary(args::Subparser& parser) {
   g_exit_code = w1replay::commands::summary(options);
 }
 
+void cmd_coverage(args::Subparser& parser) {
+  cli::apply_verbosity();
+
+  args::ValueFlag<std::string> trace_flag(parser, "path", "path to trace file", {'t', "trace"});
+  args::ValueFlag<std::string> output_flag(parser, "path", "output drcov path", {'o', "output"});
+  args::ValueFlag<std::string> flow_flag(parser, "mode", "flow mode (auto, blocks, instructions)", {"flow"});
+  args::ValueFlag<uint64_t> thread_flag(parser, "thread", "thread id (default: all)", {'T', "thread"});
+  args::ValueFlag<std::string> space_flag(parser, "space", "address space name or id", {"space"});
+  args::ValueFlagList<std::string> image_flag(parser, "mapping", "image mapping name=path (repeatable)", {"image"});
+  args::ValueFlagList<std::string> image_dir_flag(parser, "dir", "image search directory (repeatable)", {"image-dir"});
+  args::Flag include_unknown_flag(
+      parser, "include", "include unnamed/unknown mappings as pseudo-modules", {"include-unknown"}
+  );
+  parser.Parse();
+
+  if (!trace_flag) {
+    log_main.err("trace path required");
+    std::cerr << "error: --trace is required" << std::endl;
+    g_exit_code = 1;
+    return;
+  }
+
+  w1replay::commands::coverage_options options;
+  options.trace_path = *trace_flag;
+  options.output_path = output_flag ? *output_flag : "";
+  options.flow = flow_flag ? *flow_flag : "auto";
+  options.thread_id = thread_flag ? *thread_flag : 0;
+  options.space = space_flag ? *space_flag : "";
+  options.include_unknown = include_unknown_flag;
+  if (image_flag) {
+    options.image_mappings = args::get(image_flag);
+  }
+  if (image_dir_flag) {
+    options.image_dirs = args::get(image_dir_flag);
+  }
+
+  g_exit_code = w1replay::commands::coverage(options);
+}
+
 void cmd_checkpoint(args::Subparser& parser) {
   cli::apply_verbosity();
 
@@ -231,6 +271,7 @@ int main(int argc, char* argv[]) {
   args::Command inspect_cmd(commands, "inspect", "inspect a rewind trace", &cmd_inspect);
   args::Command threads_cmd(commands, "threads", "list threads in a rewind trace", &cmd_threads);
   args::Command summary_cmd(commands, "summary", "summarize a rewind trace", &cmd_summary);
+  args::Command coverage_cmd(commands, "coverage", "export drcov coverage from a rewind trace", &cmd_coverage);
   args::Command checkpoint_cmd(commands, "checkpoint", "build a replay checkpoint file", &cmd_checkpoint);
   args::Command server_cmd(commands, "server", "run gdbstub server for a rewind trace", &cmd_server);
 
