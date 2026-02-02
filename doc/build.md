@@ -39,6 +39,8 @@ cmake --build build-release --parallel
 
 ## windows
 
+for linux-hosted windows builds via docker + wine, see [doc/wincross_build.md](./wincross_build.md).
+
 ```powershell
 $env:VCPKG_ROOT = "path\to\vcpkg"
 ```

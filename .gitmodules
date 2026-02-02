@@ -37,3 +37,6 @@
 [submodule "src/third_party/keystone"]
 	path = src/third_party/keystone
 	url = https://github.com/redthing1/keystone-engine
+[submodule "tools/wincross"]
+	path = tools/wincross
+	url = https://github.com/redthing1/wincross

@@ -1,0 +1,100 @@
+version = 1
+default_profile = "w1tn3ss"
+image = "msvc-wine:buildtools"
+
+[path]
+prepend = ["{state_dir}/bin"]
+
+[env]
+WINCROSS_TARGET_PLATFORM = "windows"
+WINCROSS_C_COMPILER = "{state_dir}/bin/clang-cl"
+WINCROSS_CXX_COMPILER = "{state_dir}/bin/clang-cl"
+WINCROSS_LINKER = "{state_dir}/bin/lld-link"
+WINCROSS_AR = "{state_dir}/bin/lib"
+WINCROSS_NATIVE_CC = "/usr/bin/clang"
+WINCROSS_NATIVE_CXX = "/usr/bin/clang++"
+
+[toolchains.llvm]
+container_path = "/opt/llvm-21"
+read_only = true
+path_prepend = ["/opt/llvm-21/bin"]
+
+[cmake]
+generator = "Ninja"
+build_type = "Release"
+build_dir = ".wincross/build-windows"
+defaults = [
+  "-DCMAKE_SYSTEM_NAME=Windows",
+  "-DCMAKE_TOOLCHAIN_FILE={state_dir}/vcpkg/scripts/buildsystems/vcpkg.cmake",
+  "-DVCPKG_TARGET_TRIPLET=x64-windows-wincross-static",
+  "-Dzstd_DIR={state_dir}/vcpkg/installed/x64-windows-wincross-static/share/zstd",
+  "-DWITNESS_ARCH=x64",
+  "-DWITNESS_SCRIPT=ON",
+  "-DWITNESS_LIEF=ON",
+  "-DWITNESS_ASMR=ON",
+  "-DWITNESS_SCRIPT_ENGINE=js",
+  "-DWITNESS_REQUIRE_ZSTD=ON",
+  "-DWITNESS_STATIC_MSVC_RUNTIME=ON",
+  "-DCMAKE_CROSSCOMPILING_EMULATOR={state_dir}/bin/wincross-emulator",
+  "-DCMAKE_C_COMPILER={state_dir}/bin/clang-cl",
+  "-DCMAKE_CXX_COMPILER={state_dir}/bin/clang-cl",
+  "-DCMAKE_LINKER={state_dir}/bin/lld-link",
+  "-DCMAKE_ASM_COMPILER=ml64",
+  "-DCMAKE_RC_COMPILER=rc",
+  "-DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded",
+  "-DCMAKE_POLICY_DEFAULT_CMP0141=NEW",
+  "-DCMAKE_MT={state_dir}/mt-wrapper.sh",
+]
+
+[wincross]
+winepath_prepend = [
+  "/opt/llvm-21/bin",
+  "{state_dir}/vcpkg/installed/x64-windows-wincross-static/bin",
+]
+
+[wincross.emulator_env]
+CC = "z:\\\\opt\\\\llvm-21\\\\bin\\\\clang-cl.exe"
+CXX = "z:\\\\opt\\\\llvm-21\\\\bin\\\\clang-cl.exe"
+
+[[wincross.winexe_wrappers]]
+name = "clang"
+exe = "/opt/llvm-21/bin/clang.exe"
+msvc_env = true
+
+[[wincross.winexe_wrappers]]
+name = "clang++"
+exe = "/opt/llvm-21/bin/clang++.exe"
+msvc_env = true
+
+[[wincross.winexe_wrappers]]
+name = "clang-cl"
+exe = "/opt/llvm-21/bin/clang-cl.exe"
+msvc_env = true
+
+[[wincross.winexe_wrappers]]
+name = "lld-link"
+exe = "/opt/llvm-21/bin/lld-link.exe"
+msvc_env = true
+
+[[wincross.winexe_wrappers]]
+name = "lib"
+exe = "/opt/msvc/bin/x64/lib.exe"
+msvc_env = true
+
+[[wincross.winexe_wrappers]]
+name = "llvm-link"
+exe = "/opt/llvm-21/bin/llvm-link.exe"
+
+[[wincross.winexe_wrappers]]
+name = "opt"
+exe = "/opt/llvm-21/bin/opt.exe"
+
+[[wincross.winexe_wrappers]]
+name = "llvm-objdump"
+exe = "/opt/llvm-21/bin/llvm-objdump.exe"
+
+[vcpkg]
+enabled = true
+triplet = "x64-windows-wincross-static"
+overlay_triplets = ["{config_dir}/vcpkg-triplets"]
+packages = ["zstd"]

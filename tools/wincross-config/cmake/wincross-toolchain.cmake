@@ -1,0 +1,86 @@
+set(CMAKE_SYSTEM_NAME Windows)
+
+if(POLICY CMP0141)
+  cmake_policy(SET CMP0141 NEW)
+endif()
+
+if(NOT DEFINED WINCROSS_STRIP_DIA)
+  set(WINCROSS_STRIP_DIA ON CACHE BOOL "Strip DIA SDK libs from LLVM imported targets")
+endif()
+
+if(DEFINED ENV{WINCROSS_MSVC_BIN} AND NOT "$ENV{WINCROSS_MSVC_BIN}" STREQUAL "")
+  set(_wincross_msvc_bin "$ENV{WINCROSS_MSVC_BIN}")
+else()
+  set(_wincross_msvc_bin "/opt/msvc/bin/x64")
+endif()
+
+if(DEFINED ENV{WINCROSS_C_COMPILER} AND NOT "$ENV{WINCROSS_C_COMPILER}" STREQUAL "")
+  set(CMAKE_C_COMPILER "$ENV{WINCROSS_C_COMPILER}")
+else()
+  set(CMAKE_C_COMPILER "${_wincross_msvc_bin}/cl")
+endif()
+
+if(DEFINED ENV{WINCROSS_CXX_COMPILER} AND NOT "$ENV{WINCROSS_CXX_COMPILER}" STREQUAL "")
+  set(CMAKE_CXX_COMPILER "$ENV{WINCROSS_CXX_COMPILER}")
+else()
+  set(CMAKE_CXX_COMPILER "${_wincross_msvc_bin}/cl")
+endif()
+
+if(DEFINED ENV{WINCROSS_LINKER} AND NOT "$ENV{WINCROSS_LINKER}" STREQUAL "")
+  set(CMAKE_LINKER "$ENV{WINCROSS_LINKER}")
+endif()
+
+if(DEFINED ENV{WINCROSS_AR} AND NOT "$ENV{WINCROSS_AR}" STREQUAL "")
+  set(_wincross_ar "$ENV{WINCROSS_AR}")
+elseif(NOT DEFINED CMAKE_AR)
+  set(_wincross_ar "lib")
+endif()
+if(DEFINED _wincross_ar)
+  set(CMAKE_AR "${_wincross_ar}" CACHE FILEPATH "Archiver" FORCE)
+endif()
+
+if(DEFINED ENV{WINCROSS_EMULATOR} AND NOT "$ENV{WINCROSS_EMULATOR}" STREQUAL "")
+  set(CMAKE_CROSSCOMPILING_EMULATOR "$ENV{WINCROSS_EMULATOR}" CACHE FILEPATH "Cross-compile emulator" FORCE)
+endif()
+
+if(DEFINED ENV{WINCROSS_RC_COMPILER} AND NOT "$ENV{WINCROSS_RC_COMPILER}" STREQUAL "")
+  set(CMAKE_RC_COMPILER "$ENV{WINCROSS_RC_COMPILER}")
+else()
+  set(CMAKE_RC_COMPILER "${_wincross_msvc_bin}/rc")
+endif()
+
+if(DEFINED ENV{WINCROSS_ASM_COMPILER} AND NOT "$ENV{WINCROSS_ASM_COMPILER}" STREQUAL "")
+  set(CMAKE_ASM_COMPILER "$ENV{WINCROSS_ASM_COMPILER}")
+else()
+  set(CMAKE_ASM_COMPILER "${_wincross_msvc_bin}/ml64")
+endif()
+
+if(NOT DEFINED CMAKE_MSVC_DEBUG_INFORMATION_FORMAT)
+  set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT Embedded)
+endif()
+
+set(_wincross_debug_flags "/Z7 /Ob0 /Od /RTC1")
+set(_wincross_release_flags "/O2 /Oi /Gy /DNDEBUG /Z7")
+set(CMAKE_C_FLAGS_DEBUG "${_wincross_debug_flags}" CACHE STRING "" FORCE)
+set(CMAKE_CXX_FLAGS_DEBUG "${_wincross_debug_flags}" CACHE STRING "" FORCE)
+set(CMAKE_C_FLAGS_RELEASE "${_wincross_release_flags}" CACHE STRING "" FORCE)
+set(CMAKE_CXX_FLAGS_RELEASE "${_wincross_release_flags}" CACHE STRING "" FORCE)
+
+set(CMAKE_NINJA_FORCE_RESPONSE_FILE ON)
+set(CMAKE_C_USE_RESPONSE_FILE_FOR_OBJECTS ON)
+set(CMAKE_CXX_USE_RESPONSE_FILE_FOR_OBJECTS ON)
+
+if(DEFINED ENV{CMAKE_MT} AND NOT "$ENV{CMAKE_MT}" STREQUAL "")
+  set(CMAKE_MT "$ENV{CMAKE_MT}")
+endif()
+
+set(_wincross_fix "${CMAKE_CURRENT_LIST_DIR}/wincross-llvm-fixes.cmake")
+if(EXISTS "${_wincross_fix}")
+  set(_wincross_includes "${CMAKE_PROJECT_TOP_LEVEL_INCLUDES}")
+  list(FIND _wincross_includes "${_wincross_fix}" _wincross_fix_idx)
+  if(_wincross_fix_idx EQUAL -1)
+    list(APPEND _wincross_includes "${_wincross_fix}")
+  endif()
+  set(CMAKE_PROJECT_TOP_LEVEL_INCLUDES "${_wincross_includes}"
+      CACHE STRING "Extra CMake scripts to include at the top-level project" FORCE)
+endif()
